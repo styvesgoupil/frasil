@@ -40,6 +40,31 @@ par USB et TRS.
 
 Identifiant du paquet : `FM-1_47XXYYZZ`, avec sa version : la 1.0 est `FM-1_47010000`. La version est dans `VERSION`.
 
+### Où sont gardées tes scènes
+
+FRASIL garde ce que tu sauvegardes dans la flash du FM-1, hors du firmware lui-même, dans la zone qu'utilise la
+famille de firmwares de Felucca. Il n'a pas de zone à lui :
+
+| Quoi | Où | Comment |
+| --- | --- | --- |
+| Les 16 scènes | `0xDA000` | deux secteurs de 4 Kio, écrits à tour de rôle, chaque enregistrement avec un CRC |
+| Les réglages : le son au démarrage, les canaux MIDI, le tempo, MORPH et KEEP, le métronome, les CC appris | `0xFC000` | pareil, dans la paire de secteurs où Felucca garde ses réglages globaux |
+| La calibration du panneau | `0xDC000` | dans le format de Felucca, pour qu'elle reste valide de l'un à l'autre |
+
+Quand tu changes de firmware :
+
+- **FRASIL ne lit que ses propres enregistrements.** Il ne lit pas les projets ni les samples d'un autre firmware.
+  Tout le reste, à ces adresses, est ignoré : FRASIL repart alors avec ses scènes d'usine et ses réglages par défaut.
+- **Sauvegarder peut écraser les données d'un autre firmware** : les réglages globaux de Felucca, et une partie de la
+  zone où Felucca garde ses projets et ses samples. Fais une copie de sauvegarde du firmware d'où tu viens avant de
+  sauvegarder dans FRASIL.
+- **Un autre firmware peut écraser les scènes de FRASIL.** Mettre à jour ou installer FRASIL n'écrit que la zone du
+  firmware (le chargeur de mise à jour de felucca-bsp) : tes scènes restent. Ce que fait l'installation d'un autre
+  firmware dépend de son propre chargeur. Le V15 de M-VAVE écrit son image au complet : pars du principe que tes
+  scènes n'y survivront pas.
+- **Il n'y a pas encore de copie de sauvegarde des scènes de FRASIL.** Les sauvegarder dans un fichier et les
+  restaurer, par USB depuis le navigateur, est prévu. D'ici là, note ce qui compte pour toi avant de changer.
+
 ## Le son
 
 Chaque voix de drone (jusqu'à 8) a trois couches. Elles jouent toutes les mêmes notes; tu les mélanges et tu façonnes
