@@ -26,8 +26,8 @@ grave.
 FRASIL est pensé comme une voix dans un setup plus grand. Il reçoit les notes MIDI, la pression, les CC et l'horloge
 par USB et TRS.
 
-> **Statut : bêta.** La façon dont les scènes sont sauvegardées pourrait encore changer d'une version à l'autre.
-> Installe-le à tes risques. FRASIL n'est pas affilié à M-VAVE.
+> **FRASIL 1.0.** Installe-le à tes risques : l'installateur peut toujours remettre le firmware de M-VAVE. FRASIL
+> n'est pas affilié à M-VAVE.
 
 ## Installer
 
@@ -38,7 +38,7 @@ par USB et TRS.
 - **Retour au firmware officiel :** installe le V15 de M-VAVE depuis le hub. Si le FM-1 ne démarre plus, tiens OCT−
   enfoncé pendant que tu l'allumes : il attend alors une mise à jour par USB.
 
-Identifiant du paquet : `FM-1_47XXYYZZ` (la première release sera la 1.0, `FM-1_47010000`; les builds d'ici là sont des 0.9.x, la version est dans `VERSION`).
+Identifiant du paquet : `FM-1_47XXYYZZ`, avec sa version : la 1.0 est `FM-1_47010000`. La version est dans `VERSION`.
 
 ## Le son
 

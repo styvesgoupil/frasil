@@ -201,6 +201,7 @@ a { color: inherit; }
 .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--lamp); box-shadow: 0 0 10px var(--lamp); }
 .site-head .status { padding-left: clamp(0px, 2vw, 18px); border-left: 1px solid var(--steel); height: 22px; }
 @media (max-width: 760px) { .site-head .status { display: none; } }
+@media (max-width: 560px) { .site-nav .nav-long { display: none; } }
 @media (max-width: 400px) { .site-nav { gap: 14px; } .site-nav a { letter-spacing: .12em; font-size: 13px; } .mark img { width: 80px; } }
 
 /* ---------------------------------------------------------------- the device's header: NAME 2/3 ... [BUTTON] */

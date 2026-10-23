@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0 (not released yet)
+## 1.0 (2026-10-23)
 
 The first release.
 
@@ -51,75 +51,3 @@ The first release.
   earlier FRASIL's one channel stays the drones', OMNI becoming 1), the
   drones' notes through the harmony, sustain, polyphonic and channel pressure, CCs and MIDI learn, Program Change for
   the scenes, clock and start.
-
-## 0.9.13
-
-A build for the FM-1, not a release: what changed since 0.9.9.
-
-- The three left encoders: SELECT is KEYBOARD (what the keys play: DRONE, GLINT, BASS), PRESETS the drone's PRESET,
-  ALGORITHM its FULLNESS. TIMBRE, SPACE and MOTION, theirs before, are on DRONE PARAMS; TEMPO stays on GLOBAL.
-- The buttons: a press shows, a hold acts. Each acts when let go (OCT− and OCT+ at once); held 0.4 s (PLAY 0.6 s),
-  its other thing: HOME the help (on the page with the page's button), ARP the arpeggio's latch, SEQ SWELL, FX FREEZE
-  (the page staying), REC the metronome, EDIT COMPARE (the scene as saved, while held: COMPARE · AS SAVED), PLAY
-  RELEASE ALL. Used with something else (SEL and a key, SAVE and a key or REC, LFO and an encoder, GLO and a CC), it
-  does nothing more when let go.
-- PLAY: a tap is GLINT's transport (the sequence stops, or starts from step 1; the arpeggio waits, its notes kept, or
-  goes on from the top; with TYPE OFF, HOLD PLAY · RELEASE ALL), and on SCENES it loads. Held: RELEASE ALL (the
-  drones, the bass, the glints, the arpeggio, the sequence), the header counting down from 200 ms, a release then doing
-  nothing; held again with nothing playing, RESTORE: what it let go comes back.
-- SAVE opens SCENES, and again goes back. STORE is SAVE held and REC: into K1's slot on SCENES, else into the current
-  scene (STORED 03 ABYSS); a free slot takes the drone preset's name. SAVE held and a white key loads that scene (the
-  16 white keys, F2's first; lit meanwhile, the current one bright). SCENES: K2 MORPH (CUT, 1 S to 2:00: the settings
-  that glide go there, the choices at once, a hand turned out of it; on SOUND and SCENES the header's arrow and name,
-  a line elsewhere), K3 KEEP (SCENE; PLAYING: what plays goes on, the sound alone changes), K4 UNDO (the last STORE,
-  turned twice); MORPH and KEEP kept with the settings at once. SAVE lit while the sound differs from the scene's.
-  MIDI Program Change 0–15 on the drones' channel loads scenes 1–16.
-- GLOBAL: TEMPO on K1, KEYS on K4, changing on a second detent the same way within 2 s (KEYS · TURN AGAIN), since it
-  lets every note go.
-- The drone's presets: 24, and CUSTOM, your own (a drone's setting turned: CUSTOM, which another preset doesn't lose;
-  kept in the scene). Each sets the three layers (their levels, both their pages), DRONE PARAMS, DRONE SHAPE's ATTACK
-  and RELEASE, DRONE MOTION.
-- DRONE PARAMS, EDIT's first page: TIMBRE, SPACE, MOTION, FULLNESS (100 % the drone as set; down, less detune,
-  fewer partials, little breath, narrower, less warmth, its body high-passed). FULLNESS stays out of the presets.
-- REC records into GLINT's sequencer: TYPE on SEQ, the keys on GLINT, RECORD on LIVE, GLINT SEQ on screen (the logo
-  screen closes), the sequence started if it was stopped; again, RECORD OFF, the keys back to what they played before
-  REC (RECORD OFF · DRONE), the page staying. Its light at the mid level, flashing on the beat (twice as quick as OCT)
-  while RECORD is on (STEP or LIVE). A metronome ticks each beat while it
-  records, the bar's first higher; REC held turns it off or on (kept with the settings, at once).
-- GENERATIVE FX, FX's first page (then CLOUD, CLOUD II, CLOUD III, PUMP, PUMP II): SWELL (not kept), SPARKLE (from a
-  few glints a minute to about six a second, on the drones' notes, GLINT's OCTAVE up, one in three an octave more),
-  BLUR (SPACE toward 90 %, a longer decay, more diffusion and modulation, the glints further in), SINK (12 kHz down
-  to about 120 Hz, a little peak). SPARKLE, BLUR and SINK are kept in the scene, and LFO targets.
-- GLINT's pages: GLINT PARAMS (PRESET, TYPE, LEVEL, BRIGHT), GLINT II (ATTACK, DECAY, OCTAVE, RATIO), GLINT III (PING,
-  SCATTER, VIBRATO, SUSTAIN), GLINT DELAY, always the fourth (TIME, FEEDBACK, MIX, SPACE), then GLINT ARP while TYPE is
-  on ARP, or GLINT SEQ, SEQ II (LENGTH, RATE, GATE, CHANCE) and SEQ III (TRANSPOSE, CLEAR, NEW TAKE, UNDO) while it is
-  on SEQ; four pages with TYPE OFF. A page hidden under you: back to GLINT PARAMS.
-- GLINT SEQ III: NEW TAKE (turned twice: every step a rest, RECORD on LIVE, the sequence started) and UNDO (turned
-  twice: the sequence before the last take or CLEAR; again, back). REC keeps the sequence before its take for UNDO.
-- TYPE (OFF, ARP, SEQ) in place of the arpeggiator's MODE OFF and SEQ: MODE is UP, DOWN, UPDOWN, RANDOM, DRIFT. The
-  delay's TIME has its 12 values mono, then ping-pong (PP; 1/8D PP by default), in place of its MODE.
-- GLINT's OCTAVE moves a running arpeggio and sequence at once: their notes kept without it, played with it. NOTE
-  shows a step as it sounds.
-- LFO 3, with its targets. The targets: 40, FULLNESS, GL CHANCE, SEQ LEN, SPARKLE, BLUR and SINK added; written in
-  their track's colour (GLINT's ice, BASS's orange, the drone's and the mix's white).
-- LFO held and K1–K4 turned, on any page: the setting under it onto LFO 1, 2, 3, then none, into the first free
-  TARGET, a DEPTH at 0 brought up to 25 % (FILTER > LFO 2, > NO LFO, LFO 2 FULL, NOT AN LFO TARGET).
-- MIDI: CC 12 FULLNESS, 13 the drone's PRESET, 14 SPARKLE, 15 BLUR, 16 SINK, 17, 18 and 19 the DRONE, GLINT and BASS
-  faders. MIDI learn: a setting turned, GLO held, a CC on the drones' channel (CC 21 · SINK); 8 at most, the oldest
-  replaced, kept with the settings at once, before the built-in ones (but 64, 120, 123).
-- The header: on the play page the scene's number and name, an amber dot while the sound has changed, then the key;
-  FRASIL on the logo screen alone. Under every title, a dot for each of its button's pages, in place of 2/7. CHANGED
-  beside SCENES. An amber dot by the keys' badge while the processor lightens the sound. The badge says what GLINT's
-  keys do: GLINT, ARP, SEQ, or REC in orange.
-- The play page: four strata, WARMTH's embers the fourth (K4 lights it, no large value). SINK darkens the river from
-  the top, BLUR thickens its haze. At the river's top right, only what is on: SEQ or REC, ARP or ARP LATCH, LFO and
-  its three dots, SWELL.
-- The lights: SAVE lit while the sound differs from the scene's; LFO in the glow while no LFO runs, at the mid level
-  when one does; ARP flashing on each of GLINT's steps, off its pages.
-- Help: the buttons' and the encoders' pages as they are now (FX GENERATIVE FX, hold FREEZE; LFO, hold and a K to
-  route; EDIT, hold COMPARE; GLO, hold and a CC to learn; SAVE, hold and a key to load, and REC to store; PLAY START,
-  STOP, hold RELEASE ALL; REC RECORD LIVE, hold METRONOME; KEYBOARD, PRESET, FULLNESS); HOME held opens it on the page
-  with the current page's button.
-- The store: earlier scenes and settings made over (the arpeggiator's MODE into TYPE and MODE, the delay's TIME and
-  MODE into one TIME, the arpeggio's and the sequence's notes without the OCTAVE they were kept with). The settings in
-  a new record, FRSG (MORPH, KEEP, the learned CCs), FRSF's made over, its metronome kept; scenes unchanged.

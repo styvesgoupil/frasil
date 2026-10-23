@@ -25,8 +25,8 @@ them, BASS holds one deep note.
 
 FRASIL is designed as one voice in a larger setup. It takes MIDI notes, pressure, CCs and clock over USB and TRS.
 
-> **Status: beta.** The way scenes are saved may still change between releases. Install at your own risk.
-> FRASIL is not affiliated with M-VAVE.
+> **FRASIL 1.0.** Install at your own risk: the installer can always put M-VAVE's firmware back. FRASIL is not
+> affiliated with M-VAVE.
 
 ## Install
 
@@ -37,8 +37,7 @@ FRASIL is designed as one voice in a larger setup. It takes MIDI notes, pressure
 - **Back to the official firmware:** install M-VAVE's V15 from the hub. If the FM-1 no longer starts, hold OCT−
   while you switch it on: it waits for an update over USB.
 
-Package identity: `FM-1_47XXYYZZ`. The first release will be 1.0 (`FM-1_47010000`); the builds before it are
-0.9.x. The version is in `VERSION`.
+Package identity: `FM-1_47XXYYZZ`, its version in it: 1.0 is `FM-1_47010000`. The version is in `VERSION`.
 
 ## The sound
 
