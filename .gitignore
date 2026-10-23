@@ -1,0 +1,8 @@
+build/
+.venv/
+.omc/
+.DS_Store
+__pycache__/
+*.o
+renders/
+*.wav

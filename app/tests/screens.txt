@@ -1,0 +1,180 @@
+# FRASIL's screens, for review, the manual and the README: tools/screens.sh
+master 3000
+wait 1500
+shot screen-logo.png
+# a chord in D minor, some voices
+tap SEL
+turn K2 2
+turn K3 2
+tap HOME
+tapkey 9 90
+wait 1500
+tapkey 2 80
+wait 6000
+shot screen-play.png
+# pressing into the top chord
+key 9 down 90 90
+wait 1200
+shot screen-pressure.png
+key 9 up
+wait 400
+# a hand turned: SPACE large over the river
+turn PRESET 6
+wait 120
+shot screen-overlay.png
+wait 1200
+# GENERATIVE FX (FX's first page): a little SPARKLE and BLUR
+tap FX
+turn K2 40
+turn K3 30
+wait 300
+shot screen-genfx.png
+turn K2 -40
+turn K3 -30
+# an edit page: CLOUD
+tap FX
+wait 300
+shot screen-cloud.png
+# the harmony page
+tap SEL
+wait 300
+shot screen-harmony.png
+# LFO 1: a slow sine on FILTER, TIMBRE, GLINT's LEVEL and BASS's FILTER (the targets in their track's colours), its
+# targets, then its own page; then off again
+tap LFO
+tap LFO
+turn K2 10
+turn K3 90
+tap LFO
+turn K1 9
+turn K2 1
+turn K3 25
+turn K4 31
+wait 900
+shot screen-lfo-targets.png
+tap LFO
+tap LFO
+tap LFO
+tap LFO
+tap LFO
+tap LFO
+wait 1300
+shot screen-lfo.png
+turn K2 -10
+turn K3 -90
+tap LFO
+turn K1 -9
+turn K2 -1
+turn K3 -25
+turn K4 -31
+wait 300
+# GLINT: the keys to it (SELECT), GLINT PARAMS (ARP's first), TYPE on ARP; its arpeggiator page (after GLINT DELAY),
+# two keys held
+turn SELECT 1
+wait 1500
+tap ARP
+turn K2 1
+wait 200
+shot screen-glint-params.png
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+turn K1 2
+wait 200
+shot screen-glint-arp.png
+tap HOME
+key 18 down 110
+key 22 down 100
+wait 700
+shot screen-glints.png
+key 18 up
+key 22 up
+# the sequencer: TYPE on SEQ (GLINT PARAMS), sixteen steps written (GLINT SEQ: RECORD on STEP, an accent on each
+# beat), then playing
+tap ARP
+turn K2 1
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+turn K4 1
+tapkey 9 115
+tapkey 13 80
+tapkey 16 80
+tapkey 20 80
+tapkey 16 115
+tapkey 13 80
+tapkey 18 80
+tapkey 22 80
+tapkey 9 115
+tapkey 11 80
+tapkey 16 80
+tapkey 13 80
+tapkey 20 115
+tapkey 18 80
+tapkey 16 80
+tapkey 11 80
+turn K4 -1
+turn K1 -11
+wait 2600
+shot screen-glint-seq.png
+tap HOME
+tap ARP
+turn K2 -1
+tap HOME
+wait 300
+# BASS: SELECT again, a deep D under the drones; its page (SEQ)
+turn SELECT 1
+wait 200
+tapkey 9 100
+wait 2500
+shot screen-bass.png
+tap SEQ
+wait 300
+shot screen-bass-page.png
+tap HOME
+turn SELECT -2
+wait 1500
+# freeze: FX held (or CLOUD's K4)
+press FX
+wait 500
+release FX
+wait 1500
+shot screen-freeze.png
+press FX
+wait 500
+release FX
+wait 1500
+# scenes
+tap SAVE
+turn K1 2
+wait 300
+shot screen-scenes.png
+tap HOME
+tap GLO
+wait 300
+shot screen-global.png
+# the mixer: HOME, HOME again; again, the logo; and again, the river
+tap HOME
+tap HOME
+wait 600
+shot screen-mixer.png
+tap HOME
+tap HOME
+press HOME
+wait 500
+release HOME
+turn SELECT -1
+wait 100
+shot screen-help-1.png
+turn SELECT 2
+wait 100
+shot screen-help-3.png
+turn SELECT 1
+wait 100
+shot screen-help-4.png
+turn SELECT 1
+wait 100
+shot screen-help-5.png
+tap HOME

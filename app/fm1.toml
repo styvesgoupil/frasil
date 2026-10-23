@@ -1,0 +1,15 @@
+# FRASIL's build settings (fm1-base's tools/build.py: ./build.sh)
+name = "FRASIL"                # the build's files: frasil.fwsc, frasil-X.Y.fwsc
+id_prefix = "FM-1_47"          # package identity: dev FM-1_4700, releases FM-1_47XXYYZZ
+usb_manufacturer = "FRASIL"
+usb_product = "FRASIL FM-1"
+ble = false                    # no Bluetooth: its RAM and pool go to the sound
+include = ["dsp"]
+o2 = ["dsp/*.c"]               # the DSP at -O2, compiled apart
+words = "words.tsv"
+gen = ["tools/gen_logo.py assets/frasil-logo.png {gen}/frasil_logo.h 216"]   # the logo, 4-bit, for the screen
+# the site
+tagline = "drone textures frozen in motion"
+repo = "https://github.com/styvesgoupil/frasil"
+licence = "MPL-2.0"
+credits = "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments)."

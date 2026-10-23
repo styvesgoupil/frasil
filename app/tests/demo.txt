@@ -1,0 +1,38 @@
+# A short performance through the whole app, recorded: app/build/host/frasil_host app/tests/demo.txt renders/
+master 4096
+wait 500
+wav demo-performance.wav
+# a low fifth, then a third above
+tapkey 0 70
+wait 2500
+tapkey 7 70
+wait 6000
+tapkey 16 60
+wait 6000
+# swell everything (SEQ held), then let go
+press SEQ
+wait 3000
+release SEQ
+wait 3000
+# brighter, more motion, further away
+turn SELECT 20 40
+turn ALGO 25 40
+turn PRESET 25 40
+wait 6000
+# shimmer up on CLOUD III
+tap FX
+tap FX
+tap FX
+turn K1 40 30
+wait 6000
+# freeze the cloud (CLOUD's K4), let the notes go under it
+tap HOME
+tap FX
+turn K4 1
+master 4096
+wait 500
+tap PLAY
+wait 8000
+turn K4 -1
+wait 9000
+wavstop
