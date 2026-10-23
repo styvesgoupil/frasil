@@ -592,6 +592,8 @@ class Site:
         return {"root": root, "repo": CONF["repo"], "releases": CONF["releases"], "hub": CONF["hub"],
                 "status": html.escape(CONF["status"]), "beta_note": html.escape(CONF["beta_note"]),
                 "cur_guide": cur("guide"), "cur_play": cur("play"), "year": "2026",
+                # in the guide, a way back to the site's front page beside the chapters
+                "site_link": f'<a href="{root}" class="nav-site">Site</a>' if section == "guide" else "",
                 "harmony": harmony_widget(), **shots(root)}
 
     def head_html(self, root, rel, title, description, og_title=None):

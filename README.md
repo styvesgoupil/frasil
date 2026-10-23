@@ -39,6 +39,29 @@ FRASIL is designed as one voice in a larger setup. It takes MIDI notes, pressure
 
 Package identity: `FM-1_47XXYYZZ`, its version in it: 1.0 is `FM-1_47010000`. The version is in `VERSION`.
 
+### Where your scenes are kept
+
+FRASIL keeps what you save in the FM-1's flash, outside the firmware itself, in the area the Felucca family of
+firmwares uses. It has no area of its own:
+
+| What | Where | How |
+| --- | --- | --- |
+| The 16 scenes | `0xDA000` | two 4 KiB sectors, written in turn, each record with a CRC |
+| The settings: the sound at power-on, MIDI channels, tempo, MORPH and KEEP, the metronome, the learned CCs | `0xFC000` | the same, in the sector pair where Felucca keeps its globals |
+| The panel's calibration | `0xDC000` | in Felucca's own format, so it stays valid from one to the other |
+
+When you switch firmwares:
+
+- **FRASIL reads only its own records.** It does not read another firmware's projects or samples. Anything else at
+  those addresses is ignored: FRASIL then starts with its factory scenes and default settings.
+- **Saving can overwrite another firmware's data**: Felucca's globals, and a part of the area where Felucca keeps
+  its projects and samples. Back up the firmware you come from before you save in FRASIL.
+- **Another firmware may overwrite FRASIL's scenes.** Updating or installing FRASIL writes only the firmware's own
+  area (felucca-bsp's update loader): your scenes stay. What another firmware's install does depends on its own
+  loader. M-VAVE's V15 writes its whole image: assume your scenes won't survive it.
+- **There is no backup of FRASIL's scenes yet.** Saving them to a file and restoring them, over USB from the browser,
+  is planned. Until then, write down what matters to you before you switch.
+
 ## The sound
 
 Each drone voice (up to 8) has three layers. They all play the same notes; you mix them and shape each one:

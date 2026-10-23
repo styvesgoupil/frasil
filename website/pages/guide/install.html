@@ -26,9 +26,29 @@ description: How to try FRASIL in the browser, install it on the M-VAVE FM-1 fro
 <p>Install M-VAVE’s V15 from the installer or from The FM-1 Firmware Hub. If the FM-1 no longer starts, hold OCT−
   while you switch it on: it waits for an update over USB.</p>
 
-<h2 id="what-it-keeps">What it keeps</h2>
-<p>FRASIL keeps its scenes and settings in the FM-1’s flash, in its own format. Another firmware may not read them,
-  and may overwrite them.</p>
+<h2 id="what-it-keeps">Where your scenes are kept</h2>
+<p>FRASIL keeps what you save in the FM-1’s flash, outside the firmware itself, in the area the Felucca family of
+  firmwares uses. It has no area of its own.</p>
+<table class="params ctl-table">
+  <thead><tr><th>What</th><th>Where</th></tr></thead>
+  <tbody>
+    <tr><td>The 16 scenes</td><td><code>0xDA000</code>: two 4 KiB sectors, written in turn, each record with a CRC</td></tr>
+    <tr><td>The settings</td><td><code>0xFC000</code>, the sector pair where Felucca keeps its globals: the sound at power-on, the MIDI channels, TEMPO, MORPH and KEEP, the metronome, the learned CCs</td></tr>
+    <tr><td>The panel’s calibration</td><td><code>0xDC000</code>, in Felucca’s own format, so it stays valid from one to the other</td></tr>
+  </tbody>
+</table>
+<p>When you switch firmwares:</p>
+<ul>
+  <li><b>FRASIL reads only its own records.</b> It does not read another firmware’s projects or samples. Anything
+    else at those addresses is ignored: FRASIL then starts with its factory scenes and default settings.</li>
+  <li><b>Saving can overwrite another firmware’s data</b>: Felucca’s globals, and a part of the area where Felucca
+    keeps its projects and samples. Back up the firmware you come from before you save in FRASIL.</li>
+  <li><b>Another firmware may overwrite FRASIL’s scenes.</b> Updating or installing FRASIL writes only the firmware’s
+    own area: your scenes stay. What another firmware’s install does depends on its own update loader. M-VAVE’s V15
+    writes its whole image: assume your scenes won’t survive it.</li>
+  <li><b>There is no backup of FRASIL’s scenes yet.</b> Saving them to a file and restoring them, over USB from the
+    browser, is planned. Until then, write down what matters to you before you switch.</li>
+</ul>
 
 <h2 id="versions">Versions</h2>
 <p>Package identity: <code>FM-1_47XXYYZZ</code>, its version in it: 1.0 is <code>FM-1_47010000</code>, then 1.1, 1.2
