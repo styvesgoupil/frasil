@@ -1,0 +1,98 @@
+# FRASIL's website: the settings that change between releases live here, and only here.
+# tools/website.sh reads this file and assembles the site into build/website/frasil/.
+
+# ---------------------------------------------------------------- the release status (change these two)
+# Shown at the top right of the landing (where the FM-1's logo screen shows its version), in the footer, on the
+# install sections, and in the guide's Install page.
+status = "1.0 · coming soon"
+# One or two sentences, plain text, shown next to the install instructions.
+beta_note = "FRASIL is in beta: the way scenes are saved may still change between releases. Installing is at your own risk; the installer can put M-VAVE's own firmware back."
+
+# ---------------------------------------------------------------- where the site lives
+site_url = "https://styves.dev/frasil/"     # absolute: Open Graph and canonical links only
+base_path = "/frasil/"                      # the 404 page's <base> (it is served at any depth)
+repo = "https://github.com/styvesgoupil/frasil"
+releases = "https://github.com/styvesgoupil/frasil/releases"
+hub = "https://thefirmwarehub.com/"
+
+# ---------------------------------------------------------------- the guide, in reading order
+# slug: the folder (guide/SLUG/), from pages/guide/SLUG.html; group: the sidebar's heading.
+[[guide]]
+slug = "install"
+title = "Install"
+group = "Begin"
+
+[[guide]]
+slug = "how-it-works"
+title = "How FRASIL works"
+group = "Begin"
+
+[[guide]]
+slug = "screen"
+title = "The screen"
+group = "Begin"
+
+[[guide]]
+slug = "playing"
+title = "Playing drones"
+group = "Play"
+
+[[guide]]
+slug = "harmony"
+title = "Harmony"
+group = "Play"
+
+[[guide]]
+slug = "layers"
+title = "The layers' second pages"
+group = "Play"
+
+[[guide]]
+slug = "lfo"
+title = "The LFOs"
+group = "Play"
+
+[[guide]]
+slug = "glint"
+title = "GLINT"
+group = "Play"
+
+[[guide]]
+slug = "bass"
+title = "BASS"
+group = "Play"
+
+[[guide]]
+slug = "cloud"
+title = "GENERATIVE FX & CLOUD"
+group = "Play"
+
+[[guide]]
+slug = "mixer"
+title = "Mixer · Pump · Mastering"
+group = "Play"
+
+[[guide]]
+slug = "pages"
+title = "Pages reference"
+group = "Reference"
+
+[[guide]]
+slug = "scenes"
+title = "Scenes"
+group = "Reference"
+
+[[guide]]
+slug = "midi"
+title = "MIDI"
+group = "Reference"
+
+[[guide]]
+slug = "lights"
+title = "Lights"
+group = "Reference"
+
+[[guide]]
+slug = "troubleshooting"
+title = "Troubleshooting"
+group = "Reference"

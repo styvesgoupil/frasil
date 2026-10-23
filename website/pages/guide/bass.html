@@ -1,0 +1,60 @@
+<!--
+title: BASS
+caps: yes
+lede: One deep note at a time, held like a drone, under everything: eight models, a soft clip, a resonant low-pass.
+description: BASS on FRASIL: one deep held note under the drones, eight MODELs (SINE, TRIANGLE, SQUARE, SAW, REESE, SUB, ORGAN, FM), DRIVE, a resonant low-pass, glide, and its three pages on SEQ.
+buttons: SEQ
+hint: Hold SEQ: swell
+-->
+<h2 id="playing-bass">Playing BASS</h2>
+<div class="g-split">
+  <div>
+    <p>Turn SELECT, the KEYBOARD, to BASS: the keys play BASS (the badge turns orange). One note at a time, deep and
+      steady: one of eight MODELs, DRIVE into a soft clip, through a resonant low-pass. None of it goes into the reverb.</p>
+  </div>
+  <div class="g-figure">{{shot_bass}}</div>
+</div>
+<table class="params gestures-table">
+  <thead><tr><th>Gesture</th><th>What happens</th></tr></thead>
+  <tbody>
+    <tr><td>Tap a key</td><td>The bass holds that note: the key’s note in the scale, OCTAVE octaves down. It rises over ATTACK</td></tr>
+    <tr><td>Tap another key</td><td>The bass glides to its note (GLIDE), without starting again</td></tr>
+    <tr><td>Tap the bass’s key</td><td>It lets go, over RELEASE</td></tr>
+    <tr><td>Hold its key and press</td><td>Louder, and its filter opens. Let go: it stays</td></tr>
+  </tbody>
+</table>
+<p>With GLOBAL › KEYS on HOLD, the bass sounds while its key is down. Holding PLAY lets it go with everything else. It stays
+  when you turn the keys back to drones or GLINT: SELECT on BASS again comes back to it.</p>
+
+<h2 id="models">The models</h2>
+<dl class="model-list">
+  <div><dt>SINE</dt><dd>pure</dd></div>
+  <div><dt>TRIANGLE</dt><dd>soft, a little hollow</dd></div>
+  <div><dt>SQUARE</dt><dd>hollow, woody</dd></div>
+  <div><dt>SAW</dt><dd>bright, buzzing</dd></div>
+  <div><dt>REESE</dt><dd>two saws ten cents apart, beating slowly</dd></div>
+  <div><dt>SUB</dt><dd>the sine and its octave below</dd></div>
+  <div><dt>ORGAN</dt><dd>three drawbars: the note, its octave and its twelfth</dd></div>
+  <div><dt>FM</dt><dd>a sine modulating itself: round, growling</dd></div>
+</dl>
+<p>Turning MODEL while the bass sounds crosses over in a few milliseconds, without a click.</p>
+
+<h2 id="its-pages">Its pages</h2>
+<div class="g-split">
+  <div>
+    <p>Tap SEQ, then SEQ again for the next. Hold SEQ for SWELL, as ever.</p>
+  </div>
+  <div class="g-figure">{{shot_bass_page}}</div>
+</div>
+<table class="params pages-table">
+  <thead><tr><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead>
+  <tbody>
+    <tr><td>BASS</td><td>MODEL <small>SINE, TRIANGLE, SQUARE, SAW, REESE, SUB, ORGAN, FM</small></td><td>DRIVE <small>clean to soft-clipped</small></td><td>FILTER <small>40 Hz to 5 kHz</small></td><td>RESONANCE <small>Q 0.5 to 6</small></td></tr>
+    <tr><td>BASS II</td><td>LEVEL</td><td>OCTAVE <small>−2, −1, 0 under the keys</small></td><td>GLIDE <small>OFF to 2 s</small></td><td></td></tr>
+    <tr><td>BASS III</td><td>ATTACK <small>5 ms to 5 s</small></td><td>RELEASE <small>30 ms to 15 s</small></td><td></td><td></td></tr>
+  </tbody>
+</table>
+
+<h2 id="the-small-speaker">On the small speaker</h2>
+<p>A pure sine this low barely reaches the FM-1’s small speaker: DRIVE, or a richer MODEL, gives it the harmonics that
+  let you hear it there. In headphones or a mixer, SINE with DRIVE at 0 is a clean sub.</p>

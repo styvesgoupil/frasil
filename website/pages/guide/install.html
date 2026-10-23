@@ -1,0 +1,50 @@
+<!--
+title: Install
+lede: Try it in the browser first: no FM-1 needed. Then put it on the FM-1, from Chrome or Edge or from a terminal, and back to the official firmware whenever you like.
+description: How to try FRASIL in the browser, install it on the M-VAVE FM-1 from Chrome or Edge or from a terminal, and go back to M-VAVE's firmware.
+-->
+<aside class="callout" data-nocaps>
+  <p class="status">{{status}}</p>
+  <p>{{beta_note}}</p>
+</aside>
+
+<h2 id="try">Try it first</h2>
+<p>The emulator runs the same code in the browser, with sound. No FM-1 needed.</p>
+<p><a class="btn btn-ice" href="{{root}}play/">Play in the browser <span class="arrow" aria-hidden="true">→</span></a></p>
+
+<h2 id="browser">Install from the browser</h2>
+<p>In Chrome or Edge, connect the FM-1 by USB, open the installer and press Install. The browser asks once to allow
+  MIDI: allow it. Don’t unplug the cable while it writes.</p>
+<p>The installer is <a href="{{hub}}">The FM-1 Firmware Hub</a>, once FRASIL is listed there.</p>
+
+<h2 id="terminal">Install from a terminal</h2>
+<p>Download <code>frasil-X.Y.fwsc</code> from the <a href="{{releases}}">releases</a>, then run, from a checkout of
+  FRASIL’s repository:</p>
+<pre><code>python3 base/tools/fm1_install.py frasil-X.Y.fwsc</code></pre>
+
+<h2 id="back">Back to the official firmware</h2>
+<p>Install M-VAVE’s V15 from the installer or from The FM-1 Firmware Hub. If the FM-1 no longer starts, hold OCT−
+  while you switch it on: it waits for an update over USB.</p>
+
+<h2 id="what-it-keeps">What it keeps</h2>
+<p>FRASIL keeps its scenes and settings in the FM-1’s flash, in its own format. Another firmware may not read them,
+  and may overwrite them.</p>
+
+<h2 id="versions">Versions</h2>
+<p>Package identity: <code>FM-1_47XXYYZZ</code>. The first release will be 1.0 (<code>FM-1_47010000</code>); the builds
+  before it are 0.9.x.</p>
+
+<h2 id="source">From source</h2>
+<p>For the curious and for forks: the host simulator, the checks, the browser emulator and the firmware all build from
+  the repository.</p>
+<pre><code>git clone --recursive https://github.com/styvesgoupil/frasil
+cd frasil
+python3 -m venv .venv &amp;&amp; .venv/bin/pip install Pillow fonttools mido python-rtmidi numpy scipy matplotlib
+brew install libraqm                     # the screen's fonts (macOS)
+
+./build.sh --host                        # the host simulator: app/build/host/frasil_host
+app/build/host/frasil_host app/tests/basic.txt app/build/host      # the checks
+./build.sh --web                         # the browser emulator: app/build/emu/ (Emscripten)
+./build.sh                               # the firmware: app/build/frasil-VERSION.fwsc</code></pre>
+<p>The firmware build needs JieLi’s Linux toolchain and the AC79 SDK, run in Docker (OrbStack on macOS). See
+  <a href="https://github.com/charlesvestal/fm1-base#readme">fm1-base’s README</a> for setup.</p>

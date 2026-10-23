@@ -1,0 +1,1732 @@
+# FRASIL in the host simulator: ./build.sh --host, then
+#   app/build/host/frasil_host app/tests/basic.txt app/build/host
+wait 600
+shot boot.png
+expect page 0
+# PLAY in the glow, nothing sounding; OCT- and OCT+ in the glow, a little brighter on the beat
+expect playled 1
+expect octled >0
+expect octave -1
+expect latch 1
+# a tap latches a note: F2 + 7 = C3 (48)
+tapkey 7
+wait 200
+expect held 1
+expect lit48 1
+# another
+tapkey 14
+wait 200
+expect held 2
+wait 3000
+shot two-voices.png
+# a tap on a lit key lets it go (the voice fades)
+tapkey 7
+wait 100
+expect lit48 0
+expect held 1
+# holding a lit key down and pressing into it keeps it
+key 14 down 90 80
+wait 900
+expect held 1
+key 14 up
+wait 100
+expect held 1
+# PLAY: everything goes
+press PLAY
+wait 650
+release PLAY
+wait 100
+expect held 0
+# DRONE PARAMS (EDIT's first page): TIMBRE (p31) and SPACE (p32) on K1 and K2; the drone CUSTOM (p113 0)
+tap EDIT
+wait 30
+expect page 1
+turn K1 3
+wait 50
+expect p31 67
+turn K2 -2
+wait 50
+expect p32 55
+expect p113 0
+expect dirty 1
+# SAVE lit while the sound differs from the scene's
+expect saveled 3
+# turned back, the sound as it was: SAVE at the others' level again; again, it lights
+turn K2 2
+turn K1 -3
+wait 50
+expect dirty 0
+expect saveled 2
+turn K1 3
+turn K2 -2
+wait 50
+expect dirty 1
+expect saveled 3
+tap HOME
+# the hands: SELECT is KEYBOARD (p139, not kept: DRONE, GLINT, BASS); SWELL is GENERATIVE FX's K1 (FX, its first page:
+# p138, not kept); ALGO is FULLNESS (p114: not a preset's, the drone stays CUSTOM); PRESET the drone's preset (p113):
+# GLACIER's CHOIR (p0) 20, a change to the sound; CUSTOM again, the settings as turned
+turn SELECT 1
+wait 30
+expect p139 1
+expect glint 1
+turn SELECT -1
+wait 30
+expect glint 0
+tap FX
+turn K1 20
+wait 30
+expect page 28
+expect p138 20
+expect dirty 1
+turn K1 -20
+tap HOME
+turn ALGO -2
+wait 30
+expect p114 125
+expect p113 0
+turn ALGO 2
+turn PRESET 3
+wait 50
+expect p113 3
+expect p0 20
+expect p31 80
+turn PRESET -3
+wait 50
+expect p113 0
+expect p0 76
+expect p31 67
+expect p32 55
+# pages: FX (GENERATIVE FX), FX again (CLOUD), EDIT x3, back HOME
+tap FX
+wait 30
+expect page 28
+tap FX
+wait 30
+expect page 29
+tap EDIT
+wait 30
+expect page 1
+tap EDIT
+wait 30
+expect page 2
+tap EDIT
+wait 30
+expect page 3
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+expect page 6
+tap EDIT
+wait 30
+expect page 7
+# the layers' second pages at their defaults, the sound as it was
+expect p81 0
+expect p82 0
+expect p83 0
+expect p84 0
+expect p85 0
+expect p86 0
+expect p87 85
+expect p88 0
+expect p89 0
+expect p90 1
+expect p91 64
+expect p92 0
+expect p93 0
+# everything up on them: a drone still sounds (BREATH II: grains, two octaves up, bright, air; CHOIR II: a narrow
+# pulse on the octave, resonant, high-pass; PARTIALS II: wandering, beating, the 6th harmonic alone)
+tapkey 7
+turn K1 127
+turn K2 3
+turn K3 63
+turn K4 127
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+expect page 3
+turn K1 127
+turn K2 3
+turn K3 127
+turn K4 2
+tap EDIT
+tap EDIT
+wait 30
+expect page 5
+turn K1 127
+turn K2 127
+turn K3 30
+turn K4 127
+wait 30
+expect p81 127
+expect p82 3
+expect p84 2
+expect p85 127
+expect p86 127
+expect p88 127
+expect p89 127
+expect p90 4
+wait 2500
+expect meter0 >2
+tapkey 7
+# and back as they were
+turn K1 -127
+turn K2 -127
+turn K3 -30
+turn K4 -127
+tap EDIT
+tap EDIT
+turn K1 -127
+turn K2 -3
+turn K3 -63
+turn K4 -127
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+expect page 3
+turn K1 -127
+turn K2 -3
+turn K3 -127
+turn K4 -2
+wait 30
+expect p81 0
+expect p82 0
+expect p84 0
+expect p85 0
+expect p87 85
+expect p89 0
+expect p90 1
+expect p91 64
+# LFO 1 (LFO, twice): off until DEPTH and a TARGET; then free at about 4 Hz on TIMBRE, it swings the whole way; on the
+# grid too (1/16); on the bass's FILTER, up to the last (BASS LVL); a TARGET off again, it stops
+tap LFO
+wait 30
+expect page 20
+tap LFO
+wait 30
+expect page 21
+expect lfoon0 0
+turn K2 30
+turn K3 127
+wait 30
+expect p95 55
+expect p96 127
+expect lfoon0 0
+tap LFO
+wait 30
+expect page 22
+turn K1 1
+wait 600
+expect p98 1
+expect lfoon0 1
+expect lfopeak0 >95
+tap LFO
+tap LFO
+tap LFO
+tap LFO
+tap LFO
+tap LFO
+wait 30
+expect page 21
+turn K2 20
+wait 30
+expect p95 75
+expect lfopeak0 >0
+wait 600
+expect lfopeak0 >95
+turn K2 -50
+turn K3 -127
+tap LFO
+wait 30
+expect page 22
+turn K1 30
+wait 30
+expect p98 31
+turn K1 10
+wait 30
+expect p98 40
+turn K1 -40
+wait 100
+expect lfoon0 0
+expect p95 25
+expect p96 0
+expect p98 0
+tap HOME
+wait 30
+expect page 0
+# HOME held: the help, staying after the hold; SELECT turns its pages (TIMBRE untouched); HOME closes it, the page
+# stays
+tap FX
+tap FX
+wait 30
+press HOME
+wait 500
+expect help 1
+release HOME
+wait 30
+expect help 1
+expect page 29
+turn SELECT 2
+wait 30
+expect helppage 2
+expect p31 67
+tap HOME
+wait 30
+expect help 0
+expect page 29
+tap HOME
+wait 30
+expect page 0
+# K2 on NUAGE (FX's second): DUREE (p21)
+tap FX
+tap FX
+turn K2 2
+wait 50
+expect p21 81
+# freeze: CLOUD's K4 (FX bright meanwhile, off its page too; else it glows as every function button), and MIDI CC 80
+turn K4 1
+wait 30
+expect freeze 1
+tap HOME
+wait 30
+expect fxled 3
+midi B0 50 00
+wait 30
+expect freeze 0
+expect fxled 2
+midi B0 50 7F
+wait 30
+expect freeze 1
+tap FX
+tap FX
+turn K4 -1
+wait 30
+expect freeze 0
+tap HOME
+# octave
+tap OCT-
+wait 30
+expect octave -2
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+expect octave -1
+# held notes instead of latched: GLOBAL, K4 KEYS, on a second detent the same way (the first: TURN AGAIN)
+tap GLO
+wait 30
+expect page 34
+turn K4 1
+wait 30
+expect latch 1
+turn K4 1
+wait 30
+expect latch 0
+key 3 down
+wait 200
+expect held 1
+key 3 up
+wait 200
+expect held 0
+turn K4 -1
+wait 30
+turn K4 -1
+wait 30
+expect latch 1
+# TEMPO: GLOBAL's K1; MIDI, GLO's second page: each track's channel, the drones 1, GLINT 2, BASS 3; K4 nothing
+turn K1 2
+wait 30
+expect p129 62
+tap GLO
+wait 30
+expect page 35
+expect p128 1
+expect p131 2
+expect p132 3
+turn K4 3
+wait 30
+expect p128 1
+# MASTERING, GLO's third: the compressor off by default; RATIO 4:1, THRESHOLD -30 dB over a chord: it reduces
+tap GLO
+wait 30
+expect page 36
+expect p70 0
+turn K2 4
+turn K1 -18
+tapkey 7 120
+tapkey 11 120
+wait 1500
+expect compgr <-10
+turn K2 -4
+turn K1 18
+press PLAY
+wait 650
+release PLAY
+tap GLO
+wait 30
+expect page 34
+# harmony: SEL, D minor, triads; D3 (key 9) and F3 (key 12) share A3 (57)
+tap SEL
+wait 30
+expect page 27
+turn K2 2
+turn K3 2
+wait 30
+expect p34 2
+expect p35 2
+tapkey 9
+wait 100
+expect lit50 1
+expect on50 1
+expect on53 1
+expect on57 1
+tapkey 12
+wait 100
+expect on57 2
+expect on53 2
+expect on60 1
+expect held 4
+# SEL held: a single note on top of the chords (G3, 55: alone), and no page change
+press SEL
+tapkey 14
+release SEL
+wait 100
+expect on55 1
+expect on58 0
+expect page 27
+tapkey 14
+wait 100
+expect on55 0
+# D's chord goes: A3 stays, F's chord holds it
+tapkey 9
+wait 100
+expect lit50 0
+expect on50 0
+expect on57 1
+expect on53 1
+# a black key falls to the scale's note below: D#3 (key 10) is D3's chord again
+tapkey 10
+wait 100
+expect lit50 1
+press PLAY
+wait 650
+release PLAY
+wait 50
+expect held 0
+expect on57 0
+# back to chromatic singles
+turn K2 -2
+turn K3 -2
+wait 30
+# GLINT: SELECT turns the keys to glints, never latched, the drones untouched; the page stays
+tapkey 0
+wait 100
+expect held 1
+turn SELECT 1
+wait 30
+expect glint 1
+expect page 27
+tapkey 14 100
+wait 50
+expect glints 1
+expect held 1
+# SELECT again: BASS; back: the drones; REC at the mid level all along (it records: the sequencer's)
+turn SELECT 1
+wait 30
+expect glint 0
+expect bass 1
+expect recled 2
+turn SELECT -2
+wait 30
+expect bass 0
+expect recled 2
+expect page 27
+press PLAY
+wait 650
+release PLAY
+# GLINT and pressure: a glint pressed rings louder and longer (SINE, 600 ms on: about 7 without, 50 with)
+turn SELECT 1
+key 10 down 100 0
+wait 600
+expect glintlvl <15
+key 10 up
+wait 2500
+key 10 down 100 100
+wait 600
+expect glintlvl >30
+# VIBRATO: a steady press stays in tune; the finger's wiggle bends it (about 10 cents at most, its default)
+expect glintcents <5
+key 10 down 100 70
+wait 80
+expect glintcents >50
+wait 400
+expect glintcents <40
+key 10 up
+# SUSTAIN (GLINT III's K4; WARM LEAD's, PRESET 16): held, a glint stays at its level, where SINE's fades out (PRESET:
+# GLINT PARAMS' K1, ARP's first page)
+tap ARP
+wait 30
+expect page 8
+turn K1 8
+wait 30
+expect p37 16
+expect p93 105
+wait 2500
+key 10 down 100 0
+wait 4000
+expect glintlvl >50
+key 10 up
+turn K1 -8
+wait 30
+expect p93 0
+wait 3000
+tap HOME
+turn SELECT -1
+# GLINT's arpeggiator: TYPE on ARP (GLINT PARAMS' K2), MODE UP (GLINT ARP's K1, p45 0); two keys held, steps at 90
+# BPM eighths (333 ms); latched from the start: the notes go on after the keys
+turn SELECT 1
+tap ARP
+wait 30
+expect page 8
+turn K2 1
+wait 30
+expect p123 1
+expect p45 0
+key 12 down 100
+key 16 down 100
+wait 1100
+expect glints >0
+expect arpsteps >2
+key 12 up
+key 16 up
+wait 300
+expect arplatch 1
+expect arpnotes 2
+turn SELECT -1
+# on the grid: at 1/4 (667 ms at 90 BPM), a new hand waits for the next step while the old one plays (ARP four
+# times: GLINT II, GLINT III, GLINT DELAY, GLINT ARP; the SEQ pages hidden)
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+wait 30
+expect page 12
+turn K2 -2
+wait 30
+expect p46 3
+turn SELECT 1
+key 3 down 100
+wait 800
+key 3 up
+expect arpplay 1
+key 8 down 100
+key 10 down 100
+wait 20
+expect arpnotes 2
+expect arpplay 1
+wait 700
+expect arpplay 2
+expect kdim 1280
+key 8 up
+key 10 up
+turn K2 2
+turn SELECT -1
+press PLAY
+wait 650
+release PLAY
+# GLINT's sequencer: TYPE on SEQ (GLINT PARAMS' K2): GLINT ARP hidden, the SEQ pages after GLINT DELAY (ARP four
+# times); RECORD on STEP (GLINT SEQ's K4): three keys write steps 1 to 3, STEP moving on; RECORD off, LENGTH 4 (GLINT
+# SEQ II): it plays them on the grid; a key higher than its first note transposes it up the scale; PLAY stops it,
+# again starts it; CLEAR (GLINT SEQ III's K2), turned twice, leaves rests
+expect page 12
+turn SELECT 1
+tap HOME
+tap ARP
+wait 30
+expect page 8
+turn K2 1
+wait 30
+expect p123 2
+expect seqrun 1
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+wait 30
+expect page 13
+turn K4 1
+wait 30
+expect p136 1
+tapkey 9 110
+tapkey 11 80
+tapkey 13 80
+wait 30
+expect seqstep0 >128
+expect seqstep1 >0
+expect seqstep1 <128
+expect seqstep2 >0
+expect seqstep3 0
+expect p133 3
+expect p135 0
+turn K4 -1
+tap ARP
+wait 30
+expect page 14
+turn K1 -12
+wait 30
+expect p110 3
+wait 2500
+expect seqsteps >3
+expect glints >0
+expect seqpos <4
+tapkey 13 80
+wait 30
+expect p112 >14
+tap PLAY
+wait 30
+expect seqrun 0
+tap PLAY
+wait 30
+expect seqrun 1
+tap ARP
+wait 30
+expect page 15
+turn K2 1
+wait 30
+expect p137 1
+expect seqstep0 >0
+turn K2 1
+wait 30
+expect p137 0
+expect seqstep0 0
+expect seqnotes 0
+# REC: into the sequencer recording LIVE (p136 2), on its first page, the keys GLINT's (from the drones); a key played
+# while it runs goes into the step nearest the playhead; REC again: RECORD OFF, the page staying, REC steady again
+turn SELECT -1
+tap HOME
+tap REC
+wait 30
+expect page 13
+expect p136 2
+expect p123 2
+expect glint 1
+tapkey 9 80
+wait 30
+expect seqnotes 1
+tap REC
+wait 30
+expect p136 0
+expect page 13
+expect recled 2
+tap ARP
+wait 30
+expect page 14
+turn K1 12
+wait 30
+expect p110 15
+tap ARP
+wait 30
+expect page 15
+turn K1 -28
+turn K1 14
+wait 30
+expect p112 14
+tap ARP
+wait 30
+expect page 8
+turn K2 -1
+wait 30
+expect p123 1
+expect seqrun 0
+turn SELECT -1
+press PLAY
+wait 650
+release PLAY
+# SEQ held: the swell, not a page
+press SEQ
+wait 800
+release SEQ
+wait 30
+expect page 8
+tap HOME
+# ARP held: the latch off (the latched notes go), held again on; the arpeggio goes on with the keys let go, even with
+# the keys back on the drones
+turn SELECT 1
+press ARP
+wait 600
+release ARP
+wait 30
+expect arplatch 0
+expect arpnotes 0
+press ARP
+wait 600
+release ARP
+wait 30
+expect arplatch 1
+expect glint 1
+key 12 down 100
+key 16 down 100
+wait 200
+key 12 up
+key 16 up
+wait 50
+expect arpnotes 2
+turn SELECT -1
+wait 30
+expect glint 0
+wait 800
+expect arpsteps >4
+# a new hand replaces the latched one
+turn SELECT 1
+key 20 down 100
+wait 100
+expect arpnotes 1
+key 20 up
+press ARP
+wait 600
+release ARP
+wait 30
+expect arplatch 0
+expect arpnotes 0
+turn SELECT -1
+# BASS: SELECT twice; a tap holds one note (in the scale, an octave under the keys), another glides to its own, a tap on
+# it lets it go; the drones untouched; pressing into it reaches it
+turn SELECT 2
+wait 30
+expect bass 1
+tapkey 7
+wait 200
+expect bassnote 36
+expect bassvoice 36
+expect basslvl >10
+expect held 0
+tapkey 9
+wait 100
+expect bassnote 38
+key 9 down 100 80
+wait 500
+expect bprs >20
+key 9 up
+wait 100
+expect bassnote 38
+# pressed into, then another key: the new note starts unpressed
+key 9 down 100 80
+wait 500
+tapkey 12
+key 9 up
+wait 300
+expect bassnote 41
+expect bprs <10
+tapkey 12
+wait 50
+expect bassnote -1
+wait 3000
+expect bassvoice -1
+# SEQ tapped: BASS's pages (K1 MODEL); again: BASS II (K2 OCTAVE down: two octaves under the keys); again: BASS III
+tap SEQ
+wait 30
+expect page 16
+turn K1 3
+wait 30
+expect p62 3
+tap SEQ
+wait 30
+expect page 17
+turn K2 -1
+wait 30
+tapkey 7
+wait 50
+expect bassnote 24
+turn K2 1
+tap SEQ
+wait 30
+expect page 18
+tap SEQ
+tap SEQ
+wait 30
+expect page 17
+# GLOBAL's KEYS on HOLD (K4, two detents): the bass sounds while its key is down
+tap GLO
+turn K4 1
+turn K4 1
+key 7 down
+wait 100
+expect bassnote 36
+# two held: the newer one sounds; let go, the bass goes back to the one still down
+key 9 down
+wait 100
+expect bassnote 38
+key 9 up
+wait 30
+expect bassnote 36
+key 7 up
+wait 30
+expect bassnote -1
+turn K4 -1
+turn K4 -1
+press PLAY
+wait 650
+release PLAY
+wait 30
+expect bassnote -1
+turn SELECT -2
+wait 30
+expect bass 0
+tap HOME
+# PUMP, FX's fifth: RATE 1/4 ducks the drones on each beat (at 90 BPM, 667 ms), and lets them back up between
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+wait 30
+expect page 32
+turn K1 5
+expect p65 5
+tapkey 7
+expect pumplow <101
+wait 1000
+expect pumplow <40
+turn K1 -5
+wait 100
+expect pumpg 100
+expect pumplow <101
+wait 700
+expect pumplow 100
+tap FX
+wait 30
+expect page 33
+tap FX
+wait 30
+expect page 28
+press PLAY
+wait 650
+release PLAY
+# MIXER, HOME's second (the logo its third): the tracks' levels at 100; DRONE's meter moves with a drone, its fader
+# too
+tap HOME
+wait 30
+expect page 0
+expect logo 0
+tap HOME
+wait 30
+expect page 37
+expect logo 0
+expect p73 100
+tapkey 7
+wait 3000
+expect meter0 >2
+expect playled 3
+turn K1 -20
+wait 30
+expect p73 80
+turn K1 20
+tap HOME
+wait 30
+expect page 0
+expect logo 1
+tap HOME
+wait 30
+expect page 0
+expect logo 0
+press PLAY
+wait 650
+release PLAY
+# MIDI: note on / off from a sequencer, with sustain (channel 1: the drones)
+midi 90 3C 64
+wait 50
+expect held 1
+midi B0 40 7F
+midi 80 3C 00
+wait 50
+expect held 1
+midi B0 40 00
+wait 50
+expect held 0
+# channel 2: GLINT, the note as it comes, whatever the keys play (here into the arpeggio, still on: UP); the drones
+# untouched
+midi 91 48 64
+wait 400
+expect arpnotes 1
+expect glints >0
+expect held 0
+midi 81 48 00
+# channel 3: BASS, mono, the last note on top; let go, back to the one still held
+midi 92 24 64
+wait 50
+expect bassnote 36
+midi 92 28 64
+wait 50
+expect bassnote 40
+midi A2 28 60
+wait 300
+expect bprs >30
+midi 82 28 00
+wait 50
+expect bassnote 36
+midi 82 24 00
+wait 50
+expect bassnote -1
+expect held 0
+# all notes off on the drones' channel: the drones alone, the bass on channel 3 goes on; on BASS's: the bass
+midi 92 24 64
+midi 90 3C 64
+wait 50
+expect held 1
+midi B0 7B 00
+wait 50
+expect held 0
+expect bassnote 36
+midi B2 7B 00
+wait 50
+expect bassnote -1
+midi 82 24 00
+midi 80 3C 00
+# the sound's CCs on the drones' channel only: CC 74 on BASS's moves no TIMBRE
+midi B2 4A 7F
+wait 30
+expect p31 <127
+# channel 4: nothing listens
+midi 93 3C 64
+wait 50
+expect held 0
+expect bassnote -1
+midi 83 3C 00
+# scenes: save the sound into slot 3, change it, load slot 3 back
+tap SAVE
+wait 30
+expect page 38
+turn K1 2
+wait 30
+press SAVE
+tap REC
+release SAVE
+wait 50
+expect scene 2
+expect dirty 0
+tap EDIT
+turn K1 -10
+wait 50
+expect p31 57
+tap SAVE
+tap PLAY
+wait 50
+expect p31 67
+# it all comes back after a reboot
+reboot
+wait 600
+expect p31 67
+expect scene 2
+# a scene keeps what plays: two latched drones, the arpeggio's two notes and the bass, into slot 4
+tap HOME
+tapkey 5
+tapkey 9
+wait 100
+expect lit46 1
+expect lit50 1
+tap ARP
+wait 30
+expect page 8
+turn K2 -2
+turn K2 1
+turn SELECT 1
+key 12 down 100
+key 16 down 100
+wait 100
+key 12 up
+key 16 up
+turn SELECT 1
+tapkey 0
+turn SELECT -2
+wait 50
+expect arpnotes 2
+expect bassnote 29
+tap SAVE
+turn K1 1
+wait 30
+press SAVE
+tap REC
+release SAVE
+wait 50
+expect scene 3
+# everything let go, then slot 4 again: the drones and the arpeggio come back
+tap HOME
+press PLAY
+wait 650
+release PLAY
+wait 50
+expect held 0
+expect arpnotes 0
+expect bassnote -1
+tap SAVE
+wait 30
+tap PLAY
+wait 100
+expect lit46 1
+expect lit50 1
+expect held 2
+expect arpnotes 2
+expect bassnote 29
+# another note on top, then slot 4 again: that note goes, the scene's notes play
+tap HOME
+tapkey 2
+wait 50
+expect lit43 1
+tap SAVE
+wait 30
+tap PLAY
+wait 100
+expect lit43 0
+expect lit46 1
+expect lit50 1
+expect arpnotes 2
+# loading a scene lets every note go: a factory scene plays nothing after
+turn K1 -3
+tap PLAY
+wait 100
+expect scene 0
+expect lit46 0
+expect held 0
+expect arpnotes 0
+expect bassnote -1
+tap HOME
+press PLAY
+wait 650
+release PLAY
+# scenes and settings saved before BASS come back, the new parameters at their defaults (BASS LEVEL p58 90,
+# VIBRATO p63 50): slot 6 named OLD, its chord on D3; TEMPO 100 BPM
+oldstore 3
+reboot
+wait 600
+expect scene 5
+expect p129 70
+expect p58 90
+expect p63 50
+tap SAVE
+wait 30
+tap PLAY
+wait 100
+expect lit50 1
+expect p58 90
+tap HOME
+press PLAY
+wait 650
+release PLAY
+# and those of BASS's first layout: SPACE (10) where MODEL is now becomes the SINE, RESONANCE (p64) at its default;
+# slot 6's bass comes back
+oldstore 4
+reboot
+wait 600
+expect scene 5
+expect p129 70
+expect p62 0
+expect p64 20
+# its one MIDI channel (OMNI) becomes the drones' channel 1; GLINT 2, BASS 3
+expect p128 1
+expect p131 2
+expect p132 3
+# and the layout before PUMP, MASTERING and MIXER: its channels kept (GLINT 5, BASS 6), the new at their defaults
+oldstore 6
+reboot
+wait 600
+expect scene 5
+expect p129 70
+expect p131 5
+expect p132 6
+expect p65 0
+expect p70 0
+expect p73 100
+expect p77 57
+tap SAVE
+wait 30
+tap PLAY
+wait 100
+expect lit50 1
+expect bassnote 33
+tap HOME
+press PLAY
+wait 650
+release PLAY
+# and the layout before the shimmer's BRIGHT: everything kept, BRIGHT (p77) at its default
+oldstore 7
+reboot
+wait 600
+expect scene 5
+expect p129 70
+expect p131 5
+expect p132 6
+expect p77 57
+tap SAVE
+wait 30
+tap PLAY
+wait 100
+expect lit50 1
+expect bassnote 33
+tap HOME
+press PLAY
+wait 650
+release PLAY
+# and the layout before PUMP II: everything kept, RELEASE (p78) and ATTACK (p79) at their defaults
+oldstore 8
+reboot
+wait 600
+expect scene 5
+expect p129 70
+expect p131 5
+expect p78 127
+expect p79 36
+expect p80 0
+tap SAVE
+wait 30
+tap PLAY
+wait 100
+expect lit50 1
+expect bassnote 33
+tap HOME
+press PLAY
+wait 650
+release PLAY
+tap SAVE
+wait 30
+tap PLAY
+wait 100
+expect lit50 1
+expect bassnote 33
+expect p62 0
+tap HOME
+press PLAY
+wait 650
+release PLAY
+# and the layout before the layers' second pages and SUSTAIN: everything kept, those at their defaults
+oldstore 9
+reboot
+wait 600
+expect scene 5
+expect p129 70
+expect p131 5
+expect p132 6
+expect p80 0
+expect p81 0
+expect p85 0
+expect p90 1
+expect p91 64
+expect p93 0
+tap SAVE
+wait 30
+tap PLAY
+wait 100
+expect lit50 1
+expect bassnote 33
+tap HOME
+press PLAY
+wait 650
+release PLAY
+# and the second pages' first layout: kept but what has changed since (EVOLVE back at 0, its new default), the LFOs off
+oldstore 10
+reboot
+wait 600
+expect scene 5
+expect p129 70
+expect p131 5
+expect p85 0
+expect p87 85
+expect p91 64
+expect p96 0
+expect lfoon0 0
+tap SAVE
+wait 30
+tap PLAY
+wait 100
+expect lit50 1
+expect bassnote 33
+tap HOME
+press PLAY
+wait 650
+release PLAY
+
+# the LFOs' layout: kept, the sequence empty; then a scene keeps its sequence: one step written, saved in slot 8,
+# cleared, slot 8 loaded again
+oldstore 11
+reboot
+wait 600
+expect scene 5
+expect p129 70
+expect p131 5
+expect p96 0
+expect seqstep0 0
+expect p110 15
+turn SELECT 1
+tap ARP
+wait 30
+expect page 8
+turn K2 2
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+turn K4 1
+tapkey 9 80
+wait 30
+expect seqstep0 >0
+turn K4 -1
+tap SAVE
+turn K1 2
+wait 30
+press SAVE
+tap REC
+release SAVE
+wait 50
+expect scene 7
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+wait 30
+expect page 15
+turn K2 2
+wait 30
+expect seqstep0 0
+tap SAVE
+wait 30
+tap PLAY
+wait 100
+expect seqstep0 >0
+expect seqrun 1
+tap HOME
+turn SELECT -1
+press PLAY
+wait 650
+release PLAY
+# the drone's presets and CUSTOM: CATHEDRAL (2), then a setting turned (TIMBRE, DRONE PARAMS' K1): CUSTOM from
+# there, CATHEDRAL's CHOIR (p0 110) kept; GLACIER (3), then CUSTOM again: CATHEDRAL's as turned; FULLNESS (ALGO)
+# is no preset's: it stays where it is through them
+turn ALGO -27
+wait 30
+expect p114 100
+turn PRESET 2
+wait 50
+expect p113 2
+expect p0 110
+expect p114 100
+tap EDIT
+wait 30
+expect page 1
+turn K1 -10
+wait 30
+expect p31 50
+expect p113 0
+expect p0 110
+turn PRESET 3
+wait 50
+expect p0 20
+expect p114 100
+turn PRESET -3
+wait 50
+expect p113 0
+expect p0 110
+expect p31 50
+# a scene keeps CUSTOM and the preset on it: AURORA (5) on it, saved in slot 9; CUSTOM, then MIST; slot 9 again:
+# AURORA, and under it CUSTOM's
+turn PRESET 5
+wait 30
+expect p0 60
+tap SAVE
+turn K1 1
+wait 30
+press SAVE
+tap REC
+release SAVE
+wait 50
+expect scene 8
+turn PRESET -5
+wait 30
+expect p0 110
+turn PRESET 1
+wait 30
+expect p0 76
+tap PLAY
+wait 100
+expect p113 5
+expect p0 60
+turn PRESET -5
+wait 30
+expect p0 110
+expect p114 100
+tap HOME
+# and the sequence's layout: kept, the drone CUSTOM, FULLNESS full
+oldstore 12
+reboot
+wait 600
+expect scene 5
+expect p129 70
+expect p131 5
+expect p113 0
+expect p114 127
+expect seqstep0 0
+tap SAVE
+wait 30
+tap PLAY
+wait 100
+expect lit50 1
+expect bassnote 33
+tap HOME
+press PLAY
+wait 650
+release PLAY
+# GLINT's pages: GLINT PARAMS, II, III, GLINT DELAY, then by TYPE: OFF, nothing more (round again); ARP, GLINT ARP;
+# SEQ, the three SEQ pages; TYPE back OFF on GLINT PARAMS, the page stays
+tap ARP
+wait 30
+expect page 8
+turn K2 -2
+wait 30
+expect p123 0
+tap ARP
+tap ARP
+tap ARP
+wait 30
+expect page 11
+tap ARP
+wait 30
+expect page 8
+tap HOME
+tap ARP
+turn K2 1
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+wait 30
+expect page 12
+tap HOME
+tap ARP
+turn K2 1
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+wait 30
+expect page 13
+tap ARP
+tap ARP
+wait 30
+expect page 15
+tap ARP
+wait 30
+expect page 8
+turn K2 -2
+wait 30
+expect page 8
+expect p123 0
+tap HOME
+# LFO 3 (LFO, six times): on TIMBRE, it swings; its TARGET off again, it stops
+tap LFO
+tap LFO
+tap LFO
+tap LFO
+tap LFO
+tap LFO
+wait 30
+expect page 25
+turn K2 30
+turn K3 127
+tap LFO
+wait 30
+expect page 26
+turn K1 1
+wait 600
+expect lfoon2 1
+expect lfopeak2 >90
+turn K1 -1
+wait 100
+expect lfoon2 0
+tap HOME
+
+# the layout before TYPE (FRSf): the arpeggio's MODE made over into TYPE and MODE (its 3, UPDOWN then: ARP, and
+# UPDOWN's 2 now), the delay's TIME with its MODE (1/8D on PING-PONG: 19, as it was)
+tap ARP
+turn K2 1
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+wait 30
+expect page 12
+turn K1 3
+wait 30
+expect p45 3
+expect p51 19
+oldstore 14
+reboot
+wait 600
+expect p123 1
+expect p45 2
+expect p51 19
+# GENERATIVE FX (FX's first page): SPARKLE, glints by themselves on what the drones hold (nothing held, nothing);
+# BLUR and SINK turned, the sound goes on
+tap FX
+wait 30
+expect page 28
+turn K2 127
+wait 3000
+expect sparkles 0
+tapkey 9
+wait 4000
+expect sparkles >3
+turn K3 127
+turn K4 127
+wait 1000
+expect p125 127
+expect p126 127
+expect held >0
+turn K2 -127
+turn K3 -127
+turn K4 -127
+press PLAY
+wait 650
+release PLAY
+tap HOME
+# a glint held while REC turns RECORD off (WARM LEAD, PRESET 16: SUSTAIN, it would ring on) stops when its key lets
+# go; CHANCE 0 on GLINT SEQ II: the sequence itself silent
+turn SELECT 1
+tap ARP
+wait 30
+expect page 8
+turn K1 -40
+wait 100
+turn K1 16
+wait 100
+turn K2 2
+wait 30
+expect p37 16
+expect p93 105
+expect p123 2
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+wait 30
+expect page 14
+turn K4 -127
+wait 2500
+expect glints 0
+tap REC
+wait 30
+expect p136 2
+key 10 down 100 0
+wait 300
+expect glints 1
+tap REC
+wait 30
+expect p136 0
+key 10 up
+wait 4000
+expect glints 0
+tap ARP
+wait 30
+expect page 14
+turn K4 127
+press PLAY
+wait 650
+release PLAY
+tap HOME
+# REC's metronome: a tick on each beat while it records (90 BPM: 667 ms), from the beat after; REC held turns it off
+# (and on again), the recording going on
+tap REC
+wait 30
+expect p136 2
+expect metro 1
+wait 2100
+expect clicks >2
+expect clicks <5
+press REC
+wait 500
+release REC
+wait 30
+expect metro 0
+expect p136 2
+wait 1400
+expect clicks <6
+press REC
+wait 500
+release REC
+wait 30
+expect metro 1
+tap REC
+wait 30
+expect p136 0
+turn SELECT -1
+tap HOME
+# PLAY: with TYPE on ARP a tap lets the arpeggio wait, its notes kept, again it goes on; with TYPE OFF a tap lets
+# nothing go; held, the screen counts it down from 200 ms, and at 600 everything goes; held again with nothing held,
+# it all comes back (RESTORE)
+tap ARP
+wait 30
+expect page 8
+turn K2 -2
+turn K2 1
+wait 30
+expect p123 1
+turn SELECT 1
+key 12 down 100
+key 16 down 100
+wait 200
+key 12 up
+key 16 up
+wait 50
+expect arpnotes 2
+tap PLAY
+wait 30
+expect paused 1
+expect arpnotes 2
+tap PLAY
+wait 30
+expect paused 0
+turn SELECT -1
+turn K2 -1
+wait 30
+expect p123 0
+tapkey 9
+wait 100
+expect lit50 1
+tap PLAY
+wait 100
+expect lit50 1
+press PLAY
+wait 300
+expect playhold 1
+expect lit50 1
+wait 400
+release PLAY
+wait 30
+expect lit50 0
+press PLAY
+wait 700
+release PLAY
+wait 30
+expect lit50 1
+press PLAY
+wait 700
+release PLAY
+wait 30
+expect lit50 0
+# SAVE: a tap opens SCENES, another goes back where it was; SAVE held and REC stores into the slot K1 points at;
+# SCENES' K4 (UNDO) turned twice gives the slot back as it was
+tap EDIT
+wait 30
+expect page 1
+tap SAVE
+wait 30
+expect page 38
+tap SAVE
+wait 30
+expect page 1
+tap SAVE
+turn K1 -20
+wait 100
+turn K1 12
+wait 30
+expect used12 0
+press SAVE
+tap REC
+release SAVE
+wait 50
+expect used12 1
+expect scene 12
+expect page 38
+turn K4 1
+turn K4 1
+wait 50
+expect used12 0
+expect p142 0
+# FX held: FREEZE on, the page staying; again, off
+tap HOME
+wait 30
+expect page 0
+press FX
+wait 500
+release FX
+wait 30
+expect freeze 1
+expect page 0
+press FX
+wait 500
+release FX
+wait 30
+expect freeze 0
+# REC, then REC again: the keys back on the drones, as they were before the take
+tap REC
+wait 30
+expect glint 1
+tap REC
+wait 30
+expect glint 0
+expect bass 0
+# MIDI: CC 14 on the drones' channel turns SPARKLE (p124); Program Change 3 loads scene 3 (SPARKLE back at its 0);
+# GLO held and CC 21: CC 21 turns the setting turned last from then on (SINK, p126), the page staying
+midi B0 0E 40
+wait 30
+expect p124 64
+midi C0 02 00
+wait 100
+expect scene 2
+expect p124 0
+tap FX
+turn K4 10
+wait 30
+press GLO
+midi B0 15 7F
+release GLO
+wait 30
+expect page 28
+midi B0 15 00
+wait 30
+expect p126 0
+midi B0 15 7F
+wait 30
+expect p126 127
+turn K4 -127
+# SCENES' MORPH (K2, p140) and KEEP (K3, p141): MORPH 1 S, KEEP PLAYING: a scene comes in, the drone goes on, the sound
+# glides there in a second
+tap HOME
+tapkey 9
+wait 100
+expect lit50 1
+tap SAVE
+wait 30
+turn K2 1
+turn K3 1
+wait 30
+expect p140 1
+expect p141 1
+turn K1 1
+tap PLAY
+wait 100
+expect morph 1
+expect lit50 1
+wait 1200
+expect morph 0
+expect lit50 1
+turn K2 -1
+turn K3 -1
+tap HOME
+press PLAY
+wait 700
+release PLAY
+wait 30
+# SAVE held and a white key: its scene (the fourth white key, B2, scene 4), nothing sounding, the page staying
+press SAVE
+tapkey 6
+release SAVE
+wait 100
+expect scene 3
+expect page 0
+expect held 0
+# LFO held and an encoder: the setting under it onto LFO 1 (DRONE PARAMS' K1, TIMBRE: LFO 1's TARGET 1), DEPTH up;
+# again, LFO 2; back, LFO 1; the page staying
+tap EDIT
+wait 30
+expect page 1
+press LFO
+turn K1 1
+wait 30
+expect p98 1
+expect p96 >0
+turn K1 1
+wait 30
+expect p98 0
+expect p106 1
+turn K1 -1
+wait 30
+expect p106 0
+expect p98 1
+release LFO
+wait 30
+expect page 1
+press LFO
+turn K1 -1
+release LFO
+wait 30
+expect p98 0
+# EDIT held: COMPARE, the scene as saved, let go: as it is now, the page staying
+press EDIT
+wait 500
+expect compare 1
+release EDIT
+wait 30
+expect compare 0
+expect page 1
+# GLINT SEQ III: NEW TAKE (K3, twice) clears the sequence and records LIVE; UNDO (K4, twice) brings it back
+tap REC
+wait 30
+tapkey 9 80
+wait 30
+tap REC
+wait 30
+expect seqnotes >0
+tap ARP
+tap ARP
+wait 30
+expect page 15
+turn K3 1
+turn K3 1
+wait 30
+expect seqnotes 0
+expect p136 2
+turn K4 1
+turn K4 1
+wait 30
+expect seqnotes >0
+tap REC
+wait 30
+expect p136 0
+# HOME held on GLINT's pages: the help opens on its third page, the one with ARP
+press HOME
+wait 500
+release HOME
+wait 30
+expect help 1
+expect helppage 2
+tap HOME
+wait 30
+expect help 0
+tap HOME
+# PLAY let go while the screen counts RELEASE ALL down: nothing at all (the sequence goes on); a take begun on GLINT
+# SEQ's K4 (not REC's): REC stops it, the keys stay as they are
+tap ARP
+wait 30
+expect page 8
+turn K2 2
+wait 30
+expect p123 2
+expect seqrun 1
+press PLAY
+wait 400
+expect playhold 1
+release PLAY
+wait 30
+expect seqrun 1
+turn SELECT 1
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+wait 30
+expect page 13
+turn K4 2
+wait 30
+expect p136 2
+tap REC
+wait 30
+expect p136 0
+expect p139 1
+turn SELECT -1
+tap HOME

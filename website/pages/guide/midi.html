@@ -1,0 +1,63 @@
+<!--
+title: MIDI
+lede: FRASIL takes MIDI over USB and the TRS input. Each track has its own channel, whatever the keys play.
+description: FRASIL's MIDI over USB and TRS: a channel for each track (drones 1, GLINT 2, BASS 3 by default), notes through the harmony, sustain, polyphonic and channel pressure, CCs and MIDI learn, Program Change for the scenes, clock and start.
+buttons: GLO > GLO
+hint: The MIDI page · Hold GLO + a CC: learn
+-->
+<h2 id="channels">Channels</h2>
+<p>The drones on 1, GLINT on 2, BASS on 3 by default. Press GLO twice for the MIDI page: DRONE CH, GLINT CH and BASS CH,
+  each OFF, 1 to 16 or OMNI.</p>
+<ul class="midi-ch midi-ch-guide" role="list" data-nocaps aria-label="The default channels">
+  <li style="--c: var(--fog)"><span class="ch-n">CH 1</span><span class="ch-line"></span><span class="ch-t">DRONE</span></li>
+  <li style="--c: var(--ice)"><span class="ch-n">CH 2</span><span class="ch-line"></span><span class="ch-t">GLINT</span></li>
+  <li style="--c: var(--lamp)"><span class="ch-n">CH 3</span><span class="ch-line"></span><span class="ch-t">BASS</span></li>
+</ul>
+
+<h2 id="notes">Notes</h2>
+<ul>
+  <li><b class="k">The drones’ notes</b> go through the harmony, so a sequencer’s single note plays a chord. Sustain
+    (CC 64) holds them. Channel pressure swells them all (SWELL).</li>
+  <li><b class="k">GLINT’s notes</b> play as they come: no scale, no octave added. While the arpeggiator or the sequencer
+    is on, they go into it, as held keys would.</li>
+  <li><b class="k">BASS’s notes</b> play as they come too, one at a time: the last one sounds, and letting it go brings
+    back the one still held under it.</li>
+</ul>
+<p>Notes sound only while held. Polyphonic aftertouch swells a note; channel pressure, the whole track.</p>
+
+<h2 id="ccs">CCs</h2>
+<p>The sound’s CCs, and sustain, come in on the drones’ channel (1 by default). 120 and 123 release the notes of the
+  track whose channel they come on.</p>
+<table class="params cc-table">
+  <thead><tr><th>CC</th><th>What it moves</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>MOTION</td></tr>
+    <tr><td>74</td><td>TIMBRE</td></tr>
+    <tr><td>91</td><td>SPACE</td></tr>
+    <tr><td>11</td><td>SWELL</td></tr>
+    <tr><td>64</td><td>Sustain: holds the drones</td></tr>
+    <tr><td>70 · 71 · 72</td><td>CHOIR · PARTIALS · BREATH</td></tr>
+    <tr><td>73 · 75</td><td>ATTACK · RELEASE</td></tr>
+    <tr><td>76 · 77</td><td>SIZE · DECAY</td></tr>
+    <tr><td>78 · 79</td><td>SHIMMER · WARMTH</td></tr>
+    <tr><td>12 · 13</td><td>FULLNESS · the drone’s PRESET</td></tr>
+    <tr><td>14 · 15 · 16</td><td>SPARKLE · BLUR · SINK</td></tr>
+    <tr><td>17 · 18 · 19</td><td>The MIXER’s DRONE · GLINT · BASS</td></tr>
+    <tr><td>80</td><td>FREEZE (64 and up)</td></tr>
+    <tr><td>120 · 123</td><td>Release the track’s notes (on the drones’ channel: everything)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="midi-learn">MIDI learn</h2>
+<p>Turn a setting, hold GLO, and move a knob on your controller (a CC on the drones’ channel): from then on that CC
+  turns that setting (<span class="k">CC 21 · SINK</span>). FRASIL learns 8 at most, the oldest replaced, and keeps
+  them with the settings. A learned CC comes before the table’s (SWELL’s 11 and FREEZE’s 80 too), but for 64, 120 and
+  123, which keep their jobs.</p>
+
+<h2 id="program-change">Program Change</h2>
+<p>Program Change 0 to 15, on the drones’ channel, loads scenes 1 to 16, as SCENES’ MORPH and KEEP say (see
+  <a href="{{root}}guide/scenes/#morph-and-keep">Scenes</a>).</p>
+
+<h2 id="clock">Clock</h2>
+<p>MIDI clock drives GLINT’s arpeggiator, its sequencer and its delay, and the LFOs set on the grid. Start resets the
+  grid, starts the sequence from its first step, and puts those LFOs back to the top of their turn.</p>

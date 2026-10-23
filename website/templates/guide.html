@@ -1,0 +1,30 @@
+<div class="guide">
+  <aside class="g-side" aria-label="The guide">
+    <button class="g-menu" type="button" aria-expanded="false" aria-controls="g-nav">
+      <span class="label">Guide</span>
+      <span class="g-menu-cur"><span class="n">{{num}}</span>{{cur_title}}</span>
+      <svg class="g-menu-ico" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3 6l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+    </button>
+    <nav class="g-nav" id="g-nav" aria-label="Guide chapters">
+{{nav}}
+    </nav>
+  </aside>
+  <main id="main" class="g-main">
+    <article class="g-article">
+      <header class="g-head">
+        <p class="label g-kicker">Guide <span class="g-pos">{{num}} / {{total}}</span></p>
+        <h1 class="g-title{{h1_class}}">{{h1}}</h1>
+        <p class="lede g-lede">{{lede}}</p>
+        {{ctl}}
+      </header>
+      {{toc}}
+      <div class="g-body prose">
+{{content}}
+      </div>
+      <nav class="g-pn" aria-label="Previous and next chapters">
+        {{prev}}
+        {{next}}
+      </nav>
+    </article>
+  </main>
+</div>

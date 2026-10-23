@@ -1,0 +1,57 @@
+<!--
+title: The layers’ second pages
+lede: Each layer has two pages on EDIT: the first its level and main character, the second its source and what shapes it after.
+description: FRASIL's seven EDIT pages: DRONE PARAMS (TIMBRE, SPACE, MOTION, FULLNESS), CHOIR and CHOIR II (SHAPE, INTERVAL, RESONANCE, TYPE), PARTIALS and PARTIALS II (EVOLVE, BEAT, FORMANT, PEAK), BREATH and BREATH II (GRAIN, PITCH, TONE, AIR).
+buttons: EDIT
+hint: ×7
+-->
+<h2 id="the-seven-pages">The seven pages</h2>
+<p>Press EDIT again for its next page. The first is the whole drone’s, then each layer’s two.</p>
+<table class="params pages-table">
+  <thead><tr><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead>
+  <tbody>
+    <tr><td>DRONE PARAMS</td><td>TIMBRE <small>all three layers’ brightness</small></td><td>SPACE <small>the reverb’s share</small></td><td>MOTION <small>the drift’s depth</small></td><td>FULLNESS <small>100 %: as set; down: thinner</small></td></tr>
+    <tr><td>CHOIR</td><td>CHOIR <small>level</small></td><td>DETUNE <small>0 to 40 cents</small></td><td>FILTER <small>follows the note</small></td><td>WARMTH</td></tr>
+    <tr><td>CHOIR II</td><td>SHAPE <small>saw, square, narrow pulse</small></td><td>INTERVAL <small>the centre saw: UNISON, −12, +7, +12</small></td><td>RESONANCE <small>the filter’s peak, Q 0.5 to 20</small></td><td>TYPE <small>the filter: LOW, BAND, HIGH</small></td></tr>
+    <tr><td>PARTIALS</td><td>PARTIALS <small>level</small></td><td>TILT <small>bright to dark</small></td><td>ODD <small>odd harmonics</small></td><td>STRETCH <small>toward a bell</small></td></tr>
+    <tr><td>PARTIALS II</td><td>EVOLVE <small>how deep and quick their levels wander</small></td><td>BEAT <small>each one pulsing, 0.15 to 7 Hz</small></td><td>FORMANT <small>its place, H1 to H8</small></td><td>PEAK <small>the formant’s strength, up to one overtone alone</small></td></tr>
+    <tr><td>BREATH</td><td>BREATH <small>level</small></td><td>RESONANCE <small>air to glass</small></td><td>COLOR <small>harmonic, odd, bell</small></td><td>SPREAD <small>the voices’ width</small></td></tr>
+    <tr><td>BREATH II</td><td>GRAIN <small>a hiss to sparse grains</small></td><td>PITCH <small>the resonators: −12, UNISON, +12, +19, +24</small></td><td>TONE <small>the noise darker or brighter</small></td><td>AIR <small>the noise itself, beside them</small></td></tr>
+  </tbody>
+</table>
+
+<h2 id="drone-params">DRONE PARAMS</h2>
+<p>TIMBRE makes all three layers brighter or darker, SPACE sends more or less of the drone to the reverb, MOTION sets
+  how far it drifts. FULLNESS, at 100 % (the default), leaves the drone as its settings make it. Turned down, it thins
+  it out without changing them: the choir closer and quieter, fewer partials, little breath, narrower, less warmth,
+  its low body high-passed. ALGORITHM turns it too, on every page. A preset sets this page but FULLNESS (see
+  <a href="{{root}}guide/how-it-works/#presets">the drone’s presets</a>).</p>
+
+<h2 id="choir-ii">CHOIR II</h2>
+<p>SHAPE takes each saw toward a square at the middle: hollow, woody, the even harmonics gone. Past it come narrower
+  pulses: bright, nasal. The pulse’s width sways on its own, as an old synthesizer’s does, more so toward the narrow
+  end, and the voice is as loud all the way. INTERVAL moves the centre saw an octave down, a fifth up or an octave up,
+  under or over its two detuned neighbours.</p>
+<p>RESONANCE gives the filter a peak, from none (Q 0.5) to a whistle (Q 20); at the middle it is already clearly
+  resonant. TYPE chooses the filter: LOW, a low-pass; BAND, a band-pass, nasal, vocal; HIGH, a high-pass, thin, airy.
+  Each is levelled so the voice stays about as loud.</p>
+
+<h2 id="partials-ii">PARTIALS II</h2>
+<p>EVOLVE sets how the partials’ levels wander. At 0 they wander only as MOTION has them; turned up, much deeper and up
+  to four times quicker: partials come and go, and the spectrum changes colour on its own. BEAT makes each partial
+  pulse at its own pace, from slow (about 0.15 Hz) to quick (about 7 Hz), deeper and quicker as it rises: a
+  shimmering, beating texture, its loudness kept.</p>
+<p>FORMANT and PEAK lift the partials around one harmonic, as a vowel does. FORMANT says where, H1 to H8 (H4 by
+  default). PEAK lifts the partials near it, narrower as it rises; at the top only that harmonic sounds, the rest down
+  to −30 dB: the drone sings one overtone, as in overtone singing. Sweep FORMANT with PEAK up, by hand or with
+  <a href="{{root}}guide/lfo/">one of the LFOs</a>.</p>
+
+<h2 id="breath-ii">BREATH II</h2>
+<p>GRAIN turns the hiss into grains, sparser as you turn it up: the resonators then ring like ice ticking, or rain on
+  glass, more so with RESONANCE high. PITCH moves the resonators an octave down or up, a twelfth or two octaves up: an
+  airy halo over the drone. TONE makes the noise darker (turned left) or brighter (right) before it reaches them. AIR
+  adds the noise itself, beside the resonators: breath, or with GRAIN, crackle.</p>
+
+<h2 id="the-processor">The processor</h2>
+<p>They all start where the sound was before them. SHAPE, RESONANCE, TYPE, BEAT and AIR take more of the processor;
+  with many voices and several of them up, FRASIL thins out the partials, then the voices, to keep the sound going.</p>

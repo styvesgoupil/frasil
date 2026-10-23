@@ -1,0 +1,67 @@
+<!--
+title: GENERATIVE FX & CLOUD
+h1: GENERATIVE FX &amp; CLOUD
+caps: yes
+lede: FX opens on four knobs that play the whole sound. Then everything flows into a large reverb with shimmer, and FREEZE holds what is in it, without end and without darkening.
+description: FRASIL's FX pages: GENERATIVE FX (SWELL, SPARKLE, BLUR, SINK), then CLOUD, the reverb: an 8-line modulated network with in-loop diffusion, pre-delay, shimmer and tails up to 60 seconds, and FREEZE.
+buttons: FX
+hint: Again: CLOUD · Hold: Freeze
+-->
+<h2 id="generative-fx">GENERATIVE FX</h2>
+<div class="g-split">
+  <div>
+    <p>FX opens on GENERATIVE FX: four knobs that play the whole sound rather than a part of it. SWELL is the
+      hand’s; SPARKLE, BLUR and SINK belong to the sound, and a scene keeps them.</p>
+  </div>
+  <div class="g-figure">{{shot_genfx}}</div>
+</div>
+<table class="params gestures-table">
+  <thead><tr><th>Knob</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td>SWELL <small>K1</small></td><td>Every drone voice swelled, as far as it is turned, and held there. With SEQ held or CC 11 too, the most of them wins</td></tr>
+    <tr><td>SPARKLE <small>K2</small></td><td>Glints play by themselves, now and then, on the notes the drones hold: GLINT’s OCTAVE up, one in three an octave more, soft and short. From a few a minute to about six a second. Nothing held, nothing</td></tr>
+    <tr><td>BLUR <small>K3</small></td><td>The drone dissolves into the cloud: wetter (SPACE toward 90 %), a longer decay, more diffusion and modulation, the glints further into the cloud</td></tr>
+    <tr><td>SINK <small>K4</small></td><td>Everything goes under: a low-pass on the whole mix, from 12 kHz down to about 120 Hz, with a small resonance (2.4 kHz at 25 %, 800 Hz at 50 %)</td></tr>
+  </tbody>
+</table>
+<p>An LFO can move SPARKLE, BLUR and SINK too (see <a href="{{root}}guide/lfo/">The LFOs</a>).</p>
+
+<h2 id="the-cloud">The cloud</h2>
+<p>WARMTH (a soft saturation) feeds CLOUD, the reverb: an 8-line modulated network with diffusion in its loop, a
+  pre-delay, a pitch-shifted shimmer inside the loop, and FREEZE. Its tail runs from 0.4 to 60 seconds.</p>
+<p>The drones flow into it; so does GLINT, by its own SPACE (GLINT DELAY, K4), and its delay’s echoes. BASS stays out of
+  it, but for a little SPACE. The MIXER’s CLOUD fader is the reverb’s return.</p>
+
+<h2 id="its-pages">Its pages</h2>
+<div class="g-split">
+  <div>
+    <p>Press FX again after GENERATIVE FX for CLOUD, then CLOUD II, CLOUD III, PUMP and PUMP II
+      (see <a href="{{root}}guide/mixer/#pump">Pump</a>). FX is bright on its pages.</p>
+  </div>
+  <div class="g-figure">{{shot_cloud}}</div>
+</div>
+<table class="params pages-table">
+  <thead><tr><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead>
+  <tbody>
+    <tr><td>CLOUD</td><td>SIZE</td><td>DECAY <small>0.4 s to 60 s</small></td><td>TONE <small>how long the highs last</small></td><td>FREEZE <small>OFF, ON</small></td></tr>
+    <tr><td>CLOUD II</td><td>DIFFUSION</td><td>MODULATION</td><td>PRE-DELAY <small>0 to 200 ms</small></td><td>WIDTH <small>the tail’s stereo width</small></td></tr>
+    <tr><td>CLOUD III</td><td>SHIMMER</td><td>INTERVAL <small>+12, +7, +5, +19, −12</small></td><td>BRIGHT <small>the shimmer’s brightness, 700 Hz to 8 kHz</small></td><td></td></tr>
+  </tbody>
+</table>
+
+<h2 id="freeze">FREEZE</h2>
+<div class="g-split">
+  <div>
+    <p>Hold FX, on any page, for FREEZE, or turn CLOUD’s K4; the page stays. The cloud holds what is in it, without
+      end and without darkening. Nothing more goes in: what you play next sounds dry over it. Off (FX held again): it
+      thaws, and fades over DECAY. FX stays bright while it is on.</p>
+    <p>On the screen, FREEZE sets the crystals into a lattice and stills the water, and the header shows FREEZE while
+      the cloud is held. On the logo screen, FREEZE stills it all.</p>
+    <p>Over MIDI, CC 80 freezes the cloud at 64 and up.</p>
+  </div>
+  <div class="g-figure">{{shot_freeze}}</div>
+</div>
+
+<h2 id="room-to-breathe">Room to breathe</h2>
+<p>If the sound crackles or a voice drops out, FRASIL is lowering its load on its own: fewer voices, or SHIMMER at 0,
+  give it room. GLOBAL’s header shows the load.</p>

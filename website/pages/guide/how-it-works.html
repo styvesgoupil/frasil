@@ -1,0 +1,98 @@
+<!--
+title: How FRASIL works
+lede: The keys play one set of notes. Every note you light is a voice, up to eight, and every voice has three layers.
+description: FRASIL's drone voices and their three layers (CHOIR, PARTIALS, BREATH), DRONE PARAMS and the 24 drone presets, WARMTH and the CLOUD reverb, MOTION, TIDE and three LFOs, GLINT on top and BASS underneath.
+buttons: EDIT
+hint: ×7: the drone, each layer and its second page
+-->
+<h2 id="three-layers">Three layers, one voice</h2>
+<ul class="layer-list">
+  <li><b class="k">CHOIR</b> three detuned saws (or pulses) through a low-pass filter that follows the note. Warm, wide, vocal.</li>
+  <li><b class="k">PARTIALS</b> 8 additive harmonics, each drifting on its own in level and tuning. Bright or dark, odd,
+    stretched into bells, with a formant.</li>
+  <li><b class="k">BREATH</b> noise (a hiss or sparse grains) through three resonators tuned to the note, from air to glass.</li>
+</ul>
+<p>Each layer has two pages on EDIT: the first its level and main character, the second (CHOIR II, PARTIALS II,
+  BREATH II) its source and what shapes it after. See <a href="{{root}}guide/layers/">the layers’ second pages</a>.</p>
+<p>You don’t choose a layer per note: all three play every note, and you mix and shape them.</p>
+
+<h2 id="the-whole-drone">The whole drone</h2>
+<p>Before the layers, the first page on EDIT, DRONE PARAMS, shapes the whole drone: TIMBRE (all three layers brighter or
+  darker), SPACE (how much of it goes to the reverb), MOTION (how far it drifts) and FULLNESS. At 100 % FULLNESS
+  leaves the drone as its settings make it. Turned down, it thins it out without changing them: the choir closer and
+  quieter, fewer partials, little breath, narrower, less warmth, its low body taken off. FULLNESS is on ALGORITHM
+  too, on every page, and an LFO can move it.</p>
+
+<h2 id="presets">The drone’s presets</h2>
+<p>Turn PRESETS, on any page: 24 drones, each setting the three layers (their levels, both their pages) and the
+  drone’s own: DRONE PARAMS but FULLNESS, DRONE SHAPE’s ATTACK and RELEASE, DRONE MOTION. The cloud, PRESSURE,
+  VELOCITY and FULLNESS stay as they are.</p>
+<p>Before them comes CUSTOM, your own. Turn any of those settings and the drone becomes CUSTOM, from where it was.
+  Another preset doesn’t lose it: turn back to CUSTOM and it is there. A scene keeps its CUSTOM, and the preset chosen
+  over it.</p>
+<dl class="model-list preset-dl">
+  <div><dt><span class="n">01</span>MIST</dt><dd>the default: all three layers, gently</dd></div>
+  <div><dt><span class="n">02</span>CATHEDRAL</dt><dd>a wide choir an octave under, a long hall</dd></div>
+  <div><dt><span class="n">03</span>GLACIER</dt><dd>glass: stretched partials, bell resonators</dd></div>
+  <div><dt><span class="n">04</span>ABYSS</dt><dd>dark and deep, warm</dd></div>
+  <div><dt><span class="n">05</span>AURORA</dt><dd>the spectrum wandering, a light formant</dd></div>
+  <div><dt><span class="n">06</span>EMBER</dt><dd>a warm square choir, glowing low</dd></div>
+  <div><dt><span class="n">07</span>TIDE</dt><dd>a deep tide on the timbre</dd></div>
+  <div><dt><span class="n">08</span>DUST</dt><dd>grains ringing in resonators, crackle</dd></div>
+  <div><dt><span class="n">09</span>WIND</dt><dd>air: breath alone, moving</dd></div>
+  <div><dt><span class="n">10</span>ORGAN</dt><dd>steady pipes, a fifth over</dd></div>
+  <div><dt><span class="n">11</span>HOLLOW</dt><dd>odd harmonics, a band-passed square</dd></div>
+  <div><dt><span class="n">12</span>VOWEL</dt><dd>a sung overtone</dd></div>
+  <div><dt><span class="n">13</span>SHIMMER</dt><dd>bright beating partials, a halo a twelfth up</dd></div>
+  <div><dt><span class="n">14</span>CHANTER</dt><dd>a reed: a narrow pulse, nasal</dd></div>
+  <div><dt><span class="n">15</span>ENSEMBLE</dt><dd>strings: detuned pulses, swaying</dd></div>
+  <div><dt><span class="n">16</span>BELLS</dt><dd>stretched into bells</dd></div>
+  <div><dt><span class="n">17</span>NOCTURNE</dt><dd>slow and dark, a resonant low-pass</dd></div>
+  <div><dt><span class="n">18</span>HAZE</dt><dd>airy, high-passed, an octave up</dd></div>
+  <div><dt><span class="n">19</span>PULSE</dt><dd>every partial beating, quick</dd></div>
+  <div><dt><span class="n">20</span>RIME</dt><dd>thin ice two octaves up, glittering</dd></div>
+  <div><dt><span class="n">21</span>DEEP</dt><dd>weight: the fundamental, an octave under</dd></div>
+  <div><dt><span class="n">22</span>SPECTRAL</dt><dd>one overtone alone, singing</dd></div>
+  <div><dt><span class="n">23</span>RUST</dt><dd>gritty, driven: grains, a resonant band</dd></div>
+  <div><dt><span class="n">24</span>STILL</dt><dd>almost a sine, unmoving</dd></div>
+</dl>
+
+<h2 id="where-it-goes">Where the sound goes</h2>
+<p>Then WARMTH (a soft saturation) feeds CLOUD, the reverb: an 8-line modulated network with diffusion in its loop,
+  a pre-delay, a pitch-shifted shimmer inside the loop, and FREEZE. Its tail runs from 0.4 to 60 seconds.</p>
+<div class="flow" role="img" aria-label="Where the sound goes: the drones, through WARMTH, and GLINT, through its delay, into CLOUD, the reverb; the bass nearly dry; the four tracks into the MIXER, with PUMP on each; then MASTERING and the soft limit" data-nocaps>
+  <div class="flow-col"><p class="label">The tracks</p>
+    <div class="flow-box" style="--c: var(--fog)"><b>DRONE</b><small>up to 8 voices · WARMTH</small></div>
+    <div class="flow-box" style="--c: var(--ice)"><b>GLINT</b><small>4 voices · its delay</small></div>
+    <div class="flow-box" style="--c: var(--lamp)"><b>BASS</b><small>DRIVE · FILTER</small></div>
+  </div>
+  <div class="flow-col"><p class="label">The reverb</p>
+    <div class="flow-box flow-span2" style="--c: #7f9fb7"><b>CLOUD</b><small>from the drones and GLINT · shimmer · FREEZE</small></div>
+    <div class="flow-box flow-ghost"><small>nearly dry</small></div>
+  </div>
+  <div class="flow-col"><p class="label">The mix</p>
+    <div class="flow-box flow-span3"><b>MIXER</b><small>DRONE · BASS · GLINT · CLOUD, PUMP on each</small></div>
+  </div>
+  <div class="flow-col"><p class="label">The output</p>
+    <div class="flow-box flow-span3"><b>MASTERING</b><small>then the soft limit</small></div>
+  </div>
+</div>
+
+<h2 id="what-moves">What moves on its own</h2>
+<p>Your drones’ notes never change. What moves on its own is the sound: MOTION is a slow random drift of each
+  partial, detune and resonance; TIDE is a slow swell of the timbre over minutes. Chance comes into GLINT’s notes only
+  where you let it: CHANCE skips the arpeggio’s or the sequence’s steps, RANDOM and DRIFT pick the arpeggio’s order,
+  and SPARKLE (below) plays glints of its own on the notes the drones hold.</p>
+<p>And what you set moving: three LFOs, each on up to four settings, free or on the beat. A setting keeps the value
+  you gave it, and the LFO moves the sound around it. See <a href="{{root}}guide/lfo/">The LFOs</a>. On FX’s first
+  page, SPARKLE lets glints fall by themselves, now and then, on the notes the drones hold (see
+  <a href="{{root}}guide/cloud/#generative-fx">Generative FX</a>).</p>
+
+<h2 id="glint-and-bass">GLINT and BASS</h2>
+<p>GLINT is a separate layer on top: 4 voices of clean FM, played from the keys when you turn them over to it (SELECT, the KEYBOARD). GLINT
+  notes are never latched: each one rings and fades like a bell. The drones keep sounding while you play GLINT, by
+  hand, through its arpeggiator or from its 32-step sequencer. See <a href="{{root}}guide/glint/">GLINT</a>.</p>
+<p>BASS is a third thing the keys can play (SELECT on BASS): one deep note at a time, held like a drone, under everything.
+  It stays out of the reverb, but for a little SPACE. See <a href="{{root}}guide/bass/">BASS</a>.</p>
+
+<div class="g-figure">{{shot_play}}</div>

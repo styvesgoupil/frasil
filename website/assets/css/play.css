@@ -1,0 +1,125 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 Styves Goupil
+ * The play page: fm1-base's browser emulator (app/build/emu, its own page, its own code) in FRASIL's night.
+ * Only colours and frames change here: its layout, its controls and its script stay as fm1-base made them.
+ * Its panel is drawn by its script with fill attributes: they are matched here and repainted. */
+
+/* its palette, in ours (its own rules use these) */
+:root:root:root {
+  --ground: var(--night); --ink: var(--fog); --muted: var(--mist); --rule: var(--steel); --accent: var(--ice);
+  --teal: var(--ice); --card: var(--panel); --bad: #ff8a73; --focus: var(--lamp);
+  color-scheme: dark;
+}
+body.play-page { padding: 0; font: 400 18px/1.62 var(--f-text); background: var(--night); color: var(--fog); }
+.play-page .site-head { max-width: none; margin: 0; flex-wrap: nowrap; align-items: center; gap: 12px 28px; }
+.play-page .site-head nav { margin-left: 0; gap: clamp(14px, 3vw, 30px); }
+.play-page main.play { max-width: none; margin: 0; padding: 0; }
+.play-page .site-foot { margin-top: clamp(64px, 9vw, 120px); }
+.play-page .site-foot ul { padding-left: 0; }
+
+.play-intro { padding-top: clamp(44px, 6vw, 84px); }
+.play-intro .dhead { margin-bottom: clamp(28px, 4vw, 48px); }
+.play-intro .dhead .status { padding-top: 4px; }
+.play-intro-grid { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 24px clamp(32px, 6vw, 96px); align-items: end; }
+.play-intro h1 { font: 300 clamp(34px, 4.2vw, 58px)/1.04 var(--f-text); font-variation-settings: "opsz" 72; letter-spacing: -.018em; color: var(--white); margin: 0; }
+.play-intro h1 em { font-style: italic; color: var(--fog); }
+@media (max-width: 900px) { .play-intro-grid { grid-template-columns: 1fr; } }
+
+/* the instrument, on a dark stand */
+.play-device { margin-top: clamp(36px, 5vw, 64px); }
+.play-page .turn { color: var(--mist); font: 600 13px/1.3 var(--f-ui); letter-spacing: .12em; text-transform: uppercase; }
+.play-page .devicebox {
+  position: relative;
+  padding: clamp(10px, 2.4vw, 34px);
+  border-radius: 28px;
+  background: radial-gradient(120% 80% at 50% 0%, #121921 0%, #07090d 70%);
+  box-shadow: inset 0 0 0 1px #18202a, 0 60px 120px -60px rgba(0, 0, 0, .9), 0 0 0 1px #05070a;
+  scrollbar-width: thin; scrollbar-color: var(--steel) transparent;
+}
+.play-page .devicebox::after {                 /* the waterline, under the instrument */
+  content: ""; position: absolute; left: 8%; right: 8%; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(110, 208, 255, .5), transparent);
+}
+.play-page .device { filter: drop-shadow(0 30px 40px rgba(0, 0, 0, .55)); }
+.play-page .device canvas { box-shadow: 0 0 0 2px #000, 0 0 40px rgba(110, 208, 255, .08); }
+
+/* the panel's colours (its script's: BODY, TRAY, KNOB, BTNC, KEY_W, KEY_B, LABEL, the screen's bezel) */
+#panel > rect[fill="#3a3d42"] { fill: #161c24; }
+#panel > rect.fr { fill: url(#fr-body); }
+#panel rect[fill="#26282c"], #panel circle[fill="#26282c"] { fill: #0b0f14; }
+#panel rect[fill="#111214"] { fill: #040609; }
+#panel circle[fill="#1f2124"] { fill: #1b222b; stroke: #3a4553; }
+#panel rect[fill="#2e3135"] { fill: #1a212a; stroke: #313c49; }
+#panel rect[fill="#d9dadc"] { fill: #cfd6de; }
+#panel rect[fill="#c9cacd"] { fill: #b4bec9; }
+#panel text[fill="#e8e8ea"] { fill: #aeb7c2; }
+#panel line[stroke="#e8e8ea"] { stroke: var(--fog); }
+/* lit: warm for what the hand holds, cold for a choice made (the screen's own grammar) */
+#panel .lit .btnface { fill: var(--lamp); }
+#panel .lit text.btn { fill: #1d1107; }
+#panel .held .btnface, #panel .held .keyface { stroke: var(--lamp); stroke-width: 3; }
+#panel .latched .btnface, #panel .latched .keyface { stroke: var(--ice); stroke-width: 3; }
+#panel .lit .keyface.white { fill: #f6c48f; }
+#panel .lit .keyface.black { fill: var(--ice); }
+
+.play-page .start { background: rgba(6, 8, 12, .42); }
+@media (max-width: 620px) { .play-page .start { justify-items: start; padding-left: max(16px, calc(50vw - 118px)); } }
+.play-page .start button {
+  font: 600 16px/1 var(--f-ui); letter-spacing: .18em; text-transform: uppercase;
+  padding: 1em 1.6em .92em; border-radius: 8px; border: 1px solid var(--ice);
+  background: var(--ice); color: var(--night);
+  box-shadow: 0 14px 50px -12px rgba(110, 208, 255, .6);
+  transition: background-color .45s var(--ease), border-color .45s var(--ease), box-shadow .45s var(--ease);
+}
+.play-page .start button:hover, .play-page .start button:focus-visible {
+  background: var(--lamp); border-color: var(--lamp); box-shadow: 0 0 0 6px rgba(242, 166, 90, .14), 0 14px 50px -12px rgba(242, 166, 90, .6);
+}
+
+/* its bar and its reader, in the instrument's voice */
+.play-page .bar { margin-top: 22px; font: 500 15px/1.4 var(--f-ui); letter-spacing: .03em; color: var(--mist); gap: 10px 18px; }
+.play-page .bar button, .play-page .speak button {
+  font: 600 12.5px/1 var(--f-ui); letter-spacing: .14em; text-transform: uppercase;
+  min-height: 36px; padding: 8px 12px 7px; border-radius: 6px;
+  color: var(--fog); background: transparent; border: 1px solid var(--steel);
+  transition: border-color .25s, color .25s;
+}
+.play-page .bar button:hover, .play-page .speak button:hover:not(:disabled) { border-color: var(--fog); color: var(--white); }
+.play-page .bar button[aria-pressed="true"] { background: var(--ice); color: var(--night); border-color: var(--ice); }
+.play-page .bar input[type="checkbox"], .play-page .speak input { accent-color: var(--ice); }
+.play-page #status { color: var(--fog); }
+.play-page .speak { margin-top: 18px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; font: 500 15px/1.5 var(--f-ui); }
+.play-page .speak summary h2 { font: 600 13px/1 var(--f-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--fog); }
+.play-page #said { font: 500 20px/1.4 var(--f-ui); color: var(--white); }
+.play-page kbd { font: 600 12px/1 var(--f-ui); letter-spacing: .06em; color: var(--white); background: var(--panel); border: 1px solid var(--steel); border-bottom-width: 2px; border-radius: 4px; padding: .3em .45em .22em; }
+
+/* how to play it */
+.play-notes { margin-top: clamp(56px, 7vw, 96px); }
+.play-notes > .label { margin-bottom: 22px; }
+.play-notes-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--steel); }
+.play-card { padding: 26px clamp(18px, 3vw, 36px) 6px; border-left: 1px solid var(--rule); min-width: 0; }
+.play-card:first-child { border-left: 0; padding-left: 0; }
+.play-card:last-child { padding-right: 0; }
+.play-card h3 { font: 400 25px/1.2 var(--f-text); font-variation-settings: "opsz" 48; color: var(--white); margin: 0 0 14px; }
+.play-list { margin: 0; padding-left: 1.3em; display: grid; gap: 8px; color: var(--text-2); font-size: 17px; }
+.play-list li::marker { color: var(--dim); font: 600 14px var(--f-ui); }
+.play-list b { font: 600 .84em var(--f-ui); letter-spacing: .08em; color: var(--white); }
+.play-small { font-size: 16px; color: var(--text-2); margin: 0 0 10px; }
+.shortcuts { display: grid; margin: 0; }
+.shortcuts > div { display: grid; grid-template-columns: 9.5em 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.shortcuts dt { color: var(--mist); white-space: nowrap; }
+.shortcuts dd { margin: 0; color: var(--text-2); font-size: 16px; }
+@media (max-width: 960px) {
+  .play-notes-grid { grid-template-columns: 1fr; border-top: 0; }
+  .play-card { border-left: 0; padding: 24px 0; border-top: 1px solid var(--steel); }
+}
+.play-missing { margin-top: 40px; }
+
+/* the panel's labels: the FM-1's own, or FRASIL's (js/play.js) */
+.label-switch { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 0 0 12px; }
+.label-switch .ls-lab { font: 600 12px/1 var(--f-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--mist); margin-right: 8px; }
+.label-switch button { font: 600 13px/1 var(--f-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--mist);
+  background: transparent; border: 1px solid var(--steel); padding: 9px 14px; cursor: pointer; }
+.label-switch button:first-of-type { border-radius: 999px 0 0 999px; }
+.label-switch button:last-of-type { border-radius: 0 999px 999px 0; margin-left: -1px; }
+.label-switch button[aria-pressed="true"] { color: var(--night); background: var(--fog); border-color: var(--fog); }
+.label-switch button:focus-visible { outline: 2px solid var(--ice); outline-offset: 2px; }

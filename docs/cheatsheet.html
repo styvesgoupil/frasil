@@ -1,0 +1,449 @@
+<title>FRASIL Field Card</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500&display=swap">
+<style>
+/* Layout: one night-river column of field-card panels; the panel map first, then what each control does.
+   Single dark world, like the instrument's screen. */
+:root {
+  --night: #0a0d12;      /* page */
+  --deep: #0f141b;       /* panels */
+  --steel: #26303c;      /* rules, tracks */
+  --slate: #4a5563;      /* quiet marks */
+  --mist: #8b95a4;       /* labels */
+  --fog: #dce3ea;        /* text, values */
+  --lamp: #f2a65a;       /* warm: the hand */
+  --ice: #6ed0ff;        /* cold: the ice (GLINT, FREEZE, crystals) */
+  --haze: #1a222c;
+  --f-label: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--night);
+  color: var(--fog);
+  font: 400 15px/1.5 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+}
+.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 22px; }
+.lab {
+  font: 600 12px/1.2 var(--f-label);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mist);
+}
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px;
+  border-bottom: 1px solid var(--steel); padding-bottom: 14px; }
+.word { font: 600 15px/1 var(--f-label); letter-spacing: .5em; color: var(--mist); }
+h1 { margin: 6px 0 0; font: 600 clamp(26px, 5vw, 38px)/1.1 var(--f-label); letter-spacing: .02em; color: var(--fog);
+  text-wrap: balance; }
+.sub { color: var(--mist); max-width: 62ch; margin: 6px 0 0; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font: 500 13px var(--f-label); color: var(--mist); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+
+section { background: var(--deep); border: 1px solid var(--steel); border-radius: 6px; padding: 18px 18px 20px; min-width: 0; }
+section > h2 { margin: 0 0 12px; font: 600 13px/1.2 var(--f-label); letter-spacing: .18em; text-transform: uppercase;
+  color: var(--mist); display: flex; gap: 10px; align-items: baseline; }
+section > h2 b { color: var(--fog); font-weight: 600; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; }
+
+/* the panel map */
+.map { overflow-x: auto; }
+.map svg { display: block; width: 100%; min-width: 620px; height: auto; }
+.map text { font-family: var(--f-label); }
+
+/* gestures */
+.gest { display: grid; gap: 10px; margin: 0; }
+.gest div { display: grid; grid-template-columns: 9.5em 1fr; gap: 12px; align-items: baseline; }
+.gest dt { font: 600 14px var(--f-label); letter-spacing: .06em; color: var(--fog); text-transform: uppercase; }
+.gest dd { margin: 0; color: var(--fog); }
+.gest dd em { color: var(--lamp); font-style: normal; }
+
+/* pages */
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font: 500 14px/1.3 var(--f-label); font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--steel); vertical-align: top; }
+th { font-weight: 600; font-size: 11px; letter-spacing: .14em; color: var(--mist); text-transform: uppercase; }
+td.btn { color: var(--lamp); letter-spacing: .08em; white-space: nowrap; }
+td.page { color: var(--fog); font-weight: 600; letter-spacing: .06em; white-space: nowrap; }
+td small { display: block; color: var(--mist); font-weight: 400; letter-spacing: .02em; font-size: 12px; }
+tr:last-child td { border-bottom: 0; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 600 12px/1 var(--f-label); letter-spacing: .1em; padding: 6px 8px; border: 1px solid var(--steel);
+  border-radius: 3px; color: var(--fog); }
+.chip.dim { color: var(--mist); }
+.note { color: var(--mist); font-size: 14px; margin: 10px 0 0; max-width: 70ch; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font: 500 14px var(--f-label); }
+.kv span:nth-child(odd) { color: var(--lamp); font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.scenes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 20px; }
+.scene b { display: block; font: 600 16px var(--f-label); letter-spacing: .12em; }
+.scene span { color: var(--mist); font: 500 13px var(--f-label); letter-spacing: .04em; }
+footer { color: var(--slate); font: 500 12px var(--f-label); letter-spacing: .08em; text-align: center; }
+@media (max-width: 520px) { .gest div { grid-template-columns: 1fr; gap: 2px; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="word">FRASIL</div>
+      <h1>Field card</h1>
+      <p class="sub">Drones et textures pour le M-VAVE FM-1. Les notes de tes drones ne changent jamais : le timbre dérive, pas
+        les notes. Le hasard n'entre que là où tu le laisses entrer : CHANCE, RANDOM et DRIFT dans GLINT, SPARKLE sur les
+        notes de tes drones.</p>
+    </div>
+    <div class="legend" aria-label="Légende du schéma">
+      <span><i style="background:var(--lamp)"></i>toujours actif</span>
+      <span><i style="background:var(--ice)"></i>glace : GLINT, FREEZE</span>
+      <span><i style="background:var(--fog)"></i>page / réglage</span>
+      <span><i style="background:var(--slate)"></i>clavier</span>
+    </div>
+  </header>
+
+  <section class="map" aria-labelledby="h-map">
+    <h2 id="h-map">Le panneau</h2>
+    <svg viewBox="0 0 960 430" role="img" aria-label="Schéma du FM-1 avec le rôle de chaque contrôle sous FRASIL">
+      <rect x="1" y="1" width="958" height="428" rx="14" fill="#0b1016" stroke="#26303c"/>
+      <!-- left encoders -->
+      <g font-size="13" letter-spacing="1.2" fill="#8b95a4">
+        <circle cx="70" cy="62" r="20" fill="#121922" stroke="#4a5563"/>
+        <circle cx="150" cy="62" r="20" fill="#121922" stroke="#f2a65a"/>
+        <circle cx="70" cy="150" r="20" fill="#121922" stroke="#f2a65a"/>
+        <circle cx="150" cy="150" r="20" fill="#121922" stroke="#f2a65a"/>
+        <text x="70" y="100" text-anchor="middle">MASTER</text>
+        <text x="70" y="116" text-anchor="middle" fill="#dce3ea">VOLUME</text>
+        <text x="150" y="100" text-anchor="middle">SELECT</text>
+        <text x="150" y="116" text-anchor="middle" fill="#f2a65a">KEYBOARD</text>
+        <text x="70" y="188" text-anchor="middle">PRESETS</text>
+        <text x="70" y="204" text-anchor="middle" fill="#f2a65a">PRESET</text>
+        <text x="150" y="188" text-anchor="middle">ALGORITHM</text>
+        <text x="150" y="204" text-anchor="middle" fill="#f2a65a">FULLNESS</text>
+      </g>
+      <!-- octave -->
+      <g font-size="12" letter-spacing="1" fill="#dce3ea">
+        <rect x="42" y="226" width="56" height="22" rx="4" fill="#121922" stroke="#4a5563"/>
+        <rect x="122" y="226" width="56" height="22" rx="4" fill="#121922" stroke="#4a5563"/>
+        <text x="70" y="241" text-anchor="middle">OCT −</text>
+        <text x="150" y="241" text-anchor="middle">OCT +</text>
+        <text x="110" y="268" text-anchor="middle" fill="#8b95a4" font-size="11">les deux : retour à −1</text>
+      </g>
+      <!-- screen -->
+      <rect x="250" y="26" width="200" height="200" rx="10" fill="#0a0d12" stroke="#4a5563"/>
+      <g fill="none" stroke="#dce3ea" opacity=".8">
+        <path d="M282 120 C320 116 360 124 420 119" stroke-width="1"/>
+        <path d="M290 140 C330 136 370 145 418 139" stroke-width="1" stroke="#f2a65a"/>
+        <path d="M280 160 C330 156 380 165 422 158" stroke-width="1"/>
+      </g>
+      <g fill="#dce3ea"><circle cx="300" cy="118" r="1.4"/><circle cx="352" cy="121" r="1.2"/><circle cx="395" cy="117" r="1.3"/>
+        <circle cx="330" cy="161" r="1.2"/><circle cx="372" cy="157" r="1.4"/><circle cx="388" cy="70" r="1.6"/></g>
+      <g fill="#f2a65a"><circle cx="318" cy="139" r="1.5"/><circle cx="360" cy="142" r="1.3"/></g>
+      <path d="M266 196 H434" stroke="#4a5563"/>
+      <text x="350" y="56" text-anchor="middle" font-size="11" letter-spacing="4" fill="#8b95a4">RIVER</text>
+      <text x="350" y="216" text-anchor="middle" font-size="10" letter-spacing="1.5" fill="#8b95a4">KEYBOARD · PRESET · FULLNESS</text>
+      <!-- right encoders -->
+      <g font-size="13" letter-spacing="1.2" fill="#dce3ea">
+        <circle cx="560" cy="62" r="20" fill="#121922" stroke="#dce3ea"/>
+        <circle cx="660" cy="62" r="20" fill="#121922" stroke="#dce3ea"/>
+        <circle cx="760" cy="62" r="20" fill="#121922" stroke="#dce3ea"/>
+        <circle cx="860" cy="62" r="20" fill="#121922" stroke="#dce3ea"/>
+        <text x="560" y="102" text-anchor="middle">K1</text>
+        <text x="660" y="102" text-anchor="middle">K2</text>
+        <text x="760" y="102" text-anchor="middle">K3</text>
+        <text x="860" y="102" text-anchor="middle">K4</text>
+        <text x="710" y="122" text-anchor="middle" font-size="11" fill="#8b95a4">les 4 réglages de la page affichée</text>
+      </g>
+      <!-- buttons: a press shows (on release), a hold acts -->
+      <g font-size="12" letter-spacing="1" text-anchor="middle">
+        <g fill="#121922" stroke="#4a5563">
+          <rect x="510" y="134" width="66" height="30" rx="5"/><rect x="584" y="134" width="66" height="30" rx="5"/>
+          <rect x="658" y="134" width="66" height="30" rx="5"/><rect x="732" y="134" width="66" height="30" rx="5"/>
+          <rect x="806" y="134" width="66" height="30" rx="5"/><rect x="880" y="134" width="66" height="30" rx="5"/>
+          <rect x="510" y="200" width="66" height="30" rx="5"/><rect x="584" y="200" width="66" height="30" rx="5"/>
+          <rect x="658" y="200" width="66" height="30" rx="5" stroke="#f2a65a"/><rect x="732" y="200" width="66" height="30" rx="5" stroke="#f2a65a"/>
+          <rect x="806" y="200" width="66" height="30" rx="5" stroke="#f2a65a"/><rect x="880" y="200" width="66" height="30" rx="5" stroke="#f2a65a"/>
+        </g>
+        <g fill="#8b95a4">
+          <text x="543" y="154">FX</text><text x="617" y="154">SEL</text><text x="691" y="154">ENV</text>
+          <text x="765" y="154">LFO</text><text x="839" y="154">EDIT</text><text x="913" y="154">GLO</text>
+          <text x="543" y="220">HOME</text><text x="617" y="220">SAVE</text><text x="691" y="220">ARP</text>
+          <text x="765" y="220">SEQ</text><text x="839" y="220">PLAY</text><text x="913" y="220">REC</text>
+        </g>
+        <g fill="#dce3ea" font-size="11">
+          <text x="543" y="178" font-size="9">GEN FX · CLOUD</text><text x="617" y="178">HARMONY</text><text x="691" y="178" font-size="9">DRONE SHAPE</text>
+          <text x="765" y="178" font-size="9" letter-spacing=".4">MOTION · LFO ×3</text><text x="839" y="178" font-size="9" letter-spacing=".4">DRONE · LAYERS</text><text x="913" y="178">GLOBAL</text>
+          <text x="543" y="246">PLAY · MIXER</text><text x="617" y="246">SCENES</text>
+        </g>
+        <g fill="#8b95a4" font-size="9" letter-spacing=".4">
+          <text x="543" y="190">tenu : FREEZE</text><text x="617" y="190">+ touche : 1 note</text>
+          <text x="765" y="190">tenu + K : LFO</text><text x="839" y="190">tenu : COMPARE</text><text x="913" y="190">tenu + CC : LEARN</text>
+          <text x="543" y="259">tenu : AIDE</text><text x="617" y="259">+ touche : charger</text><text x="617" y="270">+ REC : sauver</text>
+        </g>
+        <g fill="#f2a65a" font-size="11">
+          <text x="691" y="246">GLINT</text><text x="765" y="246">BASS</text>
+          <text x="839" y="246">START · STOP</text><text x="913" y="246">RECORD</text>
+        </g>
+        <g fill="#f2a65a" font-size="9" letter-spacing=".4" opacity="0.8">
+          <text x="691" y="259">tenu : LATCH</text><text x="765" y="259">tenu : SWELL</text>
+          <text x="839" y="259">tenu : RELÂCHER</text><text x="913" y="259">tenu : MÉTRONOME</text>
+        </g>
+      </g>
+      <!-- keyboard -->
+      <rect x="30" y="290" width="900" height="120" rx="10" fill="#0d1218" stroke="#26303c"/>
+      <g fill="#121922" stroke="#4a5563">
+        <rect x="44" y="352" width="44" height="46" rx="6"/><rect x="98" y="352" width="44" height="46" rx="6"/>
+        <rect x="152" y="352" width="44" height="46" rx="6"/><rect x="206" y="352" width="44" height="46" rx="6"/>
+        <rect x="260" y="352" width="44" height="46" rx="6"/><rect x="314" y="352" width="44" height="46" rx="6"/>
+        <rect x="368" y="352" width="44" height="46" rx="6"/><rect x="422" y="352" width="44" height="46" rx="6"/>
+        <rect x="476" y="352" width="44" height="46" rx="6"/><rect x="530" y="352" width="44" height="46" rx="6"/>
+        <rect x="584" y="352" width="44" height="46" rx="6"/><rect x="638" y="352" width="44" height="46" rx="6"/>
+        <rect x="692" y="352" width="44" height="46" rx="6"/><rect x="746" y="352" width="44" height="46" rx="6"/>
+        <rect x="800" y="352" width="44" height="46" rx="6"/><rect x="854" y="352" width="44" height="46" rx="6"/>
+      </g>
+      <g fill="#1a222c" stroke="#4a5563">
+        <rect x="76" y="302" width="34" height="40" rx="5"/><rect x="130" y="302" width="34" height="40" rx="5"/>
+        <rect x="184" y="302" width="34" height="40" rx="5"/><rect x="292" y="302" width="34" height="40" rx="5"/>
+        <rect x="346" y="302" width="34" height="40" rx="5"/><rect x="454" y="302" width="34" height="40" rx="5"/>
+        <rect x="508" y="302" width="34" height="40" rx="5"/><rect x="562" y="302" width="34" height="40" rx="5"/>
+        <rect x="670" y="302" width="34" height="40" rx="5"/><rect x="724" y="302" width="34" height="40" rx="5"/>
+        <rect x="832" y="302" width="34" height="40" rx="5"/>
+      </g>
+      <path d="M44 404 H736" stroke="#f2a65a" stroke-width="2"/>
+      <text x="390" y="424" text-anchor="middle" font-size="11" letter-spacing="1" fill="#f2a65a">PRESSION : les 20 touches du bas</text>
+    </svg>
+    <p class="note">Les 3 encodeurs de gauche jouent toujours la même chose, sur toutes les pages. K1–K4 changent selon la page.
+      À l'écran, chaque réglage porte le badge de son contrôle : un disque bleu numéroté 1 à 4 pour K1–K4, un disque orange
+      A, B ou C pour SELECT (KEYBOARD : ce que jouent les touches), PRESETS (le preset du drone) et ALGORITHM (FULLNESS),
+      affichés dans cet ordre au bas de la page de jeu.</p>
+    <p class="note">Un appui montre, un appui tenu agit : chaque bouton agit quand tu le relâches (OCT −/+ tout de suite). Tenu
+      0,4 s (PLAY 0,6 s), il fait autre chose. Utilisé avec autre chose (SEL + touche, SAVE + touche ou REC, LFO + encodeur,
+      GLO + CC), il ne fait rien de plus au relâchement.</p>
+    <p class="note">HOME tenu : l'aide à l'écran, qui reste affichée, ouverte à la page du bouton de la page où tu es. Cinq pages,
+      que l'encodeur A (SELECT) fait défiler : les boutons (dans l'ordre du panneau), les encodeurs, les touches. Un tap sur HOME
+      la ferme et te ramène où tu étais.</p>
+    <p class="note">Sur la page de jeu (HOME), chaque couche du drone a son élément dans la rivière : le courant, c'est CHOIR, les
+      cristaux, c'est PARTIALS, et la brume autour, c'est BREATH. SINK assombrit la rivière par le haut, BLUR épaissit la brume.
+      Les quatre strates sous la ligne d'eau montrent le mélange exact, avec WARMTH en braises. K1–K4 les règlent, et la strate
+      tournée s'allume. Les trois encodeurs de gauche affichent leur valeur en grand un instant. En haut à droite de la rivière,
+      seulement ce qui est actif : SEQ (ou REC), ARP ou ARP LATCH, LFO et ses trois points, SWELL.</p>
+    <p class="note">L'en-tête de la page de jeu : le numéro et le nom de la scène, un point ambre tant que le son a changé, puis la
+      tonalité s'il y a de la place. Sous chaque titre, un point par page du bouton, celle affichée en bleu glace. À droite, le
+      badge des touches ; à sa gauche, un point ambre quand le processeur allège le son.</p>
+  </section>
+
+  <div class="grid2">
+    <section aria-labelledby="h-keys">
+      <h2 id="h-keys">Les touches <b>DRONE</b></h2>
+      <dl class="gest">
+        <div><dt>Tap</dt><dd>Allume la note (ou l'accord) : elle monte lentement et reste.</dd></div>
+        <div><dt>Tap sur une note allumée</dt><dd>Elle s'éteint en douceur (RELEASE).</dd></div>
+        <div><dt>Tenir + appuyer</dt><dd>La voix <em>gonfle et s'ouvre</em>. Lâche : elle reste allumée.</dd></div>
+        <div><dt>SEQ tenu</dt><dd>SWELL : après 0,4 s, toutes les voix gonflent ensemble (1,5 s pour monter, 1,5 s pour redescendre).</dd></div>
+        <div><dt>HOME encore</dt><dd>Le MIXER, puis l'écran du logo. Le logo est vivant : les granules suivent ce qui joue (plus vite avec MOTION), la pression les réchauffe, les éclats GLINT y scintillent; dans l'eau, des houles de lumière et des reflets qui vont et viennent. FREEZE fige tout.
+          PLAY et OCT le laissent ouvert : il sert de visuel de jeu.</dd></div>
+        <div><dt>FX tenu</dt><dd>FREEZE, la page reste (ou FX, page CLOUD, K4) : le nuage se fige, plus rien n'y entre. Les cristaux à l'écran se mettent en réseau. Le CC 80 marche aussi.</dd></div>
+        <div><dt>SWELL</dt><dd>FX, page GENERATIVE FX, K1 : toutes les voix gonflent autant qu'il est tourné, et y restent. Pas gardé dans la scène.</dd></div>
+        <div><dt>PLAY tenu</dt><dd>Après 0,6 s, RELEASE ALL : drones, basse, glints, arpège et séquence relâchés (dès 0,2 s, l'en-tête le dit, avec une ligne qui se remplit ; lâché alors, avant 0,6 s : rien). Tenu de nouveau, rien ne jouant : RESTORE ramène ce qu'il a relâché.</dd></div>
+        <div><dt>EDIT tenu</dt><dd>COMPARE : tant qu'il est tenu, la scène sonne telle que sauvée (ou chargée), l'en-tête dit COMPARE · AS SAVED.</dd></div>
+        <div><dt>LFO tenu + K1–K4</dt><dd>Le réglage sous cet encodeur passe sur LFO 1, puis LFO 2, LFO 3, puis aucun, dans la première TARGET libre ; un DEPTH à 0 monte à 25 %. LFO relâché sans tourner : ses pages.</dd></div>
+        <div><dt>SELECT</dt><dd>KEYBOARD, ce que jouent les touches : DRONE, GLINT, BASS (à droite; à gauche pour revenir, il s'arrête aux bouts). Le badge en haut à droite de l'écran le dit : un petit clavier, le mode et l'octave, en blanc (DRONE), bleu (GLINT) ou orange (BASS). Son contour est plein quand les notes sont latchées, pointillé quand elles ne sonnent que tenues.</dd></div>
+        <div><dt>ALGORITHM</dt><dd>FULLNESS : 100 % = le drone tel que réglé; plus bas, plus mince (moins de désaccord, de partiels et de souffle, plus étroit, ses graves coupés). Hors des presets.</dd></div>
+        <div><dt>SEL tenu + touche</dt><dd>Une <em>note seule</em>, même si CHORD fait des accords. Pour ajouter une note par-dessus un accord.</dd></div>
+        <div><dt>OCT − / +</dt><dd>De −3 à +2. Départ : −1, les touches vont de F2 à G4.</dd></div>
+      </dl>
+      <p class="note">GLOBAL › KEYS = HOLD : les notes sonnent seulement tant que la touche est tenue.</p>
+    </section>
+
+    <section aria-labelledby="h-spark">
+      <h2 id="h-spark">Les touches <b style="color:var(--ice)">GLINT</b></h2>
+      <dl class="gest">
+        <div><dt>SELECT</dt><dd>Tourné sur GLINT : le clavier joue GLINT, les éclats de glace (badge bleu à l'écran, qui dit ce que font les touches : GLINT, ARP, SEQ, ou REC en orange). Plus loin : BASS; à gauche, retour aux drones.</dd></div>
+        <div><dt>ARP tenu</dt><dd>LATCH de l'arpège, actif au démarrage : il continue quand tu lâches les touches, même revenu aux drones. Une nouvelle main remplace l'accord. ARP tenu de nouveau : off. PLAY (un tap) le met en attente, ses notes gardées ; encore : il reprend du début. PLAY tenu le relâche.</dd></div>
+        <div><dt>Une touche</dt><dd>Une cloche FM glacée, dans la gamme, une ou plusieurs octaves plus haut. Jamais latchée : elle résonne et s'éteint.</dd></div>
+        <div><dt>TYPE</dt><dd>GLINT PARAMS, K2 : OFF (chaque touche son glint), ARP (l'arpégiateur) ou SEQ (le séquenceur). Les pages d'ARP suivent : GLINT ARP avec ARP, les trois pages SEQ avec SEQ, ni l'une ni les autres avec OFF.</dd></div>
+        <div><dt>Arpégiateur</dt><dd>TYPE sur ARP, page GLINT ARP : les touches tenues sont jouées une à une (UP, DOWN, UPDOWN, RANDOM, DRIFT), à RATE, sur RANGE octaves, avec CHANCE. Suit l'horloge MIDI, sinon TEMPO (GLOBAL, K1).
+          Toujours sur la grille : un nouvel accord, un ajout ou un retrait prend effet au prochain pas de RATE, le motif repart du début. Un Start MIDI remet la grille à zéro.</dd></div>
+        <div><dt>Séquenceur</dt><dd>TYPE sur SEQ : 32 pas sur la même grille (RATE, CHANCE, ceux de l'arpège). Page GLINT SEQ : STEP, NOTE (REST · note · TIE, telle qu'elle sonne), ACCENT, RECORD. RECORD sur STEP : une touche écrit au pas STEP et avance; sur LIVE : tu joues, la note va au pas le plus proche; OFF : les touches transposent la séquence dans la gamme. GLINT SEQ II : LENGTH, RATE, GATE, CHANCE. GLINT SEQ III : TRANSPOSE, CLEAR, NEW TAKE (tout effacé, RECORD sur LIVE, la séquence lancée) et UNDO (la séquence d'avant la dernière prise ou le CLEAR ; encore : retour), deux crans chacun. PLAY (un tap) l'arrête, puis la relance du début. Une séquence par scène.</dd></div>
+        <div><dt>REC</dt><dd>Tout droit dans le séquenceur, en enregistrant : TYPE sur SEQ, le clavier sur GLINT, RECORD sur LIVE, la page GLINT SEQ, la séquence lancée si elle était arrêtée. Tu joues, ça s'écrit. REC de nouveau : RECORD OFF, les touches reviennent à ce qu'elles jouaient avant la prise de REC (RECORD OFF · DRONE), la page reste. REC garde la séquence d'avant la prise, pour UNDO. Tant que RECORD est actif, REC clignote sur le temps (deux fois plus vite que OCT) et un métronome fait tic à chaque temps, plus aigu au premier de la mesure. REC tenu : métronome OFF ou ON (gardé avec les réglages).</dd></div>
+        <div><dt>OCTAVE</dt><dd>GLINT II, K3 : déplace aussi l'arpège et la séquence en cours, tout de suite (leurs notes sont gardées sans elle, jouées avec).</dd></div>
+        <div><dt>Appuyer</dt><dd>La note gonfle (jusqu'à +8 dB) et résonne plus longtemps. Avec l'arpège : les pas tirés de cette touche.</dd></div>
+        <div><dt>VIBRATO</dt><dd>GLINT III, K3 (OFF à 0). Une fois le doigt enfoncé, le <em>tremblement</em> du doigt infléchit la hauteur du glint des deux côtés de la note; une pression stable reste juste. Environ 10 cents par défaut, 25 à 100.</dd></div>
+        <div><dt>Les drones</dt><dd>Continuent de sonner pendant que tu joues GLINT.</dd></div>
+      </dl>
+      <p class="note">Les pages de GLINT : ARP (un tap), puis GLINT PARAMS, GLINT II, GLINT III, GLINT DELAY (toujours la 4<sup>e</sup>), puis GLINT ARP (TYPE sur ARP) ou GLINT SEQ, SEQ II, SEQ III (TYPE sur SEQ) ; quatre pages avec TYPE sur OFF. Si la page affichée disparaît (TYPE changé, une scène chargée), retour à GLINT PARAMS. Preset de départ : SINE.
+        Le délai ne touche que GLINT ; TIME : mono, puis les mêmes valeurs en ping-pong (PP) ; il suit l'horloge MIDI, sinon TEMPO (GLOBAL, K1) ; ses échos vont aussi dans le nuage, autant que SPACE (sur GLINT DELAY) y envoie.</p>
+      <div class="chips" style="margin-top:12px">
+        <span class="chip">ICE</span><span class="chip">BELL</span><span class="chip">BLIP</span><span class="chip">GLASS</span>
+        <span class="chip">CHIME</span><span class="chip">DROP</span><span class="chip">FROST</span><span class="chip">CELESTA</span>
+        <span class="chip">SINE</span><span class="chip">KALIMBA</span><span class="chip">MARIMBA</span><span class="chip">MUSIC BOX</span>
+        <span class="chip">VIBES</span><span class="chip">HARP</span><span class="chip">PIPE</span><span class="chip">BOWED</span>
+        <span class="chip">WARM LEAD</span><span class="chip">BRASS</span><span class="chip">SQUARE</span><span class="chip">SUB LEAD</span>
+        <span class="chip">STRINGS</span><span class="chip">REED</span>
+      </div>
+    </section>
+  </div>
+
+  <section aria-labelledby="h-bass">
+    <h2 id="h-bass">Les touches <b>BASS</b></h2>
+    <dl class="gest">
+      <div><dt>SELECT</dt><dd>Tourné jusqu'au bout, sur BASS : les touches jouent BASS (badge orange à l'écran). À gauche : GLINT, puis DRONE.</dd></div>
+      <div><dt>Tap</dt><dd>La basse tient cette note : celle de la touche dans la gamme, OCTAVE octaves plus bas (BASS II). Une seule note à la fois, tenue comme un drone.</dd></div>
+      <div><dt>Une autre touche</dt><dd>La basse y glisse (GLIDE).</dd></div>
+      <div><dt>Sa propre touche</dt><dd>Elle lâche.</dd></div>
+      <div><dt>Tenir + appuyer</dt><dd>Plus fort, et le filtre s'ouvre.</dd></div>
+      <div><dt>PLAY tenu</dt><dd>Elle lâche aussi. Elle continue de sonner quand les touches reviennent à DRONE ou GLINT.</dd></div>
+    </dl>
+    <p class="note">GLOBAL › KEYS = HOLD : elle sonne seulement tant que sa touche est tenue. Jamais dans la réverb.
+      Huit MODELs : SINE (pur), TRIANGLE (doux, un peu creux), SQUARE (creux, boisé), SAW (brillant, qui bourdonne), REESE (deux scies à dix cents l'une de l'autre, qui battent lentement),
+      SUB (le sinus et son octave en dessous), ORGAN (trois tirettes : la note, son octave et sa douzième), FM (un sinus qui se module lui-même : rond, qui grogne).
+      Changer de MODEL pendant qu'elle sonne se fait en quelques ms, sans clic. Le filtre est résonant (RESONANCE, Q 0,5 à 6).
+      DRIVE ou un MODEL plus riche aident le petit haut-parleur; SINE avec DRIVE 0 = sub propre au casque.
+      Ses pages : SEQ (un tap), puis SEQ de nouveau pour BASS II et BASS III. À l'écran : une lente houle sur toute la rivière, à la hauteur de sa note, l'eau plus sombre en dessous, sa note écrite à droite.</p>
+  </section>
+
+  <section class="tbl" aria-labelledby="h-pages">
+    <h2 id="h-pages">Les pages <b>K1 · K2 · K3 · K4</b></h2>
+    <table>
+      <thead><tr><th>Bouton</th><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead>
+      <tbody>
+        <tr><td class="btn">HOME</td><td class="page">SOUND</td><td>CHOIR</td><td>PARTIALS</td><td>BREATH</td><td>WARMTH<small>saturation douce</small></td></tr>
+        <tr><td class="btn">HOME 2</td><td class="page">MIXER</td><td>DRONE<small>0 à 127, 100 = tel quel</small></td><td>BASS</td><td>GLINT</td><td>CLOUD<small>le retour de la réverb</small></td></tr>
+        <tr><td class="btn">EDIT 1</td><td class="page">DRONE PARAMS</td><td>TIMBRE<small>brillance des trois couches</small></td><td>SPACE<small>part dans la réverb</small></td><td>MOTION<small>profondeur de la dérive</small></td><td>FULLNESS<small>100 % = tel quel; plus bas, plus mince</small></td></tr>
+        <tr><td class="btn">EDIT 2</td><td class="page">CHOIR</td><td>CHOIR<small>niveau</small></td><td>DETUNE<small>0 à 40 cents</small></td><td>FILTER<small>suit la note</small></td><td>WARMTH</td></tr>
+        <tr><td class="btn">EDIT 3</td><td class="page">CHOIR II</td><td>SHAPE<small>scie → carré (au milieu) → impulsion étroite qui ondule</small></td><td>INTERVAL<small>la scie du centre : UNISON, −12, +7, +12</small></td><td>RESONANCE<small>pic du filtre, jusqu'au sifflement</small></td><td>TYPE<small>LOW · BAND · HIGH</small></td></tr>
+        <tr><td class="btn">EDIT 4</td><td class="page">PARTIALS</td><td>PARTIALS<small>niveau</small></td><td>TILT<small>brillant → sombre</small></td><td>ODD<small>harmoniques impaires</small></td><td>STRETCH<small>vers la cloche</small></td></tr>
+        <tr><td class="btn">EDIT 5</td><td class="page">PARTIALS II</td><td>EVOLVE<small>les partiels vont et viennent</small></td><td>BEAT<small>chacun pulse à son rythme</small></td><td>FORMANT<small>sa place, H1 à H8 (H4)</small></td><td>PEAK<small>jusqu'à cette harmonique seule</small></td></tr>
+        <tr><td class="btn">EDIT 6</td><td class="page">BREATH</td><td>BREATH<small>niveau</small></td><td>RESONANCE<small>air → verre</small></td><td>COLOR<small>harmonique · impair · cloche</small></td><td>SPREAD<small>largeur des voix</small></td></tr>
+        <tr><td class="btn">EDIT 7</td><td class="page">BREATH II</td><td>GRAIN<small>souffle → grains épars</small></td><td>PITCH<small>résonateurs : −12, UNISON, +12, +19, +24</small></td><td>TONE<small>bruit plus sombre ou plus clair</small></td><td>AIR<small>le bruit lui-même</small></td></tr>
+        <tr><td class="btn">ARP 1</td><td class="page">GLINT PARAMS</td><td>PRESET<small>22 sons</small></td><td>TYPE<small>OFF · ARP · SEQ</small></td><td>LEVEL</td><td>BRIGHT<small>index FM</small></td></tr>
+        <tr><td class="btn">ARP 2</td><td class="page">GLINT II</td><td>ATTACK<small>2 ms à 1,5 s</small></td><td>DECAY<small>80 ms à 6 s</small></td><td>OCTAVE<small>+0 à +3, l'arpège et la séquence aussi</small></td><td>RATIO<small>×0.5 à ×13.6</small></td></tr>
+        <tr><td class="btn">ARP 3</td><td class="page">GLINT III</td><td>PING<small>frappe vs résonance</small></td><td>SCATTER<small>place et désaccord</small></td><td>VIBRATO<small>OFF, profondeur du tremblement</small></td><td>SUSTAIN<small>niveau tenu : une cloche devient un lead</small></td></tr>
+        <tr><td class="btn">ARP 4</td><td class="page">GLINT DELAY<small>toujours la 4<sup>e</sup></small></td><td>TIME<small>1/32 à 1/2, T et D, sur le tempo; puis les mêmes en PP (ping-pong)</small></td><td>FEEDBACK</td><td>MIX</td><td>SPACE<small>envoi réverb de GLINT</small></td></tr>
+        <tr><td class="btn">ARP 5</td><td class="page">GLINT ARP<small>TYPE sur ARP</small></td><td>MODE<small>UP · DOWN · UPDOWN · RANDOM · DRIFT</small></td><td>RATE<small>1/1 à 1/32, triolets</small></td><td>RANGE<small>1 à 3 octaves</small></td><td>CHANCE<small>chaque pas joue ou non</small></td></tr>
+        <tr><td class="btn">ARP 5</td><td class="page">GLINT SEQ<small>TYPE sur SEQ</small></td><td>STEP<small>1 à 32</small></td><td>NOTE<small>REST · une note · TIE</small></td><td>ACCENT<small>OFF · ON</small></td><td>RECORD<small>OFF (les touches transposent) · STEP · LIVE</small></td></tr>
+        <tr><td class="btn">ARP 6</td><td class="page">GLINT SEQ II</td><td>LENGTH<small>1 à 32 pas</small></td><td>RATE<small>celui de l'arpège</small></td><td>GATE<small>durée des notes</small></td><td>CHANCE<small>celle de l'arpège</small></td></tr>
+        <tr><td class="btn">ARP 7</td><td class="page">GLINT SEQ III</td><td>TRANSPOSE<small>−14 à +14 degrés</small></td><td>CLEAR<small>deux crans</small></td><td>NEW TAKE<small>deux crans : effacer et enregistrer LIVE</small></td><td>UNDO<small>deux crans : la séquence d'avant</small></td></tr>
+        <tr><td class="btn">SEQ 1</td><td class="page">BASS</td><td>MODEL<small>SINE · TRIANGLE · SQUARE · SAW · REESE · SUB · ORGAN · FM</small></td><td>DRIVE<small>propre → saturé doux</small></td><td>FILTER<small>40 Hz à 5 kHz</small></td><td>RESONANCE<small>Q 0,5 à 6</small></td></tr>
+        <tr><td class="btn">SEQ 2</td><td class="page">BASS II</td><td>LEVEL</td><td>OCTAVE<small>−2, −1, 0 sous les touches</small></td><td>GLIDE<small>OFF à 2 s</small></td><td>—</td></tr>
+        <tr><td class="btn">SEQ 3</td><td class="page">BASS III</td><td>ATTACK<small>5 ms à 5 s</small></td><td>RELEASE<small>30 ms à 15 s</small></td><td>—</td><td>—</td></tr>
+        <tr><td class="btn">ENV</td><td class="page">DRONE SHAPE</td><td>ATTACK<small>5 ms à 30 s</small></td><td>RELEASE<small>50 ms à 60 s</small></td><td>PRESSURE<small>effet de la pression</small></td><td>VELOCITY</td></tr>
+        <tr><td class="btn">LFO</td><td class="page">DRONE MOTION</td><td>MOTION<small>profondeur de la dérive</small></td><td>RATE<small>20 s à 0,5 s</small></td><td>TIDE<small>marée sur le timbre</small></td><td>PERIOD<small>5 min à 10 s</small></td></tr>
+        <tr><td class="btn">LFO 2 · 4 · 6</td><td class="page">LFO 1 · 2 · 3</td><td>SHAPE<small>SINE · TRIANGLE · SAW · RAMP · SQUARE · RANDOM · DRIFT</small></td><td>RATE<small>libre 200 s à 10 Hz, puis 16 BARS à 1/16 (horloge MIDI ou TEMPO)</small></td><td>DEPTH<small>0 = éteint</small></td><td>POLARITY<small>BIPOLAR · UP · DOWN</small></td></tr>
+        <tr><td class="btn">LFO 3 · 5 · 7</td><td class="page">LFO 1 · 2 · 3 TARGETS</td><td colspan="4">TARGET 1 à 4 : OFF ou un réglage (TIMBRE, SPACE, MOTION, WARMTH, les niveaux des couches, DETUNE, FILTER, SHAPE, CH RESO, TILT, ODD, STRETCH, EVOLVE, BEAT, FORMANT, PEAK, BR RESO, COLOR, GRAIN, BR TONE, AIR, SPREAD, GL LEVEL, GL BRIGHT, GL PING, GL SPACE, DRONE LVL, GLINT LVL, BS FILTER, BS RESO, BS DRIVE, BASS LVL, FULLNESS, GL CHANCE, SEQ LEN, SPARKLE, BLUR, SINK), écrit à la couleur de sa piste : GLINT en bleu glace, BASS en orange, le drone et tout le mix en blanc. Libres, en continu; les jauges montrent en bleu où l'LFO met le réglage.</td></tr>
+        <tr><td class="btn">SEL</td><td class="page">HARMONY</td><td>ROOT</td><td>SCALE</td><td>CHORD</td><td>VOICING</td></tr>
+        <tr><td class="btn">FX 1</td><td class="page">GENERATIVE FX</td><td>SWELL<small>toutes les voix gonflent, tenues là</small></td><td>SPARKLE<small>des glints tout seuls sur les notes des drones</small></td><td>BLUR<small>le drone se fond dans le nuage</small></td><td>SINK<small>passe-bas sur tout, 12 kHz → 120 Hz</small></td></tr>
+        <tr><td class="btn">FX 2</td><td class="page">CLOUD</td><td>SIZE</td><td>DECAY<small>0,4 s à 60 s</small></td><td>TONE<small>durée des aigus</small></td><td>FREEZE<small>OFF · ON</small></td></tr>
+        <tr><td class="btn">FX 3</td><td class="page">CLOUD II</td><td>DIFFUSION</td><td>MODULATION</td><td>PRE-DELAY<small>0 à 200 ms</small></td><td>WIDTH<small>largeur stéréo de la queue</small></td></tr>
+        <tr><td class="btn">FX 4</td><td class="page">CLOUD III</td><td>SHIMMER</td><td>INTERVAL<small>+12 · +7 · +5 · +19 · −12</small></td><td>BRIGHT<small>brillance du shimmer, 700 Hz à 8 kHz</small></td><td>—</td></tr>
+        <tr><td class="btn">FX 5</td><td class="page">PUMP</td><td>RATE<small>OFF · 4 BARS · 2 BARS · 1 BAR · 1/2 · 1/4 · 1/8</small></td><td>DRONE<small>profondeur</small></td><td>BASS<small>profondeur</small></td><td>GLINT<small>profondeur</small></td></tr>
+        <tr><td class="btn">FX 6</td><td class="page">PUMP II</td><td>RELEASE<small>10 à 100 % de la période</small></td><td>ATTACK<small>1 à 300 ms</small></td><td>OFFSET<small>0 à 100 % de la période</small></td><td>—</td></tr>
+        <tr><td class="btn">GLO 1</td><td class="page">GLOBAL</td><td>TEMPO<small>30 à 240 BPM : arpège, séquence et délai GLINT, PUMP, LFO (sans horloge MIDI)</small></td><td>LOW CUT<small>20 à 500 Hz</small></td><td>TUNE<small>±50 cents</small></td><td>KEYS<small>LATCH · HOLD ; deux crans dans le même sens en 2 s, car il relâche toutes les notes</small></td></tr>
+        <tr><td class="btn">GLO 2</td><td class="page">MIDI</td><td>DRONE CH<small>OFF · 1 à 16 · OMNI</small></td><td>GLINT CH<small>OFF · 1 à 16 · OMNI</small></td><td>BASS CH<small>OFF · 1 à 16 · OMNI</small></td><td>—</td></tr>
+        <tr><td class="btn">GLO 3</td><td class="page">MASTERING</td><td>THRESHOLD<small>−40 à 0 dB</small></td><td>RATIO<small>OFF · 1,5:1 à 20:1</small></td><td>RELEASE<small>30 ms à 1,5 s</small></td><td>GAIN<small>0 à +18 dB</small></td></tr>
+        <tr><td class="btn">SAVE</td><td class="page">SCENES</td><td>emplacement 1 à 16</td><td>MORPH<small>CUT · 1 S à 2:00 : le son glisse vers la scène</small></td><td>KEEP<small>SCENE : tout relâché, ses notes jouées · PLAYING : ce qui joue continue, seul le son change</small></td><td>UNDO<small>deux crans : le dernier STORE défait</small></td></tr>
+        <tr><td class="btn">SAVE +</td><td class="page">STORE · LOAD</td><td colspan="4">SAVE tenu + REC : sauver (STORE) dans l'emplacement de K1 sur SCENES, sinon dans la scène en cours : le son, les drones latchés (8 accords), les notes de l'arpège GLINT, sa séquence et la note de la basse. SAVE tenu + une touche blanche : charger cette scène (les 16 touches blanches, F2 la première ; rien ne sonne, la page reste). Sur SCENES, PLAY charge l'emplacement de K1. Un SAVE seul ouvre SCENES, encore : retour.
+          Avec KEEP sur SCENE, charger relâche tout (la basse aussi), puis joue les notes de la scène s'il y en a. Une scène d'une ancienne version se charge telle quelle, les nouveaux réglages à leur défaut. Rien ne rejoue tout seul au démarrage.</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Appuie de nouveau sur le même bouton pour passer à sa page suivante (EDIT ×7, LFO ×7, ARP ×4 à ×7 selon TYPE, SEQ ×3, FX ×6, GLO ×3, HOME : SOUND, MIXER, le logo) ; les points sous le titre disent où tu es. Les boutons ouvrent leur page quand on les relâche.
+      Tenus, ils font autre chose : HOME l'aide, FX le FREEZE, EDIT le COMPARE, ARP le LATCH de l'arpège, SEQ le SWELL, PLAY le RELEASE ALL, REC le métronome ; SEL tenu + touche donne une note seule. Le header de GLOBAL affiche la charge
+      du processeur (CPU). KEYS (GLOBAL, K4) ne change qu'au deuxième cran dans le même sens en 2 s (KEYS · TURN AGAIN).</p>
+    <p class="note"><b>Presets de drone</b> (PRESETS, B, sur toutes les pages) : MIST, CATHEDRAL, GLACIER, ABYSS, AURORA, EMBER, TIDE, DUST, WIND, ORGAN, HOLLOW, VOWEL, SHIMMER, CHANTER, ENSEMBLE, BELLS, NOCTURNE, HAZE, PULSE, RIME, DEEP, SPECTRAL, RUST, STILL. Chacun règle les trois couches (niveaux, pages 1 et II), DRONE PARAMS (sauf FULLNESS), l'ATTACK et le RELEASE, et DRONE MOTION. Avant eux, <b>CUSTOM</b> : touche un de ces réglages et le drone devient CUSTOM; un autre preset ne le fait pas perdre, il revient quand tu reviens sur CUSTOM. Une scène garde son CUSTOM et le preset choisi. SELECT (A) : KEYBOARD, ce que jouent les touches. ALGORITHM (C) : FULLNESS, aussi le K4 de DRONE PARAMS. TEMPO : GLOBAL, K1.</p>
+    <p class="note"><b>GENERATIVE FX</b> (FX 1), pour jouer sur tout le son. SWELL : toutes les voix gonflent autant qu'il est tourné (avec SEQ tenu et le CC 11, le plus fort des trois); pas gardé. SPARKLE : des glints tout seuls, de temps en temps, sur les notes que tiennent les drones (OCTAVE de GLINT plus haut, un sur trois une octave de plus), doux et courts, de quelques-uns par minute à environ six par seconde; sans drone, rien. BLUR : le drone se fond dans le nuage (SPACE vers 90 %, DECAY plus long, plus de DIFFUSION et de MODULATION, les glints plus loin dedans aussi). SINK : un passe-bas sur tout le mix, de 12 kHz à environ 120 Hz (800 Hz à 50), avec une petite résonance. SPARKLE, BLUR et SINK sont gardés dans la scène et sont des cibles de LFO.</p>
+    <p class="note"><b>MIXER</b> (HOME, 2<sup>e</sup> écran) : un fader par piste, DRONE, BASS, GLINT et CLOUD (le retour de la réverb), chacun à sa couleur, avec son vu-mètre en direct. 100 = le niveau tel quel (un repère), jusqu'à 127.
+      Les faders de DRONE et de GLINT baissent aussi ce qu'ils envoient dans le nuage. HOME de nouveau : l'écran du logo.
+      <b>PUMP</b> (FX 5) fait plonger chaque piste sur le temps, comme un sidechain sans entrée externe : à RATE, sur la grille de l'arpégiateur (horloge MIDI, sinon TEMPO), la piste baisse en 5 ms puis remonte sur la période. Le nuage pompe avec les drones, la rivière respire avec lui.
+      <b>MASTERING</b> (GLO 3) est un compresseur sur toute la sortie, avant le limiteur doux : THRESHOLD, RATIO (OFF au départ), RELEASE (attaque fixe de 10 ms) et GAIN, le rattrapage. La page montre la réduction de gain en direct (une barre).</p>
+  </section>
+
+  <div class="grid2">
+    <section aria-labelledby="h-harm">
+      <h2 id="h-harm">Harmonie <b>SEL</b></h2>
+      <p class="lab" style="margin:0 0 8px">Scale</p>
+      <div class="chips">
+        <span class="chip dim">CHROMATIC</span><span class="chip">MAJOR</span><span class="chip">MINOR</span><span class="chip">DORIAN</span>
+        <span class="chip">PHRYGIAN</span><span class="chip">LYDIAN</span><span class="chip">MIXOLYDIAN</span><span class="chip">LOCRIAN</span>
+        <span class="chip">HARMONIC</span><span class="chip">MELODIC</span><span class="chip">PENTA MAJ</span><span class="chip">PENTA MIN</span>
+      </div>
+      <p class="lab" style="margin:16px 0 8px">Chord, dans la gamme</p>
+      <div class="chips">
+        <span class="chip dim">SINGLE</span><span class="chip">FIFTH</span><span class="chip">TRIAD</span><span class="chip">SEVENTH</span>
+        <span class="chip">SUS2</span><span class="chip">SUS4</span><span class="chip">ADD9</span><span class="chip">QUARTAL</span>
+      </div>
+      <p class="lab" style="margin:16px 0 8px">Chord, type fixe</p>
+      <div class="chips">
+        <span class="chip">MAJ</span><span class="chip">MIN</span><span class="chip">MAJ7</span><span class="chip">MIN7</span>
+        <span class="chip">DOM7</span><span class="chip">AUG</span><span class="chip">DIM</span>
+      </div>
+      <p class="note">En D MINOR + SEVENTH : D joue Dm7, E joue Em7♭5, F joue Fmaj7. Une touche hors gamme joue la note de la gamme juste en dessous.
+        Les touches de la gamme s'allument faiblement. Une note seule au-dessus d'un accord : tiens SEL et tape la touche.</p>
+      <p class="lab" style="margin:16px 0 8px">Voicing, avec D MINOR + TRIAD</p>
+      <div class="kv">
+        <span>CLOSE</span><span>D3 F3 A3 : serré, dans une octave</span>
+        <span>OPEN</span><span>D3 A3 F4 : la 2e note monte d'une octave, plus aéré</span>
+        <span>WIDE</span><span>D2 F3 A3 : la fondamentale descend d'une octave, une basse sous l'accord</span>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-scenes">
+      <h2 id="h-scenes">Scènes d'usine <b>SAVE</b></h2>
+      <div class="scenes">
+        <div class="scene"><b>MIST</b><span>D · chromatique · SINE</span></div>
+        <div class="scene"><b>GLASS</b><span>A lydian · ADD9 wide · GLASS</span></div>
+        <div class="scene"><b>ABYSS</b><span>D phrygian · FIFTH wide · DROP</span></div>
+        <div class="scene"><b>CHORALE</b><span>D minor · SEVENTH open · BELL</span></div>
+        <div class="scene"><b>WIND</b><span>E penta min · surtout BREATH · FROST</span></div>
+        <div class="scene"><b>BELLS</b><span>C major · QUARTAL open · CHIME</span></div>
+        <div class="scene"><b>TIDE</b><span>F dorian · SUS2 open · BLIP</span></div>
+        <div class="scene"><b>AURORA</b><span>G mixolydian · TRIAD wide · CELESTA</span></div>
+      </div>
+      <p class="note">Les emplacements 9 à 16 sont libres ; sauvée dans un emplacement libre avec un preset de drone, la scène prend son nom. Tant que le son diffère du dernier chargé ou sauvé, SAVE s'allume, la page SCENES affiche CHANGED et l'en-tête de la page de jeu a un point ambre : remets chaque réglage et ça disparaît.
+        MORPH glisse vers la scène : les réglages continus vont de là où ils sont à ceux de la scène, les choix (presets, MODEL, ROOT, SCALE, CHORD, RATIO, TYPE, TARGET, INTERVAL, les RATE, TIME, LENGTH, TRANSPOSE, TUNE) changent tout de suite ; un réglage que tu tournes en route sort du morph. MORPH et KEEP sont gardés avec les réglages, pas dans les scènes.</p>
+      <p class="lab" style="margin:16px 0 8px">Les lumières</p>
+      <div class="kv">
+        <span>TOUCHES</span><span>vives = racines latchées · faibles (plus claires qu'avant) = notes de la gamme</span>
+        <span>TOUCHES en BASS</span><span>vive = la note de la basse · faibles = notes de la gamme</span>
+        <span>SAVE tenu</span><span>touches blanches : vive = la scène en cours · faibles = les emplacements qui ont une scène</span>
+        <span>GLINT + ARP</span><span>faibles = les notes de l'arpège · vive = celle qui joue, le temps qu'elle joue</span>
+        <span>BOUTONS</span><span>les boutons de fonction restent à un niveau faible, nettement lisible (PLAY et OCT à part) · vif = choisi ou actif (bouton de la page)</span>
+        <span>SAVE</span><span>vif : le son diffère de celui de la scène (CHANGED)</span>
+        <span>LFO</span><span>faible comme les autres quand un LFO tourne · plus faible encore, comme PLAY, quand aucun ne tourne</span>
+        <span>ARP</span><span>un bref éclat à chaque pas de l'arpège ou de la séquence GLINT, hors de ses pages</span>
+        <span>PLAY</span><span>faible au repos · vif : des voix ou la basse sonnent</span>
+        <span>REC</span><span>faible, comme les autres · clignote sur le temps, deux fois plus vite que OCT, tant que le séquenceur enregistre (RECORD sur STEP ou LIVE)</span>
+        <span>OCT − / +</span><span>faibles, un peu plus forts sur le temps (horloge MIDI, sinon TEMPO)</span>
+        <span>SEQ</span><span>vif : sur les pages BASS et pendant le SWELL de SEQ tenu</span>
+        <span>FX</span><span>vif : sur une page de FX (GENERATIVE FX, CLOUD, PUMP), ou FREEZE actif</span>
+      </div>
+    </section>
+  </div>
+
+  <section aria-labelledby="h-midi">
+    <h2 id="h-midi">MIDI <b>USB · TRS</b></h2>
+    <div class="grid2">
+      <div>
+        <p class="note" style="margin-top:0">Chaque piste a son propre canal, peu importe ce que jouent les touches : drones sur 1, GLINT sur 2, BASS sur 3 par défaut
+          (GLO 2, MIDI : OFF, 1 à 16 ou OMNI). Les notes des drones passent par l'harmonie : une note d'un séquenceur joue un accord. Le sustain (CC64) les retient,
+          la pression de canal les fait gonfler (SWELL). Les notes de GLINT jouent telles quelles, sans gamme ni octave ajoutée, et entrent dans l'arpégiateur quand il est actif.
+          Les notes de BASS jouent telles quelles, en mono : la dernière sonne, et la relâcher ramène celle qui est encore tenue.
+          Les notes sont momentanées. La pression polyphonique fait gonfler une note, la pression de canal toute la piste. Les CC du son arrivent sur le canal des drones; 120 et 123 relâchent les notes de la piste de leur canal.</p>
+        <p class="note">Program Change 0 à 15 sur le canal des drones : les scènes 1 à 16, selon MORPH et KEEP.
+          MIDI learn : tourne un réglage, tiens GLO et bouge un bouton du contrôleur (un CC sur le canal des drones) : ce CC le tourne désormais (CC 21 · SINK). Jusqu'à 8, le plus ancien remplacé, gardés avec les réglages ; un CC appris passe avant ceux de la liste (11 et 80 aussi), sauf 64, 120 et 123.</p>
+      </div>
+      <div class="kv">
+        <span>CC 1</span><span>MOTION</span><span>CC 74</span><span>TIMBRE</span><span>CC 91</span><span>SPACE</span>
+        <span>CC 11</span><span>SWELL</span><span>CC 64</span><span>SUSTAIN</span><span>CC 70 · 71 · 72</span><span>CHOIR · PARTIALS · BREATH</span>
+        <span>CC 73 · 75</span><span>ATTACK · RELEASE</span><span>CC 76 · 77</span><span>SIZE · DECAY</span>
+        <span>CC 78 · 79</span><span>SHIMMER · WARMTH</span><span>CC 12 · 13</span><span>FULLNESS · PRESET du drone</span>
+        <span>CC 14 · 15 · 16</span><span>SPARKLE · BLUR · SINK</span><span>CC 17 · 18 · 19</span><span>faders DRONE · GLINT · BASS</span>
+        <span>CC 80</span><span>FREEZE (≥ 64)</span><span>CC 120 · 123</span><span>relâcher les notes de la piste de ce canal</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>FRASIL · FM-1 · frasil : glace en cristaux qui se forme dans l'eau vive</footer>
+</div>

@@ -1,0 +1,343 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 Styves Goupil
+ * FRASIL's site: the river at night, as on the FM-1's screen.
+ * Two voices: the instrument speaks in tracked condensed caps (Barlow Semi Condensed, the screen's own face), the
+ * musician in a serif (Newsreader). Cold is ice (GLINT, FREEZE, a choice made), warm is lamp (the hand: pressure,
+ * what is being touched). Everything else is night, steel, mist and fog. */
+
+:root {
+  --night: #0a0d12;          /* the page: the screen's background */
+  --abyss: #06080c;          /* the sky's top, deep water */
+  --panel: #0e1319;          /* a raised surface */
+  --water: #0d1822;          /* under the waterline */
+  --steel: #26303c;          /* hairlines, tracks */
+  --rule: #1a212a;           /* the faintest lines */
+  --slate: #4a5563;          /* quiet marks, the waterline (not for text: 2.6:1) */
+  --dim: #77818f;            /* quiet text: numbers beside a name (4.9:1) */
+  --mist: #8b95a4;           /* labels */
+  --text-2: #aeb7c2;         /* secondary text */
+  --fog: #dce3ea;            /* values, body text, the drones */
+  --white: #f3f6f9;          /* titles */
+  --ice: #6ed0ff;            /* cold */
+  --lamp: #f2a65a;           /* warm */
+  --haze: #33414f;
+  --sea: #3480ec;            /* the logo's submerged half */
+
+  --f-ui: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --f-text: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+
+  --gutter: clamp(16px, 4.2vw, 56px);
+  --max: 1240px;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --ease-io: cubic-bezier(.65, 0, .35, 1);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-top: 88px; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--fog);
+  font: 400 18px/1.62 var(--f-text);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: clip;
+}
+@media (max-width: 600px) { body { font-size: 17px; } }
+img, svg, canvas { display: block; max-width: 100%; }
+img { height: auto; }
+h1, h2, h3, h4, p, ul, ol, dl, dd, figure, blockquote { margin: 0; }
+ul[role="list"], ol[role="list"] { list-style: none; padding: 0; }
+button, input, select { font: inherit; color: inherit; }
+::selection { background: rgba(110, 208, 255, .28); color: var(--white); }
+
+/* the hand: focus is warm */
+:focus-visible { outline: 2px solid var(--lamp); outline-offset: 3px; border-radius: 3px; }
+:focus:not(:focus-visible) { outline: none; }
+
+.nb { white-space: nowrap; }
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.skip {
+  position: absolute; left: 12px; top: -60px; z-index: 100; padding: 10px 14px; border-radius: 4px;
+  background: var(--fog); color: var(--night); font: 600 14px/1 var(--f-ui); letter-spacing: .1em; text-transform: uppercase;
+  text-decoration: none; transition: top .2s var(--ease);
+}
+.skip:focus { top: 12px; }
+
+.wrap { width: 100%; max-width: calc(var(--max) + 2 * var(--gutter)); margin-inline: auto; padding-inline: var(--gutter); }
+
+/* ---------------------------------------------------------------- the instrument's voice */
+.label {
+  font: 600 12.5px/1.3 var(--f-ui);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--mist);
+}
+/* a word from the panel or the screen, in running text: CHOIR, DECAY, D MINOR */
+.k {
+  font-family: var(--f-ui);
+  font-weight: 600;
+  font-size: .84em;
+  letter-spacing: .07em;
+  color: var(--white);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+:where(.label, dt, th, dd, .dhead-hint, .chip, .page4, .scene-list, .models, .h-out, .flow-box, .layer-name) .k { font-size: 1em; letter-spacing: inherit; }
+
+/* a button, as the help screen frames it: REC, ARP, OCT− */
+.key {
+  display: inline-block;
+  font: 600 .68em/1 var(--f-ui);
+  letter-spacing: .12em;
+  color: var(--white);
+  padding: .32em .42em .26em .5em;
+  border: 1px solid #3b4654;
+  border-radius: 3px;
+  vertical-align: .12em;
+  white-space: nowrap;
+}
+/* a knob's badge: the blue disc of K1–K4, the orange disc of A B C */
+.kn {
+  display: inline-block;
+  font: 700 .7em/1 var(--f-ui);
+  letter-spacing: .04em;
+  color: var(--night);
+  background: var(--ice);
+  padding: .26em .48em .2em;
+  border-radius: 1em;
+  vertical-align: .14em;
+  white-space: nowrap;
+}
+.disc {
+  display: inline-grid; place-items: center;
+  width: 1.45em; height: 1.45em; border-radius: 50%;
+  font: 700 .72em/1 var(--f-ui); color: var(--night); background: var(--ice);
+  vertical-align: .1em; flex: none;
+}
+.disc.abc { background: var(--lamp); }
+
+/* ---------------------------------------------------------------- links and buttons */
+a { color: inherit; }
+.prose a, a.link {
+  color: var(--white);
+  text-decoration: underline;
+  text-decoration-color: rgba(110, 208, 255, .45);
+  text-decoration-thickness: 1px;
+  text-underline-offset: .22em;
+  transition: color .25s, text-decoration-color .25s;
+}
+.prose a:hover, a.link:hover { color: var(--ice); text-decoration-color: var(--ice); }
+
+.btn {
+  --b: var(--slate);
+  display: inline-flex; align-items: center; gap: .7em;
+  min-height: 46px; padding: .85em 1.15em .78em;
+  font: 600 14px/1 var(--f-ui); letter-spacing: .16em; text-transform: uppercase;
+  color: var(--fog); text-decoration: none;
+  background: transparent;
+  border: 1px solid var(--b);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color .35s var(--ease), border-color .35s var(--ease), background-color .5s var(--ease), box-shadow .5s var(--ease);
+}
+.btn:hover { --b: var(--fog); color: var(--white); }
+.btn svg { flex: none; }
+.btn .arrow { transition: transform .35s var(--ease); }
+.btn:hover .arrow { transform: translateX(3px); }
+/* the main one is ice, and warms to lamp light under the hand */
+.btn-ice {
+  --b: var(--ice);
+  color: var(--night); background: var(--ice);
+  box-shadow: 0 0 0 0 rgba(242, 166, 90, 0), 0 10px 40px -12px rgba(110, 208, 255, .45);
+}
+.btn-ice:hover, .btn-ice:focus-visible {
+  --b: var(--lamp);
+  color: var(--night); background: var(--lamp);
+  box-shadow: 0 0 0 6px rgba(242, 166, 90, .12), 0 14px 46px -12px rgba(242, 166, 90, .6);
+}
+.btn-ice:active { transform: translateY(1px); }
+.btn-plain { border-color: transparent; padding-inline: .4em; }
+.btn-plain:hover { border-color: transparent; color: var(--ice); }
+
+/* the keys' badge on the screen: a small keyboard */
+.kbd-ico { width: 22px; height: 12px; }
+
+/* ---------------------------------------------------------------- the site's header */
+.site-head {
+  position: relative; z-index: 20;
+  display: flex; align-items: center; gap: 12px 28px;
+  padding: 18px var(--gutter);
+  border-bottom: 1px solid var(--rule);
+  background: var(--night);
+}
+.site-head.over { position: absolute; inset: 0 0 auto 0; background: none; border-bottom-color: transparent; }
+.mark { display: inline-flex; align-items: center; padding: 6px 0; margin-right: auto; border-radius: 3px; }
+.mark img { width: 92px; height: auto; }
+.site-nav { display: flex; align-items: center; gap: clamp(14px, 3vw, 30px); }
+.site-nav a {
+  position: relative;
+  font: 600 13.5px/1 var(--f-ui); letter-spacing: .16em; text-transform: uppercase;
+  color: var(--mist); text-decoration: none; padding: 10px 0;
+  transition: color .25s;
+}
+.site-nav a:hover { color: var(--white); }
+.site-nav a[aria-current="page"], .site-nav a[aria-current="true"] { color: var(--white); }
+.site-nav a[aria-current]::after {
+  content: ""; position: absolute; left: 0; right: .16em; bottom: 3px; height: 1px; background: var(--ice);
+}
+.site-nav .ext::after { content: ""; }
+.status {
+  font: 600 12px/1 var(--f-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--mist);
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+}
+.status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--lamp); box-shadow: 0 0 10px var(--lamp); }
+.site-head .status { padding-left: clamp(0px, 2vw, 18px); border-left: 1px solid var(--steel); height: 22px; }
+@media (max-width: 760px) { .site-head .status { display: none; } }
+@media (max-width: 400px) { .site-nav { gap: 14px; } .site-nav a { letter-spacing: .12em; font-size: 13px; } .mark img { width: 80px; } }
+
+/* ---------------------------------------------------------------- the device's header: NAME 2/3 ... [BUTTON] */
+.dhead {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--steel);
+  margin-bottom: clamp(36px, 6vw, 72px);
+}
+.dhead-name { font: 700 15px/1 var(--f-ui); letter-spacing: .24em; color: var(--white); text-transform: uppercase; padding-top: 6px; }
+.dhead-name .idx { font-weight: 500; letter-spacing: .08em; color: var(--mist); margin-left: .9em; }
+.dhead-ctl { display: grid; justify-items: end; gap: 8px; text-align: right; }
+.dhead-btns { display: flex; gap: 6px; align-items: center; }
+.dhead-btns .key { font-size: 13px; padding: 6px 8px 5px 10px; border-radius: 4px; }
+.dhead-btns .key.on { background: var(--ice); color: var(--night); border-color: var(--ice); }
+.dhead-btns .then { color: var(--slate); font: 500 13px var(--f-ui); }
+.dhead-hint { font: 600 12px/1.2 var(--f-ui); letter-spacing: .14em; color: var(--lamp); text-transform: uppercase; }
+
+/* ---------------------------------------------------------------- type */
+.display {
+  font-family: var(--f-text);
+  font-weight: 300;
+  font-variation-settings: "opsz" 72;
+  font-size: clamp(36px, 5.4vw, 76px);
+  line-height: 1.02;
+  letter-spacing: -.018em;
+  color: var(--white);
+  text-wrap: balance;
+}
+.display em { font-style: italic; font-weight: 300; color: var(--fog); }
+.display.sm { font-size: clamp(32px, 4.2vw, 58px); line-height: 1.04; }
+.lede { font-size: clamp(19px, 1.7vw, 23px); line-height: 1.5; color: var(--text-2); text-wrap: pretty; }
+.lede strong, .lede b { color: var(--fog); font-weight: 500; }
+.prose p + p, .prose p + ul, .prose ul + p { margin-top: 1em; }
+.prose p { text-wrap: pretty; }
+.muted { color: var(--text-2); }
+
+code, kbd, .mono { font-family: var(--f-mono); font-size: .8em; }
+code { color: var(--fog); background: var(--panel); border: 1px solid var(--rule); padding: .12em .4em; border-radius: 4px; overflow-wrap: anywhere; }
+pre { margin: 0; }
+pre code { display: block; padding: 16px 18px; overflow-x: auto; line-height: 1.6; border-color: var(--steel); white-space: pre; overflow-wrap: normal; }
+
+/* ---------------------------------------------------------------- the FM-1's screen: a small square in a dark panel */
+.screen {
+  position: relative;
+  padding: 7%;
+  border-radius: 16px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, #121820 0%, #090c11 60%),
+    #090c11;
+  box-shadow:
+    inset 0 0 0 1px #1b232d,
+    inset 0 1px 0 0 #2a3440,
+    0 1px 0 0 #000,
+    0 40px 80px -40px rgba(0, 0, 0, .9);
+}
+.screen::before {                          /* the LCD's glass, set into the panel */
+  content: ""; position: absolute; inset: 7%; border-radius: 3px; pointer-events: none; z-index: 1;
+  box-shadow: 0 0 0 1px #000, 0 0 0 2px #151b23, inset 0 0 18px rgba(0, 0, 0, .55);
+  background: linear-gradient(160deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, 0) 32%);
+}
+.screen img { width: 100%; aspect-ratio: 1; image-rendering: pixelated; border-radius: 3px; background: var(--night); }
+.screen.glow-ice { box-shadow: inset 0 0 0 1px #1b232d, inset 0 1px 0 0 #2a3440, 0 40px 90px -40px rgba(110, 208, 255, .35); }
+.screen.glow-lamp { box-shadow: inset 0 0 0 1px #1b232d, inset 0 1px 0 0 #2a3440, 0 40px 90px -40px rgba(242, 166, 90, .35); }
+.screen .zoom { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 16px; background: none; cursor: zoom-in; }
+.screen .zoom:focus-visible { outline-offset: 3px; }
+.screen:has(.zoom:hover)::before { box-shadow: 0 0 0 1px #000, 0 0 0 2px #2a3644, inset 0 0 18px rgba(0, 0, 0, .55); }
+button.screen { display: block; width: 100%; border: 0; cursor: zoom-in; color: inherit; }
+button.screen:focus-visible { outline-offset: 4px; }
+
+figure.shot { display: grid; gap: 14px; }
+figure.shot figcaption { display: grid; gap: 4px; }
+figure.shot figcaption .label { color: var(--fog); }
+figure.shot figcaption span:not(.label) { font-size: 15px; line-height: 1.45; color: var(--mist); }
+
+/* ---------------------------------------------------------------- reveals (only with script: without it, all is there) */
+.js .rv { opacity: 0; transform: translateY(22px); transition: opacity 1.2s var(--ease), transform 1.2s var(--ease); transition-delay: var(--d, 0s); }
+.js .rv.in { opacity: 1; transform: none; }
+
+/* ---------------------------------------------------------------- the footer */
+.site-foot {
+  position: relative;
+  margin-top: clamp(80px, 12vw, 160px);
+  padding-block: 56px 48px;
+  border-top: 1px solid var(--steel);
+  background: linear-gradient(180deg, var(--water) 0%, var(--night) 70%);
+  font-size: 15px; line-height: 1.6; color: var(--mist);
+}
+.site-foot::before {                       /* the waterline, brighter in the middle */
+  content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--slate) 30%, var(--fog) 50%, var(--slate) 70%, transparent);
+  opacity: .7;
+}
+.foot-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 40px clamp(24px, 5vw, 72px); }
+.foot-grid h2 { margin-bottom: 14px; }
+.foot-grid ul { list-style: none; padding: 0; display: grid; gap: 6px; }
+.foot-grid a { color: var(--fog); text-decoration: none; transition: color .2s; }
+.foot-grid a:hover { color: var(--ice); }
+.foot-brand img { width: 150px; margin-bottom: 18px; }
+.foot-brand p { max-width: 36ch; }
+.foot-brand .foot-status { margin-top: 18px; }
+.foot-credits { margin-top: 44px; padding-top: 22px; border-top: 1px solid var(--rule); display: grid; grid-template-columns: 1.3fr 2fr; gap: 10px clamp(24px, 5vw, 72px); }
+.foot-credits ul { list-style: none; padding: 0; display: grid; gap: 6px; }
+.foot-credits a { color: var(--fog); text-decoration: underline; text-decoration-color: var(--steel); text-underline-offset: .2em; }
+.foot-credits a:hover { color: var(--ice); }
+@media (max-width: 860px) { .foot-credits { grid-template-columns: 1fr; } }
+.foot-legal a { color: inherit; text-underline-offset: .2em; }
+.foot-legal { margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--rule); display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: space-between; font-size: 13.5px; color: var(--mist); }
+.foot-legal p { max-width: 80ch; }
+@media (max-width: 860px) { .foot-grid { grid-template-columns: 1fr 1fr; } .foot-brand { grid-column: 1 / -1; } }
+@media (max-width: 480px) { .foot-grid { grid-template-columns: 1fr; } }
+
+/* ---------------------------------------------------------------- a screen, larger (the gallery and the guide's figures) */
+.lightbox {
+  border: 0; padding: 0; margin: auto; background: transparent; color: var(--fog);
+  max-width: min(94vw, 980px); width: 100%;
+}
+.lightbox::backdrop { background: rgba(4, 6, 9, .9); backdrop-filter: blur(6px); }
+.lightbox[open] { animation: lb-in .45s var(--ease); }
+@keyframes lb-in { from { opacity: 0; transform: scale(.97); } }
+.lightbox .screen { width: min(86vmin, 820px); margin: 0 auto; cursor: default; }
+.lightbox-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 14px auto 0; width: min(86vmin, 820px); }
+.lightbox-bar p { font-size: 15px; color: var(--text-2); }
+.lightbox-close { flex: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  .js .rv { transform: none; transition: opacity .6s linear; }
+  .btn, .btn .arrow { transition: none; }
+}
+
+/* the guide's panel, full screen (js/site.js): as wide as the window lets it, scrolling sideways on a phone */
+.lightbox-panel { max-width: none; width: 100vw; height: 100dvh; max-height: none; margin: 0; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  display: none; flex-direction: column; justify-content: center; gap: 4px; }
+.lightbox-panel[open] { display: flex; }
+.lightbox-panel-scroll { overflow: auto; -webkit-overflow-scrolling: touch; display: flex; }
+.lightbox-panel-scroll svg { display: block; margin: auto; width: min(100%, calc((100dvh - 110px) * 1.4937)); min-width: 760px; height: auto; }
+.lightbox-panel-scroll svg text { font-family: var(--f-ui); }
+.lightbox-panel .lightbox-bar { width: min(100%, calc((100dvh - 110px) * 1.4937)); }
+.lightbox-panel-scroll:focus, .lightbox-panel-scroll:focus-visible { outline: none; }

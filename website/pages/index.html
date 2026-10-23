@@ -1,0 +1,527 @@
+<!--
+title: FRASIL · drone textures frozen in motion, for the M-VAVE FM-1
+og_title: FRASIL · drone textures frozen in motion
+description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an instrument for ambient drones and textures: drones latched by a tap and swelled by pressure, a huge reverb with shimmer and freeze, icy FM bells and a deep bass. Try it in the browser.
+-->
+<main id="main">
+
+<!-- ============================================================ the river at night -->
+<section class="hero" aria-labelledby="hero-title" style="--wl: {{logo_wl}}; --ratio: calc({{logo_h}} / {{logo_w}})" data-split="{{logo_split}}">
+  <canvas class="hero-river" aria-hidden="true"></canvas>
+  <div class="hero-stars" aria-hidden="true"></div>
+  <p class="hero-version"><span class="sr-only">Status: </span>{{status}}</p>
+  <div class="hero-sky"></div>
+  <div class="hero-line">
+  <h1 class="hero-logo" id="hero-title">
+    <span class="sr-only">FRASIL</span>
+    <img class="logo-top" src="{{root}}assets/img/logo-top.png" width="{{logo_w}}" height="{{logo_h}}" alt="" aria-hidden="true" fetchpriority="high">
+    <img class="logo-low" src="{{root}}assets/img/logo-low.png" width="{{logo_w}}" height="{{logo_h}}" alt="" aria-hidden="true">
+  </h1>
+  </div>
+  <div class="hero-water">
+    <p class="hero-tag">Drone textures frozen in motion</p>
+    <p class="hero-sub">A custom firmware that turns the M-VAVE FM-1 into an instrument for ambient drones and textures.</p>
+    <div class="hero-cta">
+      <a class="btn btn-ice" href="{{root}}play/">
+        <svg class="kbd-ico" viewBox="0 0 22 12" aria-hidden="true"><rect x=".75" y=".75" width="20.5" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 1v5.5M9.5 1v5.5M13.5 1v5.5M17 1v5.5" stroke="currentColor" stroke-width="2"/></svg>
+        Try it in the browser</a>
+      <a class="btn" href="{{root}}guide/">Read the guide</a>
+      <a class="btn btn-plain" href="{{repo}}">Source on GitHub <span class="arrow" aria-hidden="true">↗</span></a>
+      <a class="btn btn-plain" href="{{releases}}">Download <span class="arrow" aria-hidden="true">↓</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 1 what it is -->
+<section class="sec" id="instrument" aria-labelledby="h-instrument">
+  <div class="wrap">
+    <div class="dhead rv"><p class="dhead-name">The instrument<span class="idx">1/11</span></p></div>
+    <div class="intro">
+      <h2 class="display rv" id="h-instrument">The notes stay where you put them. <em>The sound is never still.</em></h2>
+      <div class="intro-body" data-caps>
+        <p class="lede rv">FRASIL turns the M-VAVE FM-1 into an instrument for ambient drones and textures. A tap latches a
+          drone: a note, or a chord built in the key you chose. Pressing harder makes it swell. The timbre drifts and ebbs
+          on its own, slowly, and everything flows into a large, lush reverb with shimmer and freeze.</p>
+        <div class="intro-cols">
+          <div class="rv">
+            <h3 class="label">Your notes, and chance where you let it</h3>
+            <p>The drones are the notes you light, and they never change. Above them, GLINT plays small icy bells; under
+              them, BASS holds one deep note. GLINT’s arpeggiator plays the keys you hold, its sequencer the steps you
+              write. Chance comes in only where you let it: CHANCE skips steps, RANDOM and DRIFT pick the arpeggio’s order,
+              SPARKLE lets glints fall on the notes your drones hold.</p>
+          </div>
+          <div class="rv" style="--d:.08s">
+            <h3 class="label">Who it is for</h3>
+            <p>For players who want a sound to hold rather than a pattern to follow. FRASIL is designed as one voice in a
+              larger setup: it takes MIDI notes, pressure, CCs and clock over USB and TRS, a channel for each of its tracks.</p>
+          </div>
+        </div>
+      </div>
+      <aside class="lexicon rv" aria-label="The name">
+        <p class="lex-word">frasil <span class="lex-pos">n.</span></p>
+        <p class="lex-def">Ice crystals that form in fast, open water, on the St. Lawrence River among others. They stay
+          suspended in the current: grainy, drifting, <em>never still</em>.</p>
+      </aside>
+    </div>
+    <ul class="specs rv" role="list" aria-label="In numbers">
+      <li><b>8</b><span>drone voices</span></li>
+      <li><b>3</b><span>layers each</span></li>
+      <li><b>60 s</b><span>of reverb tail</span></li>
+      <li><b>22</b><span>GLINT presets</span></li>
+      <li><b>8</b><span>bass models</span></li>
+      <li><b>16</b><span>scenes</span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================================ 2 pressure -->
+<section class="sec sec-press" id="pressure" aria-labelledby="h-pressure">
+  <div class="wrap">
+    <div class="dhead rv">
+      <p class="dhead-name">Pressure<span class="idx">2/11</span></p>
+      <div class="dhead-ctl" aria-hidden="true"><div class="dhead-btns"><span class="key">PRESS IN</span></div><p class="dhead-hint">Hold the key, press harder</p></div>
+    </div>
+    <div class="split">
+      <div class="split-text" data-caps>
+        <h2 class="display sm rv" id="h-pressure">Pressure warms <em>the ice.</em></h2>
+        <p class="lede rv">On the screen, every voice is a current carrying ice. Hold a key and press into it: the voice
+          swells and opens, and its crystals warm to lamp light. Let go, and it stays lit.</p>
+        <dl class="gestures rv">
+          <div><dt>Tap a key</dt><dd>It rises over ATTACK and stays.</dd></div>
+          <div><dt>Tap it again</dt><dd>It fades over RELEASE.</dd></div>
+          <div><dt>Hold and press</dt><dd>It swells and opens. PRESSURE sets how much.</dd></div>
+          <div><dt>Hold SEQ</dt><dd>SWELL: after 0.4 s, every voice swells together.</dd></div>
+          <div><dt>SWELL, on FX</dt><dd>Every voice swelled as far as you turn it, and held there.</dd></div>
+        </dl>
+      </div>
+      <figure class="split-fig rv">
+        <div class="river river-press" data-river="press" tabindex="0" role="button" aria-pressed="false"
+             aria-label="Three drone voices as currents of ice. Press and hold here, or hold the space bar, to press into a voice">
+          <canvas aria-hidden="true"></canvas>
+          <p class="river-hint" aria-hidden="true"><span class="hint-dot"></span><span class="hint-t">Press and hold</span></p>
+        </div>
+        <figcaption class="fig-cap"><span class="label">A3 · D3 · G2</span> Three voices of D minor, drawn as FRASIL's screen draws them. Hold to press.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 3 the layers -->
+<section class="sec" id="layers" aria-labelledby="h-layers">
+  <div class="wrap">
+    <div class="dhead rv">
+      <p class="dhead-name">Layers<span class="idx">3/11</span></p>
+      <div class="dhead-ctl" aria-hidden="true"><div class="dhead-btns"><span class="key">EDIT</span></div><p class="dhead-hint">×7: the drone, each layer and its second page</p></div>
+    </div>
+    <div class="layers-head" data-caps>
+      <h2 class="display sm rv" id="h-layers">The current, the crystals, <em>the mist.</em></h2>
+      <p class="lede rv">Every note you light is a voice, up to eight, and every voice has three layers. All three play
+        every note: you mix them and shape each one. On the screen each is a thing in the river, and strata under the
+        waterline show the exact mix, WARMTH with it.</p>
+    </div>
+    <ol class="layers" role="list" data-caps>
+      <li class="layer rv">
+        <img class="stratum" src="{{root}}assets/img/stratum-choir.png" width="128" height="10" alt="CHOIR's stratum on the screen: a solid line">
+        <h3><span class="layer-name">CHOIR</span> <span class="layer-is">the current</span></h3>
+        <p>Three detuned saws, or pulses, through a low-pass filter that follows the note. Warm, wide, vocal.</p>
+        <p class="layer-ii"><span class="label">CHOIR II</span> SHAPE takes the saws toward a square, hollow and woody,
+          then narrow pulses, bright and nasal. INTERVAL moves the centre saw an octave or a fifth; RESONANCE and TYPE
+          shape the filter: LOW, BAND or HIGH.</p>
+      </li>
+      <li class="layer rv" style="--d:.1s">
+        <img class="stratum" src="{{root}}assets/img/stratum-partials.png" width="128" height="10" alt="PARTIALS' stratum on the screen: a line of ice crystals">
+        <h3><span class="layer-name">PARTIALS</span> <span class="layer-is">the crystals</span></h3>
+        <p>Eight additive harmonics, each drifting on its own in level and tuning. Bright or dark, odd, stretched into
+          bells, with a formant.</p>
+        <p class="layer-ii"><span class="label">PARTIALS II</span> EVOLVE lets their levels wander deeper and quicker;
+          BEAT makes each one pulse at its own pace. FORMANT and PEAK lift them around one harmonic, as a vowel does,
+          up to that one alone: the drone sings a single overtone.</p>
+      </li>
+      <li class="layer rv" style="--d:.2s">
+        <img class="stratum" src="{{root}}assets/img/stratum-breath.png" width="128" height="10" alt="BREATH's stratum on the screen: a soft band of haze">
+        <h3><span class="layer-name">BREATH</span> <span class="layer-is">the mist</span></h3>
+        <p>Noise, a hiss or sparse grains, through three resonators tuned to the note, from air to glass.</p>
+        <p class="layer-ii"><span class="label">BREATH II</span> GRAIN turns the hiss into grains that ring like ice
+          ticking, or rain on glass. PITCH moves the resonators an octave down, or up into a halo over the drone.</p>
+      </li>
+    </ol>
+    <div class="presets rv">
+      <p class="label preset-sub">24 drones <span>PRESETS, on any page: each sets the three layers and the drone’s own</span></p>
+      <ul role="list" class="preset-list">
+        <li>MIST</li><li>CATHEDRAL</li><li>GLACIER</li><li>ABYSS</li><li>AURORA</li><li>EMBER</li><li>TIDE</li><li>DUST</li><li>WIND</li><li>ORGAN</li><li>HOLLOW</li><li>VOWEL</li>
+        <li>SHIMMER</li><li>CHANTER</li><li>ENSEMBLE</li><li>BELLS</li><li>NOCTURNE</li><li>HAZE</li><li>PULSE</li><li>RIME</li><li>DEEP</li><li>SPECTRAL</li><li>RUST</li><li>STILL</li>
+      </ul>
+      <p class="label preset-sub">And CUSTOM <span>your own: turn any of their settings and the drone becomes CUSTOM</span></p>
+    </div>
+    <div class="layers-foot">
+      <div class="motion-text" data-caps>
+        <p class="rv">Your drones’ notes never change. What moves on its own is the sound: MOTION, a slow random
+          drift of each partial, detune and resonance; TIDE, a slow swell of the timbre over minutes. Turned up, CHANCE
+          and SPARKLE let chance into GLINT’s notes.</p>
+        <div class="lfo-note rv">
+          <h3 class="label label-ice">LFO 1 · LFO 2 · LFO 3</h3>
+          <p>Press LFO again: three LFOs of your own, seven shapes, free or on the beat. Each moves up to four settings
+            together, around the values you gave them; a scene keeps it all.</p>
+        </div>
+        <p class="motion-links rv"><a class="link" href="{{root}}guide/how-it-works/#presets">The drone’s presets</a>
+          <a class="link" href="{{root}}guide/layers/">The layers’ second pages</a>
+          <a class="link" href="{{root}}guide/lfo/">The LFOs</a></p>
+      </div>
+      <figure class="lfo-fig rv" style="--d:.1s">
+        <div class="lfo" data-lfo role="img" aria-label="LFO 1's wave over one turn, a glint where it is now, moving FILTER and TIMBRE around their values">
+          <canvas aria-hidden="true"></canvas>
+        </div>
+        <div class="lfo-gauges" aria-hidden="true">
+          <div class="gauge" style="--v: .6"><p class="label"><span class="disc">3</span>FILTER</p><b>60</b><div class="gauge-line"><i class="gauge-lfo"></i></div></div>
+          <div class="gauge" style="--v: .5"><p class="label"><span class="disc">1</span>TIMBRE</p><b>50</b><div class="gauge-line"><i class="gauge-lfo"></i></div></div>
+        </div>
+        <div class="lfo-ui">
+          <p class="label" id="lfo-l">LFO 1 · <span class="disc">1</span>SHAPE</p>
+          <div class="chips" role="group" aria-labelledby="lfo-l">
+            <button type="button" class="chip" data-shape="0" aria-pressed="true">SINE</button>
+            <button type="button" class="chip" data-shape="1" aria-pressed="false">TRIANGLE</button>
+            <button type="button" class="chip" data-shape="2" aria-pressed="false">SAW</button>
+            <button type="button" class="chip" data-shape="3" aria-pressed="false">RAMP</button>
+            <button type="button" class="chip" data-shape="4" aria-pressed="false">SQUARE</button>
+            <button type="button" class="chip" data-shape="5" aria-pressed="false">RANDOM</button>
+            <button type="button" class="chip" data-shape="6" aria-pressed="false">DRIFT</button>
+          </div>
+        </div>
+        <figcaption class="fig-cap"><span class="label">FILTER · TIMBRE</span> Each keeps its value and its white mark; the ice-blue one is where the LFO has it now.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 4 CLOUD and FREEZE -->
+<section class="sec sec-cloud" id="cloud" aria-labelledby="h-cloud">
+  <div class="wrap">
+    <div class="dhead rv">
+      <p class="dhead-name">Cloud<span class="idx">4/11</span></p>
+      <div class="dhead-ctl" aria-hidden="true"><div class="dhead-btns"><span class="key">FX</span></div><p class="dhead-hint">Again: cloud · Hold: freeze</p></div>
+    </div>
+    <div class="cloud-grid">
+      <div class="cloud-text" data-caps>
+        <h2 class="display sm rv" id="h-cloud">Everything flows <em>into the cloud.</em></h2>
+        <p class="lede rv">WARMTH, a soft saturation, feeds CLOUD, the reverb: eight modulated lines with diffusion inside
+          their loop, a pre-delay, and a shimmer pitched inside the loop. Its tail runs from 0.4 to 60 seconds.</p>
+        <div class="freeze-note rv">
+          <h3 class="label label-ice">Generative FX</h3>
+          <p>FX opens on four knobs that play the whole sound. SWELL swells every voice and holds it there; SPARKLE lets
+            glints fall by themselves, now and then, on the notes the drones hold; BLUR dissolves the drone into the
+            cloud; SINK takes everything under, a low-pass on the whole mix.</p>
+        </div>
+        <div class="freeze-note rv">
+          <h3 class="label label-ice">Freeze</h3>
+          <p>Hold FX: the cloud holds what is in it, without end and without darkening. Nothing more goes in: what you
+            play next sounds dry over it. Hold FX again and it thaws, fading over DECAY. On the screen, the crystals set
+            into a lattice and the water stills.</p>
+        </div>
+      </div>
+      <div class="cloud-fig rv">
+        <div class="river river-freeze" data-river="freeze">
+          <canvas aria-hidden="true"></canvas>
+          <div class="freeze-ui">
+            <button class="freeze-btn" type="button" aria-pressed="false">
+              <span class="disc">4</span><span class="freeze-name">Freeze</span><b class="freeze-val" aria-hidden="true">OFF</b>
+            </button>
+          </div>
+        </div>
+        <div class="pages3" data-caps>
+          <dl class="page4">
+            <dt class="label">CLOUD</dt>
+            <dd><span class="disc">1</span>SIZE</dd><dd><span class="disc">2</span>DECAY <i>0.4–60 s</i></dd>
+            <dd><span class="disc">3</span>TONE</dd><dd><span class="disc">4</span>FREEZE <i>OFF · ON</i></dd>
+          </dl>
+          <dl class="page4">
+            <dt class="label">CLOUD II</dt>
+            <dd><span class="disc">1</span>DIFFUSION</dd><dd><span class="disc">2</span>MODULATION</dd>
+            <dd><span class="disc">3</span>PRE-DELAY <i>0–200 ms</i></dd><dd><span class="disc">4</span>WIDTH</dd>
+          </dl>
+          <dl class="page4">
+            <dt class="label">CLOUD III</dt>
+            <dd><span class="disc">1</span>SHIMMER</dd><dd><span class="disc">2</span>INTERVAL <i>+12 +7 +5 +19 −12</i></dd>
+            <dd><span class="disc">3</span>BRIGHT <i>700 Hz–8 kHz</i></dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 5 GLINT -->
+<section class="sec sec-glint" id="glint" aria-labelledby="h-glint">
+  <div class="wrap">
+    <div class="dhead rv">
+      <p class="dhead-name">Glint<span class="idx">5/11</span></p>
+      <div class="dhead-ctl" aria-hidden="true"><div class="dhead-btns"><span class="key on">ARP</span></div><p class="dhead-hint">Hold: arp latch · REC: record</p></div>
+    </div>
+    <div class="glint-head" data-caps>
+      <h2 class="display sm rv" id="h-glint">Small icy bells, <em>above the drones.</em></h2>
+      <p class="lede rv">GLINT is four voices of clean two-operator FM, played from the keys once SELECT turns them over to it.
+        Never latched: each note rings and fades like a bell, while the drones keep sounding under it.</p>
+    </div>
+    <div class="sky rv" data-sky>
+      <canvas aria-hidden="true"></canvas>
+      <button class="sky-strike" type="button"><span class="sr-only">Strike a glint</span></button>
+      <div class="sky-ui">
+        <p class="label" id="type-l"><span class="disc">2</span>TYPE</p>
+        <div class="chips" role="group" aria-labelledby="type-l">
+          <button type="button" class="chip" data-type="ARP" aria-pressed="true">ARP</button>
+          <button type="button" class="chip" data-type="SEQ" aria-pressed="false">SEQ</button>
+        </div>
+        <p class="label" id="arp-l"><span class="disc">1</span>MODE</p>
+        <div class="chips sky-modes" role="group" aria-labelledby="arp-l">
+          <button type="button" class="chip" data-mode="UP" aria-pressed="true">UP</button>
+          <button type="button" class="chip" data-mode="DOWN" aria-pressed="false">DOWN</button>
+          <button type="button" class="chip" data-mode="UPDOWN" aria-pressed="false">UPDOWN</button>
+          <button type="button" class="chip" data-mode="RANDOM" aria-pressed="false">RANDOM</button>
+          <button type="button" class="chip" data-mode="DRIFT" aria-pressed="false">DRIFT</button>
+        </div>
+        <p class="sky-hint" aria-hidden="true">Tap the sky: a glint, and its ping-pong echoes</p>
+      </div>
+    </div>
+    <div class="glint-cols" data-caps>
+      <div class="rv">
+        <h3 class="label">The hand</h3>
+        <p>Pressure makes a glint louder and longer. With VIBRATO, a wiggle of the finger bends its pitch, both ways
+          around the note, as a string player’s does; a steady press stays in tune. SUSTAIN turns a bell into a lead.</p>
+      </div>
+      <div class="rv" style="--d:.08s">
+        <h3 class="label">The arpeggiator</h3>
+        <p>It plays the GLINT keys you hold, one at a time, at RATE, over RANGE octaves, on the grid of MIDI clock or
+          TEMPO. LATCH is on from the start: the pattern keeps playing after you lift your hands. Hold ARP to turn it
+          off, or on again. Tap PLAY and it waits; again, it goes on from the top.</p>
+      </div>
+      <div class="rv" style="--d:.16s">
+        <h3 class="label">The sequencer</h3>
+        <p>TYPE on <span class="k">SEQ</span>: 32 steps in place of the arpeggio, on the same grid. REC goes straight there and records you
+          live as it runs, to a metronome; or write it a key a step. With RECORD off, the keys transpose it along the scale.
+          PLAY stops it; again, it starts from the top. A NEW TAKE starts it over from nothing, and UNDO brings back the
+          one before.</p>
+      </div>
+      <div class="rv" style="--d:.24s">
+        <h3 class="label">The delay</h3>
+        <p>GLINT’s own, tempo-synced, from 1/32 to 1/2 with triplets and dotted times, mono or ping-pong. Its echoes
+          go into the cloud too.</p>
+      </div>
+    </div>
+    <div class="presets rv">
+      <p class="label">22 presets</p>
+      <ul role="list" class="preset-list">
+        <li>ICE</li><li>BELL</li><li>BLIP</li><li>GLASS</li><li>CHIME</li><li>DROP</li><li>FROST</li><li>CELESTA</li>
+        <li>SINE</li><li>KALIMBA</li><li>MARIMBA</li><li>MUSIC BOX</li><li>VIBES</li><li>HARP</li><li>PIPE</li><li>BOWED</li>
+      </ul>
+      <p class="label preset-sub">And six leads <span>SUSTAIN holds them while the key is down</span></p>
+      <ul role="list" class="preset-list preset-leads">
+        <li>WARM LEAD</li><li>BRASS</li><li>SQUARE</li><li>SUB LEAD</li><li>STRINGS</li><li>REED</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 6 BASS -->
+<section class="sec sec-bass" id="bass" aria-labelledby="h-bass">
+  <div class="swell" aria-hidden="true">
+    <svg viewBox="0 0 1600 220" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="swell-under" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#05070a" stop-opacity=".85"/><stop offset="1" stop-color="#05070a" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="swell-line" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#f2a65a" stop-opacity="0"/><stop offset=".18" stop-color="#f2a65a" stop-opacity=".85"/>
+          <stop offset=".82" stop-color="#f2a65a" stop-opacity=".85"/><stop offset="1" stop-color="#f2a65a" stop-opacity="0"/>
+        </linearGradient>
+        <filter id="swell-glow" x="-5%" y="-50%" width="110%" height="200%"><feGaussianBlur stdDeviation="6"/></filter>
+      </defs>
+      <g class="swell-move">
+        <path class="swell-fill" d="" fill="url(#swell-under)"/>
+        <path class="swell-halo" d="" fill="none" stroke="#f2a65a" stroke-opacity=".35" stroke-width="10" filter="url(#swell-glow)"/>
+        <path class="swell-path" d="" fill="none" stroke="url(#swell-line)" stroke-width="2"/>
+      </g>
+    </svg>
+    <span class="swell-note">D2</span>
+  </div>
+  <div class="wrap">
+    <div class="dhead rv">
+      <p class="dhead-name">Bass<span class="idx">6/11</span></p>
+      <div class="dhead-ctl" aria-hidden="true"><div class="dhead-btns"><span class="key">SEQ</span></div><p class="dhead-hint">Select: bass · Hold SEQ: swell</p></div>
+    </div>
+    <div class="bass-grid">
+      <div class="bass-text" data-caps>
+        <h2 class="display sm rv" id="h-bass">One deep note, <em>held like a drone.</em></h2>
+        <p class="lede rv">Turn SELECT to BASS and the keys play it: one note at a time, the key’s note in the scale, OCTAVE
+          octaves down. Tap another key and it glides there without starting again; tap its own key and it lets go.
+          Press into it: louder, and its filter opens.</p>
+        <p class="rv muted">DRIVE into a soft clip, a resonant low-pass, and none of it in the reverb. A pure sine this low
+          barely reaches the FM-1’s small speaker: DRIVE, or a richer MODEL, gives it the harmonics that let you hear it
+          there. In headphones, SINE with DRIVE at 0 is a clean sub.</p>
+      </div>
+      <ol class="models rv" role="list" aria-label="The eight MODELs" data-caps>
+        <li><svg class="wave" data-wave="sine" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>SINE</b><span>pure</span></li>
+        <li><svg class="wave" data-wave="triangle" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>TRIANGLE</b><span>soft, a little hollow</span></li>
+        <li><svg class="wave" data-wave="square" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>SQUARE</b><span>hollow, woody</span></li>
+        <li><svg class="wave" data-wave="saw" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>SAW</b><span>bright, buzzing</span></li>
+        <li><svg class="wave" data-wave="reese" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>REESE</b><span>two saws ten cents apart, beating slowly</span></li>
+        <li><svg class="wave" data-wave="sub" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>SUB</b><span>the sine and its octave below</span></li>
+        <li><svg class="wave" data-wave="organ" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>ORGAN</b><span>three drawbars: the note, its octave, its twelfth</span></li>
+        <li><svg class="wave" data-wave="fm" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>FM</b><span>a sine modulating itself: round, growling</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 7 HARMONY -->
+<section class="sec" id="harmony" aria-labelledby="h-harmony">
+  <div class="wrap">
+    <div class="dhead rv">
+      <p class="dhead-name">Harmony<span class="idx">7/11</span></p>
+      <div class="dhead-ctl" aria-hidden="true"><div class="dhead-btns"><span class="key">SEL</span></div><p class="dhead-hint">Hold + key: single note</p></div>
+    </div>
+    <div class="harmony-head" data-caps>
+      <h2 class="display sm rv" id="h-harmony">Set a key once. <em>Every key you tap belongs to it.</em></h2>
+      <p class="lede rv">Twelve scales, eight chords built from the scale’s own notes and seven fixed ones, three
+        voicings. A key outside the scale plays the scale’s note just below it, and the scale’s keys glow faintly.</p>
+    </div>
+    {{harmony}}
+  </div>
+</section>
+
+<!-- ============================================================ 8 MIXER, PUMP, MASTERING -->
+<section class="sec sec-mixer" id="mixer" aria-labelledby="h-mixer">
+  <div class="wrap">
+    <div class="dhead rv">
+      <p class="dhead-name">Mixer<span class="idx">8/11</span></p>
+      <div class="dhead-ctl" aria-hidden="true"><div class="dhead-btns"><span class="key">HOME</span><span class="key">HOME</span></div><p class="dhead-hint">Pump: FX · Mastering: GLO</p></div>
+    </div>
+    <div class="mixer-grid">
+      <div class="mixer-text" data-caps>
+        <h2 class="display sm rv" id="h-mixer">The river breathes <em>on the beat.</em></h2>
+        <p class="lede rv">HOME’s second screen is a MIXER: a fader and a live meter for DRONE, BASS, GLINT and CLOUD,
+          the reverb’s return.</p>
+        <dl class="gestures rv">
+          <div><dt>PUMP</dt><dd>Ducks each track on the beat, as a sidechain from a kick would, without a kick: from
+            4 BARS to 1/8, on MIDI clock or TEMPO. DRONE, BASS and GLINT set how deep each one goes; the cloud pumps
+            with the drones.</dd></div>
+          <div><dt>MASTERING</dt><dd>A light compressor on the whole output, its gain reduction on the screen, live.</dd></div>
+        </dl>
+      </div>
+      <div class="mixer-fig rv" data-mixer>
+        <div class="faders" aria-hidden="true">
+          <div class="ch" style="--c: var(--fog)"><div class="track"><i class="cap"></i></div><div class="meter"><i></i></div><p><span class="disc">1</span>DRONE</p></div>
+          <div class="ch" style="--c: var(--lamp)"><div class="track"><i class="cap"></i></div><div class="meter"><i></i></div><p><span class="disc">2</span>BASS</p></div>
+          <div class="ch" style="--c: var(--ice)"><div class="track"><i class="cap"></i></div><div class="meter"><i></i></div><p><span class="disc">3</span>GLINT</p></div>
+          <div class="ch" style="--c: #7f9fb7"><div class="track"><i class="cap"></i></div><div class="meter"><i></i></div><p><span class="disc">4</span>CLOUD</p></div>
+        </div>
+        <div class="pump-ui">
+          <p class="label" id="pump-l">PUMP · <span class="disc">1</span>RATE</p>
+          <div class="chips" role="group" aria-labelledby="pump-l">
+            <button type="button" class="chip" data-rate="0" aria-pressed="false">OFF</button>
+            <button type="button" class="chip" data-rate="4" aria-pressed="false">1 BAR</button>
+            <button type="button" class="chip" data-rate="2" aria-pressed="false">1/2</button>
+            <button type="button" class="chip" data-rate="1" aria-pressed="true">1/4</button>
+            <button type="button" class="chip" data-rate=".5" aria-pressed="false">1/8</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 9 SCENES and MIDI -->
+<section class="sec" id="scenes" aria-labelledby="h-scenes">
+  <div class="wrap">
+    <div class="dhead rv">
+      <p class="dhead-name">Scenes · MIDI<span class="idx">9/11</span></p>
+      <div class="dhead-ctl" aria-hidden="true"><div class="dhead-btns"><span class="key">SAVE</span></div><p class="dhead-hint">Play: load · Save + REC: store</p></div>
+    </div>
+    <div class="scenes-grid">
+      <div data-caps>
+        <h2 class="display sm rv" id="h-scenes">Sixteen scenes. <em>A channel for each track.</em></h2>
+        <p class="lede rv">A scene holds the sound, the latched drones, GLINT’s arpeggio and its sequence, and the bass. Hold SAVE
+          and press REC to store one; hold SAVE and press a white key to load one of the sixteen, from any page. MORPH
+          glides into it, over up to two minutes, and KEEP can leave what plays playing while only the sound changes.
+          Eight slots hold the factory scenes; eight are free.</p>
+      </div>
+      <ol class="scene-list rv" role="list" aria-label="The factory scenes">
+        <li><b>01</b><span class="sn">MIST</span><span class="sd">D, chromatic · SINE</span></li>
+        <li><b>02</b><span class="sn">GLASS</span><span class="sd">A lydian, ADD9 wide · GLASS</span></li>
+        <li><b>03</b><span class="sn">ABYSS</span><span class="sd">D phrygian, FIFTH wide · DROP</span></li>
+        <li><b>04</b><span class="sn">CHORALE</span><span class="sd">D minor, SEVENTH open · BELL</span></li>
+        <li><b>05</b><span class="sn">WIND</span><span class="sd">E penta minor, mostly BREATH · FROST</span></li>
+        <li><b>06</b><span class="sn">BELLS</span><span class="sd">C major, QUARTAL open · CHIME</span></li>
+        <li><b>07</b><span class="sn">TIDE</span><span class="sd">F dorian, SUS2 open · BLIP</span></li>
+        <li><b>08</b><span class="sn">AURORA</span><span class="sd">G mixolydian, TRIAD wide · CELESTA</span></li>
+      </ol>
+    </div>
+    <div class="midi rv" data-caps>
+      <div class="midi-text">
+        <h3 class="label">MIDI over USB and TRS</h3>
+        <p>Each track has its own channel, whatever the keys play. The drones’ notes go through the harmony, so a
+          sequencer’s single note plays a chord; GLINT’s and BASS’s play as they come. Polyphonic aftertouch swells a
+          note; channel pressure, the whole track. Program Change loads the scenes. Hold GLO and move a knob on your
+          controller: it now turns the setting you touched last. Clock drives GLINT’s arpeggiator, its sequencer and its
+          delay, and the synced LFOs; Start resets the grid and starts the sequence.</p>
+      </div>
+      <ul class="midi-ch" role="list" aria-label="The default channels">
+        <li style="--c: var(--fog)"><span class="ch-n">CH 1</span><span class="ch-line"></span><span class="ch-t">DRONE</span></li>
+        <li style="--c: var(--ice)"><span class="ch-n">CH 2</span><span class="ch-line"></span><span class="ch-t">GLINT</span></li>
+        <li style="--c: var(--lamp)"><span class="ch-n">CH 3</span><span class="ch-line"></span><span class="ch-t">BASS</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 10 the screen -->
+<section class="sec" id="screen" aria-labelledby="h-screen">
+  <div class="wrap">
+    <div class="dhead rv">
+      <p class="dhead-name">The screen<span class="idx">10/11</span></p>
+      <div class="dhead-ctl" aria-hidden="true"><div class="dhead-btns"><span class="key">HOME</span></div><p class="dhead-hint">Hold: help</p></div>
+    </div>
+    <div class="screen-head" data-caps>
+      <h2 class="display sm rv" id="h-screen">A river at night, <em>240 pixels square.</em></h2>
+      <p class="lede rv">Pitch is height above the waterline. Each voice is a current carrying ice; GLINT shines in the
+        sky above; the bass is a slow swell across the river. Every setting wears the badge of the control that turns
+        it: a blue disc for K1–K4, an orange one for the three encoders on the left.</p>
+    </div>
+    <ul class="gallery" role="list">
+      {{gallery}}
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================================ 11 install -->
+<section class="sec sec-install" id="install" aria-labelledby="h-install">
+  <div class="wrap">
+    <div class="dhead rv"><p class="dhead-name">Install<span class="idx">11/11</span></p><p class="status">{{status}}</p></div>
+    <h2 class="display sm rv" id="h-install">Try it first. <em>Then give it to the FM-1.</em></h2>
+    <ol class="steps" role="list" data-caps>
+      <li class="rv">
+        <p class="step-n">01</p>
+        <h3>In the browser</h3>
+        <p>The emulator runs the same code the FM-1 runs, with sound. No FM-1 needed.</p>
+        <a class="btn btn-ice" href="{{root}}play/">Play <span class="arrow" aria-hidden="true">→</span></a>
+      </li>
+      <li class="rv" style="--d:.08s">
+        <p class="step-n">02</p>
+        <h3>On the FM-1</h3>
+        <p>From the browser: Chrome or Edge, the FM-1 connected by USB, through <a class="link" href="{{hub}}">The FM-1
+          Firmware Hub</a> once FRASIL is listed there. From a terminal: download <code>frasil-X.Y.fwsc</code> from the
+          releases, then, from a checkout of the repository:</p>
+        <pre><code>python3 base/tools/fm1_install.py frasil-X.Y.fwsc</code></pre>
+        <a class="btn" href="{{releases}}">Releases <span class="arrow" aria-hidden="true">↗</span></a>
+      </li>
+      <li class="rv" style="--d:.16s">
+        <p class="step-n">03</p>
+        <h3>And back</h3>
+        <p>Install M-VAVE’s V15 from the hub. If the FM-1 no longer starts, hold OCT− while you switch it on: it waits
+          for an update over USB.</p>
+        <a class="btn" href="{{root}}guide/install/">The install guide <span class="arrow" aria-hidden="true">→</span></a>
+      </li>
+    </ol>
+    <p class="beta rv"><span class="label">Beta</span> {{beta_note}}</p>
+  </div>
+</section>
+
+</main>

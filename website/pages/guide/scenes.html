@@ -1,0 +1,71 @@
+<!--
+title: Scenes
+lede: Sixteen slots. A scene holds the sound, the latched drones, GLINT’s arpeggio and its sequence, and the bass’s note.
+description: FRASIL's scenes on the FM-1: 16 slots, 8 factory scenes (MIST, GLASS, ABYSS, CHORALE, WIND, BELLS, TIDE, AURORA), storing and loading, MORPH, KEEP, UNDO and COMPARE, and what comes back at power-on.
+buttons: SAVE
+hint: Play: load · Save + REC: store
+-->
+<h2 id="save-and-load">Storing and loading</h2>
+<div class="g-split">
+  <div>
+    <p>Press SAVE for SCENES; SAVE again goes back to the page you came from. K1 picks a slot, K2 to K4 are MORPH, KEEP
+      and UNDO. The screen reminds you: PLAY LOAD, SAVE + REC STORE.</p>
+    <p><b class="k">Load:</b> on SCENES, PLAY loads the slot K1 points at. On any page, hold SAVE and press a white
+      key: the 16 white keys are the 16 scenes, F2’s key the first. That key sounds nothing, and the page stays. While
+      SAVE is held, the white keys light: the current scene’s bright, the slots that hold a scene faintly. MIDI Program
+      Change loads them too (see <a href="{{root}}guide/midi/#program-change">MIDI</a>). Every load comes in as MORPH
+      and KEEP say.</p>
+    <p><b class="k">Store:</b> hold SAVE and press REC: the sound goes into the slot K1 points at on SCENES, into the
+      current scene anywhere else (<span class="k">STORED 03 ABYSS</span>), with the latched drones (up to 8 chords),
+      GLINT’s arpeggio notes and its sequence, and the bass’s note. Into a free slot (9 to 16) with a drone preset on,
+      the scene takes the preset’s name; else it is SCENE and its number.</p>
+    <p><b class="k">UNDO</b> (K4): turn it once (AGAIN), then once more: the last STORE undone, the slot back as it
+      was.</p>
+    <p>The LFOs are part of the sound: a scene keeps their own settings, and each setting they move at the value you gave
+      it. Each scene keeps its own GLINT sequence too, and the settings keep the last one saved.</p>
+    <p>A scene keeps the drone’s CUSTOM, and the preset chosen over it, and GENERATIVE FX’s SPARKLE, BLUR and SINK.
+      SWELL and the KEYBOARD are the hand’s: scenes don’t keep them.</p>
+  </div>
+  <div class="g-figure">{{shot_scenes}}</div>
+</div>
+
+<h2 id="morph-and-keep">MORPH and KEEP</h2>
+<p>MORPH (K2) is how the sound comes in: CUT, at once, or over 1&nbsp;S, 2&nbsp;S, 4&nbsp;S, 8&nbsp;S, 15&nbsp;S, 30&nbsp;S, 60&nbsp;S or 2:00. Over a
+  time, the settings that glide go from where they are to the scene’s; the choices (the presets, MODEL, ROOT, SCALE,
+  CHORD, RATIO, TYPE, the TARGETs, INTERVAL, the rates, TIME, LENGTH, TRANSPOSE, TUNE) switch at once. A setting you
+  turn during the morph leaves it: your hand wins (a preset, all it sets). On the play page and SCENES, the header
+  shows an arrow, the scene’s name and a line for how far it has come; on the other pages, only the line, under the
+  page’s name. A new load starts from the values as they are.</p>
+<p>KEEP (K3) is what happens to what plays. SCENE: everything is let go, then the scene’s notes play, if it has any.
+  PLAYING: what plays goes on (the drones, the bass, GLINT’s arpeggio and sequence, with its TYPE and the settings that
+  play it: MODE, RATE, RANGE, CHANCE, LENGTH, GATE, TRANSPOSE); only the sound changes.</p>
+<p>MORPH and KEEP are kept with the settings, not in the scenes.</p>
+
+<h2 id="compare">COMPARE</h2>
+<p>Hold EDIT. While it is held, the scene sounds as it was saved or last loaded, whatever you have turned since; the
+  header says COMPARE · AS SAVED. Let go: the sound as it is now.</p>
+
+<h2 id="factory-scenes">The factory scenes</h2>
+<p>Slots 1 to 8 hold the factory scenes, sound only:</p>
+<table class="params scenes-table">
+  <thead><tr><th>Scene</th><th>Harmony</th><th>GLINT preset</th></tr></thead>
+  <tbody>
+    <tr><td>01 MIST</td><td>D, chromatic</td><td>SINE</td></tr>
+    <tr><td>02 GLASS</td><td>A lydian, ADD9 wide</td><td>GLASS</td></tr>
+    <tr><td>03 ABYSS</td><td>D phrygian, FIFTH wide</td><td>DROP</td></tr>
+    <tr><td>04 CHORALE</td><td>D minor, SEVENTH open</td><td>BELL</td></tr>
+    <tr><td>05 WIND</td><td>E penta minor, mostly BREATH</td><td>FROST</td></tr>
+    <tr><td>06 BELLS</td><td>C major, QUARTAL open</td><td>CHIME</td></tr>
+    <tr><td>07 TIDE</td><td>F dorian, SUS2 open</td><td>BLIP</td></tr>
+    <tr><td>08 AURORA</td><td>G mixolydian, TRIAD wide</td><td>CELESTA</td></tr>
+  </tbody>
+</table>
+
+<h2 id="your-scenes">Your scenes</h2>
+<p>Slots 9 to 16 are free. While the sound differs from the one last loaded or saved, SAVE lights, the SCENES page
+  says CHANGED and the play page’s header has an amber dot beside the scene’s name (back to it, they go). Storing also
+  keeps the settings: at power-on FRASIL comes back with the sound you stored last, silent. Nothing plays until you
+  play.</p>
+<p>Scenes saved by an earlier FRASIL come back as they were, the settings added since at their defaults; their drone
+  comes in as CUSTOM, with its sound, and GLINT’s arpeggio, sequence and delay move to their new pages as they
+  sounded.</p>

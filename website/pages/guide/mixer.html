@@ -1,0 +1,41 @@
+<!--
+title: Mixer · Pump · Mastering
+lede: A fader and a live meter for each track, a duck on the beat as a sidechain would make it, and a light compressor on the output.
+description: FRASIL's MIXER (DRONE, BASS, GLINT and CLOUD faders with live meters), PUMP (a sidechain-style duck on the beat for each track) and MASTERING (a compressor on the output).
+buttons: HOME > HOME
+hint: Pump: FX · Mastering: GLO
+-->
+<h2 id="the-mixer">The mixer</h2>
+<div class="g-split">
+  <div>
+    <p>Press HOME on the play page: a fader for each track, DRONE, BASS, GLINT, and CLOUD, the reverb’s return, each in
+      its colour, with the track’s meter beside it, live. K1–K4 move them. 100 is the level as it is (a mark on the
+      track), up to 127.</p>
+    <p>The faders are the tracks’ levels in the mix, after their own sound: DRONE and GLINT take what they send into the
+      cloud down with them. HOME again opens the logo screen.</p>
+  </div>
+  <div class="g-figure">{{shot_mixer}}</div>
+</div>
+
+<h2 id="pump">Pump</h2>
+<p>PUMP (FX, fifth page) ducks the tracks on the beat, as a sidechain from a kick would, without a kick: at RATE, on
+  the arpeggiator’s grid (MIDI clock, else TEMPO), each track dips and comes back up. DRONE, BASS and GLINT set how deep
+  each one goes; the cloud pumps with the drones. The river breathes with it.</p>
+<p>PUMP II shapes it: RELEASE, how much of the period it takes to come back (short: a tight pump; all of it: a slow
+  breath); ATTACK, how fast it goes down (1 ms: a kick’s; 300 ms: a soft wave); OFFSET, where in the period it goes down
+  (50 %: on the off-beat).</p>
+
+<h2 id="mastering">Mastering</h2>
+<p>MASTERING (GLO, third page) is a compressor on the whole output, before the soft limit: THRESHOLD, RATIO (OFF by
+  default), RELEASE (its attack is 10 ms) and GAIN, the make-up. The page shows the gain reduction, live.</p>
+
+<h2 id="the-pages">The pages</h2>
+<table class="params pages-table">
+  <thead><tr><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead>
+  <tbody>
+    <tr><td>MIXER <small>HOME, twice</small></td><td>DRONE</td><td>BASS</td><td>GLINT</td><td>CLOUD <small>each 0 to 127, 100 as it is</small></td></tr>
+    <tr><td>PUMP <small>FX, 5th</small></td><td>RATE <small>OFF, 4 BARS, 2 BARS, 1 BAR, 1/2, 1/4, 1/8</small></td><td>DRONE <small>its depth</small></td><td>BASS</td><td>GLINT</td></tr>
+    <tr><td>PUMP II <small>FX, 6th</small></td><td>RELEASE <small>10 to 100 % of the period</small></td><td>ATTACK <small>1 to 300 ms</small></td><td>OFFSET <small>0 to 100 % of the period</small></td><td></td></tr>
+    <tr><td>MASTERING <small>GLO, 3rd</small></td><td>THRESHOLD <small>−40 to 0 dB</small></td><td>RATIO <small>OFF, 1.5:1 to 20:1</small></td><td>RELEASE <small>30 ms to 1.5 s</small></td><td>GAIN <small>0 to +18 dB</small></td></tr>
+  </tbody>
+</table>

@@ -1,0 +1,162 @@
+<!--
+title: The LFOs
+lede: Three LFOs, each on up to four settings. A setting keeps the value you gave it; the LFO moves the sound around it.
+description: FRASIL's three LFOs on the FM-1: seven shapes, a rate from a 200-second turn to 10 Hz or on the tempo's grid, depth and polarity, up to four targets each among 40 settings of the drones, GLINT, the bass and the whole mix, saved in scenes.
+buttons: LFO > LFO
+hint: LFO 1 · Again: its targets · Hold + K: route
+-->
+<h2 id="the-seven-pages">The seven pages</h2>
+<p>Press LFO for DRONE MOTION, the drift and the tide (see <a href="{{root}}guide/playing/#the-shape">Playing
+  drones</a>). Press it again for LFO 1, then LFO 1 TARGETS, LFO 2, LFO 2 TARGETS, LFO 3 and LFO 3 TARGETS. The three LFOs
+  are the same, each with its own settings.</p>
+<table class="params pages-table">
+  <thead><tr><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead>
+  <tbody>
+    <tr><td>DRONE MOTION</td><td>MOTION <small>the drift’s depth</small></td><td>RATE <small>20 s to 0.5 s</small></td><td>TIDE <small>a swell of the timbre</small></td><td>PERIOD <small>5 min to 10 s</small></td></tr>
+    <tr><td>LFO 1</td><td>SHAPE <small>SINE, TRIANGLE, SAW, RAMP, SQUARE, RANDOM, DRIFT</small></td><td>RATE <small>a 200 s turn to 10 Hz, then 16 BARS to 1/16</small></td><td>DEPTH <small>0 is off</small></td><td>POLARITY <small>BIPOLAR, UP, DOWN</small></td></tr>
+    <tr><td>LFO 1 TARGETS</td><td>TARGET 1</td><td>TARGET 2</td><td>TARGET 3</td><td>TARGET 4 <small>each OFF or one of 40 settings</small></td></tr>
+    <tr><td>LFO 2</td><td>SHAPE</td><td>RATE</td><td>DEPTH</td><td>POLARITY <small>as LFO 1’s</small></td></tr>
+    <tr><td>LFO 2 TARGETS</td><td>TARGET 1</td><td>TARGET 2</td><td>TARGET 3</td><td>TARGET 4</td></tr>
+    <tr><td>LFO 3</td><td>SHAPE</td><td>RATE</td><td>DEPTH</td><td>POLARITY <small>as LFO 1’s</small></td></tr>
+    <tr><td>LFO 3 TARGETS</td><td>TARGET 1</td><td>TARGET 2</td><td>TARGET 3</td><td>TARGET 4</td></tr>
+  </tbody>
+</table>
+
+<h2 id="shape-depth-polarity">SHAPE, DEPTH, POLARITY</h2>
+<div class="g-split">
+  <div>
+    <p>SHAPE is the LFO’s wave, one of seven. DEPTH is how far it moves its targets: 0 is off, and at the top it
+      reaches the whole range of each one. POLARITY is which way: BIPOLAR around the setting, UP only above it, DOWN
+      only below.</p>
+  </div>
+  <div class="g-figure">{{shot_lfo}}</div>
+</div>
+<dl class="model-list">
+  <div><dt>SINE</dt><dd>a smooth swing, up and down</dd></div>
+  <div><dt>TRIANGLE</dt><dd>straight up, straight down</dd></div>
+  <div><dt>SAW</dt><dd>up, then back at once</dd></div>
+  <div><dt>RAMP</dt><dd>down, then back at once</dd></div>
+  <div><dt>SQUARE</dt><dd>high for half a turn, low for the other</dd></div>
+  <div><dt>RANDOM</dt><dd>a new value each turn, held</dd></div>
+  <div><dt>DRIFT</dt><dd>a new value each turn, glided to</dd></div>
+</dl>
+
+<h2 id="rate">RATE: free, or on the beat</h2>
+<p>RATE is one knob. It runs free first, from a turn of 200 seconds up to 10 Hz, shown as a period
+  (<span class="k">2.9 S</span>, <span class="k">1:40</span>) or in hertz (<span class="k">1.5 HZ</span>). Past the
+  fastest free value it goes onto the grid: 16 BARS, 8 BARS, 4 BARS, 2 BARS, 1 BAR, 1/2, 1/2T, 1/4, 1/4T, 1/8, 1/8T,
+  1/16.</p>
+<p>On the grid, an LFO follows MIDI clock when one comes in, and TEMPO (GLOBAL, K1) otherwise. MIDI Start puts the
+  synced ones back to the top of their turn.</p>
+
+<h2 id="targets">The targets</h2>
+<div class="g-split">
+  <div>
+    <p>The page after each LFO sets what it moves: TARGET 1 to 4, on K1–K4, each OFF or one of forty settings. The
+      four move together, by the same amount.</p>
+    <p>An LFO is on while DEPTH is above 0 and at least one TARGET is set. LFOs on the same setting add up.</p>
+  </div>
+  <div class="g-figure">{{shot_lfo_targets}}</div>
+</div>
+<p>The forty, by track, after OFF. On a TARGETS page each name wears its track’s colour: the drone’s and the whole
+  mix’s white, GLINT’s ice blue, the bass’s orange.</p>
+<h3 id="targets-drone">The drone</h3>
+<table class="params ctl-table">
+  <thead><tr><th>Target</th><th>The setting</th><th>An LFO on it</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">TIMBRE</span></td><td>DRONE PARAMS K1, the three layers’ brightness</td><td>the drone darkens and opens, slowly or on the beat</td></tr>
+    <tr><td><span class="k">SPACE</span></td><td>DRONE PARAMS K2, dry against the cloud</td><td>the drone comes close, then sinks back into the cloud</td></tr>
+    <tr><td><span class="k">MOTION</span></td><td>DRONE PARAMS K3, the drift’s depth</td><td>steady, then wandering, then steady again</td></tr>
+    <tr><td><span class="k">WARMTH</span></td><td>SOUND K4, the drive</td><td>clean, then saturated and thick</td></tr>
+    <tr><td><span class="k">CHOIR</span></td><td>SOUND K1, its level</td><td>the saws swell in and out of the mix</td></tr>
+    <tr><td><span class="k">PARTIALS</span></td><td>SOUND K2, its level</td><td>the overtones rise and fade</td></tr>
+    <tr><td><span class="k">BREATH</span></td><td>SOUND K3, its level</td><td>the breath comes and goes</td></tr>
+    <tr><td><span class="k">DETUNE</span></td><td>CHOIR K2, the saws’ spread</td><td>the beating slows and quickens, the chorus widens</td></tr>
+    <tr><td><span class="k">FILTER</span></td><td>CHOIR K3, its low-pass</td><td>the classic sweep</td></tr>
+    <tr><td><span class="k">SHAPE</span></td><td>CHOIR II K1, saw toward pulse</td><td>the saws turn hollow, then reedy</td></tr>
+    <tr><td><span class="k">CH RESO</span></td><td>CHOIR II K3, the filter’s peak</td><td>a whistle rides the sweep</td></tr>
+    <tr><td><span class="k">TILT</span></td><td>PARTIALS K2, bright to dark</td><td>the overtones lean up, then down</td></tr>
+    <tr><td><span class="k">ODD</span></td><td>PARTIALS K3, the even ones out</td><td>full, then hollow like a clarinet</td></tr>
+    <tr><td><span class="k">STRETCH</span></td><td>PARTIALS K4, harmonic to bell</td><td>the drone bends toward a bell and back</td></tr>
+    <tr><td><span class="k">EVOLVE</span></td><td>PARTIALS II K1, their own wander</td><td>the overtones restless, then calm</td></tr>
+    <tr><td><span class="k">BEAT</span></td><td>PARTIALS II K2, each one pulsing</td><td>the shimmer of pulses comes and goes</td></tr>
+    <tr><td><span class="k">FORMANT</span></td><td>PARTIALS II K3, the formant’s place</td><td>a vowel moving (with PEAK up)</td></tr>
+    <tr><td><span class="k">PEAK</span></td><td>PARTIALS II K4, the formant’s strength</td><td>one overtone singing out, then blending back</td></tr>
+    <tr><td><span class="k">BR RESO</span></td><td>BREATH K2, air to glass</td><td>the breath rings, then is air again</td></tr>
+    <tr><td><span class="k">COLOR</span></td><td>BREATH K3, the resonators’ ratios</td><td>harmonic, odd, then bell</td></tr>
+    <tr><td><span class="k">GRAIN</span></td><td>BREATH II K1, hiss to grains</td><td>the noise breaks into sparse grains</td></tr>
+    <tr><td><span class="k">BR TONE</span></td><td>BREATH II K3, the noise’s colour</td><td>dark, then bright</td></tr>
+    <tr><td><span class="k">AIR</span></td><td>BREATH II K4, the noise beside the resonators</td><td>more wind, then more ring</td></tr>
+    <tr><td><span class="k">SPREAD</span></td><td>BREATH K4, the voices across the field</td><td>the chord narrows to the middle, then opens wide</td></tr>
+    <tr><td><span class="k">DRONE LVL</span></td><td>MIXER K1, the drones’ fader</td><td>the drones breathe in level</td></tr>
+    <tr><td><span class="k">FULLNESS</span></td><td>DRONE PARAMS K4 and ALGORITHM</td><td>the whole drone thins, then fills</td></tr>
+  </tbody>
+</table>
+<h3 id="targets-glint">GLINT</h3>
+<table class="params ctl-table">
+  <thead><tr><th>Target</th><th>The setting</th><th>An LFO on it</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k tk-gl">GL LEVEL</span></td><td>GLINT PARAMS K3, its level</td><td>the glints louder, then softer, as they ring</td></tr>
+    <tr><td><span class="k tk-gl">GL BRIGHT</span></td><td>GLINT PARAMS K4, its brightness</td><td>each note struck brighter or darker (at the strike)</td></tr>
+    <tr><td><span class="k tk-gl">GL PING</span></td><td>GLINT III K1, the strike’s ping</td><td>each strike sharper or softer (at the strike)</td></tr>
+    <tr><td><span class="k tk-gl">GL SPACE</span></td><td>GLINT DELAY K4, its share into the cloud</td><td>the glints near, then far</td></tr>
+    <tr><td><span class="k tk-gl">GLINT LVL</span></td><td>MIXER K3, GLINT’s fader</td><td>GLINT’s whole track in and out</td></tr>
+    <tr><td><span class="k tk-gl">GL CHANCE</span></td><td>GLINT ARP and GLINT SEQ II, K4</td><td>the steps thin out, then all play</td></tr>
+    <tr><td><span class="k tk-gl">SEQ LEN</span></td><td>GLINT SEQ II K1, the sequence’s length</td><td>the phrase shortens and grows, its loop shifting</td></tr>
+    <tr><td><span class="k tk-gl">SPARKLE</span></td><td>GENERATIVE FX K2</td><td>the glints by themselves come in bursts, then rarely</td></tr>
+  </tbody>
+</table>
+<h3 id="targets-bass">The bass</h3>
+<table class="params ctl-table">
+  <thead><tr><th>Target</th><th>The setting</th><th>An LFO on it</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k tk-bs">BS FILTER</span></td><td>BASS K3, its filter</td><td>a sweep, a wobble on the beat</td></tr>
+    <tr><td><span class="k tk-bs">BS RESO</span></td><td>BASS K4, the filter’s peak</td><td>the bass whistles, then rounds off</td></tr>
+    <tr><td><span class="k tk-bs">BS DRIVE</span></td><td>BASS K2, its drive</td><td>clean, then growling</td></tr>
+    <tr><td><span class="k tk-bs">BASS LVL</span></td><td>MIXER K2, the bass’s fader</td><td>the bass swells under the drones</td></tr>
+  </tbody>
+</table>
+<h3 id="targets-mix">The whole mix</h3>
+<table class="params ctl-table">
+  <thead><tr><th>Target</th><th>The setting</th><th>An LFO on it</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">BLUR</span></td><td>GENERATIVE FX K3</td><td>the drone dissolves into the cloud, then comes back</td></tr>
+    <tr><td><span class="k">SINK</span></td><td>GENERATIVE FX K4</td><td>everything goes under water, then surfaces</td></tr>
+  </tbody>
+</table>
+
+<h2 id="routing">From any page: LFO held and an encoder</h2>
+<p>Hold LFO and turn K1, K2, K3 or K4, on any page: the setting under that encoder goes onto LFO 1, then LFO 2, LFO 3,
+  then none (turned back, the other way), into that LFO’s first free TARGET. An LFO’s DEPTH at 0 comes up to 25 %. The
+  header says where it went: <span class="k">FILTER &gt; LFO 2</span>, <span class="k">&gt; NO LFO</span>,
+  <span class="k">LFO 2 FULL</span> (its four TARGETs taken), or <span class="k">NOT AN LFO TARGET</span>. Let LFO go
+  without turning anything and it opens its pages, as ever.</p>
+
+<h2 id="around-the-setting">Around the setting</h2>
+<p>A setting keeps the value you gave it, and that is what a scene saves, with the LFOs’ own settings. The LFO moves
+  the sound around it.</p>
+<p>An LFO runs freely and continuously while it is on. Keys do not trigger it or start it again: it goes its own way
+  under whatever you play.</p>
+<p>GL BRIGHT and GL PING take effect at each strike: an LFO on them changes the next notes. GL LEVEL, GL SPACE and the
+  rest move as it goes. FRASIL glides between the LFO’s steps, in about 25 ms, so a SQUARE or a RANDOM steps softly
+  rather than clicking. The bass’s FILTER, RESONANCE and DRIVE glide too (about 7 ms): an LFO on BS FILTER sweeps
+  smoothly, a wobble.</p>
+<p>They cost the processor next to nothing: they update a hundred times a second, outside the sound.</p>
+
+<h2 id="on-the-screen">On the screen</h2>
+<p>When an LFO moves a setting, its gauge shows a small ice-blue mark where the LFO has it now. The value, and its own
+  mark, stay where you put them.</p>
+<p>On an LFO’s pages, the river strip shows the LFO itself: its shape over one turn (four for RANDOM and DRIFT), as
+  deep as DEPTH, from where POLARITY puts it, and a glint where it is now. It is slate grey while the LFO is off.</p>
+<p>On a TARGETS page, each name wears its track’s colour: GLINT’s ice blue, the bass’s orange, the drone’s and the whole
+  mix’s white.</p>
+
+<h2 id="to-try">A few to try</h2>
+<ul>
+  <li>PEAK up on PARTIALS II, and a slow SINE on FORMANT: the drone sings one overtone, then the next, up and back
+    down.</li>
+  <li>SINE on BS FILTER, on the grid at 1/8: the bass wobbles on the beat.</li>
+  <li>RANDOM on GL BRIGHT, quicker than the notes: each glint struck brighter or darker than the last.</li>
+  <li>DRIFT on TIMBRE, a turn of <span class="k">1:40</span>: every hundred seconds, the drones glide toward a new
+    colour.</li>
+</ul>
