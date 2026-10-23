@@ -49,8 +49,9 @@ Write to the FM-1 Firmware Hub's maintainer (the address is on the hub) once the
 >
 > What it does: An ambient drone and texture instrument. Tap a key to latch a drone (a note, or a chord in the key
 > you chose), press to make it swell. Three layers per voice (detuned saws, drifting partials, tuned noise) flow
-> into a large reverb with shimmer and freeze. GLINT plays small icy FM bells on top, by hand or through an
-> arpeggiator that follows MIDI clock. No sequencer, nothing composed for you: the drones are the notes you light.
+> into a large reverb with shimmer and freeze. GLINT plays small icy FM bells on top, by hand, through an
+> arpeggiator or a 32-step sequencer that follow MIDI clock; BASS holds one deep note under them. The drones are the
+> notes you light, and they never change.
 >
 > Identity: FM-1_47XXYYZZ (FM-1_47 is FRASIL's own; 1.0 is FM-1_47010000).
 >
