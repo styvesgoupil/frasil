@@ -43,11 +43,11 @@ for (let k = 0, pos = 16; k < (img[6] | img[7] << 8); k++) {
 const ST = SCHEMA.scene_t, SS = SCHEMA.scenes_t, SB = SCHEMA.bseqs_t, size = ex.web_scene_size();
 const slot = (s) => Uint8Array.from([...objs[SCHEMA.objs.scenes].subarray(SS.s + s * ST.rec, SS.s + (s + 1) * ST.rec),
                                      ...objs[SCHEMA.objs.bseqs].subarray(SB.s + s * SB.scene, SB.s + (s + 1) * SB.scene)]);
-check(size === ST.size && slot(2).length === size, `a scene_t: ${size} bytes, as the schema has it (the record's ${ST.rec}, the bass's ${SB.scene})`);
+check(size === ST.size && slot(7).length === size, `a scene_t: ${size} bytes, as the schema has it (the record's ${ST.rec}, the bass's ${SB.scene})`);
 rms(40);                                                   // (boot settles)
 const quiet = rms(20);
 const play = (bytes) => { new Uint8Array(ex.memory.buffer, ex.web_scene_buf(), size).set(bytes); ex.web_scene_play(); };
-play(slot(2));
+play(slot(7));
 rms(80);                                                   // (ABYSS's attack is slow: about 2 s in)
 const abyss = rms(40);
 check(abyss > quiet * 4 && abyss > 1e-3, `ABYSS sounds (rms ${abyss.toExponential(2)}, before ${quiet.toExponential(2)})`);
@@ -55,7 +55,7 @@ ex.web_scene_stop();
 rms(1400);                                                 // (its release and the cloud's tail: about 30 s)
 const after = rms(40);
 check(after < abyss / 10, `stopped: it fades (rms ${after.toExponential(2)})`);
-play(FACTORY[0]);                                          // MIST, as the factory has it: nothing to play
+play(FACTORY[7]);                                          // slot 8 as the factory has it, NEW SHARD: nothing to play
 rms(80);
 const chord = rms(40);
 check(chord > after * 4 && chord > 1e-3, `a shard with nothing to play: a chord on its ROOT (rms ${chord.toExponential(2)})`);

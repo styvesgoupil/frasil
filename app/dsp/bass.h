@@ -21,20 +21,25 @@ typedef struct {
     float level;                         /* 0..1 */
     float attack, release;               /* 0..1: 5 ms .. 5 s; 30 ms .. 15 s */
     float decay;                         /* 0..1: 10 ms .. 10 s, from the top down to SUSTAIN */
+    int octave;                          /* OCTAVE: every note it plays moved so many octaves (the one sounding too,
+                                          * gliding there), then folded up to C1 */
     float sustain;                       /* 0..1: the level held, a share of the top's (1: no decay) */
 } bass_params_t;
 
 void bass_init(void);
-void bass_on(int note, float vel);       /* render side: to this note, from where it is if it sounds */
+void bass_on(int note, float vel, const bass_params_t *p);   /* render side: to this note (OCTAVE on it), from
+                                                               * where it is if it sounds */
 void bass_off(void);
 void bass_press(float p);                /* 0..1: louder, and its filter opens */
 void bass_pulse(float gap);              /* the note sounding let go for gap seconds, then again from its ATTACK (the
                                           * same note and velocity, its pressure kept) */
+void bass_retune(int note, float vel);   /* the note sounding (or in PULSE's gap) to this one, gliding as GLIDE does,
+                                          * not struck: its next attack its own */
 /* n frames (a multiple of 32) added into l, r */
 void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p);
 
 typedef struct {
-    int8_t note;                         /* -1: silent */
+    int8_t note;                         /* -1: silent; else as it sounds (OCTAVE on it, folded) */
     uint8_t gate;                        /* held */
     uint8_t stage;                       /* 0 ATTACK, 1 DECAY then SUSTAIN (held, the attack done), 2 RELEASE */
     float t;                             /* seconds in that stage */
@@ -43,5 +48,6 @@ typedef struct {
     float level;                         /* the envelope, 0..1 */
     float pressure;                      /* 0..1 */
     uint32_t pulses;                     /* the notes played again after a pulse's gap (the tests) */
+    uint32_t ons;                        /* the notes struck (bass_on; the tests) */
 } bass_view_t;
 void bass_view(bass_view_t *v);

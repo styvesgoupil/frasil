@@ -2,7 +2,6 @@
  * Copyright (C) 2026 Styves Goupil
  * The main site's River library page (pages/river-library.html, /river/): what FRASIL River is, and the way there. */
 .rl { padding-block: clamp(44px, 6vw, 84px) clamp(64px, 8vw, 112px); }
-.rl .dhead { margin-bottom: clamp(28px, 4vw, 48px); }
 .rl-grid { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 24px clamp(32px, 6vw, 96px); align-items: end; }
 .rl h1 { margin: 0; }
 .rl-go { display: grid; gap: 28px; justify-items: start; }

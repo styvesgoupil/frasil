@@ -1,16 +1,12 @@
 <!--
 title: Install
-lede: Try it in the browser first: no FM-1 needed. Then put it on the FM-1, from Chrome or Edge or from a terminal, and back to the official firmware whenever you like.
-description: How to try FRASIL in the browser, install it on the M-VAVE FM-1 from Chrome or Edge or from a terminal, and go back to M-VAVE's firmware.
+lede: Put it on the FM-1, from Chrome or Edge or from a terminal, and back to the official firmware whenever you like.
+description: How to install FRASIL on the M-VAVE FM-1, from Chrome or Edge or from a terminal, and go back to M-VAVE's firmware.
 -->
 <aside class="callout" data-nocaps>
   <p class="status">{{status}}<span class="dl" data-downloads hidden></span></p>
   <p>{{beta_note}}</p>
 </aside>
-
-<h2 id="try">Try it first</h2>
-<p>The emulator runs the same code in the browser, with sound. No FM-1 needed.</p>
-<p><a class="btn btn-ice" href="{{root}}play/">Play in the browser <span class="arrow" aria-hidden="true">→</span></a></p>
 
 <h2 id="browser">Install from the browser</h2>
 <p>In Chrome or Edge, connect the FM-1 by USB, open the installer and press Install. The browser asks once to allow
@@ -33,6 +29,7 @@ description: How to try FRASIL in the browser, install it on the M-VAVE FM-1 fro
   <thead><tr><th>What</th><th>Where</th></tr></thead>
   <tbody>
     <tr><td>The 16 scenes</td><td><code>0xDA000</code>: two 4 KiB sectors, written in turn, each record with a CRC</td></tr>
+    <tr><td>The scenes’ bass sequences and TEMPOs</td><td><code>0xD8000</code>: the same</td></tr>
     <tr><td>The settings</td><td><code>0xFC000</code>, the sector pair where Felucca keeps its globals: the sound at power-on, the MIDI channels, TEMPO, LOAD, the metronome, the learned CCs</td></tr>
     <tr><td>The panel’s calibration</td><td><code>0xDC000</code>, in Felucca’s own format, so it stays valid from one to the other</td></tr>
   </tbody>
@@ -53,8 +50,8 @@ description: How to try FRASIL in the browser, install it on the M-VAVE FM-1 fro
 </ul>
 
 <h2 id="versions">Versions</h2>
-<p>Package identity: <code>FM-1_47XXYYZZ</code>, its version in it: 1.0 is <code>FM-1_47010000</code>, then 1.1, 1.2
-  … (1.0.1 for a fix). The logo screen shows the version the FM-1 runs.</p>
+<p>Package identity: <code>FM-1_47XXYYZZ</code>, its version in it: 1.0 is <code>FM-1_47010000</code>, 2.0 is
+  <code>FM-1_47020000</code> (a fix, 2.0.1: <code>FM-1_47020001</code>). The logo screen shows the version the FM-1 runs.</p>
 
 <h2 id="source">From source</h2>
 <p>For the curious and for forks: the host simulator, the checks, the browser emulator and the firmware all build from

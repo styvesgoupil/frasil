@@ -10,7 +10,8 @@
  * A scene: {slot, state ("saved", "factory", "empty"), current (in this FRASIL's layout), bytes (scene_t, current
  * only), name, v (its sound, the drone's preset applied, as the screen shows it), chords [{root, notes}], arp [notes],
  * bass (-1 none), seq [32 bytes] (current only), bseq {notes, lens, on, steps, trans} (the bass's sequence: empty for
- * an earlier FRASIL's without OBJ_BSEQ)}. Its scene_t is the scenes' record's (OBJ_SCENES) then its bass's (OBJ_BSEQ:
+ * an earlier FRASIL's without OBJ_BSEQ), tempo (its TEMPO's value, BPM - 30)}. Its scene_t is the scenes' record's
+ * (OBJ_SCENES) then its bass's (OBJ_BSEQ:
  * none, empty). A package or a shard of an earlier layout (S.old_shards) comes in made over, as the FM-1 would. */
 "use strict";
 const FB = ((S) => {
@@ -36,6 +37,7 @@ const FB = ((S) => {
   const EMPTY_BQ = new Uint8Array(BQ);
   EMPTY_BQ[ST.bq - REC + 1] = param("P_BQ_STEPS").def;
   EMPTY_BQ[ST.bq - REC + 2] = param("P_BQ_TRANS").def;
+  EMPTY_BQ[ST.tempo - REC] = param("P_TEMPO").def;   // (and TEMPO at its default)
   const joined = (rec, bq) => { const b = new Uint8Array(ST.size); b.set(rec.subarray(0, REC)); b.set(bq, REC); return b; };
   const objOf = (objs, obj) => objs.find((o) => o.obj === obj);
 
@@ -72,6 +74,19 @@ const FB = ((S) => {
   }
   const NO_BSEQ = bassSeq(joined(new Uint8Array(REC), EMPTY_BQ), ST.bnote, ST.blen, ST.bq);
 
+  /* the basses' record (OBJ_BSEQ): this layout's, or one of S.old_bseqs (FRBS: before the scenes' TEMPO, the settings'
+   * for each, as the FM-1 makes it over) -> slot -> its bass's bytes (BQ), or null (none, or not one) */
+  function basses(q, tempo) {
+    if (q && q.length === SB.size && magicAt(q, 0) === S.magic.bseqs) return (s) => q.subarray(SB.s + s * BQ, SB.s + (s + 1) * BQ);
+    const o = q && S.old_bseqs.find((x) => x.magic === magicAt(q, 0) && q.length === SB.s + N.NSCENES * x.scene);
+    if (!o) return null;
+    return (s) => {
+      const b = Uint8Array.from(EMPTY_BQ);
+      b.set(q.subarray(SB.s + s * o.scene, SB.s + (s + 1) * o.scene));
+      b[ST.tempo - REC] = tempo;
+      return b;
+    };
+  }
   /* every earlier layout kept SCATTER where GLINT's RELEASE is: RELEASE as its DECAY let a glint go then (the
    * schema's table, app.c glint_release_of) */
   const SG_ = S.scatter_gone;
@@ -85,8 +100,9 @@ const FB = ((S) => {
     out.set(b.subarray(0, sv));
     for (let p = old.nv; p < N.NSOUND; p++) out[ST.v + p] = S.params[p].def;
     out.set(b.subarray(sv, old.rec), ST.v + N.NSOUND);
-    out.set(old.size > old.rec ? b.subarray(old.rec) : EMPTY_BQ, REC);
-    scatterGone(out, ST.v);
+    out.set(EMPTY_BQ, REC);                              // (its bass's sequence over an empty one's: TEMPO at its default)
+    out.set(b.subarray(old.rec), REC);
+    if (old.scatter) scatterGone(out, ST.v);
     return out;
   }
 
@@ -96,15 +112,15 @@ const FB = ((S) => {
     return {
       current: true, bytes: Uint8Array.from(b), name: text(b, ST.name, ST.name_len), v: sounding(v), raw_v: Uint8Array.from(v),
       ...plays(b, ST.name, ST.name_len, N.NSOUND, 1), seq: Array.from(b.subarray(ST.seq, ST.seq + N.SC_SEQ)),
-      bseq: bassSeq(b, ST.bnote, ST.blen, ST.bq),
+      bseq: bassSeq(b, ST.bnote, ST.blen, ST.bq), tempo: b[ST.tempo],
     };
   }
 
   const FACTORY = S.factory.map((h) => scene(fromHex(h)));
 
-  // the scenes' record and their basses' (none: each empty) -> 16 scenes, slot by slot (a slot with nothing saved: the
-  // factory's, as scene_get has it)
-  function scenes(p, q) {
+  // the scenes' record and their basses' (none: each empty; FRBS's: the scenes are an earlier FRASIL's, their TEMPO the
+  // settings', tempo) -> 16 scenes, slot by slot (a slot with nothing saved: the factory's, as scene_get has it)
+  function scenes(p, q, tempo) {
     const out = [];
     const empty = (slot) => ({ ...FACTORY[slot], slot, state: slot < N.NFACTORY ? "factory" : "empty" });
     if (!p || p.length < 8) {                         // (none saved yet)
@@ -113,20 +129,20 @@ const FB = ((S) => {
     }
     const magic = magicAt(p, 0), used = u16(p, SS.used);
     if (magic === S.magic.scenes && p.length === SS.rec) {
-      const bq = q && q.length === SB.size && magicAt(q, 0) === S.magic.bseqs ? q : null;
+      const bq = basses(q, tempo), old = !!(q && q.length && magicAt(q, 0) !== S.magic.bseqs);
       for (let s = 0; s < N.NSCENES; s++) {
-        const o = SS.s + s * REC, b = joined(p.subarray(o, o + REC), bq ? bq.subarray(SB.s + s * BQ, SB.s + (s + 1) * BQ) : EMPTY_BQ);
-        out.push(used >> s & 1 ? { ...scene(b), slot: s, state: "saved" } : empty(s));
+        const o = SS.s + s * REC, b = joined(p.subarray(o, o + REC), bq ? bq(s) : EMPTY_BQ);
+        out.push(used >> s & 1 ? { ...scene(b), current: !old, slot: s, state: "saved" } : empty(s));
       }
-      return { layout: magic, current: true, scenes: out };
+      return { layout: old ? magicAt(q, 0) : magic, current: !old, scenes: out };
     }
     const l = S.old_scenes.find((x) => x.magic === magic);
     const rs = l && l.name + l.nv + 2 + N.SC_CHORDS * 5 + N.SC_ARP + (l.extra ? 1 : 0) + (l.extra >= 2 ? N.SC_SEQ : 0);
     if (!l || p.length !== 8 + N.NSCENES * rs) throw new Error(`The scenes in this file are in a layout this page doesn't know (${magic}). It may come from a newer FRASIL.`);
-    const bq = q && q.length === SB.size && magicAt(q, 0) === S.magic.bseqs ? q : null;   // (FRSh's: beside them)
+    const bq = basses(q, tempo);                       // (FRSh's: beside them)
     for (let s = 0; s < N.NSCENES; s++) {             // an earlier FRASIL's: the names and what plays (its sound is
       const o = 8 + s * rs;                           // brought up to date by the FM-1 when restored)
-      const bs = bq ? bassSeq(bq, SB.s + s * BQ, SB.s + s * BQ + N.SC_BSEQ, SB.s + s * BQ + 2 * N.SC_BSEQ) : NO_BSEQ;
+      const bs = bq ? bassSeq(bq(s), 0, N.SC_BSEQ, 2 * N.SC_BSEQ) : NO_BSEQ;
       out.push(used >> s & 1 ? { slot: s, state: "saved", current: false, name: text(p, o, l.name), ...plays(p, o, l.name, l.nv, l.extra), bseq: bs }
                              : empty(s));
     }
@@ -151,9 +167,9 @@ const FB = ((S) => {
       for (let i = 0; i < N.NLEARN; i++) {
         const x = b[SG.learn_p + i];
         if (x >= over.nv && x < N.NPARAM - add) b[SG.learn_p + i] = x + add;
-        if (x === SG_.p) b[SG.learn_cc + i] = b[SG.learn_p + i] = 0;
+        if (over.scatter && x === SG_.p) b[SG.learn_cc + i] = b[SG.learn_p + i] = 0;
       }
-      scatterGone(b, SG.v);
+      if (over.scatter) scatterGone(b, SG.v);
       return { ...settings(b), layout: magic };
     }
     if (magic !== S.magic.settings || p.length !== SG.size) return { current: false, layout: magic };
@@ -171,8 +187,9 @@ const FB = ((S) => {
 
   // a backup image (PB.parse's objs) -> what it holds
   function read(parsed) {
-    const by = Object.fromEntries(parsed.objs.map((o) => [o.obj, o.data]));
-    return { flags: parsed.flags, settings: settings(by[S.objs.settings]), ...scenes(by[S.objs.scenes], by[S.objs.bseqs]) };
+    const by = Object.fromEntries(parsed.objs.map((o) => [o.obj, o.data])), set = settings(by[S.objs.settings]);
+    const tempo = set && set.current && set.tempo <= param("P_TEMPO").max ? set.tempo : param("P_TEMPO").def;
+    return { flags: parsed.flags, settings: set, ...scenes(by[S.objs.scenes], by[S.objs.bseqs], tempo) };
   }
 
   // ----------------------------------------------------------------- scene packages (.frasilscenes)
@@ -234,7 +251,9 @@ const FB = ((S) => {
       for (let i = 0; i < 4; i++) p[i] = S.magic.scenes.charCodeAt(i);
       FACTORY.forEach((f, s) => p.set(f.bytes.subarray(0, REC), SS.s + s * REC));
     }
-    if (bo && bo.data.length === SB.size && magicAt(bo.data, 0) === S.magic.bseqs) q = Uint8Array.from(bo.data);
+    if (bo.data.length && (bo.data.length !== SB.size || magicAt(bo.data, 0) !== S.magic.bseqs))   // (FRBS: its basses
+      throw new Error("The FM-1 runs another version of FRASIL. Update it on the Install page, then try again.");   // kept)
+    if (bo.data.length) q = Uint8Array.from(bo.data);
     else {
       q = new Uint8Array(SB.size);
       for (let i = 0; i < 4; i++) q[i] = S.magic.bseqs.charCodeAt(i);

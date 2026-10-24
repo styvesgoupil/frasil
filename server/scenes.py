@@ -5,11 +5,11 @@ from the simulator: app.c schema_write; never a layout copied by hand).
   Schema(path).shard(data, layout)   a scene_t of that layout (magic.shard: the scenes' record's, then the bass's
                                      sequence) -> its bytes, the name NUL-padded; Invalid if not
   .renamed(data, name)               the same bytes under another name
-  .upgraded(data, layout)            a shard of an earlier layout (FRSk: SCATTER where GLINT's RELEASE is; FRSi:
-                                     before BASS's DECAY, SUSTAIN and PULSE too; FRSh: before the bass's sequence too;
-                                     FRSg: names of ten) -> its bytes in this one, as the FM-1 makes it over (the name
-                                     NUL-padded, the bass empty, the new settings at their defaults, RELEASE as DECAY
-                                     let a glint go then); None if not one
+  .upgraded(data, layout)            a shard of an earlier layout (FRSm: before the scene's TEMPO; FRSk: SCATTER where
+                                     GLINT's RELEASE is too; FRSi: before BASS's DECAY, SUSTAIN and PULSE too; FRSh:
+                                     before the bass's sequence too; FRSg: names of ten) -> its bytes in this one, as
+                                     the FM-1 makes it over (the name NUL-padded, the bass empty, the new settings and
+                                     TEMPO at their defaults, RELEASE as DECAY let a glint go then); None if not one
   .derived(data)                     what the gallery filters on: root, scale, type (GLINT's OFF/ARP/SEQ), drone, glint;
                                      bseq (1: the bass's sequence on, its bq_on)
   .backup(image)                     a backup file (fm1-base's: base/tools/fm1_backup.py parse) -> the names of the
@@ -49,7 +49,8 @@ class Schema:
         self.words = {k: [t.upper() for t in s["params"][p]["texts"]] for k, p in self.at.items()}
         bass = bytearray(self.size - self.rec)        # an empty bass: every step a CUT of a sixteenth, SEQUENCE off,
         bass[st["bq"] - self.rec + 1] = s["params"][ids["P_BQ_STEPS"]]["def"]   # all its steps, not transposed (app.c
-        bass[st["bq"] - self.rec + 2] = s["params"][ids["P_BQ_TRANS"]]["def"]   # bseq_empty)
+        bass[st["bq"] - self.rec + 2] = s["params"][ids["P_BQ_TRANS"]]["def"]   # bseq_empty), at the default TEMPO
+        bass[st["tempo"] - self.rec] = s["params"][ids["P_TEMPO"]]["def"]
         self.empty_bass = bytes(bass)
         if len(self.max) != self.nsound or self.v_at + self.nsound > self.rec or not self.rec <= self.bq < self.size \
                 or any(p >= self.nsound for p in self.at.values()):
@@ -86,19 +87,21 @@ class Schema:
 
     def upgraded(self, data, layout):
         """an earlier shard (the schema's old_shards: its name and nv sounds, the rest of its record as this one's,
-        then its bass's sequence or none) -> this layout's bytes, step by step as the layouts came: FRSh -> FRSi (an
-        empty bass after it), FRSi -> FRSk (the settings the sound has gained, at their defaults, after it), FRSk -> this
-        one (GLINT's RELEASE where SCATTER was, as its DECAY let a glint go then: the schema's scatter_gone). A scene
+        then its bass's sequence or none) -> this layout's bytes: the settings the sound has gained since, at their
+        defaults, after it (FRSh, FRSi); its bass's sequence over an empty one (FRSh: none; FRSi, FRSk, FRSm: without
+        TEMPO, at its default); GLINT's RELEASE where SCATTER was, as its DECAY let a glint go then (the schema's
+        scatter_gone: FRSk and before). A scene
         of an earlier scenes' record that only differs from FRSh's by its name's length (FRSg: names of ten) -> FRSh
         (the name NUL-padded), then on. None if it differs more"""
         n, old = self.s["sizes"], next((x for x in self.s["old_shards"] if x["magic"] == layout), None)
         if old:
             if len(data) != old["size"] or self.name_at != 0 or self.v_at != self.name_len:
                 return None
-            b = bytes(data) + (self.empty_bass if old["size"] == old["rec"] else b"")   # (FRSh -> FRSi)
-            sv = self.v_at + old["nv"]                                                   # (FRSi -> this one)
-            b = bytearray(b[:sv] + bytes(p["def"] for p in self.s["params"][old["nv"]:self.nsound]) + b[sv:])
-            b[self.v_at + self.gone["p"]] = self.gone["of"][b[self.v_at + self.gone["decay"]]]   # (FRSk -> this one)
+            sv = self.v_at + old["nv"]
+            b = bytes(data[:sv]) + bytes(p["def"] for p in self.s["params"][old["nv"]:self.nsound]) + bytes(data[sv:])
+            b = bytearray(b + self.empty_bass[len(b) - self.rec:])   # (the rest of an empty bass: all of it, or TEMPO)
+            if old.get("scatter"):
+                b[self.v_at + self.gone["p"]] = self.gone["of"][b[self.v_at + self.gone["decay"]]]
             b = bytes(b)
             try:
                 return self.shard(b, self.layout)

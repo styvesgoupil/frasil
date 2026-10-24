@@ -21,6 +21,7 @@ untouched; the River: fm1-base's protocol (base/web/backup) as it is, and the sc
 
 Python 3.11+ with Pillow (.venv/bin/python). Usage: assemble.py [OUT_PARENT] [--no-emu] (default build/website;
 only OUT_PARENT/frasil and OUT_PARENT/river are replaced)."""
+import functools
 import hashlib
 import html
 import json
@@ -279,7 +280,7 @@ def copy_screens(dst):
 # name: (title, caption, alt). Titles and alts from the manual where it has them (app/docs/MANUAL.md).
 SHOTS = {
     "play": ("The play page", "Three voices sounding, the drone's mix under the waterline.",
-             "The play page: the scene, MIST, with an amber dot (the sound changed) and the keys' badge (DRONE, octave "
+             "The play page: the scene, NEW SHARD, with an amber dot (the sound changed) and the keys' badge (DRONE, octave "
              "-1) in the header; three voices as currents of ice in the river; the drone's mix and WARMTH as four strata "
              "under the waterline; KEYS (DRONE), the drone's preset (CUSTOM) and BODY at the bottom"),
     "pressure": ("Pressure", "A held key pressed in: its voice glows amber.",
@@ -324,9 +325,9 @@ SHOTS = {
     "lfo-targets": ("LFO 1 TARGETS", "LFO three times: FILTER, TIMBRE, GL LEVEL, BS FILTER.",
                     "LFO 1 TARGETS, LFO's third page: TARGET 1 FILTER and TARGET 2 TIMBRE in white, TARGET 3 GL LEVEL "
                     "in ice blue, TARGET 4 BS FILTER in orange; the LFO's sine above"),
-    "scenes": ("SCENES", "SAVE: slot 03, ABYSS; MORPH, LOAD.",
-               "SCENES: scene 03, ABYSS, sound only; in a box of their own, PLAY LOAD and SAVE + REC STORE; MORPH CUT, "
-               "LOAD SND+NOTES"),
+    "scenes": ("SCENES", "SAVE: NEW SHARD loaded, slot 02 picked; MORPH, LOAD.",
+               "SCENES: NEW SHARD loaded (NOW), slot 02, LUMIERE NOCTURNE, picked among the factory scenes; in a box of "
+               "their own, PLAY LOAD and SAVE + REC STORE; MORPH CUT, LOAD SND+NOTES"),
     "logo": ("The logo screen", "HOME on the MIXER: the logo, alive.",
              "FRASIL's logo screen: the name half under the waterline, granules of frasil drifting in the sky, by Styves Goupil"),
     "global": ("GLOBAL", "GLO: TEMPO, LOW CUT, TUNE, KEY MODE; the load in the header.",
@@ -619,6 +620,8 @@ class Site:
                 # the footer's River library, cheat sheet and credits: the main site's, on FRASIL River's pages too
                 "river_lib": f'          <li><a href="{root}river/">River library</a></li>\n',
                 "cheat_link": f'          <li><a href="{root}cheatsheet/">Cheat sheet</a></li>\n',
+                "cheat_pdf": asset(root, "cheatsheet/frasil-cheatsheet.pdf"),
+                "cheat_png": asset(root, "cheatsheet/frasil-cheatsheet.png"),
                 "credits_link": f'          <li><a href="{root}credits/">Credits</a></li>\n',
                 "harmony": harmony_widget(), **shots(root)}
 
@@ -794,6 +797,7 @@ def river_example():
     shutil.copy2(work / "example.frasil", RIVER / "example.frasil")
 
 
+@functools.lru_cache(maxsize=None)
 def backup_schema():
     """the schema the firmware's own code writes (the simulator's "schema FILE": app.c schema_write), checked, its
     value words shared between the settings that have the same ones"""
@@ -808,8 +812,8 @@ def backup_schema():
     n, st = s["sizes"], s["scene_t"]
     want = st["name_len"] + n["NSOUND"] + 2 + n["SC_CHORDS"] * 5 + n["SC_ARP"] + 1 + n["SC_SEQ"]
     problems = [what for what, ok in (
-        ("scene_t's size", st["size"] == want + 2 * n["SC_BSEQ"] + 3 and st["bq"] == want + 2 * n["SC_BSEQ"]),   # (the bass's
-        # notes, lengths, SEQUENCE, STEPS, TRANSPOSE after the rest)
+        ("scene_t's size", st["size"] == want + 2 * n["SC_BSEQ"] + 4 and st["bq"] == want + 2 * n["SC_BSEQ"] and
+         st["tempo"] == st["bq"] + 3),   # (the bass's notes, lengths, SEQUENCE, STEPS, TRANSPOSE, the scene's TEMPO after the rest)
         ("scene_t's offsets", (st["name"], st["v"], st["nch"], st["seq"]) ==
          (0, st["name_len"], st["name_len"] + n["NSOUND"], want - n["SC_SEQ"])),
         ("the earlier layouts' names", all(l.get("name", 0) > 0 for l in s["old_scenes"])),
@@ -818,9 +822,10 @@ def backup_schema():
          s["scenes_t"]["rec"] == s["scenes_t"]["s"] + n["NSCENES"] * st["rec"] and st["rec"] + s["bseqs_t"]["scene"] == st["size"]
          and s["bseqs_t"]["size"] == s["bseqs_t"]["s"] + n["NSCENES"] * s["bseqs_t"]["scene"]),
         ("settings_t's size", s["settings_t"]["size"] == 228),
-        ("the earlier shards (the rest of their record as this one's, their bass's sequence or none)",
-         all(x["rec"] - x["nv"] == st["rec"] - n["NSOUND"] and x["size"] in (x["rec"], x["rec"] + s["bseqs_t"]["scene"])
+        ("the earlier shards (the rest of their record as this one's, their bass's sequence or some of it, or none)",
+         all(x["rec"] - x["nv"] == st["rec"] - n["NSOUND"] and 0 <= x["size"] - x["rec"] < s["bseqs_t"]["scene"]
              for x in s["old_shards"])),
+        ("the earlier basses' records", all(0 < x["scene"] < s["bseqs_t"]["scene"] for x in s["old_bseqs"])),
         ("the earlier settings made over (what follows their sound as this one's)",
          all(x["end"] - 4 - x["nv"] <= s["settings_t"]["size"] - s["settings_t"]["octave"] for x in s["old_settings_over"])),
         ("GLINT's RELEASE where SCATTER was (scatter_gone)", len(s["scatter_gone"]["of"]) == 128 and
@@ -843,6 +848,29 @@ def backup_schema():
         p["texts"] = index[key]
     s["texts"] = texts
     return s
+
+
+def factory_tunes(root):
+    """the landing's factory scenes (the schema's, as a FRASIL starts with them): a row each, its name, key and tempo in
+    the screen's words, and their bytes (scene_t, as river-player.js plays them) for listen.js"""
+    s = backup_schema()
+    st, n, ids = s["scene_t"], s["sizes"], s["ids"]
+    words = lambda p: s["texts"][s["params"][ids[p]]["texts"]]
+    rows, data = [], []
+    for i, hx in enumerate(s["factory"][:n["NFACTORY"]]):
+        b = bytes.fromhex(hx)
+        name = b[st["name"]:st["name"] + st["name_len"]].split(b"\0")[0].decode("ascii")
+        v = b[st["v"]:st["v"] + n["NSOUND"]]
+        key = f'{words("P_ROOT")[v[ids["P_ROOT"]]]} {words("P_SCALE")[v[ids["P_SCALE"]]]}'
+        bpm = words("P_TEMPO")[b[st["tempo"]]]
+        data.append({"name": name, "bpm": int(bpm.split()[0]), "hex": hx})
+        rows.append(f'<li class="tune" data-i="{i}"><button type="button" class="tune-b" aria-pressed="false" '
+                    f'aria-label="Play {html.escape(name)}"><span class="tune-dot" aria-hidden="true"></span>'
+                    f'<span class="tune-name">{html.escape(name)}</span><span class="tune-meta">{html.escape(key)} · '
+                    f'{html.escape(bpm)}</span><canvas class="tune-flow" aria-hidden="true"></canvas></button></li>')
+    count = ("one two three four five six seven eight nine ten eleven twelve".split() + [str(len(rows))] * 99)[len(rows) - 1]
+    return {"tunes": "\n        ".join(rows), "tunes_count": count, "tunes_emu": root + "play/",
+            "tunes_json": json.dumps(data, separators=(",", ":")).replace("</", "<\\/")}
 
 
 def backup_protocol():
@@ -984,8 +1012,8 @@ def main():
         shutil.rmtree(OUT)
     OUT.mkdir(parents=True)
     shutil.copytree(SRC / "assets", OUT / "assets")
-    for f in (OUT / "assets").rglob("*"):
-        if f.suffix in (".css", ".js"):
+    for f in (OUT / "assets").rglob("*"):   # (the cheat sheet's files too: a cache keeps them hours, as it does these)
+        if f.suffix in (".css", ".js") or f.parent.name == "cheatsheet":
             ASSET_V[str(f.relative_to(OUT / "assets"))] = hashlib.sha1(f.read_bytes()).hexdigest()[:8]
     img = OUT / "assets" / "img"
     img.mkdir(parents=True, exist_ok=True)
@@ -995,10 +1023,10 @@ def main():
     v = {**geo, "status": html.escape(CONF["status"])}
 
     meta, body = read_page(SRC / "pages" / "index.html")
-    body = capsify(fill(body, {**v, **site.common("./", "home"), "gallery": gallery("./")}, "index"))
+    body = capsify(fill(body, {**v, **site.common("./", "home"), "gallery": gallery("./"), **factory_tunes("./")}, "index"))
     (OUT / "index.html").write_text(site.page("", meta["title"], meta["description"], body, "./", section="home",
                                               head_class=" over", body_class="home", css=("css/landing.css", "css/widgets.css"),
-                                              js=("js/river.js", "js/landing.js", "js/harmony.js"),
+                                              js=("js/river.js", "js/landing.js", "js/harmony.js", "js/river-player.js", "js/listen.js"),
                                               og_title=meta.get("og_title")), encoding="utf-8")
     n_guide = build_guide(site)
     emu = play_page(site, geo)

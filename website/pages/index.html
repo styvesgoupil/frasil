@@ -27,10 +27,11 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
         Try it in the browser</a>
       <a class="btn" href="{{root}}guide/">Read the guide</a>
       <a class="btn btn-plain" href="{{root}}guide/install/">Install on FM-1 <span class="arrow" aria-hidden="true">→</span></a>
-      <a class="btn btn-plain" href="{{releases}}">Download <span class="arrow" aria-hidden="true">↓</span></a>
-      <a class="btn btn-plain" href="{{river}}">Back up your scenes <span class="arrow" aria-hidden="true">→</span></a>
     </div>
   </div>
+  <a class="hero-more" href="#instrument" aria-label="More below: the instrument">
+    <svg viewBox="0 0 24 14" aria-hidden="true"><path d="M2 2l10 10L22 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </a>
 </section>
 
 <!-- ============================================================ 1 what it is -->
@@ -45,11 +46,14 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
           on its own, slowly, and everything flows into a large, lush reverb with shimmer and freeze.</p>
         <div class="intro-cols">
           <div class="rv">
-            <h3 class="label">Your notes, and chance where you let it</h3>
-            <p>The drones are the notes you light, and they never change. Above them, GLINT plays small icy bells; under
-              them, BASS holds one deep note, or walks a slow line of its own. GLINT’s arpeggiator plays the keys you hold;
-              GLINT’s sequencer and the bass’s play the steps you write. Chance comes in only where you let it: CHANCE skips steps, RANDOM and DRIFT pick the arpeggio’s order,
-              SPARKLE lets glints fall on the notes your drones hold.</p>
+            <h3 class="label">Fixed notes, endless motion</h3>
+            <p>The drones are the notes you light, and they never change. Above them, GLINT plays small icy bells,
+              arpeggiated or in steps you write; under them, BASS holds one deep note, or walks a slow line of its own.
+              The sound itself never stops moving: three LFOs, seven shapes, from a turn of over three minutes to a
+              sixteenth on the beat, each moving up to four of forty settings at once. Hold LFO and turn any setting:
+              it joins one. Over the drones’ own drift, they weave rich textures that evolve without end, never the
+              same twice. Chance comes in only where you let it: CHANCE skips steps, RANDOM and DRIFT pick the
+              arpeggio’s order, SPARKLE lets glints fall on the notes your drones hold.</p>
           </div>
           <div class="rv" style="--d:.08s">
             <h3 class="label">Who it is for</h3>
@@ -58,11 +62,24 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
           </div>
         </div>
       </div>
-      <aside class="lexicon rv" aria-label="The name">
-        <p class="lex-word">frasil <span class="lex-pos">n.</span></p>
-        <p class="lex-def">Ice crystals that form in fast, open water, on the St. Lawrence River among others. They stay
-          suspended in the current: grainy, drifting, <em>never still</em>.</p>
-      </aside>
+      <div class="intro-side">
+        <aside class="lexicon rv" aria-label="The name">
+          <p class="lex-word">frasil <span class="lex-pos">n.</span></p>
+          <p class="lex-def">Ice crystals that form in fast, open water, on the St. Lawrence River among others. They stay
+            suspended in the current: grainy, drifting, <em>never still</em>.</p>
+        </aside>
+        <!-- the factory scenes, played live by FRASIL's engine (js/listen.js): the first one by itself on arrival -->
+        <div class="listen rv" style="--d:.1s" role="group" aria-labelledby="h-listen">
+          <h3 class="label" id="h-listen">Listen</h3>
+          <p class="tunes-lede">The {{tunes_count}} scenes FRASIL starts with, played live by its own engine in your browser.</p>
+          <p class="tunes-phones"><svg viewBox="0 0 20 18" aria-hidden="true"><path d="M3 11V9a7 7 0 0 1 14 0v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="10.5" width="4" height="6.5" rx="1.5" fill="currentColor"/><rect x="14" y="10.5" width="4" height="6.5" rx="1.5" fill="currentColor"/></svg>Put your headphones on for a richer experience.</p>
+          <ol class="tunes" role="list" data-emu="{{tunes_emu}}">
+        {{tunes}}
+          </ol>
+          <p class="tunes-note" aria-live="polite"></p>
+          <script type="application/json" id="tunes-data">{{tunes_json}}</script>
+        </div>
+      </div>
     </div>
     <ul class="specs rv" role="list" aria-label="In numbers">
       <li><b>8</b><span>drone voices</span></li>
@@ -71,6 +88,14 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
       <li><b>22</b><span>GLINT presets</span></li>
       <li><b>8</b><span>bass models</span></li>
       <li><b>16</b><span>scenes</span></li>
+    </ul>
+    <ul class="specs specs-more rv" role="list" aria-label="In numbers: what moves">
+      <li><b>5</b><span>arpeggio modes</span></li>
+      <li><b>32</b><span>GLINT sequencer steps</span></li>
+      <li><b>16</b><span>bass sequencer steps</span></li>
+      <li><b>3</b><span>LFOs</span></li>
+      <li><b>40</b><span>LFO targets</span></li>
+      <li><b>4</b><span>generative FX</span></li>
     </ul>
   </div>
 </section>
@@ -355,7 +380,7 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
           octaves down. Tap another key and it glides there without starting again; tap its own key and it lets go.
           Press into it: louder, and its filter opens.</p>
         <p class="lede rv">Or let it walk. The bass has a step sequencer of its own, two more pages under SEQ: sixteen steps,
-          each a NOTE, a CUT or a HOLD, and each as long as you want it, from a sixteenth to four bars. A slow line under
+          each a NOTE, a CUT or a HOLD, and each as long as you want it, from a sixteenth to sixteen bars. A slow line under
           drones that never change. Write it step by step or live with REC, move it with a key; PLAY
           starts it with GLINT’s, on the same grid, and each scene keeps its own.</p>
         <p class="rv muted">DRIVE into a soft clip, a resonant low-pass, and none of it in the reverb. A pure sine this low
@@ -443,20 +468,19 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
     <div class="scenes-grid">
       <div data-caps>
         <h2 class="display sm rv" id="h-scenes">Sixteen scenes. <em>A channel for each track.</em></h2>
-        <p class="lede rv">A scene holds the sound, the latched drones, GLINT’s arpeggio and its sequence, and the bass with its own. Hold SAVE
-          and press REC to store one; hold SAVE and press a white key to load one of the sixteen, from any page. MORPH
-          glides into it, over up to two minutes, and LOAD on SND ONLY leaves what plays playing while only the sound changes.
-          Eight slots hold the factory scenes; eight are free.</p>
+        <p class="lede rv">A scene holds the sound and its TEMPO, the latched drones, GLINT’s arpeggio and its sequence, and the bass with its own. Hold SAVE
+          and press REC to store one; hold SAVE and press a white key to load one of the sixteen, from any page: it plays, its
+          sequences from the top. MORPH glides into it, over up to two minutes, and LOAD on SND ONLY leaves what plays playing
+          while only the sound changes. Seven slots hold the factory scenes; nine are free.</p>
       </div>
       <ol class="scene-list rv" role="list" aria-label="The factory scenes">
-        <li><b>01</b><span class="sn">MIST</span><span class="sd">D, chromatic · SINE</span></li>
-        <li><b>02</b><span class="sn">GLASS</span><span class="sd">A lydian, ADD9 wide · GLASS</span></li>
-        <li><b>03</b><span class="sn">ABYSS</span><span class="sd">D phrygian, FIFTH wide · DROP</span></li>
-        <li><b>04</b><span class="sn">CHORALE</span><span class="sd">D minor, SEVENTH open · BELL</span></li>
-        <li><b>05</b><span class="sn">WIND</span><span class="sd">E penta minor, mostly BREATH · FROST</span></li>
-        <li><b>06</b><span class="sn">BELLS</span><span class="sd">C major, QUARTAL open · CHIME</span></li>
-        <li><b>07</b><span class="sn">TIDE</span><span class="sd">F dorian, SUS2 open · BLIP</span></li>
-        <li><b>08</b><span class="sn">AURORA</span><span class="sd">G mixolydian, TRIAD wide · CELESTA</span></li>
+        <li><b>01</b><span class="sn">NORTH RIVER</span><span class="sd">F# penta minor, SEVENTH wide, 90 BPM · FROST</span></li>
+        <li><b>02</b><span class="sn">LUMIERE NOCTURNE</span><span class="sd">A major, ADD9 wide, 60 BPM · SINE</span></li>
+        <li><b>03</b><span class="sn">RESILIENCE</span><span class="sd">F# penta minor, SEVENTH wide, 90 BPM · HARP</span></li>
+        <li><b>04</b><span class="sn">LONG NIGHT</span><span class="sd">A phrygian, FIFTH wide, 60 BPM · BOWED</span></li>
+        <li><b>05</b><span class="sn">OPEN WATER</span><span class="sd">D dorian, SUS2 open, 118 BPM · MARIMBA</span></li>
+        <li><b>06</b><span class="sn">WHITEOUT</span><span class="sd">C# minor, SUS4 wide, 72 BPM · FROST</span></li>
+        <li><b>07</b><span class="sn">THAW</span><span class="sd">D# major, ADD9 open, 78 BPM · DROP</span></li>
       </ol>
     </div>
     <div class="midi rv" data-caps>
@@ -525,7 +549,6 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
         <a class="btn" href="{{root}}guide/install/">The install guide <span class="arrow" aria-hidden="true">→</span></a>
       </li>
     </ol>
-    <p class="beta rv"><span class="label">Good to know</span> {{beta_note}}</p>
   </div>
 </section>
 

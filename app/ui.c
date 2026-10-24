@@ -422,8 +422,8 @@ static void glints(int32_t top, int32_t bottom, float dim)   /* a glint in the s
     }
 }
 
-/* the bass: a slow swell across the river at its note's height, the water under it a little darker down to the
- * bed; pressure warms it; FREEZE stills it */
+/* the bass: a slow swell across the river at its note's height, in lamp (the bass's colour), the water under it a
+ * little darker down to the bed, a little warm; pressure brightens it; FREEZE stills it */
 static void bass_bed(int32_t top, int32_t bottom, float dim, int labels, float tt, float fz)
 {
     bass_view_t b;
@@ -438,7 +438,7 @@ static void bass_bed(int32_t top, int32_t bottom, float dim, int labels, float t
     yc = note_y(b.note, top, bottom);
     amp = (1.5f + 2.5f * lvl) * (1.0f - fz);
     a0 = (0.40f + 0.50f * lvl) * dim;
-    col = mix565(mix565(C_SLATE, C_FOG, 18), C_LAMP, (int32_t)(prs * 32.0f));
+    col = mix565(C_LAMP, C_WHITE, (int32_t)(prs * 14.0f));
     depth = (int32_t)(bottom - yc);
     for (x = ML; x <= MR; x++) {
         float e = (float)ui.edge[x] * (1.0f / 256.0f);
@@ -451,7 +451,7 @@ static void bass_bed(int32_t top, int32_t bottom, float dim, int labels, float t
         for (y = yi + 3; y < bottom; y++) {   /* the water under it, down to the bed */
             int32_t d = y - yi - 3, af = (int32_t)(8.0f * a0 * e * (1.0f - (float)d / (float)(depth + 4)));
             if (af > 0 && ((x + y) & 1))
-                bl(x, y, C_HAZE, af);
+                bl(x, y, mix565(C_HAZE, C_LAMP, 8), af);
         }
     }
     if (labels) {                        /* its note, on the right: the voices' are on the left */
@@ -1080,8 +1080,8 @@ static void seq_scope(void)
             bl(MR - 3 + (int32_t)(i % 3u) - 1, top - 3 + (int32_t)(i / 3u) - 1, C_LAMP, i == 4u ? 32 : 16);
 }
 
-/* the bass's sequence, a line of time across the strip: each step as wide as it is long (the STEPS it plays, and the
- * one on K1 past them, after a dotted end). A NOTE is a line at its note's height (the lowest to highest, at least an
+/* the bass's sequence, a line of time across the strip: each step as wide as it is long (the SEQ STEPS it plays, and
+ * the one on K1 past them, after a dotted end). A NOTE is a line at its note's height (the lowest to highest, at least an
  * octave), a mark where it starts, on through its HOLDs, the water under it down to the bed, as the bass's in the
  * river (bass_bed); a CUT, nothing; HOLDs at its start, the note its last steps leave sounding, round. In lamp, the
  * one playing bright; the playhead going along; the step on K1, a lamp line under it; RECORD on LIVE, a lamp light in

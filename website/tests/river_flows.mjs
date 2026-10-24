@@ -83,12 +83,12 @@ await page.click("#act-backup");
 await page.waitForFunction(() => !document.querySelector("#river").hidden && !document.body.classList.contains("is-busy"));
 check(/Read: 4 saved, 7 factory and 5 empty, and the settings/.test(await page.textContent("#voice .voice-say")), "back up: " + (await page.textContent("#voice .voice-say")).slice(0, 70));
 const src = (await page.textContent("#river-src")).replace(/\s+/g, " ").trim();
-check(/^FROM YOUR FM-1 · \d\d:\d\d · FRASIL 1\.1 · 4 saved, 7 factory, 5 empty, and the settings$/.test(src), "the source line: " + src);
+check(/^FROM YOUR FM-1 · \d\d:\d\d · FRASIL [\d.]+(-b\d+)? · 4 saved, 7 factory, 5 empty, and the settings$/.test(src), "the source line: " + src);
 check((await page.textContent("#act-keep-all")).trim() === "Download the backup" && await page.$eval("#act-keep-all", (e) => e.classList.contains("a-ice")) &&
       /^Restore it all/.test((await page.textContent("#act-restore-all")).trim()), "its actions: Download the backup (primary), Restore it all…");
 check((await page.$$("#cards .sr-item.is-slot")).length === 11 && (await page.$$("#cards .sr-item.is-empty")).length === 5 && (await page.$$eval("#cards .sr-item .no", (e) => e.map((x) => x.textContent.replace("Slot ", "")))).join() ===
       "01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16", "the sixteen slots: numbered rows, the 5 empty ones dim");
-check((await page.textContent("#shard-0 .nm-s")) === "FACTORY SCENE" && !(await page.$("#shard-2 .nm-s")) && (await page.textContent("#shard-10 .bq")).includes("SEQ"),
+check((await page.textContent("#shard-0 .nm-s")) === "FACTORY SCENE" && !(await page.$("#shard-7 .nm-s")) && (await page.textContent("#shard-10 .bq")).includes("SEQ"),
       "a factory scene says so; AURORA's BASS: SEQ");
 check(await page.$eval("#cards > :last-child", (e) => e.id === "settings" && /Last scene \d\d/.test(e.textContent)), "the settings, last: " + (await page.textContent("#settings .nm-d")));
 await shot(page, "40-tools", 1440, true);
@@ -98,7 +98,7 @@ check(/^frasil-backup-\d{4}-\d\d-\d\d\.frasil$/.test(dl1.suggestedFilename()) &&
       "Download the backup: " + dl1.suggestedFilename() + ", the FM-1's, byte for byte");
 
 // ---- the selection
-for (const i of [2, 8, 9]) await page.check(`#shard-${i} .ck input`);
+for (const i of [7, 8, 9]) await page.check(`#shard-${i} .ck input`);
 check((await page.$$eval("#cards .selbar > *", (e) => e.map((x) => x.textContent.trim().toUpperCase()).filter(Boolean))).join(",") === "3 SELECTED,SEND TO FM-1,DOWNLOAD,CLEAR",
       "three selected: Send to FM-1, Download, Clear");
 await shot(page, "40-tools-selected", 1440);
@@ -119,7 +119,7 @@ await page.waitForSelector("#place-list", { timeout: 30000 });
 await fm1(page, { slow: 0 });
 check(/FRASIL 1\.1 · read just now/.test(await page.textContent("#place .p-fm .devl")) && await page.isVisible("#place-read"), "ready: FRASIL 1.1 · read just now, a quiet READ AGAIN");
 const names = await page.$$eval("#slots .tile .t-n", (e) => e.map((x) => x.textContent));
-check(names[2] === "ABYSS" && names[0] === "MIST" && names[15] === "EMPTY", "the FM-1's sixteen slots: " + names.slice(0, 4).join(","));
+check(names[7] === "ABYSS" && names[0] === "NORTH RIVER" && names[15] === "EMPTY", "the FM-1's sixteen slots: " + names.slice(0, 4).join(","));
 check(await page.isDisabled("#place-send") && Number(await page.$eval("#place-send", (e) => getComputedStyle(e).opacity)) < 0.5, "nothing placed: Send disabled, and looks it (G6)");
 await page.selectOption("#place-list li:nth-child(1) select", "11");      // ABYSS -> 12
 await page.dragAndDrop("#place-list li:nth-child(2) .cd-top", "#slots .tile:nth-child(13)");   // CATHEDRAL -> 13
@@ -127,11 +127,11 @@ check((await page.textContent("#place-send")).trim() === "Send 2 to FM-1", "the 
 await shot(page, "14-send-ready-3", 1440);
 await page.selectOption("#place-list li:nth-child(3) select", "0");       // GLACIER -> 1
 const sum = await page.textContent("#place-sum");
-check(/GLACIER goes into slot 01, in place of the factory’s MIST/.test(sum) && /ABYSS goes into slot 12, empty now/.test(sum) && /CATHEDRAL goes into slot 13/.test(sum), "a line per shard: " + sum.slice(0, 80));
+check(/GLACIER goes into slot 01, in place of the factory’s NORTH RIVER/.test(sum) && /ABYSS goes into slot 12, empty now/.test(sum) && /CATHEDRAL goes into slot 13/.test(sum), "a line per shard: " + sum.slice(0, 80));
 check((await page.textContent("#place-send")).trim() === "Send 3 to FM-1" && (await page.textContent("#slots .tile:nth-child(12) .t-was")) === "INTO AN EMPTY SLOT" &&
-      (await page.textContent("#slots .tile:nth-child(1) .t-was")) === "REPLACES MIST", "the slots say what happens: REPLACES MIST, INTO AN EMPTY SLOT");
+      (await page.textContent("#slots .tile:nth-child(1) .t-was")) === "REPLACES NORTH RIVER", "the slots say what happens: REPLACES NORTH RIVER, INTO AN EMPTY SLOT");
 await page.click("#place-origin");
-check((await page.$$eval("#place-list select", (e) => e.map((x) => x.value))).join() === "2,8,9", "Back where they came from: 03, 09, 10");
+check((await page.$$eval("#place-list select", (e) => e.map((x) => x.value))).join() === "7,8,9", "Back where they came from: 08, 09, 10");
 await page.selectOption("#place-list li:nth-child(1) select", "11");
 await page.selectOption("#place-list li:nth-child(2) select", "12");
 await page.selectOption("#place-list li:nth-child(3) select", "0");
@@ -140,7 +140,7 @@ await page.selectOption("#place-list li:nth-child(3) select", "0");
 await page.click("#place-send");
 await page.waitForSelector("#confirm[open]");
 const conf = (await page.textContent("#confirm")).replace(/\s+/g, " ");
-check(/SEND 3 SHARDS\s*NOW\?/.test(conf) && /What plays on the FM-1 stops\./.test(conf) && /Slots 01, 12 and 13 are replaced: GLACIER in place of the factory’s MIST; ABYSS and CATHEDRAL into empty slots\./.test(conf) &&
+check(/SEND 3 SHARDS\s*NOW\?/.test(conf) && /What plays on the FM-1 stops\./.test(conf) && /Slots 01, 12 and 13 are replaced: GLACIER in place of the factory’s NORTH RIVER; ABYSS and CATHEDRAL into empty slots\./.test(conf) &&
       /The other slots and the settings stay\./.test(conf) && /answer YES with SEL/.test(conf), "the confirmation lists the slots: " + conf.slice(0, 150));
 await shot(page, "16-send-confirm", 1440);
 await page.click("#confirm .confirm-f .a:not(#confirm-send)");
@@ -176,7 +176,7 @@ check(await lit(page) === 1 && /RESTORED/.test(await page.textContent("#place .i
 const placedOk = await page.evaluate(async () => {
   const ex = FB.read(PB.parse(new Uint8Array(await (await fetch("/example.frasil")).arrayBuffer()))), a = FB.read(PB.parse(window.__fm1.image));
   const eq = (x, y) => x && y && x.length === y.length && x.every((v, i) => v === y[i]);
-  return eq(a.scenes[11].bytes, ex.scenes[2].bytes) && eq(a.scenes[12].bytes, ex.scenes[8].bytes) && eq(a.scenes[0].bytes, ex.scenes[9].bytes) &&
+  return eq(a.scenes[11].bytes, ex.scenes[7].bytes) && eq(a.scenes[12].bytes, ex.scenes[8].bytes) && eq(a.scenes[0].bytes, ex.scenes[9].bytes) &&
     a.scenes.every((s, i) => [0, 11, 12].includes(i) || s.state === ex.scenes[i].state) && eq(a.settings.raw_v, ex.settings.raw_v);
 });
 check(placedOk, "the FM-1 holds ABYSS in 12, CATHEDRAL in 13, GLACIER in 1; the rest and the settings as they were");
@@ -187,7 +187,7 @@ check(/changed since this backup/.test(await page.textContent("#river-flag")), "
 // ---- the cable's other states, one shard
 await example(page);
 await fm1(page, { connected: false });
-await sendExample(page, [2]);
+await sendExample(page, [7]);
 await waitTitle(page, /^NOT CONNECTED$/);
 check(/USB-C data cable/.test(await page.textContent("#place .dlg-say")) && await page.isVisible("#place-again") && await page.$$eval("#place .ill.is-off", (e) => e.length) === 1,
       "not connected: the cable unplugged, one sentence, Try again");
@@ -233,7 +233,7 @@ await page.evaluate(async () => {
   window.__fm1.image = Uint8Array.from([...out, ...le(PB.crc32(Uint8Array.from(out)), 4)]);
   window.__fm1.restores = 0;
 });
-await sendExample(page, [2]);
+await sendExample(page, [7]);
 await waitTitle(page, /^UPDATE FRASIL$/);
 check(/another version of FRASIL/.test(await page.textContent("#place .dlg-say")) && await page.evaluate(() => window.__fm1.restores === 0), "no OBJ_BSEQ on the FM-1: refused (Update FRASIL), nothing sent");
 await page.click("#place .sheet-x");
@@ -302,13 +302,13 @@ await p3.click("#settings .sr-open");
 await p3.waitForSelector("#settings.open .set-grid");
 check(/LAST SCENE/.test(await p3.textContent("#settings .set-grid")), "the settings, opened: what comes back at power-on");
 const engine = !!(await p3.evaluate(async () => (await fetch("/emu/app.wasm", { method: "HEAD" })).ok));
-await p3.click("#shard-2 .play");
+await p3.click("#shard-7 .play");
 if (engine) {
-  await p3.waitForFunction(() => document.querySelector("#shard-2").dataset.sound === "playing", null, { timeout: 30000 });
-  check(await p3.getAttribute("#shard-2 .play", "aria-label") === "Stop ABYSS", "▶ ABYSS: it sounds (■)");
+  await p3.waitForFunction(() => document.querySelector("#shard-7").dataset.sound === "playing", null, { timeout: 30000 });
+  check(await p3.getAttribute("#shard-7 .play", "aria-label") === "Stop ABYSS", "▶ ABYSS: it sounds (■)");
   await p3.click("#shard-9 .play");
   await p3.waitForFunction(() => document.querySelector("#shard-9").dataset.sound === "playing", null, { timeout: 15000 });
-  check(!(await p3.getAttribute("#shard-2", "data-sound")), "▶ GLACIER: one shard at a time");
+  check(!(await p3.getAttribute("#shard-7", "data-sound")), "▶ GLACIER: one shard at a time");
   await p3.keyboard.press("Escape");
   await p3.waitForTimeout(300);
   check(!(await p3.getAttribute("#shard-9", "data-sound")) && await p3.evaluate(() => window.RiverPlayer.state) === "idle", "Escape: silence");
@@ -317,19 +317,19 @@ const p4 = (await open(DESK, "no engine")).page;
 await withPlayer(p4);
 await p4.route("**/emu/**", (route) => route.fulfill({ status: 404, body: "" }));
 await p4.goto(QB + "#example");
-await p4.waitForSelector("#shard-2");
-await p4.click("#shard-2 .play");
-await p4.waitForFunction(() => /Sound needs a moment/.test(document.querySelector("#shard-2 .sh-say").textContent), null, { timeout: 15000 });
-check(!(await p4.getAttribute("#shard-2", "data-sound")), "no engine on the site: ▶ says sound needs a moment, nothing stuck");
+await p4.waitForSelector("#shard-7");
+await p4.click("#shard-7 .play");
+await p4.waitForFunction(() => /Sound needs a moment/.test(document.querySelector("#shard-7 .sh-say").textContent), null, { timeout: 15000 });
+check(!(await p4.getAttribute("#shard-7", "data-sound")), "no engine on the site: ▶ says sound needs a moment, nothing stuck");
 
 // ================================================================ phones: Quick Backup, every state of the Send dialog
 const { page: p2 } = await open(PHONE, "phone");
 await p2.goto(QB + "#example");
-await p2.waitForSelector("#shard-2");
+await p2.waitForSelector("#shard-7");
 await example(p2);
 await noScroll(p2, "Quick Backup");
 await shot(p2, "40-tools", 390);
-await p2.check("#shard-2 .ck input");
+await p2.check("#shard-7 .ck input");
 await p2.check("#shard-8 .ck input");
 await p2.check("#shard-9 .ck input");
 await fm1(p2, { slow: 90 });
@@ -361,7 +361,7 @@ await shot(p2, "19-send-done", 390);
 await p2.click("#place-close");
 await example(p2);
 await fm1(p2, { connected: false });
-await sendExample(p2, [2]);
+await sendExample(p2, [4]);
 await waitTitle(p2, /^NOT CONNECTED$/);
 await shot(p2, "11-send-not-connected", 390);
 await fm1(p2, { connected: true, id: "FM-1_0103" });

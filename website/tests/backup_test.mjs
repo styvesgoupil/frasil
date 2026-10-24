@@ -48,12 +48,16 @@ const OV = Object.fromEntries(S.old_settings_over.map((x) => [x.magic, x])), ONV
 const EMPTY_BQ = new Uint8Array(ST.size - ST.rec);
 EMPTY_BQ[ST.bq - ST.rec + 1] = S.params[S.ids.P_BQ_STEPS].def;
 EMPTY_BQ[ST.bq - ST.rec + 2] = S.params[S.ids.P_BQ_TRANS].def;
-const frsi = (b) => Uint8Array.from([...b.subarray(0, ST.v + ONV), ...b.subarray(ST.v + N.NSOUND)]);
+const TEMPO_DEF = S.params[S.ids.P_TEMPO].def;
+EMPTY_BQ[ST.tempo - ST.rec] = TEMPO_DEF;
+const noTempo = (b) => Uint8Array.from(b.subarray(0, ST.size - 1));   // (a scene_t as FRSm and FRSk kept it)
+const frsi = (b) => Uint8Array.from([...b.subarray(0, ST.v + ONV), ...b.subarray(ST.v + N.NSOUND, ST.size - 1)]);
 const frsh = (b) => frsi(b).subarray(0, OS.FRSh.rec);
 /* GLINT's RELEASE where every earlier layout kept SCATTER: as its DECAY let a glint go then (the schema's table) */
 const GO = S.scatter_gone, gone = (b, v) => { const o = Uint8Array.from(b); o[v + GO.p] = GO.of[o[v + GO.decay]]; return o; };
 const madeOver = (b, bass) => gone(Uint8Array.from([...b.subarray(0, ST.v + ONV), ...S.params.slice(ONV, N.NSOUND).map((p) => p.def),
-                                                    ...b.subarray(ST.v + N.NSOUND, ST.rec), ...(bass ? b.subarray(ST.rec) : EMPTY_BQ)]), ST.v);
+                                                    ...b.subarray(ST.v + N.NSOUND, ST.rec),
+                                                    ...(bass ? [...b.subarray(ST.rec, ST.size - 1), TEMPO_DEF] : EMPTY_BQ)]), ST.v);
 /* a backup's settings (this layout's) as an earlier one kept them (OV: FRSH, FRSG), a CC learned after the sound
  * numbered so; its scenes' record as FRSh's */
 const setDown = (p, magic) => {
@@ -77,7 +81,7 @@ check(dev.current && dev.layout === FB.S.magic.scenes, `the scenes in this layou
 check(dev.scenes.length === 16, "16 slots");
 const src = dev.scenes[14];
 check(src.state === "saved" && src.chords.length === 2, `slot 15 saved, two chords latched (${src.name}: ${src.chords.map((c) => c.root)})`);
-check(dev.scenes[0].state === "factory" && dev.scenes[0].name === "MIST", "slot 1 the factory's MIST");
+check(dev.scenes[0].state === "factory" && dev.scenes[0].name === "NORTH RIVER" && dev.scenes[0].tempo === 60, "slot 1 the factory's NORTH RIVER, at 90 BPM");
 check(dev.scenes[9].state === "empty" && dev.scenes[9].name === "SCENE 10", "slot 10 empty, SCENE 10");
 check(dev.settings && dev.settings.current && dev.settings.scene === 14, "the settings: slot 15 last");
 check(objsOf(dev.image) === [O.settings, O.scenes, O.bseqs].join() && emptyBass(src.bseq) && src.bytes.length === ST.size,
@@ -118,12 +122,20 @@ if (mode === "make") {
     check(bad, `... a ${ST.size}-byte scene in it: damaged`);
   }
   {                                                      // a package made before GLINT's RELEASE (FRSk): SCATTER 99 there
-    const frsk = Uint8Array.from(bassy);
+    const frsk = noTempo(bassy);
     frsk[ST.v + GO.p] = 99;
     frsk[ST.v + GO.decay] = 127;
     const sc = FB.readPack(JSON.stringify({ format: "frasil-scenes", version: 1, layout: "FRSk", scenes: [{ name: src.name, from: 15, data: b64(frsk) }] })).scenes[0];
-    check(OS.FRSk.size === ST.size && same(sc.bytes, gone(frsk, ST.v)) && sc.raw_v[GO.p] === GO.of[127] && GO.of[127] === 112 && sc.bseq.on,
-          `a package made before GLINT's RELEASE (FRSk): SCATTER 99 made over, RELEASE as DECAY 127 let it go (${GO.of[127]}), the rest as it was`);
+    check(OS.FRSk.size === ST.size - 1 && same(sc.bytes, gone([...frsk, TEMPO_DEF], ST.v)) && sc.raw_v[GO.p] === GO.of[127] && GO.of[127] === 112 &&
+          sc.bseq.on && sc.tempo === TEMPO_DEF,
+          `a package made before GLINT's RELEASE (FRSk): SCATTER 99 made over, RELEASE as DECAY 127 let it go (${GO.of[127]}), TEMPO at its default, the rest as it was`);
+  }
+  {                                                      // ... and before the scenes' TEMPO (FRSm): RELEASE 33 kept
+    const frsm = noTempo(bassy);
+    frsm[ST.v + GO.p] = 33;
+    const sc = FB.readPack(JSON.stringify({ format: "frasil-scenes", version: 1, layout: "FRSm", scenes: [{ name: src.name, from: 15, data: b64(frsm) }] })).scenes[0];
+    check(OS.FRSm.size === ST.size - 1 && !OS.FRSm.scatter && same(sc.bytes, Uint8Array.from([...frsm, TEMPO_DEF])) && sc.raw_v[GO.p] === 33,
+          "a package made before the scenes' TEMPO (FRSm): its TEMPO at the default, its RELEASE as it was, the rest too");
   }
   const out = FB.patch(dev.image, [{ slot: 2, bytes: pack.scenes[0].bytes }, { slot: 6, bytes: bassy }]);
   const bq = FB.read(PB.parse(out)).scenes[6].bseq;
@@ -177,6 +189,22 @@ if (mode === "make") {
   check(r12.settings.current && r12.settings.layout === "FRSI" && same(r12.settings.raw_v, gone(dev.settings.raw_v, 0)) &&
         !r12.settings.learned.some((l) => l.cc === 23), "... its settings (FRSI) made over: RELEASE as DECAY let it go, CC 23 on SCATTER learned no more");
   fs.writeFileSync(path.join(dir, "old12.frasil"), old12);
+  // the patched backup as an FM-1 keeps it just updated, before its basses' TEMPO (FRBS, a scene's bass without it):
+  // the settings at 70 BPM (40); read, an earlier FRASIL's scenes, each at the settings' TEMPO; never patched
+  const set13 = Uint8Array.from(of(po, O.settings)), bqNow = of(po, O.bseqs), OB = S.old_bseqs[0], SB = S.bseqs_t;
+  set13[SG.tempo] = 40;
+  const bq13 = new Uint8Array(SB.s + N.NSCENES * OB.scene);
+  [...OB.magic].forEach((c, i) => { bq13[i] = c.charCodeAt(0); });
+  for (let s = 0; s < N.NSCENES; s++) bq13.set(bqNow.subarray(SB.s + s * SB.scene, SB.s + s * SB.scene + OB.scene), SB.s + s * OB.scene);
+  const old13 = raw([{ obj: O.settings, data: set13 }, { obj: O.scenes, data: of(po, O.scenes) }, { obj: O.bseqs, data: bq13 }]);
+  const r13 = FB.read(PB.parse(old13));
+  check(!r13.current && r13.layout === OB.magic && OB.scene === SB.scene - 1 && r13.scenes[6].tempo === 40 && r13.scenes[6].bseq.on &&
+        r13.scenes[6].bseq.steps === 3 && r13.scenes[2].tempo === 40,
+        "a backup with its basses before the scenes' TEMPO (FRBS): an earlier FRASIL's, each scene at the settings' TEMPO, its bass kept");
+  bad = false;
+  try { FB.patch(old13, [{ slot: 4, bytes: bassy }]); } catch (_) { bad = true; }
+  check(bad, "... an FM-1 keeping its basses so: no shard put into it");
+  fs.writeFileSync(path.join(dir, "old13.frasil"), old13);
   const parsed = PB.parse(dev.image);                    // (the FM-1's scenes record in another layout)
   const objs = parsed.objs.map((o) => ({ obj: o.obj, data: Uint8Array.from(o.data) }));
   objs.find((o) => o.obj === FB.S.objs.scenes).data[3] = "f".charCodeAt(0);
@@ -199,6 +227,9 @@ if (mode === "make") {
         "the FRSh backup restored, made over: slots 3 and 7 (its bass's sequence; DECAY, SUSTAIN and PULSE at their defaults), the others as they were");
   check(same(a11.settings.raw_v, dev.settings.raw_v) && a11.settings.learned.some((l) => l.cc === 22 && l.p === S.ids.P_TEMPO),
         "... its settings, CC 22 on TEMPO still");
+  const a13 = load("after13r.frasil");
+  check(a13.current && a13.scenes[6].tempo === 40 && a13.scenes[2].tempo === 40 && a13.scenes[6].bseq.on && a13.scenes[6].bseq.steps === 3 &&
+        a13.settings.tempo === 40, "the FRBS backup restored, made over by the FM-1: each scene at the settings' TEMPO (70 BPM), its bass kept");
   const a12 = load("after12r.frasil");
   check(a12.current && same(a12.scenes[6].bytes, gone(bassy, ST.v)) && a12.scenes[6].raw_v[GO.p] !== 99 &&
         a12.scenes.every((s) => s.state !== "saved" || s.raw_v[GO.p] === GO.of[s.raw_v[GO.decay]]) &&

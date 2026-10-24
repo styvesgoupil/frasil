@@ -87,6 +87,7 @@ void frasil_bass_on(int note, float vel);
 void frasil_bass_off(void);
 void frasil_bass_pressure(float p);
 void frasil_bass_pulse(float gap);       /* PULSE: the note let go for gap seconds, then again from its ATTACK */
+void frasil_bass_retune(int note, float vel);   /* the note sounding to this one, not struck (PULSE strikes it) */
 /* PUMP's beat, from the main loop as often as it likes: where in its period the beat is now (0..1) and how far it
  * moves a sample (0: no pump); the render follows it */
 void frasil_pump(float phase, float inc);

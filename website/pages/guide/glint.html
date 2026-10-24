@@ -36,7 +36,7 @@ hint: Hold ARP: latch · REC: record
   <thead><tr><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead>
   <tbody>
     <tr><td>GLINT I</td><td>PRESET</td><td>SEQ <small>OFF, <span class="k">ARP</span>, <span class="k">SEQ</span></small></td><td>LEVEL</td><td>BRIGHT <small>FM index</small></td></tr>
-    <tr><td>GLINT II</td><td>OCTAVE <small>+0 to +3</small></td><td>RATIO <small>×0.5 to ×13.6</small></td><td>PING <small>strike or ring</small></td><td>VIBRATO <small>OFF, the wiggle’s depth</small></td></tr>
+    <tr><td>GLINT II</td><td>OCTAVE <small>+0 to +3: every glint</small></td><td>RATIO <small>×0.5 to ×13.6</small></td><td>PING <small>strike or ring</small></td><td>VIBRATO <small>OFF, the wiggle’s depth</small></td></tr>
     <tr><td>GLINT ADSR</td><td>ATTACK <small>2 ms to 1.5 s</small></td><td>DECAY <small>80 ms to 6 s</small></td><td>SUSTAIN <small>0 to 100 %, the level held</small></td><td>RELEASE <small>20 ms to 6 s</small></td></tr>
     <tr><td>GLINT DELAY</td><td>TIME <small>1/32 to 1/2, triplet and dotted; then the same, ping-pong (PP)</small></td><td>FEEDBACK</td><td>MIX</td><td>SPACE <small>GLINT’s reverb send</small></td></tr>
     <tr><td>GLINT ARP <small>SEQ <span class="k">ARP</span></small></td><td>MODE <small>UP, DOWN, UPDOWN, RANDOM, DRIFT</small></td><td>RATE <small>1/1 to 1/32, triplets</small></td><td>RANGE <small>1 to 3 octaves</small></td><td>CHANCE</td></tr>
@@ -46,7 +46,10 @@ hint: Hold ARP: latch · REC: record
   </tbody>
 </table>
 <p>RATE and CHANCE are the same two settings on GLINT ARP and GLINT SEQ II: the arpeggiator and the sequencer share
-  them. OCTAVE (GLINT II) applies live to both: their notes are kept without it and played with it.</p>
+  them.</p>
+<p>OCTAVE (GLINT II, K1) is GLINT’s own: it moves every glint GLINT plays, a key’s, a MIDI note’s, the arpeggio’s, the
+  sequence’s. Turned, it moves the glints sounding at once, without striking them again. The arpeggio and the sequence
+  keep their notes without it, and play them with it.</p>
 
 <h2 id="presets">Presets</h2>
 <p>ICE, BELL, BLIP, GLASS, CHIME, DROP, FROST, CELESTA, SINE (the default), KALIMBA, MARIMBA, MUSIC BOX, VIBES, HARP,
@@ -120,7 +123,7 @@ hint: Hold ARP: latch · REC: record
     <tr><td>STEP</td><td>Writes its note on STEP, then STEP moves on to the next, round SEQ LENGTH. A hard strike writes an accent. The note sounds while the key is down. GLINT’s MIDI notes do the same</td></tr>
     <tr><td>LIVE</td><td>Play while it runs: each note sounds, and goes into the step nearest the playhead</td></tr>
     <tr><td>OFF, on GLINT SEQ’s pages</td><td>Plays its own glint, as with SEQ OFF: try a line before you record it. The sequence goes on as it was, TRANSPOSE and the steps untouched; the badge says GLINT. GLINT’s MIDI notes do the same</td></tr>
-    <tr><td>OFF, on any other page</td><td>Transposes the sequence, from its first note to the key’s, along the scale: it stays in the key. TRANSPOSE shows how far, and turns it back. Playing, the sequence also starts again from its first step on the nearest beat of the grid: in the first half of a beat, from the beat just gone, transposed at once (it catches up: the step it would be on now sounds now); in the second half, it goes on as it was until the next beat, then starts from its first step there, transposed from then. Stopped, the key only transposes it. GLINT’s MIDI notes do the same</td></tr>
+    <tr><td>OFF, on any other page</td><td>Transposes the sequence, from its first note to the key’s, along the scale: it stays in the key. TRANSPOSE shows how far, and turns it back. Playing, the sequence also starts again from its first step on the nearest beat of the grid: in the first half of a beat, from the beat just gone, transposed at once (it catches up: the step it would be on now sounds now); in the second half, it goes on as it was until the next beat, then starts from its first step there, transposed from then. Stopped, the key only transposes it. A sequence with no note in the steps it plays has nothing to transpose: the key plays its own glint, as with SEQ OFF, and the badge says GLINT. GLINT’s MIDI notes do the same</td></tr>
   </tbody>
 </table>
 <p>K2 and K3 on GLINT SEQ change the step on STEP: its NOTE (REST all the way down, TIE all the way up: the last note
@@ -138,7 +141,8 @@ hint: Hold ARP: latch · REC: record
   brighter), and a column each step. The column being recorded into is lit in ice: on STEP, the one the next key
   writes; on LIVE, the one playing. RECORD off, the rules go. The keys light the note playing, the scale’s notes
   faintly.</p>
-<p>Each scene keeps its own sequence, and the settings keep the last one saved.</p>
+<p>Each scene keeps its own sequence, and a scene loaded starts it from its first step; the settings keep the last one
+  saved.</p>
 
 <h2 id="the-delay">The delay</h2>
 <p>The delay is GLINT’s alone, on GLINT DELAY, its fourth page. TIME follows MIDI clock, or TEMPO: from 1/32 to 1/2 with triplets and

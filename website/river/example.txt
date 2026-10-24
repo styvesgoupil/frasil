@@ -1,9 +1,11 @@
 # The River's example (river.frasilsynth.com/example.frasil, "Open an example"): a few scenes stored on the simulated
-# FM-1, then backed up (website/assemble.py runs it). Slot 3: ABYSS's drone, a fifth in D Phrygian, the bass; slot 9:
+# FM-1, then backed up (website/assemble.py runs it). Slot 8: ABYSS's drone, a fifth in D Phrygian, the bass; slot 9:
 # CATHEDRAL's choir with GLINT's arpeggio; slot 10: GLACIER with a sequence recorded live; slot 11: AURORA, LFO 1 on
-# the timbre, the bass's sequence on
+# the timbre, the bass's sequence on. From 1.1's first scene, MIST, as the example was made (testscene)
 wait 600
-# --- slot 3: ABYSS
+testscene
+wait 100
+# --- slot 8: ABYSS (an empty slot: named after the drone's preset)
 turn PRESET 4
 tap SEL
 wait 30
@@ -23,7 +25,7 @@ wait 30
 # (SCENES' K1 down to its top, NEW SHARD, then up to the slot)
 turn K1 -20
 wait 100
-turn K1 3
+turn K1 8
 wait 30
 press SAVE
 tap REC

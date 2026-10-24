@@ -149,7 +149,7 @@ await a.click("#get-see");
 await a.click("#dock-get");
 await a.waitForSelector("#get .pk");
 slots = await pk(a);
-check(slots[2].kind === "had" && !slots[2].box && slots[2].tag === "IN YOUR RIVER" && slots[8].kind === "had" && slots[9].kind === "new" && slots[9].on,
+check(slots[7].kind === "had" && !slots[7].box && slots[7].tag === "IN YOUR RIVER" && slots[8].kind === "had" && slots[9].kind === "new" && slots[9].on,
       "read again: ABYSS and CATHEDRAL IN YOUR RIVER (nothing to tick), GLACIER still NEW");
 await a.click("#get .sheet-x");
 await a.click('#pt a[href="#backups"]');

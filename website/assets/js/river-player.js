@@ -5,9 +5,11 @@
  * bytes} and {op: "stop"}: app/web.c). Nothing loads until the first play.
  *   RiverPlayer.play(bytes, id)   a scene_t (Uint8Array); one shard at a time (another one replaces it) -> true if it sounds
  *   RiverPlayer.stop()            let it go: a short fade, then the audio sleeps until the next play
+ *   RiverPlayer.unlock()          in a click or a key: lets a play started before any (held back by the browser) sound
  *   RiverPlayer.wave(n)           what sounds now, n points of its waveform (-1..1), or null
  *   RiverPlayer.level()           its loudness now (RMS, 0..1)
  *   RiverPlayer.state             "idle" | "loading" | "playing";  RiverPlayer.id: the id given to play()
+ *   RiverPlayer.held              true while a play waits for the browser to let sound start (a click, a key)
  *   events (addEventListener): loading, playing, stopped, error; event.detail = {id, message?, code?}
  *   (code "missing": the engine is not on this site yet; "unsupported": no AudioWorklet in this browser)
  * RiverPlayer.base: where emu/ is (default "emu/", beside the page). */
@@ -122,6 +124,11 @@ window.RiverPlayer = (() => {
     emit("stopped", { id });
   }
 
+  /* inside a click or a key: the audio let start, where the browser held it back (a play waiting for it goes on) */
+  function unlock() {
+    if (ac && ac.state === "suspended") ac.resume().catch(() => {});
+  }
+
   function wave(n = 64) {
     if (!tap || !current || !current.sounding) return null;
     if (!tbuf) tbuf = new Float32Array(tap.fftSize);
@@ -146,9 +153,10 @@ window.RiverPlayer = (() => {
 
   const api = {
     base: "emu/",
-    play, stop, wave, level,
+    play, stop, unlock, wave, level,
     get state() { return !current ? "idle" : current.sounding ? "playing" : "loading"; },
     get id() { return current ? current.id : null; },
+    get held() { return !!(current && !current.sounding && ac && ac.state === "suspended" && node); },   // (waiting for a click)
     addEventListener: ev.addEventListener.bind(ev),
     removeEventListener: ev.removeEventListener.bind(ev),
   };

@@ -9,7 +9,9 @@ import mail
 from conftest import PASSWORD, signup
 from guard import WORDS, filtered
 from store import Settings
-from test_shards import LAYOUT, add
+from test_shards import LAYOUT, S, add
+
+FIRMWARE = S["firmware"]                         # (the schema's: VERSION, as make_schema.py wrote it)
 
 
 def test_changes_come_from_the_site_as_json(client, scenes):
@@ -126,4 +128,4 @@ def test_word_filter(make):
 
 
 def test_health(client):
-    assert client.get("/api/health").json() == {"ok": True, "layout": LAYOUT, "firmware": "1.1"}
+    assert client.get("/api/health").json() == {"ok": True, "layout": LAYOUT, "firmware": FIRMWARE}

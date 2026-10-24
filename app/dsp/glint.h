@@ -12,6 +12,7 @@
 
 typedef struct {
     float ratio;                         /* the modulator's frequency over the carrier's */
+    int octave;                          /* OCTAVE: every glint so many octaves up (those sounding too, at once) */
     float bright;                        /* 0..1: the FM index, 0 .. 5 */
     float decay;                         /* 0..1: 80 ms .. 6 s to silence (to SUSTAIN's level while held) */
     float level;                         /* 0..1 */
@@ -42,7 +43,7 @@ void glint_delay(float *l, float *r, float *send_l, float *send_r, uint32_t n, c
 #define GLINT_DELAY_MAX 0.92f            /* seconds a repeat at most (longer: halved, still on the beat) */
 
 typedef struct {
-    int8_t note;                         /* -1: silent */
+    int8_t note;                         /* -1: silent; else as it sounds (OCTAVE on it) */
     uint8_t gate;                        /* its key down */
     float level;                         /* 0..1 */
     float env;                           /* its envelope alone, 0..1 of the strike's (the onset, DECAY, RELEASE) */

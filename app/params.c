@@ -228,9 +228,9 @@ static const pdesc_t PD[NPARAM] = {
     [P_SQ_UNDO] = {"UNDO TAKE", 2, 0, F_UNDO},
     [P_BQ_STEP] = {"STEP", 15, 0, F_SQLEN},
     [P_BQ_NOTE] = {"NOTE", 127, 0, F_BQNOTE},          /* CUT, a note, HOLD */
-    [P_BQ_LEN] = {"STEP LENGTH", 10, 0, F_BQLEN},      /* a step's: 1/16 .. 4 BARS (BQ_TICKS) */
+    [P_BQ_LEN] = {"STEP LENGTH", 12, 0, F_BQLEN},      /* a step's: 1/16 .. 16 BARS (BQ_TICKS) */
     [P_BQ_REC] = {"RECORD", 2, 0, F_SQREC},            /* OFF (the keys transpose), STEP, LIVE */
-    [P_BQ_STEPS] = {"STEPS", 15, 15, F_SQLEN},         /* 1 .. 16 steps */
+    [P_BQ_STEPS] = {"SEQ STEPS", 15, 15, F_SQLEN},     /* 1 .. 16 steps */
     [P_BQ_ON] = {"SEQUENCE", 1, 0, F_ONOFF},
     [P_BQ_CLEAR] = {"CLEAR", 2, 0, F_SQCLEAR},         /* turned twice: every step a CUT of a sixteenth */
     [P_BQ_TRANS] = {"TRANSPOSE", 28, 14, F_SQTRANS},   /* -14 .. +14 steps of the scale */
@@ -332,44 +332,151 @@ typedef struct {
     int8_t bass;                         /* the bass's note, -1: none */
     uint8_t seq[SC_SEQ];                 /* GLINT's sequence */
     uint8_t bnote[SC_BSEQ], blen[SC_BSEQ];   /* the bass's sequence (kept apart from the rest: app.c OBJ_BSEQ) */
-    uint8_t bq_on, bq_steps, bq_trans;   /* and its SEQUENCE, STEPS, TRANSPOSE: a scene plays its own, as GLINT's */
+    uint8_t bq_on, bq_steps, bq_trans;   /* and its SEQUENCE, SEQ STEPS, TRANSPOSE: a scene plays its own, as GLINT's */
+    uint8_t tempo;                       /* its TEMPO (P_TEMPO's value), with the bass's sequence in the store: LOAD
+                                          * SND+NOTES takes it (app.c scene_take) */
 } scene_t;
 
-/* the factory scenes (slots 1 .. 8 until something is saved over them) */
-#define S(n, ...) {n, {__VA_ARGS__}, 0, 0, {{0}}, {0}, -1, {0}, {0}, {0}, 0, 15, 14}   /* a factory scene plays nothing */
-static const scene_t FACTORY[] = {
-    /*          CHO PAR SOU CHA  DES FIL PEN IMP  ETI RES COU ECA  ATT REL PRE VEL  MOU VIT MAR PER  TAI DUR TEI SHI
-     *          DIF MOD PRD INT  CBA LAR ACC  TIM ESP  ROOT SCALE CHORD VOICING  GLINT PRESET (its sound: glint_preset) */
-    S("MIST", 76, 89, 32, 19, 51, 44, 57, 25, 0, 70, 0, 89, 89, 83, 76, 38, 44, 51, 25, 38, 95, 79, 64, 0,
-      95, 64, 13, 0, 25, 127, 50, 64, 57,
-      2, 0, 0, 0, 8),
-    S("GLASS", 18, 38, 115, 10, 30, 60, 50, 40, 20, 108, 127, 100, 70, 90, 80, 50, 40, 45, 30, 40, 127, 105, 70, 70,
-      110, 70, 30, 0, 40, 127, 50, 70, 80,
-      9, 5, 6, 2, 3),
-    S("ABYSS", 100, 70, 25, 40, 70, 20, 80, 50, 0, 50, 0, 60, 100, 100, 70, 20, 50, 30, 60, 20, 120, 110, 30, 0,
-      110, 90, 40, 0, 15, 127, 50, 40, 75,
-      2, 4, 1, 2, 5),
-    S("CHORALE", 110, 40, 0, 25, 85, 55, 50, 30, 0, 60, 0, 110, 95, 90, 80, 40, 60, 60, 20, 50, 100, 85, 60, 0,
-      100, 80, 20, 0, 30, 127, 50, 60, 60,
-      2, 2, 3, 1, 1),
-    S("WIND", 0, 15, 127, 0, 40, 50, 60, 30, 0, 15, 30, 127, 80, 95, 100, 30, 90, 80, 50, 70, 110, 90, 55, 0,
-      120, 100, 10, 0, 50, 127, 50, 64, 70,
-      4, 11, 0, 0, 6),
-    S("BELLS", 0, 100, 60, 5, 30, 50, 30, 20, 90, 100, 127, 90, 40, 105, 70, 80, 30, 40, 20, 40, 115, 100, 80, 45,
-      100, 60, 25, 1, 45, 127, 50, 75, 70,
-      0, 1, 7, 1, 4),
-    S("TIDE", 80, 80, 40, 30, 60, 40, 60, 35, 10, 75, 40, 100, 100, 100, 70, 30, 70, 30, 110, 60, 110, 95, 55, 20,
-      100, 70, 15, 0, 30, 127, 50, 55, 65,
-      5, 3, 4, 1, 2),
-    S("AURORA", 60, 100, 40, 15, 45, 70, 35, 10, 0, 85, 60, 110, 90, 110, 75, 30, 50, 50, 40, 50, 127, 115, 85, 95,
-      110, 70, 35, 0, 50, 127, 50, 80, 90,
-      7, 6, 2, 2, 7),
+/* the factory scenes (slots 1 .. 7 until something is saved over them: app.c factory_get), each made as NEW SHARD is
+ * (every setting at its default, its GLINT preset, the arpeggiator's and the delay's defaults), then its own settings
+ * (P: a parameter and its value, to P_END), or its sound whole as an FM-1 stored it (one made on the device); its TEMPO
+ * (BPM - 30), and what it plays: the drones it latches (each key's chord as the harmony makes it, or the chords as
+ * latched), the arpeggio's notes, the bass's note held or its sequence, GLINT's sequence. Each
+ * sounding like none of the others: their tempo, key and scale, the drone (one of its presets), what GLINT and the bass
+ * do, the LFOs moving them. Notes: MIDI numbers; GLINT's without its OCTAVE, the bass's sequence's without the bass's (as
+ * the sequencers keep them: app.c); a step 0 is a rest or a CUT, 127 a TIE or a HOLD, A() an accent */
+#define P_END 0xFFu
+#define A(n) ((n) | 0x80)
+typedef struct {
+    char name[SC_NAME + 1];              /* (its sixteen and the literal's NUL: only SC_NAME go into the scene) */
+    uint8_t tempo;
+    uint8_t p[52][2];                    /* its settings over NEW SHARD's base (to P_END) */
+    uint8_t whole;                       /* 1: its sound whole instead, as an FM-1 stored it (sound) */
+    uint8_t sound[NSOUND];
+    int8_t keys[4];                      /* the drones latched, each key's chord as the harmony makes it (0: none) */
+    uint8_t nch;                         /* or its chords as latched (ch: root, then notes; -1 none) */
+    int8_t ch[SC_CHORDS][5];
+    int8_t arp[SC_ARP];                  /* the arpeggio's notes, low to high (0: none) */
+    int8_t bass;                         /* the bass's note held, as it sounds (-1: none) */
+    uint8_t seq[SC_SEQ];                 /* GLINT's sequence */
+    uint8_t bnote[SC_BSEQ], blen[SC_BSEQ];   /* the bass's: its notes, its lengths (BQ_LEN_NAME's) */
+    uint8_t bq_on, bq_steps, bq_trans;   /* its SEQUENCE, SEQ STEPS (steps - 1), TRANSPOSE */
+} factory_t;
+static const factory_t FACTORY[] = {
+    /* NORTH RIVER: the user's own, made on the FM-1 and kept whole as it stored it (its sound, every setting, in
+     * params.c's order: a layout that changes a setting's meaning makes it over, as it would a stored scene). F# minor
+     * pentatonic at 90 BPM: two sevenths latched wide, on B2 and F#3; FROST's arpeggio at random in sixteenths over three
+     * octaves; SUB's line of five steps, struck on each beat (PULSE) */
+    {.name = "NORTH RIVER", .tempo = 60, .whole = 1,
+     .sound = {74, 77, 103, 104, 91, 26, 39, 71, 5, 70, 0, 89, 87, 83, 114, 61, 120, 51, 79, 43, 99, 79, 88, 19, 95, 64,
+               13, 0, 25, 127, 50, 58, 78, 6, 11, 3, 2, 6, 11, 45, 55, 75, 2, 110, 72, 3, 7, 2, 79, 0, 68, 23,
+               111, 1, 127, 81, 38, 23, 126, 1, 3, 81, 5, 127, 53, 0, 90, 60, 40, 23, 2, 72, 5, 76, 99, 34, 96, 100,
+               127, 36, 0, 0, 3, 0, 0, 0, 0, 85, 0, 23, 1, 40, 0, 0, 0, 24, 42, 0, 26, 0, 0, 0, 0, 16,
+               17, 0, 35, 23, 0, 0, 15, 64, 14, 0, 51, 5, 32, 93, 0, 36, 0, 0, 0, 1, 0, 0, 0, 90, 13, 4},
+     .nch = 2, .ch = {{47, 35, 52, 57, 61}, {54, 42, 59, 64, 69}},
+     .arp = {52, 61, 64}, .bass = -1,
+     .seq = {0},
+     .bnote = {66, 57, 59, 59, 61}, .blen = {8, 6, 4, 2, 2}, .bq_on = 1, .bq_steps = 4, .bq_trans = 14},
+    /* LUMIERE NOCTURNE: the user's own too, kept whole the same way. A major at 60 BPM, a light in the night: an add9
+     * latched wide on D2, the drone all PARTIALS and BREATH, slow to come and to go, in a long, bright hall; GLINT's
+     * arpeggio on one note, A1, an octave up; SAW's A2 held, struck on each half beat (PULSE); three slow LFOs (TIMBRE
+     * and BREATH, SPACE and SPREAD, GLINT's BRIGHT and the bass's FILTER) */
+    {.name = "LUMIERE NOCTURNE", .tempo = 30, .whole = 1,
+     .sound = {0, 115, 98, 40, 50, 46, 60, 20, 0, 60, 0, 100, 96, 90, 76, 30, 64, 36, 30, 38, 118, 94, 95, 29, 100, 85,
+               20, 2, 56, 127, 50, 64, 66, 9, 1, 6, 2, 8, 1, 32, 90, 90, 1, 90, 84, 0, 5, 1, 127, 10, 0, 19,
+               50, 1, 40, 48, 54, 26, 96, 2, 0, 94, 3, 50, 45, 0, 90, 60, 40, 28, 0, 62, 0, 72, 100, 100, 100, 83,
+               127, 36, 0, 0, 0, 0, 0, 0, 0, 85, 0, 0, 1, 50, 0, 0, 0, 18, 14, 0, 1, 7, 0, 0, 0, 14,
+               12, 0, 2, 24, 0, 0, 15, 64, 14, 0, 87, 0, 21, 16, 0, 26, 31, 0, 0, 1, 26, 0, 0, 99, 0, 3},
+     .nch = 1, .ch = {{38, 26, 42, 45, 52}},
+     .arp = {33}, .bass = 45,
+     .seq = {0},
+     .bnote = {0}, .blen = {0}, .bq_on = 0, .bq_steps = 15, .bq_trans = 14},
+    /* RESILIENCE: the user's own, kept whole. F# minor pentatonic at 90 BPM: two sevenths latched wide, on B2 and A3, a
+     * full drone (all four layers up, WARMTH most) moving on its own (MOTION, TIDE); HARP's arpeggio at random in
+     * sixteenths over three octaves, through a long ping-pong echo; REESE driven, its line of nine steps far under */
+    {.name = "RESILIENCE", .tempo = 60, .whole = 1,
+     .sound = {98, 88, 103, 126, 91, 26, 39, 71, 5, 70, 0, 89, 87, 83, 114, 61, 120, 51, 79, 43, 99, 79, 88, 0, 95, 64,
+               13, 0, 25, 127, 50, 58, 78, 6, 11, 3, 2, 13, 1, 34, 85, 90, 1, 80, 80, 3, 7, 2, 91, 0, 110, 23,
+               111, 1, 127, 106, 86, 35, 126, 0, 30, 50, 4, 127, 53, 0, 90, 60, 40, 23, 2, 72, 0, 81, 72, 78, 96, 57,
+               127, 36, 0, 0, 3, 0, 0, 0, 0, 85, 0, 37, 1, 40, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 25,
+               0, 0, 0, 0, 0, 0, 15, 64, 14, 0, 87, 0, 25, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 64, 127, 0},
+     .nch = 2, .ch = {{47, 35, 52, 57, 61}, {57, 45, 61, 66, 71}},
+     .arp = {47, 54, 57}, .bass = -1,
+     .seq = {0},
+     .bnote = {54, 127, 61, 61, 127, 57, 127, 59, 49}, .blen = {7, 1, 0, 2, 0, 5, 1, 5, 3, 8}, .bq_on = 1, .bq_steps = 8, .bq_trans = 14},
+    /* LONG NIGHT: A Phrygian at 60 BPM, dark and slow (as the user remade it on the FM-1, kept whole). NOCTURNE's
+     * resonant low drone on a wide fifth; REESE's line gliding in bars and halves (six bars) under BOWED glass, ratio 9,
+     * long tied notes in four (they drift apart) far in an echo; LFO 1 a slow drift on both filters, LFO 3 now and then a
+     * little SINK; a long, dark hall */
+    {.name = "LONG NIGHT", .tempo = 30, .whole = 1,
+     .sound = {76, 89, 32, 19, 51, 44, 57, 25, 0, 70, 0, 89, 89, 83, 76, 38, 44, 51, 25, 38, 120, 115, 30, 0, 95, 64,
+               13, 0, 25, 127, 50, 64, 57, 9, 4, 1, 2, 15, 10, 21, 62, 38, 1, 125, 118, 0, 3, 1, 76, 120, 0, 19,
+               96, 1, 99, 40, 40, 60, 95, 1, 40, 70, 4, 116, 50, 0, 90, 60, 40, 28, 0, 62, 0, 100, 100, 72, 100, 57,
+               127, 36, 0, 0, 0, 0, 0, 0, 0, 85, 0, 0, 1, 64, 0, 0, 6, 8, 50, 0, 31, 9, 0, 0, 0, 67,
+               30, 2, 29, 0, 0, 0, 15, 110, 14, 17, 100, 5, 31, 20, 1, 40, 28, 0, 0, 2, 0, 30, 0, 90, 100, 0},
+     .nch = 1, .ch = {{45, 33, 52, -1, -1}},
+     .arp = {0}, .bass = -1,
+     .seq = {64, 127, 127, 127, 0, 0, 65, 127, 62, 127, 127, 0, 60, 127, 69, 127},
+     .bnote = {45, 127, 41, 40, 45, 46, 45, 127}, .blen = {6, 6, 4, 4, 6, 4, 4, 6}, .bq_on = 1, .bq_steps = 7, .bq_trans = 14},
+    /* OPEN WATER: the river open again, D Dorian at 118 BPM. PULSE's quick beating on a sus2, ducked on each beat (PUMP);
+     * MARIMBA's sixteenths, syncopated, accents, an echo; a driven SAW in eighths, plucked (DECAY, SUSTAIN), its
+     * filter swept over two bars (LFO 1); the mastering pressing a little */
+    {.name = "OPEN WATER", .tempo = 88,
+     .p = {{P_ROOT, 2}, {P_SCALE, 3}, {P_CHORD, 4}, {P_VOICING, 1}, {P_DR_PRESET, 19}, {P_DR_FULL, 70},
+      {P_GL_PRESET, 10}, {P_SQ_TYPE, 2}, {P_GL_OCTAVE, 1}, {P_ARP_RATE, 7}, {P_SQ_LEN, 15}, {P_SQ_GATE, 50},
+      {P_GL_LEVEL, 95}, {P_GL_BRIGHT, 70}, {P_GD_TIME, 19}, {P_GD_MIX, 35}, {P_GD_FB, 40},
+      {P_BS_MODEL, 3}, {P_BS_FILTER, 55}, {P_BS_RESO, 60}, {P_BS_DRIVE, 50}, {P_BS_LEVEL, 95}, {P_BS_ATTACK, 0},
+      {P_BS_RELEASE, 30}, {P_BS_DECAY, 45}, {P_BS_SUSTAIN, 40}, {P_BS_GLIDE, 0},
+      {P_PUMP_RATE, 5}, {P_PUMP_DRONE, 100}, {P_PUMP_BASS, 0}, {P_PUMP_GLINT, 30},
+      {P_TAILLE, 80}, {P_DUREE, 60}, {P_TEINTE, 70}, {P_MS_RATIO, 3}, {P_MS_THRESH, 22}, {P_MS_GAIN, 6},
+      {P_L1_SHAPE, 1}, {P_L1_RATE, 67}, {P_L1_DEPTH, 45}, {P_L1_T1, 31},
+      {P_END, 0}},
+     .keys = {50}, .arp = {0}, .bass = -1,
+     .seq = {A(62), 0, 69, 0, 65, A(69), 0, 72, 0, 67, A(64), 0, 69, 0, 72, 74},
+     .bnote = {50, 0, 50, 53, 0, 55, 57, 0, 50, 0, 60, 57, 0, 55, 53, 0}, .blen = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, .bq_on = 1, .bq_steps = 15, .bq_trans = 14},
+    /* WHITEOUT: C# minor at 72 BPM, snow on the wind. WIND's breath alone, a wide sus4, its air gusting (LFO 1, at
+     * random) and its spread drifting (LFO 2); FROST's flurries, an arpeggio at random in sixteenth triplets over three
+     * octaves, mostly silent, LFO 3 bringing them in; a sub far under, slow; BLUR and the widest cloud */
+    {.name = "WHITEOUT", .tempo = 42,
+     .p = {{P_ROOT, 1}, {P_SCALE, 2}, {P_CHORD, 5}, {P_VOICING, 2}, {P_DR_PRESET, 9}, {P_DR_FULL, 127},
+      {P_GL_PRESET, 6}, {P_SQ_TYPE, 1}, {P_ARP_MODE, 3}, {P_ARP_RATE, 8}, {P_ARP_RANGE, 2}, {P_ARP_CHANCE, 35},
+      {P_GL_OCTAVE, 1}, {P_GL_LEVEL, 70}, {P_GL_BRIGHT, 50},
+      {P_BS_MODEL, 5}, {P_BS_LEVEL, 70}, {P_BS_ATTACK, 110}, {P_BS_RELEASE, 100}, {P_BS_FILTER, 30},
+      {P_GX_BLUR, 70}, {P_GX_SINK, 20}, {P_MS_RATIO, 2}, {P_MS_THRESH, 24}, {P_MS_GAIN, 5},
+      {P_TAILLE, 127}, {P_DUREE, 105}, {P_TEINTE, 55}, {P_DIFFUSION, 127}, {P_MODULATION, 100}, {P_LARGEUR, 127},
+      {P_L1_SHAPE, 5}, {P_L1_RATE, 44}, {P_L1_DEPTH, 35}, {P_L1_T1, 23}, {P_L1_T2, 21},
+      {P_L2_SHAPE, 6}, {P_L2_RATE, 4}, {P_L2_DEPTH, 60}, {P_L2_T1, 24}, {P_L2_T2, 22},
+      {P_L3_SHAPE, 1}, {P_L3_RATE, 17}, {P_L3_DEPTH, 50}, {P_L3_POL, 1}, {P_L3_T1, 36}, {P_L3_T2, 30},
+      {P_END, 0}},
+     .keys = {49}, .arp = {61, 64, 68, 71}, .bass = 25,
+     .seq = {0},
+     .bnote = {0}, .blen = {0}, .bq_on = 0, .bq_steps = 15, .bq_trans = 14},
+    /* THAW: E-flat major at 78 BPM, warm and dripping. EMBER's glowing square choir, add9, open, its warmth and body
+     * swaying (LFO 1); DROP's arpeggio drifting in eighth triplets, half of its steps; FM's bass held, struck again on
+     * each half beat (PULSE); LFO 2 sinking everything slowly now and then, LFO 3 the strike's and the bass's tone at
+     * random */
+    {.name = "THAW", .tempo = 48,
+     .p = {{P_ROOT, 3}, {P_SCALE, 1}, {P_CHORD, 6}, {P_VOICING, 1}, {P_DR_PRESET, 6}, {P_DR_FULL, 110},
+      {P_GL_PRESET, 5}, {P_SQ_TYPE, 1}, {P_ARP_MODE, 4}, {P_ARP_RATE, 6}, {P_ARP_RANGE, 1}, {P_ARP_CHANCE, 75},
+      {P_GL_OCTAVE, 1}, {P_GL_LEVEL, 60},
+      {P_BS_MODEL, 7}, {P_BS_LEVEL, 85}, {P_BS_FILTER, 50}, {P_BS_DECAY, 60}, {P_BS_SUSTAIN, 80},
+      {P_BS_ATTACK, 10}, {P_BS_RELEASE, 45}, {P_BS_PULSE, 3}, {P_GX_SINK, 15}, {P_MS_RATIO, 2}, {P_MS_GAIN, 2},
+      {P_TAILLE, 95}, {P_DUREE, 80}, {P_TEINTE, 50}, {P_MODULATION, 90},
+      {P_L1_SHAPE, 0}, {P_L1_RATE, 19}, {P_L1_DEPTH, 40}, {P_L1_T1, 4}, {P_L1_T2, 35},
+      {P_L2_SHAPE, 6}, {P_L2_RATE, 5}, {P_L2_DEPTH, 45}, {P_L2_POL, 1}, {P_L2_T1, 40},
+      {P_L3_SHAPE, 5}, {P_L3_RATE, 38}, {P_L3_DEPTH, 30}, {P_L3_T1, 27}, {P_L3_T2, 31},
+      {P_END, 0}},
+     .keys = {51}, .arp = {63, 67, 70, 74, 77}, .bass = 27,
+     .seq = {0},
+     .bnote = {0}, .blen = {0}, .bq_on = 0, .bq_steps = 15, .bq_trans = 14},
 };
+#undef A
 /* NEW SHARD: SCENES' first line, above slot 01. No slot (nothing is stored into it): a sound to begin a shard from,
  * in the code as the factory scenes are (app.c new_shard), playing nothing. A calm drone, CUSTOM: the choir soft, a
  * little PARTIALS and BREATH, warm; slow to come and to go; MOTION at half, its drift slow; a lush cloud, not a wash
  * (LOW CUT at 83 HZ: no boom swelling under it as the drift moves the low notes). A seventh in A minor, open (A E G C:
  * Am7 on A). GLINT's SINE */
+#define S(n, ...) {n, {__VA_ARGS__}, 0, 0, {{0}}, {0}, -1, {0}, {0}, {0}, 0, 15, 14, 60}   /* playing nothing, at 90 BPM */
 static const scene_t NEW_SHARD = S("NEW SHARD", 84, 50, 44, 40, 50, 46, 60, 20, 0, 60, 0, 100, 96, 90, 76, 30, 64, 36,
                                    30, 38, 98, 82, 60, 0, 100, 85, 20, 0, 56, 127, 50, 64, 66,
                                    9, 2, 3, 1, 8);
@@ -384,6 +491,7 @@ static const uint8_t NEW_SHARD_P[][2] = {
     {P_L1_RATE, 18}, {P_L1_DEPTH, 14}, {P_L1_T1, 1}, {P_L1_T2, 7},       /* TIMBRE, BREATH */
     {P_L2_RATE, 14}, {P_L2_DEPTH, 12}, {P_L2_T1, 2}, {P_L2_T2, 24},      /* SPACE, SPREAD */
     {P_L3_RATE, 21}, {P_L3_DEPTH, 16}, {P_L3_T1, 26}, {P_L3_T2, 31},     /* GL BRIGHT, BS FILTER */
+    {P_SQ_TYPE, 1},                      /* GLINT's SEQ on ARP (app.c SQT_ARP): its keys arpeggiated, latched */
 };
 #undef S
 #define NFACTORY (sizeof FACTORY / sizeof FACTORY[0])
@@ -490,11 +598,11 @@ static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MO
                                              "SPARKLE", "BLUR", "SINK"};   /* (new ones at the end: a saved TARGET
                                                                          * keeps its setting) */
 static float lfo_hz(uint32_t r) { return 0.005f * fm_powf(2000.0f, (float)r / (float)(LFO_NFREE - 1u)); }
-/* GLINT's OCTAVE, in semitones: the arpeggio's and the sequence's notes are kept without it, played with it (app.c
- * sets it with the engine), and NOTE shows them so */
+/* GLINT's OCTAVE, in semitones: every glint is played without it, the engine puts it on (a key's, a MIDI note's, the
+ * arpeggio's, the sequence's; those sounding too, at once: glint.c), and NOTE shows the steps so (app.c sets it) */
 static int32_t seq_shift;
-/* BASS's OCTAVE, in semitones: its sequence's notes are kept without it, played with it (folded up to C1, as the bass
- * plays), and NOTE shows them so */
+/* BASS's OCTAVE, in semitones: every note of the bass is played without it, the engine puts it on (folded up to C1;
+ * the one sounding moves there at once: bass.c), and NOTE shows the steps so */
 static int32_t bseq_shift;
 /* a scene's MORPH: what each setting still lacks of the scene's, in its own steps, toward 0 (app.c, morph_run) */
 static float morph_off[NSOUND];
@@ -509,11 +617,12 @@ static const char *const GD_NAME[12] = {"1/32", "1/16T", "1/16", "1/8T", "1/16D"
 static const uint8_t ARP_TICKS[10] = {96, 48, 32, 24, 16, 12, 8, 6, 4, 3};
 static const char *const ARP_RATE_NAME[10] = {"1/1", "1/2", "1/2T", "1/4", "1/4T", "1/8", "1/8T", "1/16", "1/16T",
                                               "1/32"};
-/* a step of the bass's sequence, its STEP LENGTH: a quarter of a beat .. sixteen beats, in MIDI clocks (24 a beat) */
-#define NBQLEN 11u
-static const uint16_t BQ_TICKS[NBQLEN] = {6, 12, 24, 36, 48, 72, 96, 144, 192, 288, 384};
+/* a step of the bass's sequence, its STEP LENGTH: a quarter of a beat .. sixty-four beats (16 BARS), in MIDI clocks (24 a
+ * beat) */
+#define NBQLEN 13u
+static const uint16_t BQ_TICKS[NBQLEN] = {6, 12, 24, 36, 48, 72, 96, 144, 192, 288, 384, 768, 1536};
 static const char *const BQ_LEN_NAME[NBQLEN] = {"1/16", "1/8", "1/4", "1/4D", "1/2", "1/2D", "1 BAR", "1.5 BARS",
-                                                "2 BARS", "3 BARS", "4 BARS"};
+                                                "2 BARS", "3 BARS", "4 BARS", "8 BARS", "16 BARS"};
 static const float GLINT_RATIO[13] = {0.5f, 1.0f, 1.414f, 2.0f, 2.756f, 3.0f, 3.5f, 4.0f, 5.0f, 7.0f, 9.0f, 11.0f, 13.6f};
 static const char *const RATIO_NAME[13] = {"X0.5", "X1", "X1.41", "X2", "X2.76", "X3", "X3.5", "X4", "X5", "X7", "X9",
                                            "X11", "X13.6"};
@@ -608,6 +717,7 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
     b->rev.width = u7(v, P_LARGEUR);
     b->rev.freeze = freeze;
     b->glint.ratio = GLINT_RATIO[v[P_GL_RATIO] % 13u];
+    b->glint.octave = (int)v[P_GL_OCTAVE];
     b->glint.bright = u7(v, P_GL_BRIGHT);
     b->glint.decay = u7(v, P_GL_DECAY);
     b->glint.level = u7(v, P_GL_LEVEL);
@@ -673,6 +783,7 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
     b->bass.release = u7(v, P_BS_RELEASE);
     b->bass.decay = u7(v, P_BS_DECAY);
     b->bass.sustain = u7(v, P_BS_SUSTAIN);
+    b->bass.octave = (int)v[P_BS_OCTAVE] - 2;   /* (-2 .. 0) */
 }
 
 #include "harmony.c"

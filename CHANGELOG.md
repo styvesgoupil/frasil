@@ -1,5 +1,61 @@
 # Changelog
 
+## 2.0 (2026-10-24)
+
+FRASIL 2.0 is a major upgrade release. Since 1.0, the instrument has grown a second sequencer, a way of playing its
+buttons that was rethought from end to end, scenes of your own with names and tempo, envelopes you can see, and a home
+for your scenes on the web. Your scenes from 1.0 and 1.1 come over as they were.
+
+**Highlights**
+
+- **Two sequencers on one grid.** GLINT's 32 steps, and the bass's own: 16 steps of NOTEs, CUTs and HOLDs, each from
+  1/16 to 16 BARS, written step by step or played in live (quantized, overdubbed round its loop), PULSE striking the
+  bass again on the beat. Both start together from their first step when PLAY starts, and with every scene you load.
+- **LFOs at the heart of the sound.** Three LFOs, seven shapes, from a turn of over three minutes to a sixteenth on the
+  beat, each moving up to four of forty settings around the values you gave them. Hold LFO and turn any setting: it
+  joins one. Synced, they start again with the beat; every scene keeps them.
+- **The buttons, rethought.** A tap for the white word, a hold for the amber one; a page button held with SELECT walks
+  its pages; KEYS follow the section you are in; SWELL on ENV, where the drone is; pop-ups answered with SEL (yes, OK)
+  or FX (no), only those buttons lit; plainer words everywhere (LOAD, KEYS, BODY, KEY MODE, SEQ STEPS).
+- **OCTAVE, the voice's own.** BASS's and GLINT's OCTAVE move every note the voice plays (keys, MIDI, arpeggio,
+  sequences), the notes sounding included, at once.
+- **Envelopes you can see.** BASS ADSR and GLINT ADSR, drawn on the screen as you turn them, every note riding its
+  curve; GLINT has a RELEASE.
+- **Scenes of your own.** Names of up to sixteen characters (NAME IT), NEW SHARD to start fresh, a TEMPO kept in each
+  scene, and seven factory scenes made on the FM-1 that play the moment they load.
+- **The River.** Back up and restore over USB, and river.frasilsynth.com: keep your scenes ("shards"), share them,
+  send them back to the FM-1, several at once.
+
+**Everything new since 1.1**
+
+- Seven factory scenes, all new, each playing something with its own TEMPO: NORTH RIVER (F# minor pentatonic,
+  90 BPM), LUMIERE NOCTURNE (A major, 60 BPM), RESILIENCE (F# minor pentatonic, 90 BPM) and LONG NIGHT (A Phrygian,
+  60 BPM), made on the FM-1 by FRASIL's author and kept as it stored them; OPEN WATER (D Dorian, 118 BPM), WHITEOUT
+  (C# minor, 72 BPM) and THAW (D# major, 78 BPM). They are slots 1 to 7 until something is stored over them; 8 to 16
+  are empty.
+- A new FM-1 (no settings saved yet) starts on NEW SHARD; NEW SHARD's GLINT is on ARP.
+- A scene keeps its TEMPO: STORE saves it, LOAD SND+NOTES sets it. Scenes stored before 2.0 take the TEMPO the
+  settings had. (The store: the basses' record is FRBT, a shard FRSn; the earlier ones are made over at power-on and
+  at a restore, and the River and its server read them.)
+- OCTAVE (BASS II's K2, GLINT II's K1) is the voice's own transposition: every note it plays, a key's, a MIDI note's,
+  the arpeggio's and the sequences', those sounding moved at once as it turns (the sequencers keep their notes
+  without it). It was the keys' offset before.
+- PULSE keeps the beat: a bass note changed by hand (a key, a MIDI note) while one sounds, or in PULSE's gap, isn't
+  struck off the grid; the bass goes to it and PULSE strikes it on its next division.
+- The bass's STEP LENGTH goes up to 8 BARS and 16 BARS. BASS SEQ II's K1 is SEQ STEPS.
+- An empty sequence leaves the keys their notes: GLINT's or the bass's, RECORD OFF, with no note in it, plays nothing
+  to transpose, so a key (or a MIDI note) plays its glint or the bass, as with the sequence off.
+- A scene loaded starts its sequences from the top, the beat beginning there, as PLAY does: GLINT's and the bass's
+  from their first steps, PULSE on the NOTEs, none struck twice.
+- PLAY held with nothing playing brings the scene back: its drones, arpeggio and bass, and every sequence it has from
+  its first step (RESTORED). Held while something plays, it is RELEASE ALL, as before.
+- The bass's swell in the river is drawn in lamp, the bass's colour; pressure brightens it.
+- The River sends shards to an FM-1 running 2.0 (an earlier FRASIL is asked to update first); it still reads the
+  backups of 1.1 and makes their scenes over. Each shard keeps its TEMPO.
+- The site: LISTEN, on the front page, plays the factory scenes live with FRASIL's own engine (the first one on
+  arrival); the cheat sheet has USEFUL TIPS (a page button held and SELECT, LFO held and a K, HOME held) and a plainer
+  first line.
+
 ## 1.1
 
 - BASS has its own step sequencer (SEQ's two new pages, BASS SEQ and BASS SEQ II): 16 steps, each a NOTE, a CUT or a
