@@ -1,0 +1,38 @@
+<!--
+title: Community River · FRASIL River
+description: The Community River: FRASIL scenes shared by the players of the M-VAVE FM-1, as shards of ice. Play any of them in the browser with FRASIL's own engine, send one to your FM-1, star the ones you love. Free to use under CC BY 4.0.
+-->
+<main id="main" class="river" data-install="{{site}}guide/install/">
+
+<!-- ============================================================ the Community River: every shard shared (river-navigate.js) -->
+<section class="rv-top rv-top-v2 wrap" aria-labelledby="rv-title">
+  <h1 class="sr-only" id="rv-title">Community River</h1>
+  <div id="pt"></div>
+  <div class="voice" id="voice"><span class="voice-dot" aria-hidden="true"></span><p class="voice-say" role="status"></p><p class="voice-alarm" role="alert"></p></div>
+</section>
+
+<!-- a shard someone shared a link to: first, opened -->
+<section class="wrap one" id="one" aria-labelledby="one-h" hidden>
+  <h2 class="one-h" id="one-h">A shard, shared with you</h2>
+  <div class="list pub" id="one-card"></div>
+</section>
+
+<section class="wrap lib" id="gallery" aria-labelledby="gal-h">
+  <h2 class="sr-only" id="gal-h">Every shard in the Community River</h2>
+  <div id="tb"></div>
+  <div class="list pub" id="gal"></div>
+  <div id="list-end"></div>
+</section>
+
+<!-- ============================================================ signed out: an invitation to sign in, to favorite -->
+<dialog class="sheet sheet-sm" id="invite" aria-labelledby="invite-h">
+  <div class="sheet-in">
+    <header class="sheet-head"><p class="label">Favorite</p>
+      <button class="sheet-x" type="button" data-close aria-label="Close"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></header>
+    <h2 class="sheet-h" id="invite-h">Star the shards you love</h2>
+    <p class="sheet-lede">An account keeps them in your favorites, in Your Private River: play them, send them to your
+      FM-1 from any computer, share your own. It takes an email and a password.</p>
+    <footer class="sheet-foot"><a class="btn" href="/yours/#signin">Sign in</a><a class="btn btn-ice" href="/yours/#register">Create an account</a></footer>
+  </div>
+</dialog>
+</main>

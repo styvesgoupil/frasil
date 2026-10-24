@@ -1,9 +1,22 @@
 /* SPDX-License-Identifier: MPL-2.0
  * Copyright (C) 2026 Styves Goupil
- * Every page: things rise into view, the guide's menu on phones, its contents following the reading, a screen enlarged. */
+ * Every page: the download count, things rise into view, the guide's menu on phones, its contents following the reading, a screen enlarged. */
 "use strict";
 (() => {
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+  // ------------------------------------------------------------ the download count (stats/downloads.json, same origin; hidden until it is there)
+  const dl = $$("[data-downloads]"), me = document.currentScript;
+  if (dl.length && me && me.src) {
+    fetch(new URL("../../stats/downloads.json", me.src), { cache: "no-cache" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => {
+        if (!Number.isInteger(d.total) || d.total < 1) return;
+        const n = d.total.toLocaleString("en-US").replace(/,/g, "\u2009") + (d.total === 1 ? " download" : " downloads");
+        dl.forEach((el) => { el.textContent = n; el.hidden = false; });
+      })
+      .catch(() => {});
+  }
 
   // ------------------------------------------------------------ reveals
   const rv = $$(".rv");

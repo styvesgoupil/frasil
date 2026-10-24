@@ -1,0 +1,65 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 Styves Goupil
+ * FRASIL River's own header (templates/river-header.html), on every River page: its logo at the left, the block
+ * (FRASIL, RIVER the same width; the tagline under them on one line, as long as it is);
+ * its parts, big and bold, at the right, each lit in its colour while it is the page (Your Private River lamp,
+ * Community River ice, Tools sea); then who is signed in (river-api.js, [data-who]): Sign in, or the name, to the
+ * profile. The same on every page: only which one is lit changes. */
+/* the band: a little lighter than the night, the haze rising toward its waterline; the river drawn on it
+ * (river-head.js, a canvas under the header) */
+.rvh-band {
+  position: relative; z-index: 20;
+  background: linear-gradient(180deg, #0b1016 0%, #0d141c 55%, #111b25 100%);
+}
+.rvh-band::after {                               /* the waterline, brighter in the middle, as on the FM-1's play page */
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--slate) 22%, var(--fog) 50%, var(--slate) 78%, transparent);
+  opacity: .75;
+}
+.rvh-water { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.rvh {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 14px clamp(20px, 3vw, 40px);
+  max-width: calc(var(--max) + 2 * var(--gutter)); margin-inline: auto;
+  padding: clamp(18px, 2.4vw, 28px) var(--gutter);
+}
+.rvh-mark { display: grid; justify-items: start; gap: 11px; margin-right: auto; border-radius: 3px; text-decoration: none; }
+.rvh-mark:focus-visible { outline: 2px solid var(--white); outline-offset: 6px; }
+.rvh-logo { display: block; width: 150px; height: auto; overflow: visible; }
+.rvh-river { font-family: var(--f-ui); font-size: 25px; font-weight: 300; fill: var(--ice); }
+.rvh-tag { font: 600 11px/1 var(--f-ui); letter-spacing: .16em; text-transform: uppercase; color: #a8b2bf; white-space: nowrap; }
+.rvh-nav { display: flex; align-items: center; flex-wrap: wrap; gap: 6px clamp(18px, 2.6vw, 34px); }
+.rvh-nav a {
+  position: relative;
+  font: 700 17px/1 var(--f-ui); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--fog); text-decoration: none; padding: 12px 0; white-space: nowrap;
+  transition: color .25s;
+}
+.p-tools { --c: var(--sea); --c-rgb: 52, 128, 236; }   /* (Your Private River and the Community River: river.css) */
+.rvh-nav a:hover { color: var(--white); }
+.rvh-nav a:focus-visible { outline: 2px solid var(--white); outline-offset: 4px; border-radius: 2px; }
+.rvh-nav a[aria-current] { color: var(--white); }
+.rvh-nav a[aria-current]::after {
+  content: ""; position: absolute; left: 0; right: .1em; bottom: 2px; height: 2px; border-radius: 1px; background: var(--c, var(--white));
+}
+.rvh-nav .rvh-who {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 10px 16px; border: 1px solid var(--steel); border-radius: 999px;
+  font-size: 14px; letter-spacing: .14em; color: var(--white);
+}
+.rvh-nav .rvh-who::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--mist); }
+.rvh-nav .rvh-who:hover { border-color: var(--fog); }
+.rvh-nav .rvh-who.is-in { text-transform: none; letter-spacing: .03em; font-size: 15px; max-width: 220px; }
+.rvh-nav .rvh-who.is-in::before { border-color: var(--ice); background: var(--ice); box-shadow: 0 0 8px rgba(110, 208, 255, .7); }
+.rvh-nav .rvh-who[aria-current] { border-color: var(--ice); }
+.rvh-nav .rvh-who[aria-current]::after { content: none; }
+.rvh-who.is-in { overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1080px) { .rvh-nav { width: 100%; justify-content: space-between; } }
+@media (max-width: 640px) {
+  .rvh-nav .nav-long { display: none; }
+  .rvh-nav a { font-size: 15px; }
+  .rvh-nav .rvh-who { padding: 8px 12px; font-size: 12.5px; }
+  .rvh-logo { width: 126px; }
+  .rvh-tag { font-size: 10px; letter-spacing: .12em; }
+}
+@media (max-width: 380px) { .rvh-nav a { font-size: 14px; letter-spacing: .06em; } }

@@ -34,8 +34,28 @@
   color-scheme: dark;
 }
 
+/* the fonts, served from here (assets/fonts/, latin and latin-ext: Google Fonts' own files, SIL OFL 1.1), preloaded by
+ * the head (Site.page): no other site asked, and font-display block: never a fallback that changes width, then swaps */
+@font-face { font-family: "Barlow Semi Condensed"; font-style: normal; font-weight: 400; font-display: block; src: url("../fonts/barlow-semi-condensed-normal-400-latin-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Barlow Semi Condensed"; font-style: normal; font-weight: 400; font-display: block; src: url("../fonts/barlow-semi-condensed-normal-400-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Barlow Semi Condensed"; font-style: normal; font-weight: 500; font-display: block; src: url("../fonts/barlow-semi-condensed-normal-500-latin-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Barlow Semi Condensed"; font-style: normal; font-weight: 500; font-display: block; src: url("../fonts/barlow-semi-condensed-normal-500-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Barlow Semi Condensed"; font-style: normal; font-weight: 600; font-display: block; src: url("../fonts/barlow-semi-condensed-normal-600-latin-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Barlow Semi Condensed"; font-style: normal; font-weight: 600; font-display: block; src: url("../fonts/barlow-semi-condensed-normal-600-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Barlow Semi Condensed"; font-style: normal; font-weight: 700; font-display: block; src: url("../fonts/barlow-semi-condensed-normal-700-latin-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Barlow Semi Condensed"; font-style: normal; font-weight: 700; font-display: block; src: url("../fonts/barlow-semi-condensed-normal-700-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: block; src: url("../fonts/ibm-plex-mono-normal-400-latin-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: block; src: url("../fonts/ibm-plex-mono-normal-400-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500; font-display: block; src: url("../fonts/ibm-plex-mono-normal-500-latin-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500; font-display: block; src: url("../fonts/ibm-plex-mono-normal-500-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Newsreader"; font-style: italic; font-weight: 300 500; font-display: block; src: url("../fonts/newsreader-italic-300-500-latin-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Newsreader"; font-style: italic; font-weight: 300 500; font-display: block; src: url("../fonts/newsreader-italic-300-500-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Newsreader"; font-style: normal; font-weight: 300 600; font-display: block; src: url("../fonts/newsreader-normal-300-600-latin-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Newsreader"; font-style: normal; font-weight: 300 600; font-display: block; src: url("../fonts/newsreader-normal-300-600-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-top: 88px; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-top: 88px; scrollbar-gutter: stable; }   /* (a page
+ * with a scrollbar and one without: the header in the same place) */
 body {
   margin: 0;
   background: var(--night);
@@ -198,11 +218,10 @@ a { color: inherit; }
   font: 600 12px/1 var(--f-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--mist);
   display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
 }
+.status .dl::before { content: "\00b7"; margin-right: 8px; }
+.dl[hidden] { display: none; }
 .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--lamp); box-shadow: 0 0 10px var(--lamp); }
-.site-head .status { padding-left: clamp(0px, 2vw, 18px); border-left: 1px solid var(--steel); height: 22px; }
-@media (max-width: 760px) { .site-head .status { display: none; } }
 @media (max-width: 560px) { .site-nav .nav-long { display: none; } }
-@media (max-width: 420px) { .site-nav:has(.nav-site) { gap: 11px; } .site-nav:has(.nav-site) .nav-dl { display: none; } }   /* (the guide's five: room for four) */
 @media (max-width: 400px) { .site-nav { gap: 14px; } .site-nav a { letter-spacing: .12em; font-size: 13px; } .mark img { width: 80px; } }
 
 /* ---------------------------------------------------------------- the device's header: NAME 2/3 ... [BUTTON] */
@@ -296,22 +315,19 @@ figure.shot figcaption span:not(.label) { font-size: 15px; line-height: 1.45; co
   background: linear-gradient(90deg, transparent, var(--slate) 30%, var(--fog) 50%, var(--slate) 70%, transparent);
   opacity: .7;
 }
-.foot-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 40px clamp(24px, 5vw, 72px); }
+.foot-grid { display: grid; grid-template-columns: 1.7fr 1fr 1fr; gap: 40px clamp(24px, 5vw, 72px); }
 .foot-grid h2 { margin-bottom: 14px; }
 .foot-grid ul { list-style: none; padding: 0; display: grid; gap: 6px; }
 .foot-grid a { color: var(--fog); text-decoration: none; transition: color .2s; }
 .foot-grid a:hover { color: var(--ice); }
 .foot-brand img { width: 150px; margin-bottom: 18px; }
-.foot-brand p { max-width: 36ch; }
-.foot-brand .foot-status { margin-top: 18px; }
-.foot-credits { margin-top: 44px; padding-top: 22px; border-top: 1px solid var(--rule); display: grid; grid-template-columns: 1.3fr 2fr; gap: 10px clamp(24px, 5vw, 72px); }
-.foot-credits ul { list-style: none; padding: 0; display: grid; gap: 6px; }
-.foot-credits a { color: var(--fog); text-decoration: underline; text-decoration-color: var(--steel); text-underline-offset: .2em; }
-.foot-credits a:hover { color: var(--ice); }
-@media (max-width: 860px) { .foot-credits { grid-template-columns: 1fr; } }
-.foot-legal a { color: inherit; text-underline-offset: .2em; }
-.foot-legal { margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--rule); display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: space-between; font-size: 13.5px; color: var(--mist); }
-.foot-legal p { max-width: 80ch; }
+.foot-brand p { max-width: 58ch; }
+.foot-brand .nw { white-space: nowrap; }
+/* the legal line: one, small and quiet, under a hairline */
+.foot-legal { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--rule); font: 500 12px/1.5 var(--f-ui);
+  letter-spacing: .04em; color: var(--slate); }
+.foot-legal a { color: inherit; text-decoration: underline; text-decoration-color: var(--steel); text-underline-offset: .2em; }
+.foot-legal a:hover { color: var(--mist); }
 @media (max-width: 860px) { .foot-grid { grid-template-columns: 1fr 1fr; } .foot-brand { grid-column: 1 / -1; } }
 @media (max-width: 480px) { .foot-grid { grid-template-columns: 1fr; } }
 

@@ -9,10 +9,10 @@ tapkey 7 70
 wait 6000
 tapkey 16 60
 wait 6000
-# swell everything (SEQ held), then let go
-press SEQ
+# swell the drones (ENV held), then let go
+press ENV
 wait 3000
-release SEQ
+release ENV
 wait 3000
 # brighter, more motion, further away
 turn SELECT 20 40

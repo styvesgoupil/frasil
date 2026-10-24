@@ -26,8 +26,9 @@ hint: The MIDI page · Hold GLO + a CC: learn
 <p>Notes sound only while held. Polyphonic aftertouch swells a note; channel pressure, the whole track.</p>
 
 <h2 id="ccs">CCs</h2>
-<p>The sound’s CCs, and sustain, come in on the drones’ channel (1 by default). 120 and 123 release the notes of the
-  track whose channel they come on.</p>
+<p>The sound’s CCs, and sustain, come in on the drones’ channel (1 by default). 123 releases the notes of the track
+  whose channel it comes on; 120 (All Sound Off), on any channel, lets everything go and stops the sequences, as PLAY held (hold PLAY again:
+  RESTORE).</p>
 <table class="params cc-table">
   <thead><tr><th>CC</th><th>What it moves</th></tr></thead>
   <tbody>
@@ -40,11 +41,12 @@ hint: The MIDI page · Hold GLO + a CC: learn
     <tr><td>73 · 75</td><td>ATTACK · RELEASE</td></tr>
     <tr><td>76 · 77</td><td>SIZE · DECAY</td></tr>
     <tr><td>78 · 79</td><td>SHIMMER · WARMTH</td></tr>
-    <tr><td>12 · 13</td><td>FULLNESS · the drone’s PRESET</td></tr>
+    <tr><td>12 · 13</td><td>BODY · the drone’s PRESET</td></tr>
     <tr><td>14 · 15 · 16</td><td>SPARKLE · BLUR · SINK</td></tr>
     <tr><td>17 · 18 · 19</td><td>The MIXER’s DRONE · GLINT · BASS</td></tr>
     <tr><td>80</td><td>FREEZE (64 and up)</td></tr>
-    <tr><td>120 · 123</td><td>Release the track’s notes (on the drones’ channel: everything)</td></tr>
+    <tr><td>120</td><td>All sound off: everything let go, the sequences stopped, as PLAY held</td></tr>
+    <tr><td>123</td><td>Release the track’s notes (on the drones’ channel: everything)</td></tr>
   </tbody>
 </table>
 
@@ -55,9 +57,11 @@ hint: The MIDI page · Hold GLO + a CC: learn
   123, which keep their jobs.</p>
 
 <h2 id="program-change">Program Change</h2>
-<p>Program Change 0 to 15, on the drones’ channel, loads scenes 1 to 16, as SCENES’ MORPH and KEEP say (see
-  <a href="{{root}}guide/scenes/#morph-and-keep">Scenes</a>).</p>
+<p>Program Change 0 to 15, on the drones’ channel, loads scenes 1 to 16, as SCENES’ MORPH and LOAD say (see
+  <a href="{{root}}guide/scenes/#morph-and-load">Scenes</a>).</p>
 
 <h2 id="clock">Clock</h2>
-<p>MIDI clock drives GLINT’s arpeggiator, its sequencer and its delay, and the LFOs set on the grid. Start resets the
-  grid, starts the sequence from its first step, and puts those LFOs back to the top of their turn.</p>
+<p>MIDI clock drives GLINT’s arpeggiator, its sequencer and its delay, the bass’s sequencer, and the LFOs set on the
+  grid. Start resets the grid, starts the sequences (GLINT’s, the bass’s) from their first step, and puts those LFOs
+  back to the top of their turn. With no clock coming in, PLAY does the same when it starts the transport, or is
+  held; while one comes in, PLAY leaves its beats as they are.</p>

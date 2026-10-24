@@ -1,0 +1,83 @@
+<!--
+title: Privacy and terms · FRASIL River
+description: What the FRASIL River keeps about you, why, where, for how long, and how to take it all back; and the few terms of using it and sharing shards.
+-->
+<main id="main" class="river">
+
+<section class="rv-top rv-top-v2 wrap" aria-labelledby="rv-title">
+  <div class="pt"><div class="pt-tabs"><h1 class="pt-t is-on" id="rv-title">Privacy</h1><a class="pt-t" href="#terms-h">Terms</a></div></div>
+  <p class="lede legal-lede">The River keeps as little as it can: what it needs to let you sign in, and what you choose to
+    put in it. Nothing is sold, nothing tracks you, and you can take it all back.</p>
+</section>
+
+<section class="wrap legal prose" aria-labelledby="privacy-h">
+  <h2 id="privacy-h">Privacy</h2>
+  <p class="muted">Last updated October 23, 2026. Who is responsible: Styves Goupil, Québec, Canada, who makes FRASIL.
+    Write to <a href="mailto:hi@frasilsynth.com">hi@frasilsynth.com</a> for anything below.</p>
+
+  <h3>What the River keeps</h3>
+  <ul>
+    <li><b>Your email</b>: to sign you in, to confirm it is yours, and to send you a link if you forget your password.
+      It is never shown to anyone, and never used for anything else: no newsletter, no marketing.</li>
+    <li><b>Your display name</b>: it is public, shown as the author of the shards you share.</li>
+    <li><b>Your password</b>, never as you typed it: only a one-way hash (argon2id), which no one can turn back into it.
+      If you sign in with Google, the River keeps only your email and your name from it.</li>
+    <li><b>What you put in it</b>: your shards (FRASIL scenes, and the name and description you give them),
+      your backups (the FM-1’s scenes and settings), and your favorites (the shared shards you star).</li>
+    <li><b>Your sessions</b>: one cookie keeps you signed in (90 days after your last visit). The River keeps only a hash
+      of it. There are no other cookies: no analytics, no ads, no tracking. Your browser also keeps your display name, so the
+      header shows it at once on every page; signing out forgets it. The pages call no outside service: even their
+      fonts are served by FRASIL’s own sites.</li>
+    <li><b>Counts and reports</b>: how often a shared shard is played, sent and favorited, and the reports people send. To count
+      each person once and to stop abuse, the River keeps a salted, shortened hash of the network address, never the
+      address itself.</li>
+  </ul>
+
+  <h3>What you share</h3>
+  <p>A shard stays private, in your River, until you share it. Once shared, anyone can see it, play it, send it to their
+    FM-1 and favorite it, with your display name as its author. Unsharing takes it out of the River; copies others saved
+    stay theirs (see the licence, below).</p>
+
+  <h3>Where, and who helps</h3>
+  <ul>
+    <li>The River runs on a server of Hetzner, in Helsinki, Finland. Its database is backed up every night, and the
+      backups are kept 30 days.</li>
+    <li>Cloudflare carries the traffic to the site (it sees the network addresses that reach it).</li>
+    <li>Zoho sends the River’s emails (it sees the address an email goes to).</li>
+    <li>Google, only if you choose “Continue with Google”.</li>
+  </ul>
+  <p>None of them gets anything else from the River, and nothing is ever sold.</p>
+
+  <h3>Taking it back</h3>
+  <ul>
+    <li><b>Export</b>: Your River › Account gives you everything the River keeps about you, in one file: your account,
+      your shards (as a scene package) and your backups.</li>
+    <li><b>Delete</b>: Your River › Account › Delete the account removes your account, your shards and your backups at once.
+      They leave the nightly backups within 30 days.</li>
+    <li><b>Correct</b>: change your display name or password there too; for anything else, write to
+      <a href="mailto:hi@frasilsynth.com">hi@frasilsynth.com</a>.</li>
+  </ul>
+  <p>These are your rights under Québec’s privacy law (Law 25) and, if you live in Europe, under the GDPR. If you are
+    under 14, ask a parent before you create an account.</p>
+</section>
+
+<section class="wrap legal prose" aria-labelledby="terms-h">
+  <h2 id="terms-h">Terms</h2>
+  <ul>
+    <li><b>What you upload is yours.</b> Upload only shards you made, or that you may share.</li>
+    <li><b>Sharing a shard</b> publishes it under the <a href="https://creativecommons.org/licenses/by/4.0/">Creative
+      Commons Attribution 4.0</a> licence: anyone may use it, change it and share it, as long as they name you as its
+      author. Shards you favorite or send from the River come with the same licence: name their author when you use them.</li>
+    <li><b>Be kind.</b> No hateful, illegal or misleading names or descriptions. Shards can be reported; the River
+      may hide or remove any shard, and close an account that abuses it.</li>
+    <li><b>Your FM-1.</b> Putting a backup or a shard back replaces what is in the slots you choose (or, for a whole backup,
+      all its scenes and settings). The FM-1 asks before it does; keep a backup of what matters to you.</li>
+    <li><b>As it is.</b> The River and FRASIL are made by one person and offered as they are, with no warranty. The River
+      may change, or stop; if it is to close, you will be told first, with time to export what you keep in it.</li>
+    <li>FRASIL itself is free software under the <a href="{{repo}}/blob/main/LICENSE">Mozilla Public License 2.0</a>.
+      M-VAVE and FM-1 are trademarks of their owners; FRASIL is not affiliated with M-VAVE.</li>
+    <li>These terms follow the laws of Québec, Canada.</li>
+  </ul>
+</section>
+
+</main>

@@ -1,0 +1,207 @@
+# The River's example (river.frasilsynth.com/example.frasil, "Open an example"): a few scenes stored on the simulated
+# FM-1, then backed up (website/assemble.py runs it). Slot 3: ABYSS's drone, a fifth in D Phrygian, the bass; slot 9:
+# CATHEDRAL's choir with GLINT's arpeggio; slot 10: GLACIER with a sequence recorded live; slot 11: AURORA, LFO 1 on
+# the timbre, the bass's sequence on
+wait 600
+# --- slot 3: ABYSS
+turn PRESET 4
+tap SEL
+wait 30
+turn K2 4
+turn K3 1
+tap HOME
+wait 30
+tapkey 9
+tapkey 16
+wait 100
+turn SELECT 2
+tapkey 4
+turn SELECT -2
+wait 100
+tap SAVE
+wait 30
+# (SCENES' K1 down to its top, NEW SHARD, then up to the slot)
+turn K1 -20
+wait 100
+turn K1 3
+wait 30
+press SAVE
+tap REC
+release SAVE
+wait 50
+tap SEL
+wait 30
+press PLAY
+wait 650
+release PLAY
+wait 50
+# --- slot 9: CATHEDRAL, GLINT's arpeggio
+turn PRESET -2
+tap SEL
+wait 30
+turn K2 -3
+turn K3 1
+tap HOME
+wait 30
+tapkey 7
+tapkey 14
+wait 100
+tap ARP
+wait 30
+turn K2 1
+# (ARP's pages have the keys on GLINT; the wait keeps the timing the SELECT turn had here)
+wait 80
+key 19 down 90
+key 23 down 90
+key 26 down 90
+wait 100
+key 19 up
+key 23 up
+key 26 up
+turn SELECT -1
+tap HOME
+wait 2000
+tap SAVE
+wait 30
+turn K1 -20
+wait 100
+turn K1 9
+wait 30
+press SAVE
+tap REC
+release SAVE
+wait 50
+tap SEL
+wait 30
+press PLAY
+wait 650
+release PLAY
+wait 50
+# --- slot 10: GLACIER, a sequence recorded live
+turn PRESET 1
+tapkey 2
+wait 100
+tap REC
+wait 30
+tapkey 14 100
+wait 333
+tapkey 17 70
+wait 666
+tapkey 21 90
+wait 333
+tapkey 19 60
+wait 666
+tapkey 24 120
+wait 333
+tapkey 21 80
+wait 999
+tapkey 17 70
+wait 333
+tapkey 14 110
+wait 666
+tap REC
+wait 30
+tap HOME
+wait 30
+tap SAVE
+wait 30
+turn K1 -20
+wait 100
+turn K1 10
+wait 30
+press SAVE
+tap REC
+release SAVE
+wait 50
+tap SEL
+wait 30
+press PLAY
+wait 650
+release PLAY
+wait 50
+# --- slot 11: AURORA, LFO 1 on TIMBRE (GLINT's SEQ back to OFF)
+tap ARP
+wait 30
+turn K2 -2
+tap HOME
+wait 30
+turn PRESET 2
+tapkey 11
+tapkey 18
+wait 100
+tap LFO
+tap LFO
+wait 30
+turn K3 50
+tap LFO
+wait 30
+turn K1 1
+tap HOME
+wait 30
+# its bass line (the keys on BASS; SEQ's BASS SEQ): RECORD on STEP turns SEQUENCE on, six keys write steps 1 to 6;
+# RECORD off, step 2 a HOLD, step 4 a CUT, each its STEP LENGTH (1/4 1/8 1/8 1/8 1/4 1/8); STEPS 6 on BASS SEQ II
+turn SELECT 2
+wait 30
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+wait 30
+expect page 39
+turn K4 1
+wait 30
+expect p153 1
+tapkey 9
+tapkey 9
+tapkey 16
+tapkey 16
+tapkey 14
+tapkey 12
+wait 30
+turn K4 -1
+wait 30
+spin K1 -20
+spin K3 2
+spin K1 1
+spin K2 127
+wait 100
+spin K3 1
+spin K1 1
+spin K3 1
+spin K1 1
+spin K2 -127
+wait 100
+spin K3 1
+spin K1 1
+spin K3 2
+spin K1 1
+spin K3 1
+wait 30
+expect bseq1 127
+expect bseq3 0
+tap SEQ
+wait 30
+expect page 40
+spin K1 -10
+wait 30
+expect p152 5
+turn SELECT -2
+tap HOME
+wait 30
+tap SAVE
+wait 30
+turn K1 -20
+wait 100
+turn K1 11
+wait 30
+press SAVE
+tap REC
+release SAVE
+wait 50
+tap SEL
+wait 30
+press PLAY
+wait 650
+release PLAY
+wait 50
+backup out:example.frasil

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (C) 2026 Styves Goupil
-"""A local preview of the assembled site, as the host will serve it: build/website/ at the root, so the site is at
-/frasil/ (the sub-path, for real); a page that isn't there gets frasil/404.html, with the status 404; .wasm is
-application/wasm. Audio worklets run on localhost as on https.   serve.py ROOT PORT SITE"""
+"""A local preview of the assembled site, as the host serves it: the site's folder at the root, as on
+frasilsynth.com; a page that isn't there gets 404.html, with the status 404; .wasm is application/wasm. Audio worklets
+run on localhost as on https.   serve.py SITE_DIR PORT"""
 import http.server
 import sys
 from functools import partial
 from pathlib import Path
 
-ROOT, PORT, SITE = Path(sys.argv[1]).resolve(), int(sys.argv[2]), sys.argv[3]
+ROOT, PORT = Path(sys.argv[1]).resolve(), int(sys.argv[2])
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -17,8 +17,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                       ".wasm": "application/wasm", ".js": "text/javascript", ".svg": "image/svg+xml"}
 
     def send_error(self, code, message=None, explain=None):
-        page = ROOT / SITE / "404.html"
-        if code == 404 and self.path.startswith(f"/{SITE}/") and page.exists():
+        page = ROOT / "404.html"
+        if code == 404 and page.exists():
             body = page.read_bytes()
             self.send_response(404)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -40,5 +40,5 @@ class Server(http.server.ThreadingHTTPServer):
 
 
 if __name__ == "__main__":
-    print(f"serving  http://localhost:{PORT}/{SITE}/  (ctrl-C to stop)")
+    print(f"serving  http://localhost:{PORT}/  (ctrl-C to stop)")
     Server(("127.0.0.1", PORT), partial(Handler, directory=str(ROOT))).serve_forever()

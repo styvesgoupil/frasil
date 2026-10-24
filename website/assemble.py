@@ -5,24 +5,31 @@
 
   website/site.toml          the release status, the URLs, the guide's order: what changes lives there
   website/templates/         the page's shell, the header, the footer, the guide's frame
-  website/pages/             the pages' own content: index (the landing), 404, play (around the emulator), guide/*
-  website/assets/            CSS, JS and the favicon's SVG, copied as they are
+  website/pages/             the pages' own content: index (the landing), 404, play (around the emulator), cheatsheet,
+                             river-library (/river/: what the River is, and the way there)
+                             (FRASIL on one A4 page), guide/*, river/* (the River: river.frasilsynth.com, its own site
+                             in OUT_PARENT/river: navigate, yours, tools, backup, profile, privacy)
+  website/assets/            CSS, JS, the favicon's SVG and the cheat sheet's PDF and PNG (tools/cheatsheet.sh makes
+                             them from the assembled page), copied as they are
 
 Made here, from the repository: the logo's layers (app/assets/frasil-logo.png on its dark ground, cut out and
 coloured: the half above the water fog, the half below sea blue), the favicons, the Open Graph image (1200 x 630),
 the screenshots (app/docs/img, the screen's own 240 x 240 pixels) and the play page: the browser emulator
 (app/build/emu, made by ./build.sh --web) with the site's header, footer and colours around it, its own code
-untouched. Every page's links are checked at the end: a link to nothing stops the build.
+untouched; the River: fm1-base's protocol (base/web/backup) as it is, and the schema the firmware's code writes
+(app/build/host's simulator, made by ./build.sh --host: "schema FILE"). Every page's links are checked at the end: a link to nothing stops the build.
 
 Python 3.11+ with Pillow (.venv/bin/python). Usage: assemble.py [OUT_PARENT] [--no-emu] (default build/website;
-only OUT_PARENT/frasil is replaced)."""
+only OUT_PARENT/frasil and OUT_PARENT/river are replaced)."""
 import hashlib
 import html
+import json
 import math
 import posixpath
 import random
 import re
 import shutil
+import subprocess
 import sys
 import tomllib
 from html.parser import HTMLParser
@@ -34,11 +41,13 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 REPO = Path(__file__).resolve().parents[1]
 SRC = REPO / "website"
 CONF = tomllib.loads((SRC / "site.toml").read_text(encoding="utf-8"))
-SITE = CONF["base_path"].strip("/") or "frasil"
+SITE = CONF["base_path"].strip("/") or "frasil"   # the build's folder (build/website/SITE)
+SERVE = "/" + (CONF["base_path"].strip("/") + "/" if CONF["base_path"].strip("/") else "")   # where it is served: / or /frasil/
 ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
 NO_EMU = "--no-emu" in sys.argv[1:]
 OUT_PARENT = Path(ARGS[0]).resolve() if ARGS else REPO / "build" / "website"
 OUT = OUT_PARENT / SITE
+RIVER = OUT_PARENT / "river"              # the River: its own site (CONF["river_url"]), the main site's look
 
 FOG, WHITE, MIST, NIGHT = (220, 227, 234), (243, 246, 249), (139, 149, 164), (10, 13, 18)
 SEA_HI, SEA, SEA_LO = (86, 160, 240), (52, 128, 236), (24, 70, 150)
@@ -251,9 +260,9 @@ def make_og(img, top, low):
 
 def make_strata(img):
     """the play page's three layers' strata, cut from the real screen: the drone's mix as the device draws it (ui.c's
-    strata(): a stratum every 11 rows from 137, under the waterline at 128; WARMTH's, the fourth, at 170)"""
+    strata(): a stratum every 14 rows from 126, under the waterline at 116; WARMTH's, the fourth, at 168)"""
     sh = Image.open(REPO / "app" / "docs" / "img" / "screen-play.png").convert("RGB")
-    for name, y in (("choir", 137), ("partials", 148), ("breath", 159)):
+    for name, y in (("choir", 126), ("partials", 140), ("breath", 154)):
         sh.crop((78, y - 5, 206, y + 5)).save(img / f"stratum-{name}.png", optimize=True)
 
 
@@ -270,9 +279,9 @@ def copy_screens(dst):
 # name: (title, caption, alt). Titles and alts from the manual where it has them (app/docs/MANUAL.md).
 SHOTS = {
     "play": ("The play page", "Three voices sounding, the drone's mix under the waterline.",
-             "The play page: the scene, 01 MIST, with an amber dot (the sound changed) and the keys' badge (DRONE, octave "
+             "The play page: the scene, MIST, with an amber dot (the sound changed) and the keys' badge (DRONE, octave "
              "-1) in the header; three voices as currents of ice in the river; the drone's mix and WARMTH as four strata "
-             "under the waterline; KEYBOARD (DRONE), the drone's preset (CUSTOM) and FULLNESS at the bottom"),
+             "under the waterline; KEYS (DRONE), the drone's preset (CUSTOM) and BODY at the bottom"),
     "pressure": ("Pressure", "A held key pressed in: its voice glows amber.",
                  "The play page with a held key pressed in: its voice glows amber, its note names in lamp light"),
     "glints": ("GLINT", "SELECT on GLINT, then a few keys: notes shining above the river.",
@@ -291,38 +300,46 @@ SHOTS = {
     "cloud": ("CLOUD", "FX twice: SIZE, DECAY, TONE and FREEZE.",
               "CLOUD, FX's second page: SIZE 75, DECAY 9.0 s, TONE 50, FREEZE OFF"),
     "harmony": ("HARMONY", "SEL: D, MINOR, TRIAD, CLOSE.", "HARMONY: D, MINOR, TRIAD, CLOSE"),
-    "glint-params": ("GLINT PARAMS", "ARP: PRESET, TYPE, LEVEL, BRIGHT.",
-                     "GLINT PARAMS, ARP's first page: PRESET SINE, TYPE ARP, LEVEL 71, BRIGHT 0; the keys' badge: ARP"),
+    "glint-params": ("GLINT I", "ARP: PRESET, TYPE, LEVEL, BRIGHT.",
+                     "GLINT I, ARP's first page: PRESET SINE, TYPE ARP, LEVEL 71, BRIGHT 0; the keys' badge: ARP"),
     "glint-arp": ("GLINT ARP", "ARP five times, TYPE on ARP.",
                   "GLINT ARP, ARP's fifth page with TYPE on ARP: MODE UPDOWN, RATE 1/8, RANGE 2 octaves, CHANCE 100"),
     "glint-seq": ("GLINT SEQ", "REC, or ARP five times with TYPE on SEQ: sixteen steps, an accent on each beat.",
-                  "GLINT SEQ, ARP's fifth page with TYPE on SEQ, the keys' badge SEQ: STEP 1, NOTE D4, ACCENT ON, RECORD OFF; "
+                  "GLINT SEQ, ARP's fifth page with TYPE on SEQ, the keys' badge GLINT (played as they are, to practise): STEP 1, NOTE D4, ACCENT ON, RECORD OFF; "
                   "above, the sequence as a "
                   "constellation of sixteen stars, each as high as its note, the accents larger, the step playing "
                   "with a line of light through it"),
     "bass-page": ("BASS", "SEQ: MODEL, DRIVE, FILTER, RESONANCE.",
                   "BASS, SEQ's first page: MODEL SINE, DRIVE 16, FILTER 837 Hz, RESONANCE 16"),
+    "bass-adsr": ("BASS ADSR", "SEQ three times: the envelope, a held note riding it.",
+                  "BASS ADSR, SEQ's third page: ATTACK 26 ms, DECAY 210 ms, SUSTAIN 41, RELEASE 347 ms; above, the "
+                  "envelope drawn in orange, each part as wide as its knob is turned, and the held note's glint waiting at "
+                  "the end of the SUSTAIN plateau"),
+    "glint-adsr": ("GLINT ADSR", "ARP three times: the envelope, glints riding it.",
+                   "GLINT ADSR, ARP's third page with WARM LEAD: ATTACK 4 ms, DECAY 2.0 s, SUSTAIN 83, RELEASE 995 ms; "
+                   "above, the envelope drawn in ice blue, a glint just struck at its top and two let go on its RELEASE"),
     "lfo": ("LFO 1", "LFO twice: a slow sine, and its glint.",
             "LFO 1, LFO's second page: SHAPE SINE, its RATE and DEPTH, POLARITY BIPOLAR; the sine across the strip "
             "above, over one turn, a glint where the LFO is now"),
     "lfo-targets": ("LFO 1 TARGETS", "LFO three times: FILTER, TIMBRE, GL LEVEL, BS FILTER.",
                     "LFO 1 TARGETS, LFO's third page: TARGET 1 FILTER and TARGET 2 TIMBRE in white, TARGET 3 GL LEVEL "
                     "in ice blue, TARGET 4 BS FILTER in orange; the LFO's sine above"),
-    "scenes": ("SCENES", "SAVE: slot 03, ABYSS; MORPH, KEEP, UNDO.",
-               "SCENES: scene 03, ABYSS, sound only; PLAY LOAD, SAVE + REC STORE; MORPH CUT, KEEP SCENE, UNDO"),
+    "scenes": ("SCENES", "SAVE: slot 03, ABYSS; MORPH, LOAD.",
+               "SCENES: scene 03, ABYSS, sound only; in a box of their own, PLAY LOAD and SAVE + REC STORE; MORPH CUT, "
+               "LOAD SND+NOTES"),
     "logo": ("The logo screen", "HOME on the MIXER: the logo, alive.",
              "FRASIL's logo screen: the name half under the waterline, granules of frasil drifting in the sky, by Styves Goupil"),
-    "global": ("GLOBAL", "GLO: TEMPO, LOW CUT, TUNE, KEYS; the load in the header.",
-               "GLOBAL, GLO's first page: TEMPO 90 BPM, LOW CUT 38 Hz, TUNE 0 ct, KEYS LATCH; the processor's load in the header"),
+    "global": ("GLOBAL", "GLO: TEMPO, LOW CUT, TUNE, KEY MODE; the load in the header.",
+               "GLOBAL, GLO's first page: TEMPO 90 BPM, LOW CUT 38 Hz, TUNE 0 ct, KEY MODE LATCH; the processor's load in the header"),
     "help-1": ("Help", "Hold HOME: each button's job first, then the button.",
                "Help: each button's job first, then the button: GENERATIVE FX on FX (again: CLOUD, PUMP; hold: FREEZE), "
-               "HARMONY on SEL (hold and a key: a single note), DRONE SHAPE on ENV, DRONE MOTION on LFO (again: LFO 1 to 3; "
-               "hold and a K: route)"),
+               "HARMONY on SEL (hold and a key: a single note), DRONE SHAPE on ENV (hold: SWELL), DRONE MOTION on LFO (again: "
+               "LFO 1 to 3; hold and a K: route)"),
     "help-3": ("Help, the buttons", "Turn SELECT for the next page.",
-               "Help: GLINT PAGES on ARP (hold: ARP LATCH), BASS PAGES on SEQ (hold: SWELL), START, STOP on PLAY (hold: "
+               "Help: GLINT PAGES on ARP (hold: ARP LATCH), BASS PAGES on SEQ, START, STOP on PLAY (hold: "
                "release all; on scenes: load), RECORD LIVE on REC (again: off; hold: the metronome)"),
-    "help-4": ("Help, the encoders", "KEYBOARD, the drone's preset, FULLNESS and the octave.",
-               "Help: KEYBOARD on SELECT (DRONE, GLINT, BASS), PRESET on PRESETS and FULLNESS on ALGORITHM, each the "
+    "help-4": ("Help, the encoders", "KEYS, the drone's preset, BODY and the octave.",
+               "Help: KEYS on SELECT (DRONE, GLINT, BASS), PRESET on PRESETS and BODY on ALGORITHM, each the "
                "drone's; OCTAVE on OCT- and OCT+, both together to reset"),
     "help-5": ("Help, the keys", "Light a drone, let it go, swell it.",
                "Help: light a drone (tap; a chord with HARMONY), let it go (tap again), swell it (press in: hold the "
@@ -581,6 +598,10 @@ def keys_html(spec):
     return "".join(parts)
 
 
+PRELOAD_FONTS = ("barlow-semi-condensed-normal-500", "barlow-semi-condensed-normal-600", "barlow-semi-condensed-normal-700",
+                 "newsreader-normal-300-600", "newsreader-italic-300-500")   # (assets/fonts/, their latin)
+
+
 class Site:
     def __init__(self):
         t = SRC / "templates"
@@ -590,26 +611,38 @@ class Site:
     def common(self, root, section):
         cur = lambda s: ' aria-current="true"' if s == section else ""
         return {"root": root, "repo": CONF["repo"], "releases": CONF["releases"], "hub": CONF["hub"],
-                "status": html.escape(CONF["status"]), "beta_note": html.escape(CONF["beta_note"]),
-                "cur_guide": cur("guide"), "cur_play": cur("play"), "year": "2026",
-                # in the guide, a way back to the site's front page beside the chapters
-                "site_link": f'<a href="{root}" class="nav-site">Site</a>' if section == "guide" else "",
+                "river": CONF["river_url"], "status": html.escape(CONF["status"]), "beta_note": html.escape(CONF["beta_note"]),
+                # the header's five, the same on every page (only which one is lit changes): the guide's Install page
+                # lights Install, the River library page River library
+                "cur_home": cur("home"), "cur_guide": cur("guide"), "cur_river": cur("river"), "cur_play": cur("play"),
+                "cur_install": cur("install"), "year": "2026",
+                # the footer's River library, cheat sheet and credits: the main site's, on FRASIL River's pages too
+                "river_lib": f'          <li><a href="{root}river/">River library</a></li>\n',
+                "cheat_link": f'          <li><a href="{root}cheatsheet/">Cheat sheet</a></li>\n',
+                "credits_link": f'          <li><a href="{root}credits/">Credits</a></li>\n',
                 "harmony": harmony_widget(), **shots(root)}
 
-    def head_html(self, root, rel, title, description, og_title=None):
-        return fill(self.head, {**self.common(root, ""), "title": html.escape(title),
-                                "description": html.escape(description), "canonical": CONF["site_url"] + rel,
+    def head_html(self, root, rel, title, description, og_title=None, canonical=None, assets=None):
+        # the fonts every page sets its header and titles in, asked for at once (base.css declares them all)
+        a = root if assets is None else assets
+        preload = "\n".join(f'<link rel="preload" href="{a}assets/fonts/{f}-latin.woff2" as="font" type="font/woff2" crossorigin>'
+                             for f in PRELOAD_FONTS)
+        return fill(self.head, {**self.common(root, ""), "title": html.escape(title), "preload": preload,
+                                "description": html.escape(description), "canonical": canonical or CONF["site_url"] + rel,
                                 "og_title": html.escape(og_title or title), "site_url": CONF["site_url"]}, "head")
 
     def page(self, rel, title, description, body, root, section="", head_class="", body_class="", css=(), js=(),
-             base_tag="", og_title=None):
+             base_tag="", og_title=None, inline="", assets=None, canonical=None, header=None):
+        """assets: where the page's CSS and scripts are, if not under root (the River's own); header: a header of its
+        own, filled (the River's), instead of the site's"""
         v = self.common(root, section)
+        a = root if assets is None else assets
         body = quiet_discs(nobreak(fill(body, v, rel or "index")))
         return fill(self.base, {
-            "base_tag": base_tag, "head": self.head_html(root, rel, title, description, og_title),
-            "css": "\n".join(f'<link rel="stylesheet" href="{asset(root, c)}">' for c in ("css/base.css", *css)),
-            "scripts": "\n".join(f'<script src="{asset(root, j)}" defer></script>' for j in ("js/site.js", *js)),
-            "header": fill(self.header, {**v, "head_class": head_class}, "header"),
+            "base_tag": base_tag, "head": self.head_html(root, rel, title, description, og_title, canonical, assets),
+            "css": "\n".join(f'<link rel="stylesheet" href="{asset(a, c)}">' for c in ("css/base.css", *css)),
+            "scripts": inline + "\n".join(f'<script src="{asset(a, j)}" defer></script>' for j in ("js/site.js", *js)),
+            "header": header if header is not None else fill(self.header, {**v, "head_class": head_class}, "header"),
             "footer": nobreak(fill(self.footer, v, "footer")), "body_class": body_class,
             "body": fill(body, v, rel or "index"),
         }, rel or "index")
@@ -680,7 +713,7 @@ def build_guide(site):
         }, rel)
         desc = meta.get("description") or re.sub(r"<[^>]+>", "", meta.get("lede", ""))
         page_title = f"{html.unescape(re.sub(r'<[^>]+>', '', title))} · FRASIL guide" if slug_ else "Guide · FRASIL"
-        out = site.page(rel, page_title, html.unescape(desc), art, root, section="guide",
+        out = site.page(rel, page_title, html.unescape(desc), art, root, section="install" if slug_ == "install" else "guide",
                         body_class="guide-page", css=("css/guide.css", "css/widgets.css"),
                         js=("js/harmony.js",) if slug_ == "harmony" else ())
         dst = OUT / rel / "index.html"
@@ -732,6 +765,7 @@ def play_page(site, geo):
     page = replace_once(page, r"<title>.*?</title>\s*", "", "<title>", re.S)
     # its fonts: ours carry the face its panel draws with (Barlow Semi Condensed), and load without blocking
     page = re.sub(r'<link rel="stylesheet" href="https://fonts\.googleapis\.com/[^"]*">\s*', "", page, count=1)
+    page = re.sub(r'<link rel="preconnect" href="https://fonts\.(googleapis|gstatic)\.com"[^>]*>\s*', "", page)   # (ours: no other site)
     page = replace_once(page, r'<meta name="description"[^>]*>\s*', "", "the description")
     page = replace_once(page, r'<meta name="viewport"[^>]*>', '\n<script>document.documentElement.classList.add("js")</script>\n'
                         + site.head_html(root, "play/", title, desc), "the viewport", keep=True)
@@ -748,6 +782,142 @@ def play_page(site, geo):
                         f'<script src="{asset(root, "js/play.js")}" defer></script>\n</body>', "</body>")
     (dst / "index.html").write_text(page, encoding="utf-8")
     return True
+
+
+# ================================================================ the backup page: fm1-base's protocol, FRASIL's cards
+def river_example():
+    """the River's example backup (website/river/example.txt on the simulator): example.frasil, beside the page"""
+    host = REPO / "app" / "build" / "host" / "frasil_host"
+    work = OUT_PARENT / "schema"
+    work.mkdir(parents=True, exist_ok=True)
+    subprocess.run([str(host), str(SRC / "river" / "example.txt"), str(work)], check=True, capture_output=True)
+    shutil.copy2(work / "example.frasil", RIVER / "example.frasil")
+
+
+def backup_schema():
+    """the schema the firmware's own code writes (the simulator's "schema FILE": app.c schema_write), checked, its
+    value words shared between the settings that have the same ones"""
+    host = REPO / "app" / "build" / "host" / "frasil_host"
+    if not host.exists():
+        die("no simulator in app/build/host: run ./build.sh --host first (the backup page's schema comes from it)")
+    work = OUT_PARENT / "schema"
+    work.mkdir(parents=True, exist_ok=True)
+    (work / "schema.txt").write_text(f"schema {work / 'schema.json'}\n", encoding="utf-8")
+    subprocess.run([str(host), str(work / "schema.txt"), str(work)], check=True, capture_output=True)
+    s = json.loads((work / "schema.json").read_text(encoding="utf-8"))
+    n, st = s["sizes"], s["scene_t"]
+    want = st["name_len"] + n["NSOUND"] + 2 + n["SC_CHORDS"] * 5 + n["SC_ARP"] + 1 + n["SC_SEQ"]
+    problems = [what for what, ok in (
+        ("scene_t's size", st["size"] == want + 2 * n["SC_BSEQ"] + 3 and st["bq"] == want + 2 * n["SC_BSEQ"]),   # (the bass's
+        # notes, lengths, SEQUENCE, STEPS, TRANSPOSE after the rest)
+        ("scene_t's offsets", (st["name"], st["v"], st["nch"], st["seq"]) ==
+         (0, st["name_len"], st["name_len"] + n["NSOUND"], want - n["SC_SEQ"])),
+        ("the earlier layouts' names", all(l.get("name", 0) > 0 for l in s["old_scenes"])),
+        ("scenes_t's size", s["scenes_t"]["size"] == s["scenes_t"]["s"] + n["NSCENES"] * st["size"]),
+        ("the scenes' record and their basses' (OBJ_SCENES, OBJ_BSEQ)", st["bnote"] == st["rec"] and
+         s["scenes_t"]["rec"] == s["scenes_t"]["s"] + n["NSCENES"] * st["rec"] and st["rec"] + s["bseqs_t"]["scene"] == st["size"]
+         and s["bseqs_t"]["size"] == s["bseqs_t"]["s"] + n["NSCENES"] * s["bseqs_t"]["scene"]),
+        ("settings_t's size", s["settings_t"]["size"] == 228),
+        ("the earlier shards (the rest of their record as this one's, their bass's sequence or none)",
+         all(x["rec"] - x["nv"] == st["rec"] - n["NSOUND"] and x["size"] in (x["rec"], x["rec"] + s["bseqs_t"]["scene"])
+             for x in s["old_shards"])),
+        ("the earlier settings made over (what follows their sound as this one's)",
+         all(x["end"] - 4 - x["nv"] <= s["settings_t"]["size"] - s["settings_t"]["octave"] for x in s["old_settings_over"])),
+        ("GLINT's RELEASE where SCATTER was (scatter_gone)", len(s["scatter_gone"]["of"]) == 128 and
+         s["scatter_gone"]["p"] < n["NSOUND"] and s["scatter_gone"]["decay"] < n["NSOUND"] and
+         all(0 <= x <= s["params"][s["scatter_gone"]["p"]]["max"] for x in s["scatter_gone"]["of"])),
+        ("the settings' count", len(s["params"]) == n["NPARAM"]),
+        ("each setting's words", all(len(p["texts"]) == p["max"] + 1 for p in s["params"])),
+        ("the factory scenes", len(s["factory"]) == n["NSCENES"] and all(len(h) == 2 * st["size"] for h in s["factory"])),
+        ("the magics", all(len(m) == 4 for m in s["magic"].values())),
+    ) if not ok]
+    if problems:
+        die("the backup page's schema doesn't match what the page expects: " + ", ".join(problems) +
+            " (app.c schema_write, website/assets/js/backup-model.js)")
+    texts, index = [], {}
+    for p in s["params"]:
+        key = "\x00".join(p["texts"])
+        if key not in index:
+            index[key] = len(texts)
+            texts.append(p["texts"])
+        p["texts"] = index[key]
+    s["texts"] = texts
+    return s
+
+
+def backup_protocol():
+    """fm1-base's backup page's protocol (FW, PB) and its Link, as they are, filled in for FRASIL (make_site.py's
+    backup_values): extracted, never rewritten"""
+    sys.path.insert(0, str(REPO / "base" / "tools"))
+    from make_site import backup_values
+    from build import read_conf
+    src = (REPO / "base" / "web" / "backup" / "index.html").read_text(encoding="utf-8")
+    proto = re.search(r"// --- backup protocol: begin[^\n]*\n.*?// --- backup protocol: end\n", src, re.S)
+    link = re.search(r"// one MIDI in/out pair with a SysEx queue.*?\nclass Link \{.*?\n\}\n", src, re.S)
+    if not proto or not link:
+        die("fm1-base's web/backup/index.html changed (its protocol's markers or its Link): update website/assemble.py's "
+            "backup_protocol")
+    code = proto.group(0) + "\n" + link.group(0)
+    values = backup_values(REPO / "app", read_conf(REPO / "app" / "fm1.toml"))
+    for k, v in values.items():
+        code = code.replace("{{" + k + "}}", v)
+    left = sorted(set(re.findall(r"\{\{[A-Z_]+\}\}", code)))
+    if left:
+        die(f"the backup protocol: {' '.join(left)} not filled in")
+    return code, values
+
+
+RIVER_PAGES = (   # the River's pages (website/pages/river/): where each is served, its own script, the header's part lit
+    ("navigate", "", "js/river-navigate.js", "community"),   # the Community River, its front page
+    ("yours", "yours/", "js/river-yours.js", "yours"),       # Your Private River (signed out: signing in)
+    ("tools", "tools/", "js/backup.js", "tools"),            # Tools: Quick Backup, its one tool
+    ("tools", "backup/", "js/backup.js", "tools"),           # (Quick Backup's own address, as before: the same page)
+    ("profile", "profile/", "js/river-profile.js", "profile"),   # the account, the header's name signed in
+    ("privacy", "privacy/", None, ""),                       # (privacy and terms)
+)
+RIVER_JS = ("js/backup-model.js", "js/river-player.js", "js/river-cards.js", "js/river-api.js", "js/river-device.js",
+            "js/river-list.js", "js/river-head.js")
+def river_page(site):
+    """FRASIL River (river.frasilsynth.com), its own site: its own header (templates/river-header.html: its name,
+    then Your Private River, the Community River (its front page), Tools, and who is signed in), its pages (RIVER_PAGES);
+    their CSS and scripts at its root, the footer and the images the main site's. Each page carries fm1-base's
+    protocol and the schema (any of them talks to the FM-1)"""
+    if RIVER.exists():
+        shutil.rmtree(RIVER)
+    RIVER.mkdir(parents=True)
+    code, values = backup_protocol()
+    schema = json.dumps(backup_schema(), separators=(",", ":")).replace("</", "<\\/")
+    version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
+    inline = (f'<script>\n"use strict";\n{code}\nconst SCHEMA = {schema};\nconst FRASIL_VERSION = "{version}";\n'
+              f'</script>\n')
+    root = CONF["site_url"]
+    css = ("css/river.css", "css/river-head.css")
+    head_tpl = (SRC / "templates" / "river-header.html").read_text(encoding="utf-8")
+    fonts = [f"fonts/{f.name}" for f in sorted((OUT / "assets" / "fonts").glob("*.woff2"))]
+    for f in ("css/base.css", *css, "js/site.js", *RIVER_JS, *(p[2] for p in RIVER_PAGES if p[2]), "img/logo-duo.png", *fonts):   # (the logo's FRASIL; the fonts)
+        (RIVER / "assets" / f).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(OUT / "assets" / f, RIVER / "assets" / f)
+    river_example()
+    emu = REPO / "app" / "build" / "emu"   # FRASIL's engine in the browser, to play a shard (app/web.c, ./build.sh --web)
+    if all((emu / f).exists() for f in ("app.wasm", "worklet.js", "app_worklet.js")):
+        (RIVER / "emu").mkdir()
+        for f in ("app.wasm", "worklet.js", "app_worklet.js"):
+            shutil.copy2(emu / f, RIVER / "emu" / f)
+    elif not NO_EMU:
+        die("no emulator in app/build/emu for the River's ▶: run ./build.sh --web first (or --no-emu)")
+    for name, rel, js, part in RIVER_PAGES:
+        meta, body = read_page(SRC / "pages" / "river" / f"{name}.html")
+        body = capsify(fill(body, {**site.common(root, "the-river"), "ext": values["EXT"], "site": root}, f"river/{name}"))
+        header = fill(head_tpl, {"root": root, **{f"cur_{k}": ' aria-current="page"' if k == part else ""
+                                                  for k in ("yours", "community", "tools", "profile")}}, "river-header")
+        out = RIVER / rel / "index.html"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(site.page(rel, meta["title"], meta["description"], body, root, section="the-river",
+                                 body_class=f"river-page river-{name}", css=css, js=(*RIVER_JS, *([js] if js else [])),
+                                 inline=inline,
+                                 assets="../" * rel.count("/") or "./", canonical=CONF["river_url"] + rel, header=header),
+                       encoding="utf-8")
+    return len(schema)
 
 
 # ================================================================ links
@@ -770,27 +940,30 @@ class Links(HTMLParser):
                 self.refs.append((tag, item.strip().split(" ")[0]))
 
 
-def check_links():
+def check_links(out=OUT, serve=SERVE, service=()):
+    """every page's links lead somewhere (service: paths answered by a service, not by files: the River's /api/)"""
     pages, problems = {}, []
-    for f in OUT.rglob("*.html"):
+    for f in out.rglob("*.html"):
         p = Links()
         p.feed(f.read_text(encoding="utf-8"))
         pages[f] = p
     for f, p in pages.items():
-        rel = f.parent.relative_to(OUT).as_posix()
-        url_dir = p.base or f"/{SITE}/" + ("" if rel == "." else rel + "/")
+        rel = f.parent.relative_to(out).as_posix()
+        url_dir = p.base or serve + ("" if rel == "." else rel + "/")
         for tag, ref in p.refs:
             if re.match(r"^(https?:|mailto:|data:|//|javascript:)", ref) or tag == "base":
                 continue
             path, frag = urldefrag(ref)
             path = urlsplit(path).path
+            if path and posixpath.join(url_dir, path).startswith(service or ("\0",)):
+                continue
             target = f
             if path:
                 abs_ = posixpath.normpath(posixpath.join(url_dir, path))
-                if not (abs_ + "/").startswith(f"/{SITE}/"):
+                if not (abs_ + "/").startswith(serve):
                     problems.append(f"{f.relative_to(OUT_PARENT)}: {ref} leaves the site")
                     continue
-                target = OUT_PARENT / abs_.lstrip("/")
+                target = out / (abs_ + "/")[len(serve):].rstrip("/")
                 if target.is_dir():
                     target = target / "index.html"
                 if not target.exists():
@@ -829,18 +1002,41 @@ def main():
                                               og_title=meta.get("og_title")), encoding="utf-8")
     n_guide = build_guide(site)
     emu = play_page(site, geo)
+    schema_size = river_page(site)
+    meta, body = read_page(SRC / "pages" / "river-library.html")   # (the main site's word on the River, and the way there)
+    (OUT / "river").mkdir()
+    (OUT / "river" / "index.html").write_text(site.page("river/", meta["title"], meta["description"], capsify(body), "../",
+                                                        section="river", css=("css/river-library.css",)), encoding="utf-8")
+    meta, body = read_page(SRC / "pages" / "credits.html")   # (who made what FRASIL is built on and set in)
+    (OUT / "credits").mkdir()
+    (OUT / "credits" / "index.html").write_text(site.page("credits/", meta["title"], meta["description"], capsify(body), "../",
+                                                          css=("css/river-library.css",)), encoding="utf-8")
+    meta, body = read_page(SRC / "pages" / "cheatsheet.html")
+    (OUT / "cheatsheet").mkdir()
+    (OUT / "cheatsheet" / "index.html").write_text(site.page("cheatsheet/", meta["title"], meta["description"], capsify(body),
+                                                             "../", body_class="cheatsheet-page",
+                                                             css=("css/cheatsheet.css",)), encoding="utf-8")
     meta, body = read_page(SRC / "pages" / "404.html")
     (OUT / "404.html").write_text(site.page("404.html", meta["title"], meta["description"], body, CONF["base_path"],
                                             body_class="lost", css=("css/landing.css",)), encoding="utf-8")
     (OUT / ".nojekyll").write_text("")
+    river_a = re.compile(r'<a (?![^>]*\btarget=)([^>]*\bhref="' + re.escape(CONF["river_url"]) + r'[^"]*")')
+    for f in OUT.rglob("*.html"):        # the River, from the main site: in a tab of its own
+        s = f.read_text(encoding="utf-8")
+        t = river_a.sub(r'<a target="_blank" rel="noopener" \1', s)
+        if t != s:
+            f.write_text(t, encoding="utf-8")
     n, problems = check_links()
+    n_river, river_problems = check_links(RIVER, "/", service=("/api/",))
+    problems += river_problems
     for p in problems:
         print("  broken  " + p)
     if problems:
         die(f"{len(problems)} broken link(s)")
     size = sum(f.stat().st_size for f in OUT.rglob("*") if f.is_file())
-    print(f"website  {OUT}  {n} pages (landing, {n_guide} guide, play{'' if emu else ' without the emulator'}, 404), "
+    print(f"website  {OUT}  {n} pages (landing, {n_guide} guide, play{'' if emu else ' without the emulator'}, River library, credits, cheat sheet, 404), "
           f"{n_screens} screenshots, {size / 1e6:.1f} MB; links ok")
+    print(f"river    {RIVER}  the River ({n_river} page{'s' if n_river != 1 else ''}, its schema {schema_size / 1e3:.0f} kB); links ok")
 
 
 if __name__ == "__main__":

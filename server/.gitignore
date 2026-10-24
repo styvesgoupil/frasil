@@ -1,0 +1,8 @@
+# made by make_schema.py from the simulator (deploy.sh and the tests run it): never kept by hand
+schema.json
+.env
+*.sqlite
+*.sqlite-*
+.pytest_cache/
+.venv/
+__pycache__/

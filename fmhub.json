@@ -1,0 +1,9 @@
+{
+  "what": "An ambient drone instrument: tap a key to latch a drone, a note or a chord in your key. Three layers a voice into a big reverb with shimmer and freeze; GLINT plays icy FM bells on top, by hand, arpeggio or 32-step sequence, and BASS a deep line below, held or sequenced.",
+  "kinds": [
+    "synth",
+    "chords"
+  ],
+  "play": "https://frasilsynth.com/play/",
+  "editor": "https://river.frasilsynth.com/"
+}

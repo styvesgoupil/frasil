@@ -3,12 +3,13 @@ title: Pages reference
 lede: Every page and every knob. Press a page’s button again for its next page.
 description: Every FRASIL page on the FM-1 and what K1 to K4 do on it: HOME, EDIT, ENV, LFO (DRONE MOTION, LFO 1, LFO 2, LFO 3 and their targets), SEL, FX (GENERATIVE FX, CLOUD, PUMP), GLO, SAVE, and GLINT's and BASS's pages on ARP and SEQ.
 -->
-<p>EDIT ×7, LFO ×7, ARP ×5 (×7 with TYPE on SEQ, ×4 with TYPE OFF), SEQ ×3, FX ×6, GLO ×3 (GLOBAL, MIDI,
+<p>EDIT ×7, LFO ×7, ARP ×5 (×7 with the sequencer on, ×4 with SEQ OFF), SEQ ×5, FX ×6, GLO ×3 (GLOBAL, MIDI,
   MASTERING); HOME: SOUND, MIXER, the logo. A button opens its page when you let it go, because holding it may do
   something else (see <a href="{{root}}guide/playing/#the-buttons">the buttons</a>). The dots under the page’s name
   say where you are among them.</p>
-<p>On every page, the three encoders on the left: <span class="disc abc">A</span> KEYBOARD (SELECT), what the keys
-  play; <span class="disc abc">B</span> the drone’s PRESET (PRESETS); <span class="disc abc">C</span> its FULLNESS
+<p>On every page, the three encoders on the left: <span class="disc abc">A</span> KEYS (SELECT), what the keys
+  play (a page you come to from another section sets them too: ARP’s on GLINT, SEQ’s on BASS, EDIT’s, ENV’s and HOME’s on DRONE; see
+  <a href="{{root}}guide/playing/#the-buttons">the buttons</a>); <span class="disc abc">B</span> the drone’s PRESET (PRESETS); <span class="disc abc">C</span> its BODY
   (ALGORITHM).</p>
 
 <h2 id="the-drones">The drones</h2>
@@ -17,7 +18,7 @@ description: Every FRASIL page on the FM-1 and what K1 to K4 do on it: HOME, EDI
   <tbody>
     <tr><td>HOME</td><td>SOUND</td><td>CHOIR</td><td>PARTIALS</td><td>BREATH</td><td>WARMTH <small>soft saturation</small></td></tr>
     <tr><td>HOME</td><td>MIXER</td><td>DRONE</td><td>BASS</td><td>GLINT</td><td>CLOUD <small>each 0 to 127, 100 as it is</small></td></tr>
-    <tr><td>EDIT</td><td>DRONE PARAMS</td><td>TIMBRE <small>all three layers’ brightness</small></td><td>SPACE <small>the reverb’s share</small></td><td>MOTION <small>the drift’s depth</small></td><td>FULLNESS <small>100 %: as set; down: thinner</small></td></tr>
+    <tr><td>EDIT</td><td>DRONE PARAMS</td><td>TIMBRE <small>all three layers’ brightness</small></td><td>SPACE <small>the reverb’s share</small></td><td>MOTION <small>the drift’s depth</small></td><td>BODY <small>100 %: as set; down: thinner</small></td></tr>
     <tr><td>EDIT</td><td>CHOIR</td><td>CHOIR <small>level</small></td><td>DETUNE <small>0 to 40 cents</small></td><td>FILTER <small>follows the note</small></td><td>WARMTH</td></tr>
     <tr><td>EDIT</td><td>CHOIR II</td><td>SHAPE <small>saw, square, narrow pulse</small></td><td>INTERVAL <small>the centre saw: UNISON, −12, +7, +12</small></td><td>RESONANCE <small>the filter’s peak, Q 0.5 to 20</small></td><td>TYPE <small>the filter: LOW, BAND, HIGH</small></td></tr>
     <tr><td>EDIT</td><td>PARTIALS</td><td>PARTIALS <small>level</small></td><td>TILT <small>bright to dark</small></td><td>ODD <small>odd harmonics</small></td><td>STRETCH <small>toward a bell</small></td></tr>
@@ -46,10 +47,10 @@ description: Every FRASIL page on the FM-1 and what K1 to K4 do on it: HOME, EDI
     <tr><td>FX</td><td>CLOUD III</td><td>SHIMMER</td><td>INTERVAL <small>+12, +7, +5, +19, −12</small></td><td>BRIGHT <small>the shimmer’s brightness, 700 Hz to 8 kHz</small></td><td></td></tr>
     <tr><td>FX</td><td>PUMP</td><td>RATE <small>OFF, 4 BARS, 2 BARS, 1 BAR, 1/2, 1/4, 1/8</small></td><td>DRONE <small>its depth</small></td><td>BASS</td><td>GLINT</td></tr>
     <tr><td>FX</td><td>PUMP II</td><td>RELEASE <small>10 to 100 % of the period</small></td><td>ATTACK <small>1 to 300 ms</small></td><td>OFFSET <small>0 to 100 % of the period</small></td><td></td></tr>
-    <tr><td>GLO</td><td>GLOBAL</td><td>TEMPO <small>30 to 240 BPM</small></td><td>LOW CUT <small>20 to 500 Hz</small></td><td>TUNE <small>±50 cents</small></td><td>KEYS <small>LATCH, HOLD: two detents the same way, within 2 s</small></td></tr>
+    <tr><td>GLO</td><td>GLOBAL</td><td>TEMPO <small>30 to 240 BPM</small></td><td>LOW CUT <small>20 to 500 Hz</small></td><td>TUNE <small>±50 cents</small></td><td>KEY MODE <small>LATCH, HOLD: two detents the same way, within 2 s</small></td></tr>
     <tr><td>GLO</td><td>MIDI</td><td>DRONE CH</td><td>GLINT CH</td><td>BASS CH <small>each OFF, 1 to 16, OMNI</small></td><td></td></tr>
     <tr><td>GLO</td><td>MASTERING</td><td>THRESHOLD <small>−40 to 0 dB</small></td><td>RATIO <small>OFF, 1.5:1 to 20:1</small></td><td>RELEASE <small>30 ms to 1.5 s</small></td><td>GAIN <small>0 to +18 dB</small></td></tr>
-    <tr><td>SAVE</td><td>SCENES</td><td>the slot, 1 to 16</td><td>MORPH <small>CUT, 1&nbsp;S to 2:00</small></td><td>KEEP <small>SCENE, PLAYING</small></td><td>UNDO <small>the last STORE, turn twice</small></td></tr>
+    <tr><td>SAVE</td><td>SCENES</td><td>the slot, 1 to 16, or NEW SHARD above</td><td>MORPH <small>CUT, 1&nbsp;S to 2:00</small></td><td>LOAD <small>SND+NOTES, SND ONLY</small></td><td></td></tr>
   </tbody>
 </table>
 
@@ -57,17 +58,19 @@ description: Every FRASIL page on the FM-1 and what K1 to K4 do on it: HOME, EDI
 <table class="params pages-table ref-table">
   <thead><tr><th>Button</th><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead>
   <tbody>
-    <tr><td>ARP</td><td>GLINT PARAMS</td><td>PRESET</td><td>TYPE <small>OFF, <span class="k">ARP</span>, <span class="k">SEQ</span></small></td><td>LEVEL</td><td>BRIGHT <small>FM index</small></td></tr>
-    <tr><td>ARP</td><td>GLINT II</td><td>ATTACK <small>2 ms to 1.5 s</small></td><td>DECAY <small>80 ms to 6 s</small></td><td>OCTAVE <small>+0 to +3, live</small></td><td>RATIO <small>×0.5 to ×13.6</small></td></tr>
-    <tr><td>ARP</td><td>GLINT III</td><td>PING <small>strike or ring</small></td><td>SCATTER <small>place and detune</small></td><td>VIBRATO <small>OFF, the wiggle’s depth</small></td><td>SUSTAIN <small>the level held</small></td></tr>
+    <tr><td>ARP</td><td>GLINT I</td><td>PRESET</td><td>SEQ <small>OFF, <span class="k">ARP</span>, <span class="k">SEQ</span></small></td><td>LEVEL</td><td>BRIGHT <small>FM index</small></td></tr>
+    <tr><td>ARP</td><td>GLINT II</td><td>OCTAVE <small>+0 to +3, live</small></td><td>RATIO <small>×0.5 to ×13.6</small></td><td>PING <small>strike or ring</small></td><td>VIBRATO <small>OFF, the wiggle’s depth</small></td></tr>
+    <tr><td>ARP</td><td>GLINT ADSR</td><td>ATTACK <small>2 ms to 1.5 s</small></td><td>DECAY <small>80 ms to 6 s</small></td><td>SUSTAIN <small>0 to 100 %, the level held</small></td><td>RELEASE <small>20 ms to 6 s</small></td></tr>
     <tr><td>ARP</td><td>GLINT DELAY</td><td>TIME <small>1/32 to 1/2, triplet and dotted; then the same, ping-pong (PP)</small></td><td>FEEDBACK</td><td>MIX</td><td>SPACE <small>GLINT’s reverb send</small></td></tr>
-    <tr><td>ARP</td><td>GLINT ARP <small>TYPE <span class="k">ARP</span></small></td><td>MODE <small>UP, DOWN, UPDOWN, RANDOM, DRIFT</small></td><td>RATE <small>1/1 to 1/32, triplets</small></td><td>RANGE <small>1 to 3 octaves</small></td><td>CHANCE</td></tr>
-    <tr><td>ARP</td><td>GLINT SEQ <small>TYPE <span class="k">SEQ</span></small></td><td>STEP <small>1 to 32</small></td><td>NOTE <small>REST, a note, TIE</small></td><td>ACCENT <small>OFF, ON</small></td><td>RECORD <small>OFF, STEP, LIVE</small></td></tr>
-    <tr><td>ARP</td><td>GLINT SEQ II</td><td>LENGTH <small>1 to 32 steps, 16 by default</small></td><td>RATE <small>GLINT ARP’s</small></td><td>GATE <small>each note’s length, 5 to 100 % of its step</small></td><td>CHANCE <small>GLINT ARP’s</small></td></tr>
-    <tr><td>ARP</td><td>GLINT SEQ III</td><td>TRANSPOSE <small>−14 to +14 steps of the scale</small></td><td>CLEAR <small>turn twice</small></td><td>NEW TAKE <small>turn twice</small></td><td>UNDO <small>turn twice</small></td></tr>
+    <tr><td>ARP</td><td>GLINT ARP <small>SEQ <span class="k">ARP</span></small></td><td>MODE <small>UP, DOWN, UPDOWN, RANDOM, DRIFT</small></td><td>RATE <small>1/1 to 1/32, triplets</small></td><td>RANGE <small>1 to 3 octaves</small></td><td>CHANCE</td></tr>
+    <tr><td>ARP</td><td>GLINT SEQ <small>SEQ <span class="k">SEQ</span></small></td><td>STEP <small>1 to 32</small></td><td>NOTE <small>REST, a note, TIE</small></td><td>ACCENT <small>OFF, ON</small></td><td>RECORD <small>OFF, STEP, LIVE</small></td></tr>
+    <tr><td>ARP</td><td>GLINT SEQ II</td><td>SEQ LENGTH <small>1 to 32 steps, 16 by default</small></td><td>RATE <small>GLINT ARP’s</small></td><td>GATE <small>each note’s length, 5 to 100 % of its step</small></td><td>CHANCE <small>GLINT ARP’s</small></td></tr>
+    <tr><td>ARP</td><td>GLINT SEQ III</td><td>TRANSPOSE <small>−14 to +14 steps of the scale</small></td><td>CLEAR <small>turn twice</small></td><td>NEW TAKE <small>turn twice</small></td><td>UNDO TAKE <small>turn twice</small></td></tr>
     <tr><td>SEQ</td><td>BASS</td><td>MODEL <small>SINE, TRIANGLE, SQUARE, SAW, REESE, SUB, ORGAN, FM</small></td><td>DRIVE <small>clean to soft-clipped</small></td><td>FILTER <small>40 Hz to 5 kHz</small></td><td>RESONANCE <small>Q 0.5 to 6</small></td></tr>
-    <tr><td>SEQ</td><td>BASS II</td><td>LEVEL</td><td>OCTAVE <small>−2, −1, 0 under the keys</small></td><td>GLIDE <small>OFF to 2 s</small></td><td></td></tr>
-    <tr><td>SEQ</td><td>BASS III</td><td>ATTACK <small>5 ms to 5 s</small></td><td>RELEASE <small>30 ms to 15 s</small></td><td></td><td></td></tr>
+    <tr><td>SEQ</td><td>BASS II</td><td>LEVEL</td><td>OCTAVE <small>−2, −1, 0 under the keys</small></td><td>GLIDE <small>OFF to 2 s</small></td><td>PULSE <small>OFF, 1/8 BEAT to 4 BEATS</small></td></tr>
+    <tr><td>SEQ</td><td>BASS ADSR</td><td>ATTACK <small>5 ms to 5 s</small></td><td>DECAY <small>10 ms to 10 s</small></td><td>SUSTAIN <small>0 to 100 %</small></td><td>RELEASE <small>30 ms to 15 s</small></td></tr>
+    <tr><td>SEQ</td><td>BASS SEQ</td><td>STEP <small>1 to 16</small></td><td>NOTE <small>CUT, a note, HOLD</small></td><td>STEP LENGTH <small>1/16 to 4 BARS</small></td><td>RECORD <small>OFF, STEP, LIVE</small></td></tr>
+    <tr><td>SEQ</td><td>BASS SEQ II</td><td>STEPS <small>1 to 16</small></td><td>SEQUENCE <small>OFF, ON</small></td><td>CLEAR <small>turn twice</small></td><td>TRANSPOSE <small>−14 to +14 steps of the scale</small></td></tr>
   </tbody>
 </table>
 <p>More on them: <a href="{{root}}guide/glint/">GLINT</a>, <a href="{{root}}guide/bass/">BASS</a>,

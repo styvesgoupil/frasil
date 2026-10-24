@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: MPL-2.0
  * Copyright (C) 2026 Styves Goupil */
 /* GLINT: FRASIL's icy glints, a small FM voice played over the drones. Never latched: a glint sounds while its
- * key is down and rings out as a bell does (or, with SUSTAIN, holds as a lead does). Two operators (a modulator at RATIO into a carrier), the index bright
- * at the strike and mellower after it, a soft onset; 4 at once.
+ * key is down and rings out as a bell does (or, with SUSTAIN, holds as a lead does), then dies away over RELEASE.
+ * Two operators (a modulator at RATIO into a carrier), the index bright at the strike and mellower after it, a soft
+ * onset; 4 at once, each a little apart in the field and in tune (as SCATTER's default had them).
  * The engine (frasil.c) calls these from the render, with its queued events. */
 #pragma once
 #include <stdint.h>
@@ -12,10 +13,10 @@
 typedef struct {
     float ratio;                         /* the modulator's frequency over the carrier's */
     float bright;                        /* 0..1: the FM index, 0 .. 5 */
-    float decay;                         /* 0..1: 80 ms .. 6 s to silence */
+    float decay;                         /* 0..1: 80 ms .. 6 s to silence (to SUSTAIN's level while held) */
     float level;                         /* 0..1 */
     float space;                         /* 0..1: how much goes into the reverb */
-    float scatter;                       /* 0..1: each glint's place in the field, and a little detune */
+    float release;                       /* 0..1: 20 ms .. 6 s to silence once let go */
     float attack;                        /* 0..1: 2 ms .. 1.5 s (a pluck .. a bowed glass) */
     float ping;                          /* 0..1: how much brighter the strike than the ring (0 steady, an organ;
                                           * 1 a pluck whose ring is nearly pure) */
@@ -42,7 +43,10 @@ void glint_delay(float *l, float *r, float *send_l, float *send_r, uint32_t n, c
 
 typedef struct {
     int8_t note;                         /* -1: silent */
+    uint8_t gate;                        /* its key down */
     float level;                         /* 0..1 */
+    float env;                           /* its envelope alone, 0..1 of the strike's (the onset, DECAY, RELEASE) */
+    float t, toff;                       /* seconds since the strike, since let go */
     uint32_t age;                        /* render blocks since the strike */
     float cents;                         /* VIBRATO's bend now */
 } glint_view_t;

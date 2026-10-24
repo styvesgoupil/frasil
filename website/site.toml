@@ -4,16 +4,17 @@
 # ---------------------------------------------------------------- the release status (change these two)
 # Shown at the top right of the landing (where the FM-1's logo screen shows its version), in the footer, on the
 # install sections, and in the guide's Install page.
-status = "1.0 · out now"
+status = "1.1 · out now"
 # One or two sentences, plain text, shown next to the install instructions.
 beta_note = "Installing is at your own risk; the installer can always put M-VAVE's own firmware back."
 
 # ---------------------------------------------------------------- where the site lives
-site_url = "https://styves.dev/frasil/"     # absolute: Open Graph and canonical links only
-base_path = "/frasil/"                      # the 404 page's <base> (it is served at any depth)
+site_url = "https://frasilsynth.com/"       # absolute: Open Graph and canonical links only
+base_path = "/"                             # where the site is served (the 404 page's <base>): its own domain's root
 repo = "https://github.com/styvesgoupil/frasil"
 releases = "https://github.com/styvesgoupil/frasil/releases/latest"
-hub = "https://thefirmwarehub.com/"
+hub = "https://thefirmwarehub.com/#fw-frasil"
+river_url = "https://river.frasilsynth.com/"   # the River: back up the FM-1's scenes, put shards back (its own site)
 
 # ---------------------------------------------------------------- the guide, in reading order
 # slug: the folder (guide/SLUG/), from pages/guide/SLUG.html; group: the sidebar's heading.

@@ -1,0 +1,282 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 Styves Goupil
+ * The cheat sheet: FRASIL on one A4 landscape page, as dark as the instrument's screen.
+ * The sheet is laid out once, at 1400 x 990 px (A4's 297 x 210 mm, 1 px = 0.212 mm, so 12 px prints at 7.2 pt), and
+ * scaled as one block to the width it is given: tan(atan2(a, b)) is a / b as a plain number, so the frame's width over
+ * 1400 px is its scale, on screen and on paper alike (297 mm in print). Below 1100 px it reflows into one column. */
+
+.cs { display: block; }
+
+/* ---------------------------------------------------------------- around it: the intro and the downloads */
+.cs-intro { padding-top: clamp(44px, 6vw, 84px); }
+.cs-intro .dhead { margin-bottom: clamp(26px, 4vw, 44px); }
+.cs-intro .dhead .status { padding-top: 4px; }
+.cs-size::before { display: none; }
+.cs-intro-grid { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 24px clamp(32px, 6vw, 96px); align-items: end; }
+.cs-intro-side { display: grid; gap: 20px; }
+.cs-actions { display: flex; flex-wrap: wrap; gap: 10px 12px; }
+.cs-dim { color: var(--mist); letter-spacing: .08em; font-weight: 500; }
+.cs-note { font-size: 15px; line-height: 1.5; color: var(--mist); }
+@media (max-width: 900px) { .cs-intro-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .cs-intro .dhead .status { display: none; } }
+
+.cs-stage {
+  container: cs / inline-size;
+  width: 100%; max-width: calc(1400px + 2 * var(--gutter));
+  margin: clamp(36px, 5vw, 60px) auto 0; padding-inline: var(--gutter);
+}
+.cs-frame {
+  position: relative;
+  aspect-ratio: 1400 / 990;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--night);
+  box-shadow: 0 0 0 1px #1b232d, 0 1px 0 0 #2a3440 inset, 0 50px 110px -50px rgba(0, 0, 0, .95),
+    0 40px 120px -70px rgba(110, 208, 255, .22);
+}
+
+/* ---------------------------------------------------------------- the sheet */
+.sheet {
+  --line: #1c242e;
+  position: absolute; top: 0; left: 0;
+  width: 1400px; height: 990px;
+  transform-origin: 0 0;
+  transform: scale(tan(atan2(100cqw, 1400px)));
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 24px 30px 26px;
+  overflow: hidden;
+  color: var(--fog);
+  font: 400 12.5px/16px var(--f-text);
+  font-optical-sizing: auto;
+  background:
+    radial-gradient(70% 38% at 50% 0%, rgba(110, 208, 255, .045), transparent 70%),
+    linear-gradient(180deg, var(--night) 0%, var(--night) 62%, #0b121a 100%);
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.sheet p, .sheet dl, .sheet dd, .sheet ul, .sheet h2 { margin: 0; }
+.sheet ul { list-style: none; padding: 0; }
+.sheet .ice { color: var(--ice); }
+.sheet .lamp { color: var(--lamp); }
+.sheet em { font-style: italic; color: var(--white); }
+
+/* the instrument's words, in running text: a name, a button framed as the help screen frames it, a knob's badge */
+.sheet .k { font-size: 12px; letter-spacing: .05em; color: var(--white); }
+.sheet :is(.ice, .lamp) > .k { color: inherit; }
+.sheet .key {
+  font: 600 12px/1 var(--f-ui); letter-spacing: .08em; color: var(--white);
+  padding: 1px 3px 1px 4px; border: 1px solid #3b4654; border-radius: 3px; vertical-align: 0;
+}
+.sheet .kn { font: 700 12px/1 var(--f-ui); letter-spacing: .02em; padding: 1px 5px 1px; vertical-align: 0; }
+.sheet .disc { width: 17px; height: 17px; font: 700 12px/1 var(--f-ui); vertical-align: -3px; }
+
+/* ---------------------------------------------------------------- its header: the name, the grammar, the colours */
+.sh-head {
+  position: relative; flex: none;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0 30px;
+  padding-bottom: 12px;
+}
+.sh-head::after {                              /* the waterline, brighter in the middle */
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--slate) 18%, var(--fog) 50%, var(--slate) 82%, transparent);
+  opacity: .75;
+}
+.sh-id { display: flex; align-items: center; gap: 16px; }
+.sh-id img { width: 132px; height: auto; }
+.sh-id > div { padding-left: 16px; border-left: 1px solid var(--steel); }
+.sh-title { font: 700 15px/1.1 var(--f-ui); letter-spacing: .28em; text-transform: uppercase; color: var(--white); }
+.sh-sub { margin-top: 3px; font: 600 12px/1.2 var(--f-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--mist); }
+.sh-sub .sh-url { margin-right: 4px; }
+.sh-grammar { justify-self: center; text-align: center; max-width: 600px; }
+.sh-motto { font: 600 19px/1.1 var(--f-ui); letter-spacing: .24em; text-transform: uppercase; color: var(--white); }
+.sh-motto .sh-dot { color: var(--slate); margin: 0 .2em; }
+.sh-motto-sub { margin-top: 5px; font-size: 12.5px; line-height: 16px; color: var(--text-2); text-wrap: balance; }
+.sh-legend { display: grid; gap: 3px; font: 600 12px/1.2 var(--f-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--mist); }
+.sh-legend li { display: flex; align-items: center; gap: 8px; }
+.sw { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.sw.fog { background: var(--fog); }
+.sw.ice { background: var(--ice); box-shadow: 0 0 8px rgba(110, 208, 255, .6); }
+.sw.lamp { background: var(--lamp); box-shadow: 0 0 8px rgba(242, 166, 90, .6); }
+
+/* ---------------------------------------------------------------- two columns: the panel and the hand / the pages and MIDI */
+.sh-cols { flex: 1; min-height: 0; display: grid; grid-template-columns: 860px minmax(0, 1fr); gap: 20px; }
+.sh-col { min-height: 0; display: flex; flex-direction: column; gap: 11px; }
+
+/* a block, headed as the device heads a page: its name, then on the right its button */
+.sh-block {
+  padding: 8px 11px 9px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #0e141b 0%, #0c1117 100%);
+  box-shadow: inset 0 0 0 1px #161e27;
+}
+.sh-bh {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  min-height: 19px; padding-bottom: 5px; margin-bottom: 6px;
+  border-bottom: 1px solid var(--steel);
+  font: 700 14px/1 var(--f-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--white);
+}
+.sh-bh-n { display: inline-flex; align-items: center; white-space: nowrap; }
+.sh-bh-i { margin-left: 10px; font-weight: 500; font-size: 12px; letter-spacing: .1em; color: var(--mist); }
+.sh-bh-r {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  font: 600 12px/1 var(--f-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--mist);
+}
+.sh-bh-r .key { letter-spacing: .1em; }
+.sh-url { font: 600 12px/1 var(--f-ui); letter-spacing: .06em; text-transform: none; color: var(--ice); text-decoration: none; }
+a.sh-url:hover { text-decoration: underline; text-underline-offset: .2em; }
+.sh-x { font-style: normal; color: var(--white); }
+
+/* the keys' badge on the screen: a small keyboard in the mode's colour, its frame solid while notes latch */
+.kbd {
+  display: inline-block; width: 21px; height: 12px; margin-right: 9px; flex: none;
+  border: 1.5px solid currentColor; border-radius: 2px;
+  background: repeating-linear-gradient(90deg, transparent 0 3.5px, currentColor 3.5px 4.7px) 1px 0 / calc(100% - 2px) 55% no-repeat;
+}
+.k-glint .sh-bh-n { color: var(--ice); }
+.k-bass .sh-bh-n { color: var(--lamp); }
+
+/* gestures: the gesture in the instrument's voice, what it does in the musician's */
+.sh-gest { display: grid; gap: 3px; }
+.sh-gest > div { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 7px; align-items: baseline; }
+.sh-gest.wide > div { grid-template-columns: 78px minmax(0, 1fr); }
+.sh-gest dt { font: 600 12px/16px var(--f-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--white); white-space: nowrap; }
+.sh-gest dt.hand, .sh-gest dt.hand .k { color: var(--lamp); }
+.sh-gest dt.ice, .sh-gest dt.ice .k { color: var(--ice); }
+.sh-gest dt .key { padding: 0 3px; letter-spacing: .06em; }
+.sh-gest dt.hand .key { color: var(--lamp); border-color: rgba(242, 166, 90, .45); }
+.sh-gest dd { color: var(--text-2); }
+.sh-foot { margin-top: 6px; font-size: 12.5px; line-height: 16px; color: var(--mist); }
+.sh-foot b { font: 600 12px/1 var(--f-ui); letter-spacing: .07em; color: var(--white); }
+
+/* ---------------------------------------------------------------- the panel map */
+.sh-map { flex: none; }
+.sh-map svg { display: block; width: 860px; height: auto; }
+.sh-map text { font-family: var(--f-ui); }
+.pm-body { fill: #0e141b; stroke: #222b36; }
+.pm-tray { fill: #0a0f14; }
+.pm-well { fill: #0a0f14; }
+.pm-knob { fill: #161d26; stroke: #3a4654; stroke-width: 1.5; }
+.pm-tick { stroke: var(--fog); stroke-width: 3; stroke-linecap: round; }
+.pm-disc.abc { fill: var(--lamp); }
+.pm-disc.ice { fill: var(--ice); }
+.pm-disc-t { font-size: 12px; font-weight: 700; fill: var(--night); }
+.pm-name { font-size: 12px; font-weight: 600; letter-spacing: .1em; fill: var(--mist); }
+.pm-role { font-size: 13px; font-weight: 600; letter-spacing: .12em; fill: var(--white); }
+.pm-role.dim { fill: var(--fog); }
+.pm-small { font-size: 12px; font-weight: 500; letter-spacing: .07em; fill: var(--mist); }
+.pm-rule { fill: none; stroke: var(--slate); stroke-width: 1; }
+.pm-bezel { fill: #05070a; stroke: #2a3440; }
+.pm-btn { fill: #18202a; stroke: #3a4654; stroke-width: 1.1; }
+.pm-bname { font-size: 12px; font-weight: 600; letter-spacing: .1em; fill: var(--mist); }
+.pm-tap { font-size: 12.5px; font-weight: 600; letter-spacing: .03em; fill: var(--white); }
+.pm-tap.ice { fill: var(--ice); }
+.pm-tap.lamp { fill: var(--lamp); }
+.pm-held { font-size: 12px; font-weight: 500; letter-spacing: .03em; fill: var(--lamp); }
+.pm-key { stroke-width: 1.1; }
+.pm-key.w { fill: #18202a; stroke: #313c49; }
+.pm-key.b { fill: #121820; stroke: #2a3440; }
+.pm-key.p { stroke: rgba(242, 166, 90, .55); }
+.pm-num { font-size: 12px; font-weight: 600; fill: var(--mist); }
+.pm-bracket { fill: none; stroke: var(--lamp); stroke-width: 1.3; }
+.pm-press { font-size: 12.5px; font-weight: 600; letter-spacing: .08em; fill: var(--lamp); }
+
+/* ---------------------------------------------------------------- the keys in their three modes; scenes; pop-ups and the River */
+.sh-keys { flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; }
+.sh-low { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); gap: 11px; }
+.sh-stack { min-height: 0; display: flex; flex-direction: column; gap: 11px; }
+.sh-pop p, .sh-river p { color: var(--text-2); }
+.sh-factory { display: grid; grid-template-columns: repeat(4, auto); justify-content: space-between; gap: 2px 12px; list-style: none; margin: 8px 0 0; padding: 6px 0 0; border-top: 1px solid var(--line);
+  font: 600 12px/16px var(--f-ui); letter-spacing: .1em; color: var(--fog); }
+.sh-factory b { margin-right: 5px; font-weight: 600; letter-spacing: 0; color: var(--mist); font-variant-numeric: tabular-nums; }
+.sh-river { flex: 1; }
+.sh-parts { display: grid; grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 3px 14px; margin-top: 6px; }
+.sh-parts li { font: 500 12px/16px var(--f-ui); letter-spacing: .04em; color: var(--mist); }
+.sh-parts b { display: block; font-weight: 600; letter-spacing: .1em; color: var(--white); }
+
+/* on the sheet, the last blocks fill their column: their rows share what height is left, their last line on the floor */
+.sh-scenes, .sh-river, .sh-midi { display: flex; flex-direction: column; }
+.sh-scenes .sh-gest { flex: 1; align-content: space-evenly; }
+.sh-river .sh-parts { margin-top: auto; padding-top: 6px; border-top: 1px solid var(--line); }
+.sh-midi .sh-cc { flex: 1; align-content: space-evenly; }
+
+/* ---------------------------------------------------------------- every page, K1-K4 */
+.sh-table { width: 100%; border-collapse: collapse; table-layout: fixed; font: 600 12px/1 var(--f-ui); letter-spacing: .04em; }
+.sh-table thead th:first-child { width: 48px; }
+.sh-table thead th:nth-child(2) { width: 96px; }
+.sh-table thead th {
+  padding: 0 4px 5px 0; text-align: left; vertical-align: bottom;
+  font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--mist);
+  border-bottom: 1px solid var(--steel);
+}
+.sh-table thead th:nth-child(n+3) { color: var(--ice); }
+.sh-table tbody + tbody { border-top: 1px solid var(--line); }
+.sh-table td, .sh-table tbody th { height: 15px; padding: 0 4px 0 0; text-align: left; white-space: nowrap; overflow: hidden; }
+.sh-table tbody tr:first-child > * { padding-top: 2px; }
+.sh-table tbody tr:last-child > * { padding-bottom: 2px; }
+.sh-table th.b { vertical-align: top; padding-top: 3px; }
+.sh-table th[scope="row"] { color: var(--white); font-weight: 600; letter-spacing: .05em; }
+.sh-table tbody.gl th[scope="row"] { color: var(--ice); }
+.sh-table tbody.bs th[scope="row"] { color: var(--lamp); }
+.sh-table td { color: var(--fog); font-weight: 500; }
+.sh-table td.gl { color: var(--ice); }
+.sh-table td.bs { color: var(--lamp); }
+.sh-table td.no { color: var(--dim); }
+.sh-table i { font-style: normal; font-weight: 500; color: var(--mist); letter-spacing: 0; }
+.sh-table tr.or > :not(.b) { border-top: 1px dashed #2a3440; }
+.sh-table .key { display: inline-block; padding: 2px 4px 1px 5px; }
+
+/* ---------------------------------------------------------------- MIDI */
+.sh-midi { flex: 1; min-height: 0; }
+.sh-ch { display: flex; align-items: center; gap: 14px; font: 600 12px/1 var(--f-ui); letter-spacing: .1em; color: var(--white); }
+.sh-ch li { display: inline-flex; align-items: center; gap: 6px; }
+.sh-ch b { display: inline-grid; place-items: center; min-width: 19px; height: 18px; border: 1px solid currentColor; border-radius: 4px; font-weight: 700; letter-spacing: 0; }
+.sh-ch .sh-ch-note { margin-left: auto; font-weight: 500; letter-spacing: .06em; color: var(--mist); }
+.sh-cc { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(6, auto); grid-auto-flow: column; gap: 0 10px; margin: 7px 0 0; padding: 5px 0; border-block: 1px solid var(--line); }
+.sh-cc > div { display: flex; gap: 7px; align-items: baseline; }
+.sh-cc dt { min-width: 18px; font: 600 12px/16px var(--f-ui); font-variant-numeric: tabular-nums; letter-spacing: .02em; color: var(--mist); }
+.sh-cc dd { margin: 0; font: 600 12px/16px var(--f-ui); letter-spacing: .05em; color: var(--fog); white-space: nowrap; }
+.sh-cc dd.lc { font: italic 400 12.5px/16px var(--f-text); letter-spacing: 0; color: var(--mist); }
+
+/* ---------------------------------------------------------------- narrower than the sheet: one column, real sizes */
+@container cs (max-width: 1099px) {
+  .cs-frame { aspect-ratio: auto; overflow: visible; }
+  .sheet { position: static; width: auto; height: auto; transform: none; padding: 22px clamp(14px, 3cqw, 26px) 26px; gap: 16px; }
+  .sh-head { grid-template-columns: 1fr; gap: 16px; }
+  .sh-grammar { justify-self: start; text-align: left; }
+  .sh-motto { font-size: 17px; letter-spacing: .18em; }
+  .sh-cols { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .sh-col { gap: 16px; }
+  .sh-map-scroll { overflow-x: auto; margin-inline: -4px; padding: 0 4px 6px; scrollbar-width: thin; scrollbar-color: var(--steel) transparent; }
+  .sh-map svg { width: 100%; min-width: 700px; }
+  .sheet { font-size: 13.5px; line-height: 19px; }
+  .sh-keys, .sh-low { grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr)); gap: 16px; }
+  .sh-table-wrap { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--steel) transparent; }
+  .sh-table { min-width: 500px; }
+  .sh-ch { flex-wrap: wrap; }
+  .sh-parts { grid-template-columns: repeat(auto-fit, minmax(120px, auto)); justify-content: start; }
+  .sh-ch .sh-ch-note { margin-left: 0; }
+}
+@container cs (max-width: 560px) {
+  .sheet { font-size: 14.5px; line-height: 21px; }
+  .sh-gest > div, .sh-gest.wide > div { grid-template-columns: 1fr; gap: 1px; }
+  .sh-gest { gap: 9px; }
+  .sh-id { flex-wrap: wrap; }
+  .sh-id img { width: 110px; }
+  .sh-cc { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(12, auto); }
+  .sh-bh { flex-wrap: wrap; row-gap: 6px; }
+}
+
+/* ---------------------------------------------------------------- the sheet alone, the whole window (cheatsheet/#sheet):
+   as on paper; tools/cheatsheet.sh takes the PNG from it */
+:root:has(#sheet:target) body > :not(main), :root:has(#sheet:target) .cs-intro { display: none; }
+:root:has(#sheet:target) .cs-stage { max-width: none; margin: 0; padding: 0; }
+:root:has(#sheet:target) .cs-frame { border-radius: 0; box-shadow: none; }
+
+/* ---------------------------------------------------------------- on paper: the sheet alone, A4 landscape, edge to edge */
+@page { size: A4 landscape; margin: 0; }
+@media print {
+  html, body { margin: 0; padding: 0; background: var(--night) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body > :not(main), .cs-intro { display: none !important; }
+  .cs { margin: 0; padding: 0; }
+  .cs-stage { width: 297mm; max-width: none; margin: 0; padding: 0; }
+  .cs-frame { width: 297mm; height: 210mm; aspect-ratio: auto; border-radius: 0; box-shadow: none; break-inside: avoid; }
+}

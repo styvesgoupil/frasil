@@ -4,7 +4,7 @@ lede: Try it in the browser first: no FM-1 needed. Then put it on the FM-1, from
 description: How to try FRASIL in the browser, install it on the M-VAVE FM-1 from Chrome or Edge or from a terminal, and go back to M-VAVE's firmware.
 -->
 <aside class="callout" data-nocaps>
-  <p class="status">{{status}}</p>
+  <p class="status">{{status}}<span class="dl" data-downloads hidden></span></p>
   <p>{{beta_note}}</p>
 </aside>
 
@@ -15,7 +15,7 @@ description: How to try FRASIL in the browser, install it on the M-VAVE FM-1 fro
 <h2 id="browser">Install from the browser</h2>
 <p>In Chrome or Edge, connect the FM-1 by USB, open the installer and press Install. The browser asks once to allow
   MIDI: allow it. Don’t unplug the cable while it writes.</p>
-<p>The installer is <a href="{{hub}}">The FM-1 Firmware Hub</a>, once FRASIL is listed there.</p>
+<p>The installer is <a href="{{hub}}">FRASIL on The FM-1 Firmware Hub</a>.</p>
 
 <h2 id="terminal">Install from a terminal</h2>
 <p>Download <code>frasil-X.Y.fwsc</code> from the <a href="{{releases}}">releases</a>, then run, from a checkout of
@@ -33,7 +33,7 @@ description: How to try FRASIL in the browser, install it on the M-VAVE FM-1 fro
   <thead><tr><th>What</th><th>Where</th></tr></thead>
   <tbody>
     <tr><td>The 16 scenes</td><td><code>0xDA000</code>: two 4 KiB sectors, written in turn, each record with a CRC</td></tr>
-    <tr><td>The settings</td><td><code>0xFC000</code>, the sector pair where Felucca keeps its globals: the sound at power-on, the MIDI channels, TEMPO, MORPH and KEEP, the metronome, the learned CCs</td></tr>
+    <tr><td>The settings</td><td><code>0xFC000</code>, the sector pair where Felucca keeps its globals: the sound at power-on, the MIDI channels, TEMPO, LOAD, the metronome, the learned CCs</td></tr>
     <tr><td>The panel’s calibration</td><td><code>0xDC000</code>, in Felucca’s own format, so it stays valid from one to the other</td></tr>
   </tbody>
 </table>
@@ -46,8 +46,10 @@ description: How to try FRASIL in the browser, install it on the M-VAVE FM-1 fro
   <li><b>Another firmware may overwrite FRASIL’s scenes.</b> Updating or installing FRASIL writes only the firmware’s
     own area: your scenes stay. What another firmware’s install does depends on its own update loader. M-VAVE’s V15
     writes its whole image: assume your scenes won’t survive it.</li>
-  <li><b>There is no backup of FRASIL’s scenes yet.</b> Saving them to a file and restoring them, over USB from the
-    browser, is planned. Until then, write down what matters to you before you switch.</li>
+  <li><b>Back up your scenes before you switch firmwares.</b> FRASIL 1.1 and later back up the 16 scenes and the
+    settings to a file over USB, and put them back: in the browser, in <a href="{{river}}">the River</a> (Chrome or
+    Edge), or from a terminal with <code>base/tools/fm1_backup.py</code>. See <a href="{{root}}guide/scenes/#backing-up">backing
+    up</a>.</li>
 </ul>
 
 <h2 id="versions">Versions</h2>

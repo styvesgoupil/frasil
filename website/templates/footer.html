@@ -3,8 +3,7 @@
     <div class="foot-grid">
       <div class="foot-brand">
         <img src="{{root}}assets/img/logo-duo.png" width="1000" height="203" alt="FRASIL">
-        <p>Drone textures frozen in motion. A custom firmware for the M-VAVE FM-1, by Styves Goupil.</p>
-        <p class="status foot-status">{{status}}</p>
+        <p>Drone textures frozen in motion.<br>A custom firmware for the M-VAVE FM-1, <span class="nw">by Styves Goupil.</span></p>
       </div>
       <div>
         <h2 class="label">This site</h2>
@@ -12,8 +11,9 @@
           <li><a href="{{root}}">FRASIL</a></li>
           <li><a href="{{root}}guide/">The guide</a></li>
           <li><a href="{{root}}play/">Play in the browser</a></li>
-          <li><a href="{{root}}guide/install/">Install on FM-1</a></li>
-        </ul>
+{{cheat_link}}          <li><a href="{{root}}guide/install/">Install on FM-1</a></li>
+{{river_lib}}          <li><a href="{{river}}">FRASIL River</a></li>
+{{credits_link}}        </ul>
       </div>
       <div>
         <h2 class="label">Elsewhere</h2>
@@ -24,20 +24,8 @@
         </ul>
       </div>
     </div>
-    <div class="foot-credits">
-      <h2 class="label">Credits</h2>
-      <ul>
-        <li>By Styves Goupil.</li>
-        <li>Built on <a href="https://github.com/charlesvestal/fm1-base">fm1-base</a> by Charles Vestal and
-          <a href="https://github.com/hugelton/felucca-bsp">felucca-bsp</a>, from <a href="https://github.com/hugelton/Felucca">Felucca</a>
-          by Leo Kuroshita (Hügelton Instruments).</li>
-        <li>Fonts: Barlow (The Barlow Project Authors) and Terminus (Dimitar Toshkov Zhekov), SIL OFL 1.1, through fm1-base.</li>
-      </ul>
-    </div>
-    <div class="foot-legal">
-      <p>FRASIL is free software under the <a href="{{repo}}/blob/main/LICENSE">Mozilla Public License 2.0</a>: see
-        <a href="{{repo}}/blob/main/LICENSING.md">LICENSING.md</a>. The FRASIL name and logo &copy; {{year}} Styves Goupil.</p>
-      <p>M-VAVE and FM-1 are trademarks of their owners. FRASIL is not affiliated with M-VAVE.</p>
-    </div>
+    <p class="foot-legal">&copy; {{year}} Styves Goupil. FRASIL is free software under the
+      <a href="{{repo}}/blob/main/LICENSING.md">MPL-2.0</a>. M-VAVE and FM-1 are trademarks of their owners; FRASIL is
+      not affiliated with M-VAVE.</p>
   </div>
 </footer>

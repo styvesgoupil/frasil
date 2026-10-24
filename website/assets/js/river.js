@@ -15,6 +15,7 @@
   const WL = parseFloat(getComputedStyle(hero).getPropertyValue("--wl")) || 0.467;   // the blade: the waterline
   const SPLIT = parseFloat(hero.dataset.split) || 0.502;                             // where the lower half starts
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+  const LIFT = 1.35;                     // its lights a little brighter than the device's: seen on a dimmed screen too
   const small = matchMedia("(max-width: 700px), (pointer: coarse)");
 
   // a small seeded random, so the sky is the same sky each time
@@ -50,12 +51,12 @@
     b.save();                                            // the haze: the reverb rising off the water
     b.translate(W / 2, wl); b.scale(W * .62, 90);
     g = b.createRadialGradient(0, 0, 0, 0, 0, 1);
-    g.addColorStop(0, "rgba(64, 84, 104, .30)"); g.addColorStop(1, "rgba(64, 84, 104, 0)");
+    g.addColorStop(0, "rgba(64, 84, 104, .38)"); g.addColorStop(1, "rgba(64, 84, 104, 0)");
     b.fillStyle = g; b.fillRect(-1, -1, 2, 1);
     b.restore();
     for (let i = 0; i < 260 * area * (wl / 520); i++) {   // faint, far stars: still
       const x = rnd() * W, y = Math.pow(rnd(), 1.15) * (wl - 30);
-      b.fillStyle = `rgba(220, 227, 234, ${(.08 + rnd() * .22).toFixed(3)})`;
+      b.fillStyle = `rgba(220, 227, 234, ${(LIFT * (.08 + rnd() * .22)).toFixed(3)})`;
       b.fillRect(x, y, rnd() < .5 ? .7 : 1, .7);
     }
     g = b.createLinearGradient(0, 0, W, 0);              // the waterline, across
@@ -102,7 +103,7 @@
 
     // stars
     for (const s of stars) {
-      const a = s.a * (.62 + .38 * Math.sin(t * s.s + s.p));
+      const a = Math.min(1, LIFT * s.a * (.62 + .38 * Math.sin(t * s.s + s.p)));
       ctx.fillStyle = s.ice ? `rgba(110, 208, 255, ${a.toFixed(3)})` : `rgba(220, 227, 234, ${a.toFixed(3)})`;
       ctx.fillRect(s.x - s.r / 2, s.y - s.r / 2, s.r, s.r);
       if (s.cross) {
@@ -118,7 +119,7 @@
     for (const w of swells) {
       const k = ((t / w.T + w.o) % 1);
       const y = wl + 6 + k * depth * .9, hh = 26 + k * 120;
-      const a = .16 * Math.sin(Math.PI * k) * (1 - k * .5);
+      const a = LIFT * .16 * Math.sin(Math.PI * k) * (1 - k * .5);
       ctx.save();
       ctx.translate(W / 2, y); ctx.scale(W * .5, hh);
       const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
@@ -149,7 +150,7 @@
     // the strokes of light, over the letters too
     for (const s of strokes) {
       const k = ((t / s.T + s.p) % 1);
-      const a = s.a * Math.pow(Math.sin(Math.PI * k), 2);
+      const a = Math.min(1, LIFT * s.a * Math.pow(Math.sin(Math.PI * k), 2));
       if (a < .01) continue;
       let x = (s.x + t * s.vx) % (W + 40) - 20;
       ctx.fillStyle = `rgba(176, 196, 214, ${a.toFixed(3)})`;
@@ -160,7 +161,7 @@
     for (const g of grains) {
       const x = (g.x + t * g.vx) % (W + 20) - 10;
       const y = wl - g.h + Math.sin(t * g.f + g.p) * 1.6;
-      const a = g.a * (.75 + .25 * Math.sin(t * .7 + g.p * 2));
+      const a = Math.min(1, LIFT * g.a * (.75 + .25 * Math.sin(t * .7 + g.p * 2)));
       ctx.fillStyle = g.ice ? `rgba(150, 214, 245, ${a.toFixed(3)})` : `rgba(220, 227, 234, ${a.toFixed(3)})`;
       if (g.kind === 0) ctx.fillRect(x, y, 1, 1);
       else if (g.kind === 1) ctx.fillRect(x, y, g.len, .8);

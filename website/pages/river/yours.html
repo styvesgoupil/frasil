@@ -1,0 +1,111 @@
+<!--
+title: Your Private River · FRASIL River
+description: Your Private River: an account for your FRASIL shards. Get scenes from your FM-1, keep them and your backups online with your favorites from the Community River, share yours, and send any of them back to your FM-1, from any computer.
+-->
+<main id="main" class="river" data-install="{{site}}guide/install/">
+
+<!-- ============================================================ the top: Your Private River -->
+<section class="rv-top rv-top-v2 wrap" aria-labelledby="rv-title">
+  <h1 class="sr-only" id="rv-title">Your Private River</h1>
+  <div class="voice" id="voice"><span class="voice-dot" aria-hidden="true"></span><p class="voice-say" role="status"></p><p class="voice-alarm" role="alert"></p></div>
+</section>
+
+<!-- ============================================================ signed out: sign in, or an account made -->
+<section class="wrap auth" id="auth" aria-labelledby="auth-h" hidden>
+  <div class="auth-card">
+    <h2 class="sr-only" id="auth-h">Sign in or create an account</h2>
+    <div class="seg auth-tabs" id="auth-tabs" role="group" aria-label="Sign in or create an account">
+      <button type="button" data-tab="signin" aria-pressed="true">Sign in</button>
+      <button type="button" data-tab="register" aria-pressed="false">Create an account</button>
+    </div>
+    <div class="auth-google" id="auth-google" hidden>
+      <a class="btn google" href="/api/auth/google/start?next=/yours/">Continue with Google</a>
+      <p class="auth-or"><span>or with your email</span></p>
+    </div>
+    <form class="auth-form" id="signin" data-tab="signin" novalidate>
+      <label class="field"><span class="field-l">Email</span><input type="email" name="email" autocomplete="email" required maxlength="254"></label>
+      <label class="field"><span class="field-l">Password</span><input type="password" name="password" autocomplete="current-password" required></label>
+      <p class="form-say" role="alert"></p>
+      <div class="form-acts"><button class="btn btn-ice" type="submit">Sign in</button><button class="btn btn-plain" type="button" data-go="forgot">Forgot your password?</button></div>
+    </form>
+    <form class="auth-form" id="register" data-tab="register" novalidate hidden>
+      <label class="field"><span class="field-l">Display name</span><input name="display_name" autocomplete="nickname" required maxlength="40">
+        <span class="field-n">Public: the River shows it as the author of the shards you share.</span></label>
+      <label class="field"><span class="field-l">Email</span><input type="email" name="email" autocomplete="email" required maxlength="254">
+        <span class="field-n">Never shown. The River sends a link to confirm it: you need it to share.</span></label>
+      <label class="field"><span class="field-l">Password</span><input type="password" name="password" autocomplete="new-password" required minlength="8" maxlength="256">
+        <span class="field-n">8 characters at least.</span></label>
+      <p class="form-say" role="alert"></p>
+      <p class="field-n">Creating an account, you accept the River’s <a class="link" href="/privacy/#terms-h">terms</a>; its
+        <a class="link" href="/privacy/">privacy notice</a> says what it keeps, and how to take it back.</p>
+      <div class="form-acts"><button class="btn btn-ice" type="submit">Create the account</button></div>
+    </form>
+    <form class="auth-form" id="f-forgot" data-tab="forgot" novalidate hidden>
+      <h3 class="auth-h">A new password</h3>
+      <p class="auth-p">Give your account’s email: the River sends it a link to choose a new password. It works for an hour, once.</p>
+      <label class="field"><span class="field-l">Email</span><input type="email" name="email" autocomplete="email" required maxlength="254"></label>
+      <p class="form-say" role="alert"></p>
+      <div class="form-acts"><button class="btn btn-ice" type="submit">Send the link</button><button class="btn btn-plain" type="button" data-go="signin">Back to sign in</button></div>
+    </form>
+    <form class="auth-form" id="f-reset" data-tab="reset" novalidate hidden>
+      <h3 class="auth-h">Choose a new password</h3>
+      <p class="auth-p">Your other sessions end; this browser stays signed in.</p>
+      <label class="field"><span class="field-l">New password</span><input type="password" name="password" autocomplete="new-password" required minlength="8" maxlength="256">
+        <span class="field-n">8 characters at least.</span></label>
+      <p class="form-say" role="alert"></p>
+      <div class="form-acts"><button class="btn btn-ice" type="submit">Save the new password</button></div>
+    </form>
+  </div>
+  <aside class="auth-why" aria-label="What an account gives">
+    <ul role="list">
+      <li><span class="how-n" aria-hidden="true">01</span><span><b>Your shards, online.</b> Get scenes from your FM-1, name them,
+        play them here, send any of them back, into the slot you choose.</span></li>
+      <li><span class="how-n" aria-hidden="true">02</span><span><b>Your backups too.</b> Store the FM-1’s whole backup: all
+        sixteen slots and the settings, ready to restore from any computer.</span></li>
+      <li><span class="how-n" aria-hidden="true">03</span><span><b>Share, and favorite.</b> The shards you share drift into
+        the Community River for everyone, with your name as their author, under CC&nbsp;BY&nbsp;4.0. Star the ones you love
+        there: they wait in your favorites, ready to send.</span></li>
+    </ul>
+  </aside>
+</section>
+
+<!-- ============================================================ signed in: SHARDS · FAVORITES · BACKUPS (river-yours.js) -->
+<div id="mine" hidden>
+  <div class="wrap">
+    <div id="pt"></div>
+    <div class="banner" id="vb" role="status" hidden>
+      <p>Confirm your email to share shards: a link went to <b id="vb-email"></b>. It works for 48 hours.</p>
+      <button class="btn btn-plain" type="button" id="vb-resend">Send it again</button>
+    </div>
+    <section class="lib" id="lib" aria-labelledby="lib-h">
+      <h2 class="sr-only" id="lib-h">Your shards</h2>
+      <div id="tb"></div>
+      <div class="list" id="list"></div>
+      <div id="list-end"></div>
+    </section>
+    <section class="lib" id="bk" aria-labelledby="bk-h" hidden>
+      <h2 class="sr-only" id="bk-h">Your backups</h2>
+      <div class="list bus" id="my-backups" role="list"></div>
+      <div class="list-end"><p>A backup holds the FM-1’s sixteen slots and its settings. Store one with
+        <button class="txt-b" type="button" data-get>Get from FM-1</button>.</p></div>
+    </section>
+  </div>
+</div>
+
+<!-- Get from FM-1 and Send to FM-1: river-yours.js and river-device.js draw them -->
+
+<!-- ============================================================ a shard's name and description -->
+<dialog class="sheet sheet-sm" id="edit" aria-labelledby="edit-h">
+  <form class="sheet-in" id="f-edit" novalidate>
+    <header class="sheet-head"><p class="label">Name and description</p>
+      <button class="sheet-x" type="button" data-close aria-label="Close"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></header>
+    <h2 class="sheet-h" id="edit-h">Its name</h2>
+    <label class="field"><span class="field-l">Name, as the FM-1 shows it</span><input class="name-in" name="name" required maxlength="16" autocomplete="off" spellcheck="false">
+      <span class="field-n">16 characters at most: A to Z, 0 to 9, space - . # +</span></label>
+    <label class="field"><span class="field-l">Description</span><textarea name="description" maxlength="1000" rows="5"></textarea>
+      <span class="field-n">Optional. Its first line shows in the list.</span></label>
+    <p class="form-say" role="alert"></p>
+    <footer class="sheet-foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-ice" type="submit">Save</button></footer>
+  </form>
+</dialog>
+</main>

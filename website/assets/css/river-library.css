@@ -1,0 +1,24 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 Styves Goupil
+ * The main site's River library page (pages/river-library.html, /river/): what FRASIL River is, and the way there. */
+.rl { padding-block: clamp(44px, 6vw, 84px) clamp(64px, 8vw, 112px); }
+.rl .dhead { margin-bottom: clamp(28px, 4vw, 48px); }
+.rl-grid { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 24px clamp(32px, 6vw, 96px); align-items: end; }
+.rl h1 { margin: 0; }
+.rl-go { display: grid; gap: 28px; justify-items: start; }
+.rl-go .lede { margin: 0; }
+.rl-btn { font-size: 17px; padding: 18px 28px; letter-spacing: .14em; }
+.rl-parts {
+  list-style: none; margin: clamp(56px, 7vw, 96px) 0 0; padding: 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 clamp(24px, 3vw, 48px);
+  border-top: 1px solid var(--steel);
+}
+.rl-parts li { padding-top: 24px; }
+.rl-parts .label { color: var(--ice); margin: 0 0 12px; }
+.rl-parts h2 { font: 500 clamp(21px, 1.9vw, 26px)/1.2 var(--f-text); color: var(--white); margin: 0 0 10px; }
+.rl-parts p:last-child { margin: 0; color: var(--text-2); line-height: 1.55; }
+.rl-needs { margin: clamp(40px, 5vw, 64px) 0 0; font: 600 12px/1.6 var(--f-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--mist); }
+@media (max-width: 860px) {
+  .rl-grid, .rl-parts { grid-template-columns: minmax(0, 1fr); }
+  .rl-parts li + li { margin-top: 12px; border-top: 1px solid var(--rule); }
+}

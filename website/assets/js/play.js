@@ -12,10 +12,15 @@
   svg.insertBefore(defs, svg.firstChild);
   const body = svg.querySelector('rect[fill="#3a3d42"]');
   if (body) body.classList.add("fr");
+  // FRASIL's logo under the screen, as if printed on the panel (the screen's frame: x 300 .. 536, down to y 280)
+  const mark = document.createElementNS("http://www.w3.org/2000/svg", "image");
+  const at = { href: new URL("../img/logo-print.svg", document.currentScript.src).href, x: 358, y: 296, width: 120, height: 24.4 };
+  for (const [k, v] of Object.entries(at)) mark.setAttribute(k, v);
+  svg.appendChild(mark);
 
   // the labels: the FM-1's, or FRASIL's (GLINT's in ice, BASS's in lamp, as on the screen)
   const FRASIL = {
-    MASTER: "VOLUME", SELECT: "KEYBOARD", PRESETS: "PRESET", ALGORITHM: "FULLNESS",
+    MASTER: "VOLUME", SELECT: "KEYS", PRESETS: "PRESET", ALGORITHM: "BODY",
     KNOB1: "K1", KNOB2: "K2", KNOB3: "K3", KNOB4: "K4",
     FX: "EFFECTS", SEL: "HARMONY", ENV: "SHAPE", LFO: "MOTION", EDIT: "LAYERS", GLO: "GLOBAL",
     HOME: "SOUND", SAVE: "SCENES", ARP: "GLINT", SEQ: "BASS", PLAY: "START", STOP: "STOP", REC: "RECORD",

@@ -1,0 +1,47 @@
+<!--
+title: Quick Backup · FRASIL River
+description: The River's Quick Backup, with no account: back up the sixteen scenes of an FM-1 running FRASIL and its settings from Chrome or Edge, see each scene as a shard and play it, download the backup or the shards you choose, and put them back, whole or into the slots you choose.
+-->
+<main id="main" class="river" data-install="{{site}}guide/install/">
+
+<!-- ============================================================ Tools is Quick Backup (backup.js): also served at /backup/ -->
+<section class="wrap qb" aria-labelledby="rv-title">
+  <div class="pt">
+    <div class="pt-tabs"><h1 class="pt-t is-on" id="rv-title" tabindex="-1">Quick Backup</h1><p class="pt-sub">No account. Nothing leaves this computer.</p></div>
+    <div class="pt-acts">
+      <div class="dock" role="group" aria-label="Quick Backup">
+        <button class="dock-b" type="button" id="act-backup" data-midi><svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.6v8.1M4.7 6.5 8 9.8l3.3-3.3" stroke-width="1.5"/><path d="M1.8 13.1c1.55 0 1.55 1 3.1 1s1.55-1 3.1-1 1.55 1 3.1 1 1.55-1 3.1-1" stroke-width="1.3"/></svg><span>Back up the FM-1</span></button>
+        <button class="dock-b" type="button" id="act-open"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1.8h5.1L12.4 5.1v9.1H4z" stroke-width="1.4"/><path d="M9 1.9v3.3h3.3" stroke-width="1.2"/></svg><span>Open a file</span></button>
+      </div>
+      <input type="file" id="file" accept=".{{ext}},.{{ext}}scenes" hidden>
+    </div>
+  </div>
+
+  <!-- what is happening, in words (the status, polite; a failure, read at once), and on a waterline -->
+  <div class="voice voice-in" id="voice"><span class="voice-dot" aria-hidden="true"></span><p class="voice-say" role="status"></p><p class="voice-alarm" role="alert"></p><div class="voice-line" aria-hidden="true"><i></i></div></div>
+
+  <div class="qb-start" id="qb-start">
+    <p class="rv-req" id="rv-req">Plug the FM-1 into this computer with a USB data cable, then back it up: Chrome or Edge on a computer, and
+      FRASIL 1.1 or later on the FM-1 (<a class="link" href="{{site}}guide/install/">Install</a>). A file opens in any browser: drop it
+      on the page, or <button class="txt-b" type="button" id="act-example">open the example</button>.</p>
+  </div>
+
+  <!-- what was read or opened: where it comes from, its own actions; the sixteen slots as rows, the settings last -->
+  <div class="qb-river" id="river" hidden>
+    <div class="src">
+      <p class="devl" id="river-src"></p>
+      <div class="src-acts">
+        <button class="a" type="button" id="act-restore-all" data-midi><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10.2V2M4.7 5.3 8 2l3.3 3.3" stroke-width="1.5"/><path d="M1.8 13.1c1.55 0 1.55 1 3.1 1s1.55-1 3.1-1 1.55 1 3.1 1 1.55-1 3.1-1" stroke-width="1.3"/></svg><span>Restore it all&hellip;</span></button>
+        <button class="a a-ice" type="button" id="act-keep-all"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v7.5M4.8 6.8 8 10l3.2-3.2M3 13.5h10" stroke-width="1.5"/></svg><span>Download the backup</span></button>
+      </div>
+      <p class="rv-flag" id="river-flag" hidden></p>
+      <p class="rv-kept" id="rv-kept" role="status"></p>
+    </div>
+    <div class="list qb-list" id="cards"></div>
+  </div>
+
+  <div class="list-end qb-end"><p>From a terminal: fm1-base’s <code>fm1_backup.py</code> does the same.</p></div>
+</section>
+
+<div class="drop" id="drop" aria-hidden="true" hidden><p>Drop a <b>.{{ext}}</b> backup or a <b>.{{ext}}scenes</b> package</p></div>
+</main>

@@ -4,18 +4,39 @@
 /* FRASIL: the app. The keys light drones: a tap latches a chord (the harmony makes one of the note: harmony.c), a
  * tap on a lit one lets it go, holding it down presses into it. SELECT turns the keys to GLINT, the icy glints played
  * over the drones (never latched; ARP is their pages, held their arpeggio's latch), or to BASS, one deep note held
- * under them (SEQ is its pages). The three left encoders are the performance's hands (KEYBOARD, the drone's PRESET,
- * FULLNESS), K1 .. K4 the page's parameters; PLAY lets every note go, SEQ held swells every voice, REC records
+ * under them (SEQ is its pages). The three left encoders are the performance's hands (KEYS, the drone's PRESET,
+ * BODY), K1 .. K4 the page's parameters; PLAY lets every note go, ENV held swells the drone's voices, REC records
  * into GLINT's sequencer (held: its metronome), FREEZE (CLOUD's K4) holds the cloud. MIDI in plays the drones too, through the same
  * harmony. Nothing plays by itself (SPARKLE's glints answer what the drones hold).
  * Part of the unity build (device/unity.c, host/plat_host.c), after the platform: gfx.c and announce.c are in
  * scope. The sound is in dsp/ (compiled apart, fm1.toml o2). */
+#include <stddef.h>
 #include "fastmath.h"
 #include "frasil.h"
 #include "params.c"
 
-#define SET_MAGIC 0x47535246u            /* "FRSG": the settings record (a new one when its layout changes) */
-#define SCN_MAGIC 0x67535246u            /* "FRSg": the scenes record (with their notes, the bass and the sequence) */
+#define SET_MAGIC 0x4A535246u            /* "FRSJ": the settings record (a new one when its layout changes) */
+#define SET_FRSI 0x49535246u             /* "FRSI": the one before GLINT's RELEASE: this one, SCATTER where RELEASE is */
+#define SET_FRSH 0x48535246u             /* "FRSH": the one before BASS's DECAY, SUSTAIN and PULSE: this one, its sound
+                                          * FRSH_NV long (FRSH_BYTES), the settings learned numbered so */
+#define SET_FRSG 0x47535246u             /* "FRSG": the one before the bass's sequence, FRSH's first FRSH_BSEQ bytes
+                                          * (FRSG_BYTES with its padding) */
+#define FRSH_NV 127u
+#define FRSH_BYTES 224u
+#define FRSH_BSEQ (FRSH_BYTES - 2u * SC_BSEQ - 3u)
+#define FRSG_BYTES 192u
+#define SCN_MAGIC 0x6C535246u            /* "FRSl": the scenes record (with their notes, the bass and the sequence;
+                                          * names of sixteen), each scene but its bass's sequence (SC_REC) */
+#define SCN_FRSJ 0x6A535246u             /* "FRSj": the one before GLINT's RELEASE (OLD_SCN's last): this one, SCATTER
+                                          * where RELEASE is */
+#define SCN_FRSH 0x68535246u             /* "FRSh": the one before BASS's DECAY, SUSTAIN and PULSE (OLD_SCN's last) */
+#define BSQ_MAGIC 0x53425246u            /* "FRBS": the scenes' bass sequences (OBJ_BSEQ), each its notes and lengths */
+#define SHARD_MAGIC 0x6D535246u          /* "FRSm": a scene whole (scene_t: its bass's sequence after the rest), as the
+                                          * River keeps it, a shard; "FRSk" shards: the same, SCATTER where GLINT's
+                                          * RELEASE is; "FRSi": before BASS's DECAY, SUSTAIN and PULSE too (FRSH_NV
+                                          * sounds); "FRSh": those without the bass's too */
+#define SHARD_FRSK 0x6B535246u
+#define SHARD_FRSI 0x69535246u
 #define OCT_DEF (-1)                     /* the keys start at F2: drones live low */
 #define TAP_MS 350u                      /* a lit key let go sooner than this, without pressing in: it goes out */
 #define HELP_PAGES 5                     /* the help: three of buttons, the encoders, the keys */
@@ -28,12 +49,16 @@ typedef struct {
     uint32_t magic;
     uint8_t v[NSOUND];                   /* the sound as last saved */
     int8_t octave;
-    uint8_t keys, channel, scene, tempo; /* channel: the drones' (P_CANAL's value) */
+    uint8_t keys, channel, scene, tempo; /* channel: the drones' (P_CANAL's value); scene: the slot, 0 .. 15, or
+                                          * SC_NEW, 16: NEW SHARD (read % 16, as an earlier FRASIL and the River
+                                          * read it: slot 01) */
     uint8_t ch_glint, ch_bass;
     uint8_t seq[SC_SEQ];                 /* GLINT's sequence as last saved */
     uint8_t metro_off;                   /* REC's metronome off (0, as a record without it reads: on) */
-    uint8_t morph, keep;                 /* SCENES' MORPH and KEEP */
+    uint8_t morph, load;                 /* SCENES' MORPH (read no more: it starts on CUT; written 0) and LOAD */
     uint8_t learn_cc[NLEARN], learn_p[NLEARN];   /* the CCs learned and their settings (cc 0: none) */
+    uint8_t bnote[SC_BSEQ], blen[SC_BSEQ];   /* the bass's sequence as last saved */
+    uint8_t bq_on, bq_steps, bq_trans;   /* and its SEQUENCE, STEPS, TRANSPOSE */
 } settings_t;
 
 typedef struct {
@@ -41,19 +66,20 @@ typedef struct {
     uint16_t used;                       /* bit s: slot s has a saved scene */
     uint16_t rsv;
     scene_t s[NSCENES];
-} scenes_t;
+} scenes_t;                              /* (in the store as two records: scenes_save) */
 
 static settings_t set;
 static scenes_t scn;
 
 /* the records of earlier layouts, read byte by byte and made over into the new ones (the parameters added since at
- * their defaults). A scene: its name (10), the sound (nv), nch, narp, the chords (8 x 5), the arpeggio (16), the bass
- * note (if the layout has one); the scenes' record: magic, used, rsv, 16 scenes. The settings: magic, the sound,
- * octave, keys, channel (one for all: 0 OMNI), scene, tempo, the GLINT and BASS channels (if it has them), to 4 */
+ * their defaults). A scene: its name (OLD_NAME, or the layout's own), the sound (nv), nch, narp, the chords (8 x 5), the
+ * arpeggio (16), the bass note (if the layout has one); the scenes' record: magic, used, rsv, 16 scenes. The settings:
+ * magic, the sound, octave, keys, channel (one for all: 0 OMNI), scene, tempo, the GLINT and BASS channels (if it has
+ * them), to 4 (FRSH's and FRSG's: settings_over) */
 typedef struct {
     uint32_t magic;
     uint8_t nv, extra;                   /* sound parameters; extra 1: scenes a bass note, settings two more channels;
-                                          * 2: and the sequence (SC_SEQ) */
+                                          * 2: and the sequence (SC_SEQ); 3 (scenes): and names of SC_NAME */
 } layout_t;
 static const layout_t OLD_SCN[] = {
     {0x56535246u, 55, 0},                /* "FRSV": before BASS */
@@ -67,7 +93,12 @@ static const layout_t OLD_SCN[] = {
     {0x64535246u, 113, 2},               /* "FRSd": with the sequence */
     {0x65535246u, 115, 2},               /* "FRSe": with the drone's presets */
     {0x66535246u, 123, 2},               /* "FRSf": with LFO 3 */
+    {0x67535246u, 127, 2},               /* "FRSg": with GLINT's SEQ, GENERATIVE FX, its names of ten */
+    {SCN_FRSH, FRSH_NV, 3},              /* "FRSh": with names of sixteen */
+    {SCN_FRSJ, NSOUND, 3},               /* "FRSj": with BASS's DECAY, SUSTAIN and PULSE (SCATTER where GLINT's
+                                          * RELEASE is) */
 };
+#define OLD_NAME 10u                     /* their names: ten characters (NUL-padded, none when all ten were used) */
 static const layout_t OLD_SET[] = {
     {0x33535246u, 55, 0}, {0x34535246u, 64, 0}, {0x35535246u, 65, 0},   /* "FRS3", "FRS4", "FRS5" */
     {0x36535246u, 65, 1},                /* "FRS6": a channel for each track */
@@ -79,22 +110,40 @@ static const layout_t OLD_SET[] = {
     {0x43535246u, 113, 2},               /* "FRSC": with the sequence */
     {0x44535246u, 115, 2},               /* "FRSD": with the drone's presets */
     {0x45535246u, 123, 2},               /* "FRSE": with LFO 3 */
-    {0x46535246u, 127, 2},               /* "FRSF": with TYPE and GENERATIVE FX (METRONOME after the sequence) */
+    {0x46535246u, 127, 2},               /* "FRSF": with GLINT's SEQ and GENERATIVE FX (METRONOME after the sequence) */
 };
-static uint8_t raw[3600];               /* an old record as it was saved (the largest, FRSf's scenes: 3592) */
-_Static_assert(sizeof(scene_t) == 10u + NSOUND + 2u + SC_CHORDS * 5u + SC_ARP + 1u + SC_SEQ, "a scene: its bytes, no padding");
+/* the scenes in the store: OBJ_SCENES, the scenes' record as it has always been (magic, used, rsv, each scene's first
+ * SC_REC bytes), and OBJ_BSEQ, their bass sequences (magic, each scene's bnote and blen) */
+#define SC_REC (SC_NAME + NSOUND + 2u + SC_CHORDS * 5u + SC_ARP + 1u + SC_SEQ)
+#define FRSH_REC (SC_REC - (NSOUND - FRSH_NV))   /* FRSh's (its sound FRSH_NV long) */
+#define SCN_BYTES (8u + NSCENES * SC_REC)
+#define BSQ_SCENE (2u * SC_BSEQ + 3u)     /* a scene's in OBJ_BSEQ: its notes, its lengths, SEQUENCE, STEPS, TRANSPOSE */
+#define BSQ_BYTES (4u + NSCENES * BSQ_SCENE)
+static uint8_t raw[SCN_BYTES];           /* an old record as it was saved (the largest, FRSh's scenes: 3752), and the
+                                          * scenes' records as they are written and read (FRSl's: 3800) */
+static uint8_t store_old;                /* bit 0 the scenes, bit 1 the settings: made over from an earlier layout at
+                                          * load, the store's still in it (a backup saves them first) */
+_Static_assert(sizeof(scene_t) == SC_REC + BSQ_SCENE && offsetof(scene_t, bnote) == SC_REC &&
+                   offsetof(scene_t, blen) == SC_REC + SC_BSEQ && offsetof(scene_t, bq_on) == SC_REC + 2u * SC_BSEQ,
+               "a scene: its bytes, no padding, the bass's sequence last");
 _Static_assert(P_BS_DRIVE == 55 && P_BS_RESO == 64 && P_PUMP_RATE == 65 && P_SH_TONE == 77 && P_PUMP_REL == 78 &&
                    P_CH_SHAPE == 81 && P_L1_SHAPE == 94 && P_SQ_LEN == 110 && P_DR_PRESET == 113 && P_L3_SHAPE == 115 &&
-                   P_SQ_TYPE == 123,
+                   P_SQ_TYPE == 123 && P_BS_DECAY == FRSH_NV,
                "the parameters added come after the old");
-_Static_assert(sizeof(scenes_t) <= 3840u, "the scenes fit a store object (4 KiB less its 256-byte header)");
-_Static_assert(sizeof(settings_t) == 192u, "the settings: FRSF's 172 bytes, MORPH, KEEP and the learned CCs after");
+_Static_assert(SCN_BYTES <= 3840u && BSQ_BYTES <= 3840u, "the scenes' records fit a store object each (4 KiB less "
+                                                         "its 256-byte header)");
+_Static_assert(sizeof(settings_t) == 228u && offsetof(settings_t, bnote) == 192u && offsetof(settings_t, octave) ==
+                   4u + NSOUND && offsetof(settings_t, bq_trans) + 1u - offsetof(settings_t, octave) ==
+                   FRSH_BYTES - 4u - FRSH_NV && FRSH_BSEQ == 189u,
+               "the settings: FRSH's (FRSG's: FRSF's 172 bytes, MORPH, LOAD and the learned CCs; 192 with its padding; "
+               "then the bass's sequence), the sound three settings longer");
 
-_Static_assert(sizeof raw >= 8u + NSCENES * (10u + 123u + 2u + SC_CHORDS * 5u + SC_ARP + 1u + SC_SEQ), "raw holds the largest");
+_Static_assert(sizeof raw >= 8u + NSCENES * (SC_NAME + FRSH_NV + 2u + SC_CHORDS * 5u + SC_ARP + 1u + SC_SEQ), "raw holds the largest");
+static uint32_t name_bytes(const layout_t *l) { return l->extra >= 3u ? SC_NAME : OLD_NAME; }
 static uint32_t seq_bytes(const layout_t *l) { return l->extra >= 2u ? SC_SEQ : 0u; }
 static uint32_t scn_bytes(const layout_t *l)
 {
-    return 10u + l->nv + 2u + SC_CHORDS * 5u + SC_ARP + (l->extra ? 1u : 0u) + seq_bytes(l);
+    return name_bytes(l) + l->nv + 2u + SC_CHORDS * 5u + SC_ARP + (l->extra ? 1u : 0u) + seq_bytes(l);
 }
 static uint32_t set_bytes(const layout_t *l) { return (4u + l->nv + 5u + 2u * (l->extra ? 1u : 0u) + seq_bytes(l) + 3u) & ~3u; }
 static uint32_t rd32(const uint8_t *b) { return b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24; }
@@ -115,22 +164,27 @@ static struct {
     float swell_btn, swell_midi, swell_sent;
     uint32_t hold_at[NB];                /* when each button went down */
     uint32_t hold_done;                  /* bit b: b's hold has acted, or b went with something (SEL and a key, SAVE
-                                          * and a key or REC, LFO and an encoder, GLO and a CC): no tap on release */
+                                          * and a key or REC, LFO and an encoder, GLO and a CC, a page button and
+                                          * SELECT): no tap on release */
+    uint32_t hold_acted;                 /* bit b: b's hold has acted, this press (SELECT turned with it undoes it) */
     uint8_t prev_page;                   /* the page SCENES came from (SAVE again goes back) */
-    uint8_t kb_rec;                      /* KEYBOARD before REC turned it to GLINT (REC again gives it back) */
-    uint8_t rec_took;                    /* the take under way is REC's (KEYBOARD to give back) */
+    uint8_t kb_rec;                      /* KEYS before RECORD turned them to its track (RECORD OFF gives them back) */
+    uint8_t rec_took;                    /* a recording under way has the keys (KEYS to give back: rec_keys) */
     uint8_t loading_morph;               /* scene_go loading a scene to MORPH to */
     uint8_t compare;                     /* EDIT held: the scene as saved sounds, not as it is now */
     uint32_t keys_arm_at;                /* GLOBAL's KEYS: the first detent, waiting for the second */
     int8_t keys_arm;
-    uint8_t metro;                       /* REC's metronome: a tick on each beat while the sequencer records */
-    uint32_t clicks;                     /* its ticks since RECORD went on (the tests) */
+    uint8_t metro;                       /* REC's metronome: a tick on each beat while a sequencer records LIVE */
+    uint32_t clicks, hiclicks;           /* its ticks since RECORD went on, and the higher ones (the tests) */
     uint8_t help, help_page;             /* HOME held: the help on the screen until HOME again; SELECT its pages */
     uint8_t touched_enc;                 /* the encoder that turned it (EN_*: the screen's badge) */
     uint8_t touched;                     /* the parameter turned last (the screen shows it a moment) */
     uint32_t touched_at;
     uint32_t enc_at[NE];                 /* the last detent of each encoder (acceleration) */
     uint8_t engine_dirty;
+    uint8_t store_hold;                  /* a backup streaming to USB: nothing saved until it ends (app_backup_hold) */
+    uint8_t prefs_due;                   /* prefs_save asked meanwhile: done once it ends (input) */
+    uint8_t booting;                     /* app_init done, the UI not started yet (app_ui_init: the logo) */
 } st;
 
 /* the drones by chord: how many chords hold each note (a note shared by two goes out with the last), the latched
@@ -156,13 +210,15 @@ static void bit_put(uint32_t *b, int n, int on)
         b[n >> 5] &= ~(1u << (n & 31));
 }
 
-enum { K_NONE, K_LATCH, K_HOLD, K_GLINT, K_BASS };
+enum { K_NONE, K_LATCH, K_HOLD, K_GLINT, K_BASS, K_BSEQ };   /* (K_BSEQ: BASS's, into its sequence) */
 static struct {                          /* each key while it is down */
     uint8_t kind;                        /* what it started as (the mode may change while it is held) */
-    int8_t root;                         /* K_LATCH: its chord's root; K_GLINT: the glint's note; K_BASS: the bass's */
-    int8_t gbase;                        /* K_GLINT: its note without GLINT's OCTAVE (the arpeggio's, the sequence's) */
-    uint8_t gsound;                      /* K_GLINT: it sounded its glint itself (TYPE OFF, or RECORD on): its release
-                                          * lets it go, whatever TYPE and RECORD are by then */
+    int8_t root;                         /* K_LATCH: its chord's root; K_GLINT: the glint's note; K_BASS, K_BSEQ: the
+                                          * bass's */
+    int8_t gbase;                        /* K_GLINT: its note without GLINT's OCTAVE (the arpeggio's, the sequence's);
+                                          * K_BSEQ: without BASS's (the bass's sequence's) */
+    uint8_t gsound;                      /* K_GLINT: it sounded its glint itself (SEQ OFF, or RECORD on): its release
+                                          * lets it go, whatever SEQ and RECORD are by then */
     chord_t chord;                       /* K_HOLD: the chord it holds */
     uint8_t was_lit;                     /* it was latched already when pressed: a tap lets it go */
     uint8_t pressed_in;                  /* it was pressed into: no tap */
@@ -173,7 +229,7 @@ static uint32_t keys_prev, btn_prev, btn_now;
 
 static int b_held(uint32_t b) { return btn_now >> b & 1u; }
 static void b_used(uint32_t b) { st.hold_done |= 1u << b; }   /* (its release no tap) */
-static uint32_t leds_now, midleds_now, glowleds_now;   /* the buttons' lights last set (the tests) */
+static uint32_t leds_now, midleds_now, glowleds_now, keyleds_now;   /* the lights last set (the tests) */
 static volatile uint8_t oct_soft;        /* OCT- and OCT+ in their blink now (app_tick lights them) */
 static float pump_low = 1.0f;            /* the drones' lowest pump gain since the tests last asked */
 
@@ -189,6 +245,7 @@ static void lights_set(uint32_t lit, uint32_t mid, uint32_t glow, uint32_t keys,
     leds_now = lit;
     midleds_now = mid;
     glowleds_now = glow;
+    keyleds_now = keys | keys_glow;
     plat_lights(lit, keys, mid | glow, keys_glow, 2);
 #ifndef PLAT_HOST
     {
@@ -233,6 +290,68 @@ void app_tick(void)
 #endif
 }
 
+/* ------------------------------------------------------------ a pop-up --- */
+/* a warning (something did not happen, or wants a hand), or what a restore from USB did: over the whole screen
+ * (ui.c popup_screen) until SEL (OK) closes it, the page staying. Meanwhile the keys and MIDI play; the other buttons
+ * and the encoders wait (their presses, holds and turns dropped). The gestures' words stay in the header (app_say) */
+enum { POP_WARN, POP_DONE };
+static struct {
+    uint8_t on, kind, drawn;
+    uint32_t btn;                        /* the buttons down last frame: SEL pressed closes it */
+    char kicker[24], title[16], line[3][32];
+} pop;
+
+static void pop_copy(char *d, const char *s, uint32_t n)
+{
+    uint32_t i;
+    for (i = 0; s && s[i] && i + 1u < n; i++)
+        d[i] = s[i];
+    d[i] = 0;
+}
+
+static void popup(int kind, const char *kicker, const char *title, const char *l1, const char *l2, const char *l3)
+{
+    char t[128];
+    uint32_t i;
+    pop_copy(pop.kicker, kicker, sizeof pop.kicker);
+    pop_copy(pop.title, title, sizeof pop.title);
+    pop_copy(pop.line[0], l1, sizeof pop.line[0]);
+    pop_copy(pop.line[1], l2, sizeof pop.line[1]);
+    pop_copy(pop.line[2], l3, sizeof pop.line[2]);
+    pop.kind = (uint8_t)kind;
+    pop.on = 1;
+    pop.drawn = 0;
+    pop.btn = plat_buttons();            /* (SEL already down closes it only pressed again) */
+    st.hold_done = ~0u;                  /* the buttons down now: no tap, no hold */
+    if (ann_on()) {                      /* and to a screen reader (announce.c, fm1-reader) */
+        t[0] = 0;
+        text_cat(t, pop.title);
+        for (i = 0; i < 3u; i++)
+            if (pop.line[i][0]) {
+                text_cat(t, " ");
+                text_cat(t, pop.line[i]);
+            }
+        text_cat(t, " SEL: OK.");
+        ann_say(t, 0, ANN_NOW);
+    }
+}
+
+/* a pop-up up, a frame's input: SEL pressed closes it (its release and its hold nothing); the encoders' turns
+ * dropped. 1: still up (the buttons, for the rest of the frame, none) */
+static int popup_input(uint32_t btn)
+{
+    uint32_t down = btn & ~pop.btn, e;
+    pop.btn = btn;
+    for (e = 0; e < NE; e++)
+        plat_enc((int)e);
+    if (!(down >> B_SEL & 1u))
+        return 1;
+    pop.on = 0;
+    btn_prev = btn;                      /* (what is down now: used, no tap on its release) */
+    st.hold_done = ~0u;
+    return 0;
+}
+
 /* GLINT's arpeggiator's state (its code below, after the MIDI): here for the scenes */
 static struct {
     int8_t held[16];                     /* the notes the keys (or the latch, a scene) ask for, low to high */
@@ -257,8 +376,8 @@ static struct {
     uint32_t rng;
 } arp = {.sounding = -1, .rng = 0x9E3779B9u, .latch = 1, .step_n = -1};   /* latched from the start */
 
-/* GLINT's step sequencer (TYPE on SEQ): SC_SEQ steps, a byte each, its note (SQ_REST, a note, or SQ_TIE: the
- * last one held on) and SQ_ACC; LENGTH of them, played on the arpeggiator's grid (RATE, CHANCE) from the step it
+/* GLINT's step sequencer (GLINT I's SEQ on SEQ): SC_SEQ steps, a byte each, its note (SQ_REST, a note, or SQ_TIE: the
+ * last one held on) and SQ_ACC; SEQ LENGTH of them, played on the arpeggiator's grid (RATE, CHANCE) from the step it
  * started on; the keys transpose it along the scale (RECORD OFF), or write into it (STEP: at STEP, then on; LIVE: on
  * the step nearest the playhead) */
 #define SQ_REST 0u
@@ -270,15 +389,63 @@ static uint8_t seq[SC_SEQ];
 static struct {
     uint8_t run;                         /* playing */
     uint8_t restart;                     /* MIDI Start: from its first step, at the grid's top */
-    int32_t start;                       /* the grid's step its first step fell on */
+    uint8_t off;                         /* its steps this many clocks after the grid's (a key's restart on a beat) */
+    uint8_t at_trans;                    /* TRANSPOSE from that restart */
+    float at;                            /* a key's restart, due on the grid's beat at this clock (-1: none) */
+    int32_t start;                       /* its step its first step fell on (its steps: seq_stepn) */
+    int32_t n;                           /* its step at the last run */
     int32_t pos;                         /* the step played last (-1: none yet) */
     int32_t skip;                        /* a step LIVE has just written ahead of the playhead: it sounded already */
     int16_t sounding;                    /* its note sounding, -1: none */
     uint32_t off_ms;
     uint32_t steps;                      /* notes played (the tests) */
-} sq = {.pos = -1, .skip = -1, .sounding = -1};
+} sq = {.at = -1.0f, .pos = -1, .skip = -1, .sounding = -1};
 
-/* GLINT's pages: GLINT ARP only while TYPE is on ARP, the SEQ pages only while it is on SEQ */
+/* the grid as GLINT's sequence has it, its steps sq.off clocks after the grid's (wrapping at 9600 as it does), and
+ * its step at grid g */
+static float seq_grid(float g)
+{
+    g -= (float)sq.off;
+    return g < 0.0f ? g + 9600.0f : g;
+}
+static int32_t seq_stepn(float g, uint32_t ticks) { return (int32_t)(seq_grid(g) / (float)ticks); }
+
+/* the bass's sequence (SEQUENCE on): SC_BSEQ steps, each its note (bnote: SQ_REST a CUT, the bass stops; SQ_TIE a
+ * HOLD, it goes on; else a NOTE, as BASS's keys have it, without its OCTAVE) and its STEP LENGTH (blen: BQ_TICKS'
+ * index); STEPS of them in turn on the arpeggiator's grid (MIDI clock, else TEMPO), from the top with GLINT's
+ * sequence. A NOTE sounds until the next NOTE or CUT. The keys transpose it along the scale (RECORD OFF), or write
+ * into it (STEP: at STEP, then on, each the STEP LENGTH set last; LIVE: a take, each note as it was played, to the
+ * sixteenth, over what was there: bseq_take) */
+static uint8_t bnote[SC_BSEQ], blen[SC_BSEQ];
+static struct {
+    uint8_t run;                         /* playing */
+    uint8_t len;                         /* STEP: the STEP LENGTH a step written takes (K3's meanwhile), carried
+                                          * on: the step's on STEP as STEP began, then K3's as it turns */
+    uint8_t wait;                        /* begun: its first step at the grid's next step (1: GLINT's, else a
+                                          * sixteenth; 2: at once, MIDI Start's top) */
+    int8_t pos;                          /* the step playing, -1: none yet */
+    float t;                             /* MIDI clocks into it */
+    float g;                             /* the grid at the last run */
+    int8_t tn;                           /* LIVE: the take's note down (as the sequence keeps it), -1: none; its
+                                          * steps silent under it */
+    float tp, te;                        /* where in the loop it went down (clocks from its first step; before it
+                                          * began: 0), and the clocks since */
+    uint8_t open;                        /* LIVE, a take on an empty loop: from its first note's bar, a bar longer
+                                          * each time it ends (bseq_open; 0: the loop as it is, the take within it,
+                                          * round) */
+    uint8_t wrap;                        /* (open: its first note just before a bar line, its bar the next one:
+                                          * the loop comes round once more first) */
+    int8_t skip;                         /* a step the take has just written ahead of the playhead: it sounded
+                                          * already, let go (-1: none) */
+    uint8_t moved;                       /* the playhead put elsewhere in time (a take's loop opened, closed): the
+                                          * metronome on from there, no tick for it */
+    uint32_t steps;                      /* NOTEs played (the tests) */
+} bq = {.pos = -1, .tn = -1, .skip = -1};
+#define BQ_BAR 6u                        /* (BQ_TICKS' 1 BAR: a take's loop grows and closes by it) */
+#define BQ_CELLS 1024u                   /* the longest loop, in sixteenths (16 steps of 4 BARS) */
+static uint8_t bq_tl[BQ_CELLS];          /* LIVE: the loop laid out, a sixteenth a byte (bseq_lay) */
+
+/* GLINT's pages: GLINT ARP only while its SEQ (GLINT I) is on ARP, the SEQ pages only while it is on SEQ */
 static int page_hidden(uint32_t p)
 {
     if (p == PG_ARP)
@@ -286,16 +453,26 @@ static int page_hidden(uint32_t p)
     return (p == PG_SEQ || p == PG_SEQ2 || p == PG_SEQ3) && st.v[P_SQ_TYPE] != SQT_SEQ;
 }
 
+/* GLINT's keys into its sequencer (seq_key): the sequencer on, recording (from any page), or not on GLINT SEQ's pages
+ * (they transpose it). On those, RECORD OFF, each key plays its glint, as with SEQ OFF: a line tried before it is
+ * recorded, the sequence going on as it was */
+static int seq_keys(void)
+{
+    return st.v[P_SQ_TYPE] == SQT_SEQ && (st.v[P_SQ_REC] || st.page < PG_SEQ || st.page > PG_SEQ3);
+}
+
 /* -------------------------------------------------------------- engine --- */
 static float delay_s_now = 0.25f;        /* GLINT's delay time from the tempo (delay_sync) */
 
-static uint8_t saved_v[NSOUND], saved_seq[SC_SEQ];   /* (the sound as last loaded or saved: below) */
+static uint8_t saved_v[NSOUND], saved_seq[SC_SEQ], saved_bnote[SC_BSEQ], saved_blen[SC_BSEQ], saved_bq[3];   /* (the sound as last
+                                                                                               * loaded or saved) */
 static void drone_resolve(uint8_t *v);
 
 static void engine_push(void)
 {
     frasil_params_t b;
     seq_shift = 12 * (int32_t)st.v[P_GL_OCTAVE];   /* (NOTE shows the steps as they sound) */
+    bseq_shift = 12 * ((int32_t)st.v[P_BS_OCTAVE] - 2);
     if (st.compare) {                    /* EDIT held: the scene as it was saved, the rest as now */
         static uint8_t v[NPARAM];
         uint32_t i;
@@ -341,6 +518,15 @@ static int bass_fold(int note)            /* C1 at the lowest: under it, nothing
     return note > 127 ? 127 : note;
 }
 
+/* BASS II's PULSE (pulse_run): the grid at its last run; where on it the bass's note was played last, and whether that
+ * was a moment ago (three clocks at most: fresh); the notes played again, and the division the last fell on (the
+ * tests) */
+static struct {
+    float g, ng, at;
+    uint8_t fresh;
+    uint32_t n;
+} bp;
+
 static void bass_play(int note, uint32_t vel)
 {
     note = bass_fold(note);
@@ -348,6 +534,8 @@ static void bass_play(int note, uint32_t vel)
         frasil_bass_pressure(0.0f);      /* another note: its own key's pressure, from nothing */
     bass_note = (int8_t)note;
     frasil_bass_on(bass_note, (float)vel * (1.0f / 127.0f));
+    bp.ng = arp.tick;
+    bp.fresh = 1;
 }
 
 static void bass_stop(void)
@@ -381,7 +569,7 @@ static void release_all(void)
     midi_glints_off();
     frasil_glint_off(-1);                /* (and every glint still ringing: keys', SPARKLE's) */
     for (k = 0; k < NKEYS; k++)
-        if (key[k].kind == K_BASS)
+        if (key[k].kind == K_BASS || key[k].kind == K_BSEQ)
             key[k].kind = K_NONE;
 }
 
@@ -435,6 +623,11 @@ static void sound_mark(void)
         saved_v[i] = kept_v(i);
     for (i = 0; i < SC_SEQ; i++)
         saved_seq[i] = seq[i];
+    memcpy(saved_bnote, bnote, sizeof bnote);
+    memcpy(saved_blen, blen, sizeof blen);
+    saved_bq[0] = st.v[P_BQ_ON];
+    saved_bq[1] = st.v[P_BQ_STEPS];
+    saved_bq[2] = st.v[P_BQ_TRANS];
     st.dirty = 0;
 }
 
@@ -447,7 +640,8 @@ static int sound_changed(void)
     for (i = 0; i < SC_SEQ; i++)
         if (seq[i] != saved_seq[i])
             return 1;
-    return 0;
+    return memcmp(bnote, saved_bnote, sizeof bnote) || memcmp(blen, saved_blen, sizeof blen) ||
+           saved_bq[0] != st.v[P_BQ_ON] || saved_bq[1] != st.v[P_BQ_STEPS] || saved_bq[2] != st.v[P_BQ_TRANS];
 }
 
 /* the sequencer's settings that are its steps' (NOTE and ACCENT show the step on STEP), CLEAR, MODE */
@@ -465,14 +659,18 @@ static void seq_note_off(void)
     sq.sounding = -1;
 }
 
-static void seq_begin(void)              /* from its first step, at the grid's next */
+static void seq_begin(void)              /* from its first step, at the grid's next (its steps the grid's again) */
 {
     seq_note_off();
     sq.run = 1;
+    sq.off = 0;
+    sq.at = -1.0f;
+    sq.n = arp.step_n;
     sq.start = arp.step_n + 1;
     sq.pos = sq.skip = -1;
 }
 
+static void rec_keys(int p);
 static uint8_t seq_prev[SC_SEQ], seq_had;   /* the sequence before the last take or CLEAR (UNDO) */
 static void seq_keep(void)
 {
@@ -500,6 +698,7 @@ static void seq_set(int p, int32_t x)
         memset(seq, 0, sizeof seq);
         st.v[P_SQ_NEW] = 0;
         st.v[P_SQ_REC] = 2;
+        rec_keys(P_SQ_REC);
         if (!sq.run)
             seq_begin();
         seq_view();
@@ -515,7 +714,7 @@ static void seq_set(int p, int32_t x)
             seq_view();
             app_say("SEQUENCE", "UNDONE");
         } else {
-            app_say("UNDO", "NOTHING YET");
+            app_say("UNDO TAKE", "NOTHING YET");
         }
     } else if (p == P_SQ_TYPE) {
         if (x == (int32_t)SQT_SEQ)
@@ -523,12 +722,537 @@ static void seq_set(int p, int32_t x)
         else {
             seq_note_off();
             sq.run = 0;
-            st.v[P_SQ_REC] = 0;          /* (no sequencer, nothing to record into) */
-            st.rec_took = 0;
+            if (st.v[P_SQ_REC]) {        /* (no sequencer, nothing to record into) */
+                st.v[P_SQ_REC] = 0;
+                rec_keys(P_SQ_REC);
+            }
         }
         arp.paused = 0;
         if (page_hidden(st.page))        /* (its pages gone) */
             st.page = PG_GLINT;
+    }
+    st.dirty = (uint8_t)sound_changed();
+}
+
+/* --------------------------------------------------- the bass's sequence --- */
+/* NOTE and STEP LENGTH show the step on STEP. Recording on STEP, STEP LENGTH shows the length carried on instead
+ * (bq.len), so that it always says what the next key will write: turned, it sets that, and the step on STEP's own at
+ * once (bseq_set); NOTE turned changes the note alone. The step's own length the strip shows, each step as wide as it
+ * is long */
+static void bseq_view(void)
+{
+    uint32_t c = st.v[P_BQ_STEP] % SC_BSEQ;
+    st.v[P_BQ_NOTE] = bnote[c] & 127u;
+    st.v[P_BQ_LEN] = (uint8_t)((st.v[P_BQ_REC] == 1u ? bq.len : blen[c]) % NBQLEN);
+}
+
+static uint32_t bseq_ticks(int32_t i) { return BQ_TICKS[blen[i] % NBQLEN]; }   /* step i's length, in MIDI clocks */
+
+/* a step's note as it plays: TRANSPOSE's steps along the scale, BASS's OCTAVE down (bass_play folds it up to C1) */
+static int bseq_note(uint32_t b)
+{
+    return scale_shift((int)(b & 127u), (int)st.v[P_BQ_TRANS] - 14, st.v) + 12 * ((int)st.v[P_BS_OCTAVE] - 2);
+}
+
+/* the newest BASS key down into the sequence (else MIDI's last note), as the sequence keeps it; -1: none */
+static int bseq_held(void)
+{
+    int32_t k, last = -1;
+    for (k = 0; k < (int32_t)NKEYS; k++)
+        if (key[k].kind == K_BSEQ && (last < 0 || key[k].t - key[last].t < 0x80000000u))
+            last = k;
+    if (last >= 0)
+        return key[last].gbase;
+    return mb_n ? mbass[mb_n - 1] - 12 * ((int)st.v[P_BS_OCTAVE] - 2) : -1;
+}
+
+/* the playhead in the loop, in MIDI clocks from its first step; put back at clock c once the steps are written
+ * again (the same time, whatever step it falls in now) */
+static float bseq_at(void)
+{
+    float t = bq.t;
+    int32_t i;
+    for (i = 0; i < bq.pos; i++)
+        t += (float)bseq_ticks(i);
+    return t;
+}
+
+static void bseq_seek(float c)
+{
+    int32_t i;
+    for (i = 0; i < (int32_t)st.v[P_BQ_STEPS] && c >= (float)bseq_ticks(i); i++)
+        c -= (float)bseq_ticks(i);
+    bq.pos = (int8_t)i;
+    bq.t = c;
+}
+
+static int bseq_playing(void) { return bq.run && !bq.wait && bq.pos >= 0; }   /* (begun: a playhead) */
+
+/* ------------------------------------------------------- a LIVE take --- */
+/* A take keeps each note as it was played, its start and its length to the sixteenth (at least one), laid over the
+ * loop once it ends (let go, or another key taking over): the loop laid out a sixteenth a cell (bseq_lay), the note
+ * over what was there (bseq_lay_note), then written back into steps (bseq_fold), each stretch in as few as STEP
+ * LENGTH's lengths make it, the longest first: a 5/16, a NOTE of 1/4 and a HOLD of 1/16 */
+
+/* the loop (its STEPS steps) laid out in bq_tl: a NOTE where it starts, SQ_TIE on through it and its HOLDs, SQ_REST
+ * where nothing sounds (a CUT, a HOLD after it; at its start, after its last steps). Its length in cells */
+static uint32_t bseq_lay(void)
+{
+    uint32_t i, k, c, b, n = 0;
+    int quiet = 1;
+    for (i = 0; i <= st.v[P_BQ_STEPS]; i++)   /* (what its end leaves sounding, round to its first steps) */
+        if ((b = bnote[i] & 127u) != SQ_TIE)
+            quiet = b == SQ_REST;
+    for (i = 0; i <= st.v[P_BQ_STEPS]; i++) {
+        if ((b = bnote[i] & 127u) != SQ_TIE)
+            quiet = b == SQ_REST;
+        for (c = bseq_ticks((int32_t)i) / 6u, k = 0; k < c; k++)
+            bq_tl[n++] = (uint8_t)(quiet ? SQ_REST : k || b == SQ_TIE ? SQ_TIE : b);
+    }
+    return n;
+}
+
+/* bq_tl's n cells back into steps (write: else only counted): each stretch, a note on through its TIEs or a silence,
+ * in as few steps as STEP LENGTH's lengths make it, the longest first (the fewest so, whatever its length): its NOTE
+ * then HOLDs, or CUTs; the steps past them as CLEAR leaves them, STEPS theirs. How many, 0: more than the SC_BSEQ
+ * there are (nothing written) */
+static uint32_t bseq_fold(uint32_t n, int write)
+{
+    uint32_t i, e, c, k, m = 0;
+    for (i = 0; i < n; i = e) {
+        uint8_t h = bq_tl[i], f = h == SQ_REST ? SQ_REST : SQ_TIE;
+        for (e = i + 1u; e < n && bq_tl[e] == f; e++)
+            ;
+        for (c = e - i; c; c -= BQ_TICKS[k] / 6u, m++) {
+            for (k = NBQLEN - 1u; BQ_TICKS[k] / 6u > c; k--)
+                ;
+            if (m == SC_BSEQ)
+                return 0;
+            if (write) {
+                bnote[m] = c == e - i ? h : f;
+                blen[m] = (uint8_t)k;
+            }
+        }
+    }
+    if (write) {
+        memset(bnote + m, SQ_REST, SC_BSEQ - m);
+        memset(blen + m, 0, SC_BSEQ - m);
+        st.v[P_BQ_STEPS] = (uint8_t)(m - 1u);
+        bseq_view();
+        st.dirty = (uint8_t)sound_changed();
+    }
+    return m;
+}
+
+/* a take's note over the loop's n cells: its NOTE at cell s, on through d of them (round the loop's end). What it
+ * cuts short does not go on after it from its middle: CUT till the next NOTE or CUT there was */
+static void bseq_lay_note(uint32_t n, uint32_t s, uint32_t d, uint8_t note)
+{
+    uint32_t i, j;
+    for (i = 0; i < d; i++)
+        bq_tl[(s + i) % n] = i ? SQ_TIE : note;
+    for (j = (s + d) % n; d < n && bq_tl[j] == SQ_TIE; j = (j + 1u) % n, d++)
+        bq_tl[j] = SQ_REST;
+}
+
+/* legato, to fit: the silence from cell j on held by the note before it, as long as it lasts (round the loop's end,
+ * if round); and where the silence just before cell s begins */
+static void bseq_join(uint32_t n, uint32_t j, int round)
+{
+    uint32_t k;
+    if ((!j && !round) || bq_tl[j ? j - 1u : n - 1u] == SQ_REST)
+        return;                          /* (nothing before it to hold on) */
+    for (k = 0; k < n && bq_tl[j] == SQ_REST; k++) {
+        bq_tl[j] = SQ_TIE;
+        if (++j == n && !round)
+            break;
+        j %= n;
+    }
+}
+
+static uint32_t bseq_gap(uint32_t n, uint32_t s, int round)
+{
+    uint32_t k;
+    for (k = 0; k < n && (s || round) && bq_tl[s ? s - 1u : n - 1u] == SQ_REST; k++)
+        s = s ? s - 1u : n - 1u;
+    return s;
+}
+
+/* a take's note into the loop: from cell s, d long (round the loop's end; an open take's loop grown to the bar it
+ * ends in). More steps than there are: legato, to fit, the silence after it held on by it, else the one before it by
+ * the note before, else both (open, the one before only: what comes after it is not played yet): BASS SEQ FULL,
+ * JOINED LEGATO; still too many, it is not kept, the earliest stay (BASS SEQ FULL, NOT RECORDED). The playhead on
+ * where it was in time; ahead (let go before its start came): its step sounded already (bq.skip) */
+static void bseq_take(uint32_t s, uint32_t d, uint8_t note, int ahead)
+{
+    float at = bseq_playing() ? bseq_at() : -1.0f;
+    uint32_t n = bseq_lay(), e = n, m = 0, k, c;
+    int32_t i;
+    if (bq.open) {
+        d = s + d <= BQ_CELLS ? d : s < BQ_CELLS ? BQ_CELLS - s : 0u;
+        e = (s + d + 15u) / 16u * 16u;
+        e = e > n ? e : n;
+    } else {
+        s %= n;
+        d = d < n ? d : n;
+    }
+    for (k = 0; d && !m && k < (bq.open ? 2u : 4u); k++) {
+        if (k)
+            bseq_lay();
+        memset(bq_tl + n, SQ_REST, e - n);
+        bseq_lay_note(e, s, d, note);
+        if (!bq.open && (k & 1u))
+            bseq_join(e, (s + d) % e, 1);
+        if (bq.open ? k : k >> 1)
+            bseq_join(e, bseq_gap(e, s, !bq.open), !bq.open);
+        m = bseq_fold(e, 0);
+    }
+    if (!m) {
+        app_say("BASS SEQ FULL", "NOT RECORDED");
+        return;
+    }
+    if (k > 1u)
+        app_say("BASS SEQ FULL", "JOINED LEGATO");
+    bseq_fold(e, 1);
+    if (at >= 0.0f)
+        bseq_seek(at);
+    bq.skip = -1;
+    for (i = 0, c = 0; ahead && c < s && i < (int32_t)SC_BSEQ; i++)
+        c += bseq_ticks(i) / 6u;
+    if (ahead && c == s)
+        bq.skip = (int8_t)i;
+}
+
+/* the step the playhead began a moment ago (at most `late` clocks, 3 at most), silent under a key: its NOTE now */
+static void bseq_catch(float late)
+{
+    uint32_t b;
+    if (!bseq_playing() || bq.t > late || bq.t >= 3.0f)
+        return;
+    b = bnote[bq.pos] & 127u;
+    if (b != SQ_REST && b != SQ_TIE) {
+        bass_play(bseq_note(b), 100);
+        bq.steps++;
+    }
+}
+
+/* the take's note ends (let go; legato: another taking over, this one to where that one starts, to the sixteenth),
+ * into the loop. Let go after its end (by less than half a sixteenth), the step begun there since sounds now */
+static void bseq_end(int legato)
+{
+    float e = bq.tp + bq.te, late;
+    int32_t s = (int32_t)fm_floorf(bq.tp / 6.0f + 0.5f);
+    int32_t d = (int32_t)fm_floorf((legato ? e : bq.te) / 6.0f + 0.5f) - (legato ? s : 0);
+    uint8_t note = (uint8_t)bq.tn;
+    bq.tn = -1;
+    if (legato && d < 1)                 /* (the next one starts where it did: it replaces it) */
+        return;
+    d = d < 1 ? 1 : d;
+    bseq_take((uint32_t)(s < 0 ? 0 : s), (uint32_t)d, note, e <= 6.0f * (float)s);
+    late = e - 6.0f * (float)(s + d);
+    if (!legato && late >= 0.0f)
+        bseq_catch(late);
+}
+
+/* the take ends: RECORD off LIVE, the sequence stopped or begun again. Its note down ends now; an open take closes:
+ * its loop to the bar line nearest the playhead, past its last note's start (a note still down on to that line), the
+ * bar begun past it gone, the playhead on in it as far into its turn */
+static void bseq_close(void)
+{
+    if (bseq_playing() && bq.open) {
+        float at = bseq_at(), l;
+        uint32_t n = bseq_lay(), e = (uint32_t)(at / 96.0f + 0.5f) * 16u, i;
+        uint32_t s = (uint32_t)fm_floorf(bq.tp / 6.0f + 0.5f);   /* (a note down: its start) */
+        for (i = n; i && (bq_tl[i - 1u] == SQ_REST || bq_tl[i - 1u] == SQ_TIE); i--)
+            ;
+        if (bq.tn >= 0 && i < s + 1u)
+            i = s + 1u;
+        if (e < i)
+            e = (i + 15u) / 16u * 16u;
+        e = e < 16u ? 16u : e;
+        if (bq.tn >= 0 && s < e) {
+            uint8_t note = (uint8_t)bq.tn;
+            bq.tn = -1;
+            bseq_take(s, e - s, note, 0);
+            n = bseq_lay();
+        }
+        if (e < n && !bseq_fold(e, 0))   /* (the bar begun past it: it stays if the loop does not fit without it) */
+            e = n;
+        else if (e < n)
+            bseq_fold(e, 1);
+        l = 6.0f * (float)e;
+        bq.open = 0;
+        bseq_seek(at - l * fm_floorf(at / l));
+        if (at >= l) {                   /* (round to its turn's start: its NOTE begun a moment ago, now) */
+            bq.moved = 1;
+            bseq_catch(3.0f);
+        }
+    } else if (bseq_playing() && bq.tn >= 0) {
+        bseq_end(0);
+    }
+    bq.tn = -1;
+    bq.open = bq.wrap = 0;
+}
+
+/* LIVE, a note on an empty loop (no NOTE in what it plays): a take of its own (bq.open), from the bar the note falls
+ * in, to the sixteenth (from the loop's first step, a bar at a time, or its next turn's): the loop a bar of CUT from
+ * that bar's line, the playhead where it was in it, a bar longer each time it ends (bseq_run) till the take closes.
+ * Where the note went down in it (just before the line: less than 0, the loop round once more first, bq.wrap) */
+static float bseq_open(float at)
+{
+    float l = 0.0f, q = 6.0f * fm_floorf(at / 6.0f + 0.5f), o;
+    uint32_t i;
+    for (i = 0; i <= st.v[P_BQ_STEPS]; i++)
+        l += (float)bseq_ticks((int32_t)i);
+    o = q >= l ? l : 96.0f * fm_floorf(q / 96.0f);
+    memset(bnote, SQ_REST, sizeof bnote);
+    memset(blen, 0, sizeof blen);
+    blen[0] = BQ_BAR;
+    st.v[P_BQ_STEPS] = 0;
+    bq.open = 1;
+    bq.wrap = at < o;
+    if (bseq_playing()) {
+        bq.pos = 0;
+        bq.t = at - o + (bq.wrap ? 96.0f : 0.0f);
+        bq.moved = 1;
+    }
+    bseq_view();
+    st.dirty = (uint8_t)sound_changed();
+    return at - o;
+}
+
+static void bseq_begin(void)             /* from its first step, at the grid's next (a take under way closed) */
+{
+    bseq_close();
+    bq.run = bq.wait = 1;
+    bq.pos = bq.skip = -1;
+}
+
+static void bseq_stop(void)              /* its note let go (a take under way closed) */
+{
+    bseq_close();
+    if (bq.run)
+        bass_stop();
+    bq.run = 0;
+    bq.pos = -1;
+}
+
+/* step i begins: its NOTE plays (GLIDE from the last), its CUT stops the bass, a HOLD changes nothing. LIVE, none of
+ * it while the take's note is down (it has the bass), nor on the step a note just let go has written ahead */
+static void bseq_step(int32_t i)
+{
+    uint32_t b = bnote[i] & 127u;
+    int quiet = bq.tn >= 0 || i == bq.skip;
+    bq.pos = (int8_t)i;
+    bq.skip = -1;
+    if (quiet)
+        return;
+    if (b == SQ_REST) {
+        bass_stop();
+    } else if (b != SQ_TIE) {
+        bass_play(bseq_note(b), 100);
+        bq.steps++;
+    }
+}
+
+/* an open take come to its loop's end: a bar of CUT more (0: no room, the take closes there) */
+static int bseq_grow(void)
+{
+    uint32_t n = bseq_lay();
+    if (n + 16u > BQ_CELLS)
+        return 0;
+    memset(bq_tl + n, SQ_REST, 16u);
+    if (!bseq_fold(n + 16u, 0))
+        return 0;
+    bseq_fold(n + 16u, 1);
+    return 1;
+}
+
+/* on the grid, after the arpeggiator has moved it (arp.tick): the steps that began since the last run; at the loop's
+ * end round, an open take's a bar longer (no room: BASS SEQ FULL, LOOP CLOSED, round from there) */
+static void bseq_run(void)
+{
+    float g = arp.tick, dg = g - bq.g, b;
+    if (dg < -4800.0f)                   /* (the grid wraps at 9600) */
+        dg += 9600.0f;
+    else if (dg < 0.0f)
+        dg = 0.0f;
+    bq.g = g;
+    if (!bq.run)
+        return;
+    if (bq.wait == 1) {                  /* begun: on the grid's next step, GLINT's while its sequence runs (the two
+                                          * from the top together), else the next sixteenth */
+        float h = g;
+        b = 6.0f;
+        if (st.v[P_SQ_TYPE] == SQT_SEQ && sq.run) {
+            b = (float)ARP_TICKS[st.v[P_ARP_RATE] % 10u];
+            h = seq_grid(g);             /* (its steps where GLINT's sequence has them) */
+        }
+        if (fm_floorf(h / b) == fm_floorf((h - dg) / b))
+            return;
+        bq.t = h - b * fm_floorf(h / b);
+    } else if (bq.wait == 2) {           /* MIDI Start: from the grid's top */
+        bq.t = g;
+    } else {
+        bq.t += dg;
+    }
+    if (bq.tn >= 0)                      /* (the take's note down: its time, from the first step if it came first) */
+        bq.te = bq.wait ? bq.t : bq.te + dg;
+    if (bq.wait) {
+        bq.wait = 0;
+        bseq_step(0);
+    }
+    while (bq.t >= (float)bseq_ticks(bq.pos)) {
+        float c = bseq_at();
+        bq.t -= (float)bseq_ticks(bq.pos);
+        if (bq.pos < (int32_t)st.v[P_BQ_STEPS]) {
+            bseq_step(bq.pos + 1);
+        } else if (bq.open && !bq.wrap && bseq_grow()) {
+            bseq_seek(c);
+        } else {
+            if (bq.open && !bq.wrap) {
+                bq.open = 0;
+                app_say("BASS SEQ FULL", "LOOP CLOSED");
+            }
+            bq.wrap = 0;
+            bseq_step(0);
+        }
+    }
+}
+
+/* BASS II's PULSE: while the bass's note sounds (a key held or latched, a MIDI note, a NOTE of its sequence: bass_note),
+ * on each of PULSE's divisions of the grid (MIDI clock, else TEMPO: arp.tick, from its beats), the note let go a moment
+ * and played again from its ATTACK (frasil_bass_pulse: the same note and velocity, its pressure on, no glide). The gap:
+ * a quarter of the division, 8 ms at least, 60 ms at most (a short breath, whatever the tempo: at 120 BPM 16 ms on an
+ * eighth of a beat, 31 ms on a quarter, 60 ms from half a beat on). A note played less than a clock before the
+ * division, or as it comes (a key; a step of the bass's sequence beginning there: bseq_run, just before), is its attack
+ * already: none then. On a CUT nothing sounds: none */
+static void pulse_run(void)
+{
+    uint32_t r = st.v[P_BS_PULSE] % NPULSE;
+    float g = arp.tick, was = bp.g, per = (float)PULSE_TICKS[r], at, ms_tick, gap;
+    int fresh = bp.fresh;
+    bp.g = g;
+    if (bp.fresh) {
+        float d = g - bp.ng;
+        bp.fresh = (d < 0.0f ? d + 9600.0f : d) <= 3.0f;   /* (the grid wraps at 9600) */
+    }
+    if (!r || bass_note < 0 || fm_floorf(g / per) == fm_floorf(was / per))
+        return;
+    at = per * fm_floorf(g / per);       /* the division just come */
+    if (fresh) {
+        float d = at - bp.ng;
+        d = d > 4800.0f ? d - 9600.0f : d < -4800.0f ? d + 9600.0f : d;
+        if (d <= 1.0f)
+            return;
+    }
+    ms_tick = plat_ms() - arp.clk_at < 500u && arp.clk_ms > 1.0f ? arp.clk_ms : 2500.0f / (float)(st.v[P_TEMPO] + 30u);
+    gap = 0.25f * per * ms_tick;
+    frasil_bass_pulse((gap < 8.0f ? 8.0f : gap > 60.0f ? 60.0f : gap) * 0.001f);
+    bp.n++;
+    bp.at = at;
+}
+
+/* a BASS key or note while the sequence is on (n: as the sequence keeps it, without OCTAVE; sound: as it sounds).
+ * RECORD OFF: the sequence transposed from its first NOTE to this one along the scale; STEP: written at STEP, the
+ * length carried on with it (bq.len), then on (it sounds while down); LIVE: it sounds at once and, the sequence
+ * running, goes into the take from where it went down (the one down before it ends there, legato; on an empty loop,
+ * the take's own loop from its bar: bseq_open) */
+static void bseq_key(int n, int sound, uint32_t vel)
+{
+    uint32_t len = st.v[P_BQ_STEPS] + 1u, i;
+    uint8_t b = (uint8_t)(n < 1 ? 1 : n > 126 ? 126 : n);
+    if (st.v[P_BQ_REC] == 1u) {
+        uint32_t c = st.v[P_BQ_STEP] % len;
+        bnote[c] = b;
+        blen[c] = bq.len;
+        st.v[P_BQ_STEP] = (uint8_t)((c + 1u) % len);
+        bseq_view();
+        bass_play(sound, vel);
+    } else if (st.v[P_BQ_REC] == 2u) {
+        bass_play(sound, vel);
+        if (bq.run) {
+            float p;
+            if (bq.tn >= 0)
+                bseq_end(1);
+            p = bseq_playing() ? bseq_at() - (bq.wrap ? 96.0f : 0.0f) : 0.0f;   /* (the take's bar the next) */
+            for (len = st.v[P_BQ_STEPS] + 1u, i = 0; i < len; i++)
+                if ((bnote[i] & 127u) != SQ_REST && (bnote[i] & 127u) != SQ_TIE)
+                    break;
+            if (i == len && !bq.open)
+                p = bseq_open(p);
+            bq.tn = (int8_t)b;
+            bq.tp = p;
+            bq.te = 0.0f;
+        }
+    } else {
+        for (i = 0; i < len; i++)        /* from the first NOTE (not a CUT, not a HOLD) */
+            if ((bnote[i] & 127u) != SQ_REST && (bnote[i] & 127u) != SQ_TIE)
+                break;
+        if (i < len)
+            st.v[P_BQ_TRANS] = (uint8_t)clamp(14 + scale_steps(bnote[i] & 127, n, st.v), 0, 28);
+    }
+    st.dirty = (uint8_t)sound_changed();
+}
+
+/* its key or note let go, the one sounding (RECORD OFF, the sequence running: the bass is its own): its sound stops;
+ * LIVE, another still down takes over, legato, else the take's note ends there (bseq_end) */
+static void bseq_up(int sound)
+{
+    int h;
+    if (bass_note != bass_fold(sound) || (!st.v[P_BQ_REC] && bq.run))
+        return;
+    if (st.v[P_BQ_REC] == 2u && (h = bseq_held()) >= 0) {
+        bseq_key(h, h + 12 * ((int)st.v[P_BS_OCTAVE] - 2), 100);
+        return;
+    }
+    bass_stop();
+    if (bq.tn >= 0)
+        bseq_end(0);
+}
+
+static void bseq_set(int p, int32_t x)
+{
+    uint32_t c = st.v[P_BQ_STEP] % SC_BSEQ;
+    if (p == P_BQ_NOTE || p == P_BQ_LEN || p == P_BQ_STEPS)   /* (a take's loop as it is turned now: round) */
+        bq.open = bq.wrap = 0;
+    if (p == P_BQ_STEP) {
+        bseq_view();
+    } else if (p == P_BQ_NOTE) {
+        bnote[c] = (uint8_t)x;
+    } else if (p == P_BQ_LEN) {
+        blen[c] = (uint8_t)x;
+        bq.len = (uint8_t)x;             /* (STEP: carried on from here) */
+    } else if (p == P_BQ_CLEAR && x >= 2) {   /* turned twice: every step a CUT, a sixteenth long (a take begins
+                                              * again with the next note) */
+        memset(bnote, 0, sizeof bnote);
+        memset(blen, 0, sizeof blen);
+        bq.tn = -1;
+        bq.open = bq.wrap = 0;
+        st.v[P_BQ_CLEAR] = 0;
+        bseq_view();
+        app_say("BASS SEQUENCE", "CLEARED");
+    } else if (p == P_BQ_REC) {
+        if (x && !st.v[P_BQ_ON]) {       /* (RECORD: into the sequence, on) */
+            st.v[P_BQ_ON] = 1;
+            bseq_begin();
+        }
+        if (x != 2)                      /* (off LIVE: the take ends) */
+            bseq_close();
+        if (x == 1)                      /* STEP: the length carried on, the step on STEP's to begin with */
+            bq.len = (uint8_t)(blen[c] % NBQLEN);
+        bseq_view();
+    } else if (p == P_BQ_ON) {
+        if (x)
+            bseq_begin();
+        else {
+            bseq_stop();
+            if (st.v[P_BQ_REC]) {        /* (nothing to record into) */
+                st.v[P_BQ_REC] = 0;
+                bseq_view();
+                rec_keys(P_BQ_REC);
+            }
+        }
     }
     st.dirty = (uint8_t)sound_changed();
 }
@@ -538,9 +1262,8 @@ static struct {
     uint8_t on;
     uint32_t t0, dur;
     float d[NSOUND];
-    char name[11];
+    char name[SC_NAME + 1];
 } mo;
-static void scene_undo(void);
 
 static void param_set(int p, int32_t x)
 {
@@ -560,10 +1283,8 @@ static void param_set(int p, int32_t x)
         st.engine_dirty = 1;
     if (p == P_SQ_TYPE || (p >= P_SQ_STEP && p <= P_SQ_CLEAR) || p == P_SQ_NEW || p == P_SQ_UNDO)
         seq_set(p, x);
-    if (p == P_SC_UNDO && x >= 2) {
-        st.v[P_SC_UNDO] = 0;
-        scene_undo();
-    }
+    if (p >= P_BQ_STEP && p <= P_BQ_TRANS)
+        bseq_set(p, x);
     if (p < NSOUND)                      /* a hand on it: out of the scene's MORPH (a preset: all it sets) */
         morph_off[p] = mo.d[p] = 0.0f;
     if (p == P_DR_PRESET) {
@@ -577,8 +1298,8 @@ static void param_set(int p, int32_t x)
         morph_off[P_GL_ATTACK] = mo.d[P_GL_ATTACK] = morph_off[P_GL_PING] = mo.d[P_GL_PING] = 0.0f;
         morph_off[P_GL_SUSTAIN] = mo.d[P_GL_SUSTAIN] = 0.0f;
     }
-    if (p == P_SQ_REC && !x)
-        st.rec_took = 0;
+    if (p == P_SQ_REC || p == P_BQ_REC)
+        rec_keys(p);
     if (p == P_DR_PRESET) {              /* a preset, or CUSTOM back */
         drone_apply((uint32_t)x);
     } else if (drone_of[p] >= 0) {       /* a drone's setting turned: CUSTOM from here, the rest as they were */
@@ -595,6 +1316,25 @@ static void param_set(int p, int32_t x)
         st.dirty = (uint8_t)sound_changed();
         st.engine_dirty = 1;
     }
+}
+
+/* RECORD p turned (GLINT's or the bass's; by REC, K4, NEW TAKE, or gone with its sequencer), STEP and LIVE alike:
+ * a recording begun has the keys at once, on its track (KEYS as they were kept, st.kb_rec); the other still
+ * recording, they go to it; neither, back to what they played */
+static void rec_keys(int p)
+{
+    int g = st.v[P_SQ_REC] != 0, b = st.v[P_BQ_REC] != 0;
+    if (!g && !b) {
+        if (st.rec_took)
+            param_set(P_KB, st.kb_rec);
+        st.rec_took = 0;
+        return;
+    }
+    if (!st.rec_took) {
+        st.kb_rec = st.v[P_KB];
+        st.rec_took = 1;
+    }
+    param_set(P_KB, st.v[p] ? (p == P_BQ_REC ? 2 : 1) : g ? 1 : 2);
 }
 
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
@@ -640,9 +1380,15 @@ static void scene_notes_take(scene_t *sc)
     sc->narp = arp.n > SC_ARP ? (uint8_t)SC_ARP : arp.n;
     for (i = 0; i < sc->narp; i++)
         sc->arp[i] = arp.held[i];
-    sc->bass = st.v[P_KEYS] ? -1 : bass_note;   /* held notes are not kept, as the drones' are not */
+    sc->bass = st.v[P_KEYS] || st.v[P_BQ_ON] ? -1 : bass_note;   /* held notes are not kept, as the drones' are not
+                                                                  * (nor the bass's sequence's) */
     for (i = 0; i < SC_SEQ; i++)
         sc->seq[i] = seq[i];
+    memcpy(sc->bnote, bnote, sizeof bnote);
+    memcpy(sc->blen, blen, sizeof blen);
+    sc->bq_on = st.v[P_BQ_ON];
+    sc->bq_steps = st.v[P_BQ_STEPS];
+    sc->bq_trans = st.v[P_BQ_TRANS];
 }
 
 /* a scene's notes, played (everything let go before): the drones latched again, the arpeggio (latched) on its
@@ -679,12 +1425,9 @@ static void scene_notes_play(const scene_t *sc)
         bass_play(sc->bass, 100);
 }
 
-static void scene_get(uint32_t s, scene_t *out)
+static void factory_get(uint32_t s, scene_t *out)   /* slot s with nothing saved in it: a factory scene, or the
+                                                     * first one named by its number */
 {
-    if (scn.used >> s & 1u) {
-        *out = scn.s[s];
-        return;
-    }
     *out = FACTORY[s < NFACTORY ? s : 0];
     glint_preset(out->v, out->v[P_GL_PRESET]);   /* a factory scene names its GLINT preset */
     arp_defaults(out->v);
@@ -696,29 +1439,82 @@ static void scene_get(uint32_t s, scene_t *out)
     }
 }
 
-static void scene_load(uint32_t s)
+/* a scene's name as text, t SC_NAME + 1 long (all sixteen used: no NUL in the scene) */
+static char *name_text(const scene_t *sc, char *t)
 {
-    scene_t sc;
     uint32_t i;
-    scene_get(s, &sc);
+    for (i = 0; i < SC_NAME && sc->name[i]; i++)
+        t[i] = sc->name[i];
+    t[i] = 0;
+    return t;
+}
+
+/* a scene's bass sequence empty: every step a CUT of a sixteenth, SEQUENCE off, all sixteen steps, not transposed */
+static void bseq_empty(scene_t *sc)
+{
+    memset(sc->bnote, 0, 2u * SC_BSEQ);
+    sc->bq_on = 0;
+    sc->bq_steps = PD[P_BQ_STEPS].def;
+    sc->bq_trans = PD[P_BQ_TRANS].def;
+}
+
+static void new_shard(scene_t *out)      /* NEW SHARD (params.c): made as a factory scene is, then its own settings */
+{
+    uint32_t i;
+    *out = NEW_SHARD;
+    glint_preset(out->v, out->v[P_GL_PRESET]);
+    arp_defaults(out->v);
+    later_defaults(out->v, P_BS_DRIVE);
+    for (i = 0; i < sizeof NEW_SHARD_P / sizeof NEW_SHARD_P[0]; i++)
+        out->v[NEW_SHARD_P[i][0]] = NEW_SHARD_P[i][1];
+}
+
+static void scene_get(uint32_t s, scene_t *out)   /* slot s, or NEW SHARD (SC_NEW) */
+{
+    if (s >= NSCENES)
+        new_shard(out);
+    else if (scn.used >> s & 1u)
+        *out = scn.s[s];
+    else
+        factory_get(s, out);
+}
+
+/* a scene's sound and what it plays, taken as a load takes them (from a slot: scene_load; a shard the River plays:
+ * scene_audition) */
+static void scene_take(const scene_t *sc)
+{
+    uint32_t i;
     for (i = 0; i < NSOUND; i++)
-        st.v[i] = sc.v[i] > PD[i].max ? PD[i].max : sc.v[i];
+        st.v[i] = sc->v[i] > PD[i].max ? PD[i].max : sc->v[i];
     drone_take();
     for (i = 0; i < SC_SEQ; i++)
-        seq[i] = sc.seq[i];
+        seq[i] = sc->seq[i];
     seq_view();
     if (st.v[P_SQ_TYPE] == SQT_SEQ)      /* its sequence from the top */
         seq_begin();
     else {
         seq_note_off();
         sq.run = 0;
-        st.v[P_SQ_REC] = 0;
-        st.rec_took = 0;
+        if (st.v[P_SQ_REC]) {
+            st.v[P_SQ_REC] = 0;
+            rec_keys(P_SQ_REC);
+        }
     }
+    bq.tn = -1;                          /* (a take under way: gone with the loop it was in) */
+    bq.open = bq.wrap = 0;
+    memcpy(bnote, sc->bnote, sizeof bnote);   /* and the bass's, with its own SEQUENCE, STEPS, TRANSPOSE */
+    memcpy(blen, sc->blen, sizeof blen);
+    st.v[P_BQ_ON] = sc->bq_on ? 1 : 0;
+    st.v[P_BQ_STEPS] = sc->bq_steps > PD[P_BQ_STEPS].max ? PD[P_BQ_STEPS].def : sc->bq_steps;
+    st.v[P_BQ_TRANS] = sc->bq_trans > PD[P_BQ_TRANS].max ? PD[P_BQ_TRANS].def : sc->bq_trans;
+    bseq_view();
+    if (st.v[P_BQ_ON])
+        bseq_begin();
+    else
+        bseq_stop();
     arp.paused = 0;
     if (page_hidden(st.page))
         st.page = PG_GLINT;
-    st.scene = (uint8_t)s;
     sound_mark();
     if (st.loading_morph)                /* (scene_go sets the glide first: no step to the new sound) */
         st.engine_dirty = 1;
@@ -728,8 +1524,57 @@ static void scene_load(uint32_t s)
     arp.n = arp.pn = 0;
     arp.dirty = 0;
     arp_stop();
-    if (sc.nch || sc.narp || sc.bass >= 0)   /* then what it plays, if anything */
-        scene_notes_play(&sc);
+    if (sc->nch || sc->narp || sc->bass >= 0)   /* then what it plays, if anything */
+        scene_notes_play(sc);
+}
+
+static void scene_load(uint32_t s)
+{
+    scene_t sc;
+    scene_get(s, &sc);
+    st.scene = (uint8_t)s;
+    scene_take(&sc);
+}
+
+#ifdef PLAT_WEB
+/* the River plays a shard (web.c): its scene as a load takes it, out of any MORPH; one that plays nothing holds a
+ * chord on its ROOT, in the third octave, as a key would */
+static void scene_audition(const scene_t *sc)
+{
+    uint32_t i, notes = 0;
+    mo.on = 0;
+    memset(morph_off, 0, sizeof morph_off);
+    scene_take(sc);
+    for (i = 0; i < SC_SEQ; i++)
+        notes += (sc->seq[i] & 127u) != SQ_REST && (sc->seq[i] & 127u) != SQ_TIE;
+    if (!sc->nch && !sc->narp && sc->bass < 0 && !(st.v[P_SQ_TYPE] == SQT_SEQ && notes)) {
+        chord_t c;
+        int root;
+        chord_build(48 + (int)(st.v[P_ROOT] % 12u), st.v, &c, &root);
+        lat[root] = c;
+        bit_put(lit, root, 1);
+        chord_on(&c, 100);
+    }
+}
+
+static void audition_stop(void)          /* every note let go, as PLAY held */
+{
+    release_all();
+    arp.n = arp.pn = 0;
+    arp.dirty = arp.paused = 0;
+    arp_stop();
+    seq_note_off();
+    sq.run = 0;
+    bseq_stop();
+}
+#endif
+
+/* a backup streaming (app_backup_hold): no STORE till it ends (a pop-up says so) */
+static int store_held(void)
+{
+    if (st.store_hold)
+        popup(POP_WARN, "SCENES", "NOT STORED", "A BACKUP IS GOING TO USB.", "STORE AGAIN IN A MOMENT.", "");
+    return st.store_hold;
 }
 
 static int store_all(void)
@@ -748,69 +1593,66 @@ static int store_all(void)
     for (i = 0; i < SC_SEQ; i++)
         set.seq[i] = seq[i];
     set.metro_off = !st.metro;
-    set.morph = st.v[P_MORPH];
-    set.keep = st.v[P_KEEP];
+    set.morph = 0;
+    set.load = st.v[P_LOAD];
+    memcpy(set.bnote, bnote, sizeof bnote);
+    memcpy(set.blen, blen, sizeof blen);
+    set.bq_on = st.v[P_BQ_ON];
+    set.bq_steps = st.v[P_BQ_STEPS];
+    set.bq_trans = st.v[P_BQ_TRANS];
     return plat_store_save(OBJ_SETTINGS, &set, sizeof set);
 }
 
-static struct {                         /* the slot STORE wrote last, as it was (SCENES' UNDO) */
-    uint8_t valid, slot, used;
-    scene_t sc;
-} undo;
-
-static scene_t rst;                      /* what PLAY held let go, for RESTORE (its notes alone) */
-static uint8_t rst_valid, rst_seq;
-
-static void scene_undo(void)
+/* the scenes into the store: their bass sequences first (OBJ_BSEQ), then the rest of them (OBJ_SCENES), each record
+ * made in raw. 0: both taken */
+static int scenes_save(void)
 {
-    if (!undo.valid) {
-        app_say("UNDO", "NOTHING YET");
-        return;
-    }
-    scn.s[undo.slot] = undo.sc;
-    scn.used = (uint16_t)((scn.used & ~(1u << undo.slot)) | (uint32_t)undo.used << undo.slot);
-    undo.valid = 0;
-    if (plat_store_save(OBJ_SCENES, &scn, sizeof scn) == 0) {
-        scene_t sc;
-        uint32_t i;
-        scene_get(undo.slot, &sc);
-        if (undo.slot == st.scene) {     /* (the one playing: CHANGED, COMPARE against it again) */
-            for (i = 0; i < NSOUND; i++)
-                saved_v[i] = sc.v[i];
-            for (i = 0; i < SC_SEQ; i++)
-                saved_seq[i] = sc.seq[i];
-            st.dirty = (uint8_t)sound_changed();
-        }
-        app_say("UNDONE", sc.name);
-    } else {
-        app_say("UNDO", "FAILED");
-    }
+    uint32_t s;
+    for (s = 0; s < 4u; s++)
+        raw[s] = (uint8_t)(BSQ_MAGIC >> (8u * s));
+    for (s = 0; s < NSCENES; s++)
+        memcpy(raw + 4u + s * BSQ_SCENE, scn.s[s].bnote, BSQ_SCENE);
+    if (plat_store_save(OBJ_BSEQ, raw, BSQ_BYTES))
+        return -1;
+    memcpy(raw, &scn, 8u);               /* (magic, used, rsv) */
+    for (s = 0; s < NSCENES; s++)
+        memcpy(raw + 8u + s * SC_REC, &scn.s[s], SC_REC);
+    return plat_store_save(OBJ_SCENES, raw, SCN_BYTES);
 }
 
-/* MORPH, KEEP, the metronome, the CCs learned: kept at once (the sound and the rest of the record as SAVE left them;
- * never saved yet: all of it) */
+static scene_t rst;                      /* what PLAY held let go, for RESTORE (its notes alone) */
+static uint8_t rst_valid, rst_seq, rst_bseq;
+
+/* LOAD, the metronome, the CCs learned: kept at once (the sound and the rest of the record as SAVE left them;
+ * never saved yet: all of it); a backup streaming, once it ends (set holds them meanwhile) */
 static void prefs_save(void)
 {
+    if (st.store_hold) {
+        st.prefs_due = 1;
+        return;
+    }
+    st.prefs_due = 0;
     if (set.magic != SET_MAGIC) {
         store_all();
         return;
     }
     set.metro_off = !st.metro;
-    set.morph = st.v[P_MORPH];
-    set.keep = st.v[P_KEEP];
-    plat_store_save(OBJ_SETTINGS, &set, sizeof set);
+    set.morph = 0;
+    set.load = st.v[P_LOAD];
+    if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0)
+        store_old &= ~2u;
 }
+
+static void name_open(uint32_t s);      /* (STORE's name, below) */
 
 static void scene_save(uint32_t s)
 {
     scene_t sc;
     uint32_t i;
-    char say2[16];
+    char say2[4 + SC_NAME], t[SC_NAME + 1];
+    if (store_held())
+        return;
     scene_get(s, &sc);                   /* keeps its name */
-    undo.valid = 1;                      /* (the slot as it was, for UNDO) */
-    undo.slot = (uint8_t)s;
-    undo.used = (uint8_t)(scn.used >> s & 1u);
-    undo.sc = scn.s[s];
     if (!(scn.used >> s & 1u) && s >= NFACTORY && st.v[P_DR_PRESET]) {   /* an empty slot: the drone's preset's name */
         sc.name[0] = 0;
         text_cat(sc.name, DRONE_NAME[st.v[P_DR_PRESET] % (NDPRESET + 1u)]);
@@ -822,25 +1664,151 @@ static void scene_save(uint32_t s)
     scn.s[s] = sc;
     scn.used |= (uint16_t)(1u << s);
     st.scene = (uint8_t)s;
-    if (plat_store_save(OBJ_SCENES, &scn, sizeof scn) == 0 && store_all() == 0) {
+    if (scenes_save() == 0 && store_all() == 0) {
+        store_old = 0;
         sound_mark();
         say2[0] = (char)('0' + (s + 1u) / 10u);   /* "03 ABYSS" */
         say2[1] = (char)('0' + (s + 1u) % 10u);
         say2[2] = ' ';
         say2[3] = 0;
-        text_cat(say2, sc.name);
+        text_cat(say2, name_text(&sc, t));
         app_say("STORED", say2);
+        name_open(s);
     } else {
-        app_say("SAVE", "FAILED");
+        popup(POP_WARN, "SCENES", "NOT STORED", "THE MEMORY DID NOT TAKE IT.", "TRY AGAIN.", "");
     }
 }
 
-/* a scene, as SCENES' MORPH and KEEP have it: KEEP SCENE lets everything go and plays the scene's notes (as
- * scene_load); KEEP PLAYING leaves what plays (the drones, the bass, GLINT's arpeggio and sequence, with its TYPE and
+/* SAVE held and REC: STORE, into the slot K1 points at on SCENES, else into the current scene. NEW SHARD is no slot: on
+ * it, nothing (CHOOSE A SLOT); the current scene, into the first EMPTY slot (9 .. 16, nothing saved in it: a factory
+ * scene stays), else SCENES on slot 16, to choose one */
+static void scene_store(void)
+{
+    uint32_t s = st.page == PG_SCENES ? st.pick : st.scene;
+    if (s >= NSCENES && st.page != PG_SCENES)
+        for (s = NFACTORY; s < NSCENES && (scn.used >> s & 1u); s++)
+            ;
+    if (s < NSCENES) {
+        scene_save(s);
+        return;
+    }
+    if (st.page != PG_SCENES) {
+        st.prev_page = st.page;
+        st.page = PG_SCENES;
+        st.pick = NSCENES - 1u;
+        st.logo = st.help = 0;
+    }
+    app_say("STORE", "CHOOSE A SLOT");
+}
+
+/* ------------------------------------------------------------ a name --- */
+/* STORE written: the scene's name on the whole screen (ui.c name_screen), to change or keep. OCT- and OCT+ move the
+ * cursor along the sixteen places; K4 turns its letter (a space before A), K3 its digit (and - .); SEL (OK) stores the name (the
+ * scenes written again if it changed); FX leaves it as it was stored. Meanwhile the keys and MIDI play; the other
+ * buttons and the encoders wait */
+static const char NM_LETTERS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ", NM_DIGITS[] = "0123456789-.";
+static struct {
+    uint8_t on, slot, cur, drawn;
+    uint32_t btn;                        /* the buttons down last frame: a press acts */
+    char name[SC_NAME + 1];              /* sixteen characters, a space for none */
+} nm;
+
+static void name_open(uint32_t s)
+{
+    uint32_t i, end = 0;
+    for (i = 0; i < SC_NAME; i++) {
+        end |= !scn.s[s].name[i];
+        nm.name[i] = end ? ' ' : scn.s[s].name[i];
+    }
+    nm.name[SC_NAME] = 0;
+    nm.slot = (uint8_t)s;
+    nm.cur = 0;
+    nm.on = 1;
+    nm.drawn = 0;
+    nm.btn = plat_buttons();             /* (SAVE and REC, still down from STORE: no press) */
+    st.hold_done = ~0u;
+}
+
+static void name_turn(const char *set, int32_t n, int32_t d)
+{
+    int32_t i;
+    for (i = 0; i < n && set[i] != nm.name[nm.cur]; i++)
+        ;
+    if (i == n)                          /* (a character of neither: from the set's start, or its end) */
+        i = d > 0 ? -1 : 0;
+    i = ((i + d) % n + n) % n;
+    nm.name[nm.cur] = set[i];
+    nm.drawn = 0;
+}
+
+static void name_close(int keep)
+{
+    char *d = scn.s[nm.slot].name;
+    int32_t i, n = (int32_t)SC_NAME;
+    nm.on = 0;
+    while (n > 0 && nm.name[n - 1] == ' ')
+        n--;
+    if (!keep || !n)                     /* (all spaces: the name as stored) */
+        return;
+    for (i = 0; i < (int32_t)SC_NAME && (i < n ? d[i] == nm.name[i] : !d[i]); i++)
+        ;
+    if (i == (int32_t)SC_NAME)           /* unchanged */
+        return;
+    if (store_held())
+        return;
+    for (i = 0; i < (int32_t)SC_NAME; i++)
+        d[i] = i < n ? nm.name[i] : 0;
+    if (scenes_save() == 0) {
+        char t[4 + SC_NAME];
+        t[0] = (char)('0' + (nm.slot + 1u) / 10u);
+        t[1] = (char)('0' + (nm.slot + 1u) % 10u);
+        t[2] = ' ';
+        for (i = 0; i < n; i++)
+            t[3 + i] = nm.name[i];
+        t[3 + n] = 0;
+        app_say("NAMED", t);
+    } else {
+        popup(POP_WARN, "SCENES", "NOT NAMED", "THE MEMORY DID NOT TAKE IT.", "THE NAME STAYS AS IT WAS.", "");
+    }
+}
+
+/* the name up, a frame's input: 1 still up (the buttons, for the rest of the frame, none) */
+static int name_input(uint32_t btn)
+{
+    uint32_t down = btn & ~nm.btn, e;
+    nm.btn = btn;
+    for (e = 0; e < NE; e++) {
+        int32_t d = plat_enc((int)e);
+        if (d && e == EN_K4)
+            name_turn(NM_LETTERS, (int32_t)sizeof NM_LETTERS - 1, d);
+        else if (d && e == EN_K3)
+            name_turn(NM_DIGITS, (int32_t)sizeof NM_DIGITS - 1, d);
+    }
+    if ((down >> B_OCTDN & 1u) && nm.cur > 0) {
+        nm.cur--;
+        nm.drawn = 0;
+    }
+    if ((down >> B_OCTUP & 1u) && nm.cur < SC_NAME - 1u) {
+        nm.cur++;
+        nm.drawn = 0;
+    }
+    if (down >> B_SEL & 1u)
+        name_close(1);
+    else if (down >> B_FX & 1u)
+        name_close(0);
+    else
+        return 1;
+    btn_prev = btn;                      /* (what is down now: used, no tap on its release) */
+    st.hold_done = ~0u;
+    return 0;
+}
+
+/* a scene, as SCENES' MORPH and LOAD have it: LOAD SND+NOTES lets everything go and plays the scene's notes (as
+ * scene_load); LOAD SND ONLY leaves what plays (the drones, the bass, GLINT's arpeggio and sequence, with its SEQ and
  * the settings that play it) and changes the sound alone. MORPH, CUT or a time: the sound glides there, the settings
  * of a few choices (presets, MODEL, ROOT, TARGET ...) at once, each a hand turns out of it */
-static const uint8_t KEEP_P[8] = {P_SQ_TYPE, P_ARP_MODE, P_ARP_RATE, P_ARP_RANGE, P_ARP_CHANCE, P_SQ_LEN, P_SQ_GATE,
-                                  P_SQ_TRANS};
+static const uint8_t PLAYS_P[8] = {P_SQ_TYPE, P_ARP_MODE, P_ARP_RATE, P_ARP_RANGE, P_ARP_CHANCE, P_SQ_LEN, P_SQ_GATE,
+                                   P_SQ_TRANS};
 static int morphs(uint32_t p)            /* a setting that glides (not a choice among a few, not a name) */
 {
     uint32_t f = PD[p].fmt;
@@ -857,19 +1825,22 @@ static void scene_go(uint32_t s)
     scene_get(s, &sc);
     for (i = 0; i < NSOUND; i++)         /* (where it is now, a MORPH under way too) */
         from[i] = (float)st.v[i] + morph_off[i];
-    if (st.v[P_KEEP]) {
-        uint8_t kept[sizeof KEEP_P];
-        for (i = 0; i < sizeof KEEP_P; i++)
-            kept[i] = st.v[KEEP_P[i]];
+    if (st.v[P_LOAD]) {
+        uint8_t kept[sizeof PLAYS_P];
+        for (i = 0; i < sizeof PLAYS_P; i++)
+            kept[i] = st.v[PLAYS_P[i]];
         for (i = 0; i < NSOUND; i++)
             st.v[i] = sc.v[i] > PD[i].max ? PD[i].max : sc.v[i];
         drone_take();
         st.scene = (uint8_t)s;
-        sound_mark();                    /* (the scene as saved: its own sequence) */
+        sound_mark();                    /* (the scene as saved: its own sequences) */
         for (i = 0; i < SC_SEQ; i++)
             saved_seq[i] = sc.seq[i];
-        for (i = 0; i < sizeof KEEP_P; i++)
-            st.v[KEEP_P[i]] = kept[i];
+        memcpy(saved_bnote, sc.bnote, sizeof saved_bnote);
+        memcpy(saved_blen, sc.blen, sizeof saved_blen);
+        memcpy(saved_bq, &sc.bq_on, sizeof saved_bq);
+        for (i = 0; i < sizeof PLAYS_P; i++)
+            st.v[PLAYS_P[i]] = kept[i];
         st.dirty = (uint8_t)sound_changed();
         st.engine_dirty = 1;
     } else {
@@ -886,11 +1857,10 @@ static void scene_go(uint32_t s)
     if (dur) {
         mo.t0 = plat_ms();
         mo.dur = dur;
-        for (i = 0; i < 10u && sc.name[i]; i++)
-            mo.name[i] = sc.name[i];
-        mo.name[i] = 0;
+        name_text(&sc, mo.name);
     } else {
-        app_say("LOADED", sc.name);
+        char t[SC_NAME + 1];
+        app_say("LOADED", name_text(&sc, t));
     }
 }
 
@@ -916,7 +1886,8 @@ static void morph_run(void)              /* a hundred times a second while a MOR
 }
 
 /* an earlier layout's sound made over: its first nv parameters, the rest at their defaults (and MODEL, where FRSW
- * kept SPACE; before TYPE, MODE's OFF, five and SEQ in TYPE and MODE, the delay's MODE in its TIME) */
+ * kept SPACE; before GLINT's SEQ, MODE's OFF, five and SEQ in SEQ and MODE, the delay's MODE in its TIME); GLINT's
+ * RELEASE, where each kept SCATTER, as its DECAY let a glint go then (glint_release_of) */
 static void sound_over(uint8_t *d, const uint8_t *v, uint32_t nv)
 {
     uint32_t i;
@@ -925,7 +1896,7 @@ static void sound_over(uint8_t *d, const uint8_t *v, uint32_t nv)
     later_defaults(d, nv);
     if (nv == 64u)
         d[P_BS_MODEL] = PD[P_BS_MODEL].def;
-    if (nv == 94u) {                     /* the second pages' first layout: what has changed since at its default (TYPE
+    if (nv == 94u) {                     /* the second pages' first layout: what has changed since at its default (SEQ
                                           * where BLOOM was; EVOLVE, BEAT, PEAK and SHAPE, RESONANCE going further) */
         static const uint8_t REDONE[7] = {P_CH_SHAPE, P_CH_RESO, P_CH_TYPE, P_PA_EVOLVE, P_PA_BEAT, P_PA_FORMANT,
                                           P_PA_PEAK};
@@ -939,9 +1910,18 @@ static void sound_over(uint8_t *d, const uint8_t *v, uint32_t nv)
         d[P_ARP_MODE] = (uint8_t)(m >= 1u && m <= 5u ? m - 1u : 0u);
         d[P_GD_TIME] = (uint8_t)(v[P_GD_TIME] % 12u + (v[P_GD_MODE] ? 12u : 0u));
     }
+    d[P_GL_RELEASE] = glint_release_of(d[P_GL_DECAY]);
 }
 
-/* before TYPE, the arpeggio's and the sequence's notes were kept with GLINT's OCTAVE on them: without it now */
+static void learn_scatter_gone(void)     /* a CC an earlier layout learned on SCATTER: learned no more */
+{
+    uint32_t j;
+    for (j = 0; j < NLEARN; j++)
+        if (set.learn_p[j] == P_GL_RELEASE)
+            set.learn_cc[j] = set.learn_p[j] = 0;
+}
+
+/* before GLINT's SEQ, the arpeggio's and the sequence's notes were kept with GLINT's OCTAVE on them: without it now */
 static int8_t note_down(int n, const uint8_t *v)
 {
     n -= 12 * (int)v[P_GL_OCTAVE];
@@ -956,43 +1936,68 @@ static void seq_down(uint8_t *s, const uint8_t *v)
             s[j] = (uint8_t)((s[j] & SQ_ACC) | (uint8_t)note_down(s[j] & 127, v));
 }
 
-static void scenes_over(void)             /* the scenes in an earlier layout, if that is what the store holds */
+static int scenes_over(void)              /* the scenes in an earlier layout, if that is what the store holds: 1 */
 {
     int n = plat_store_load(OBJ_SCENES, raw, sizeof raw);
     uint32_t k, s, j;
     for (k = 0; k < sizeof OLD_SCN / sizeof OLD_SCN[0]; k++) {
         const layout_t *l = &OLD_SCN[k];
-        uint32_t rs = scn_bytes(l), nv = l->nv;
+        uint32_t rs = scn_bytes(l), nv = l->nv, nl = name_bytes(l);
         if (n != (int)(8u + NSCENES * rs) || rd32(raw) != l->magic)
             continue;
         for (s = 0; s < NSCENES; s++) {
             const uint8_t *o = raw + 8u + s * rs;
             scene_t *d = &scn.s[s];
-            for (j = 0; j < sizeof d->name; j++)
-                d->name[j] = (char)o[j];
-            sound_over(d->v, o + 10, nv);
-            d->nch = o[10u + nv];
-            d->narp = o[11u + nv];
+            for (j = 0; j < SC_NAME; j++)
+                d->name[j] = j < nl ? (char)o[j] : 0;
+            o += nl;                     /* (the rest from the sound on) */
+            sound_over(d->v, o, nv);
+            d->nch = o[nv];
+            d->narp = o[1u + nv];
             for (j = 0; j < SC_CHORDS * 5u; j++)
-                d->ch[j / 5u][j % 5u] = (int8_t)o[12u + nv + j];
+                d->ch[j / 5u][j % 5u] = (int8_t)o[2u + nv + j];
             for (j = 0; j < SC_ARP; j++)
-                d->arp[j] = j < d->narp ? note_down((int8_t)o[12u + nv + SC_CHORDS * 5u + j], d->v)
-                                        : (int8_t)o[12u + nv + SC_CHORDS * 5u + j];
-            d->bass = l->extra ? (int8_t)o[12u + nv + SC_CHORDS * 5u + SC_ARP] : -1;
+                d->arp[j] = j < d->narp && nv <= P_SQ_TYPE ? note_down((int8_t)o[2u + nv + SC_CHORDS * 5u + j], d->v)
+                                                           : (int8_t)o[2u + nv + SC_CHORDS * 5u + j];
+            d->bass = l->extra ? (int8_t)o[2u + nv + SC_CHORDS * 5u + SC_ARP] : -1;
             for (j = 0; j < SC_SEQ; j++)  /* (none, before it had one) */
-                d->seq[j] = seq_bytes(l) ? o[13u + nv + SC_CHORDS * 5u + SC_ARP + j] : SQ_REST;
-            seq_down(d->seq, d->v);
+                d->seq[j] = seq_bytes(l) ? o[3u + nv + SC_CHORDS * 5u + SC_ARP + j] : SQ_REST;
+            if (nv <= P_SQ_TYPE)         /* (before SEQ: with GLINT's OCTAVE on them) */
+                seq_down(d->seq, d->v);
         }
         scn.used = (uint16_t)(raw[4] | raw[5] << 8);
         scn.magic = SCN_MAGIC;
-        return;
+        return 1;
     }
+    return 0;
 }
 
-static void settings_over(void)           /* the settings in an earlier layout, the same */
+static int settings_over(void)            /* the settings in an earlier layout, the same (the bass's sequence none) */
 {
     int n = plat_store_load(OBJ_SETTINGS, raw, sizeof raw);
     uint32_t k, j;
+    set.bq_steps = PD[P_BQ_STEPS].def;
+    set.bq_trans = PD[P_BQ_TRANS].def;
+    if (n == (int)sizeof set && rd32(raw) == SET_FRSI) {   /* FRSI: this layout, SCATTER where GLINT's RELEASE is */
+        memcpy(&set, raw, sizeof set);
+        sound_over(set.v, raw + 4, NSOUND);
+        learn_scatter_gone();
+        set.magic = SET_MAGIC;
+        return 1;
+    }
+    if ((n == (int)FRSH_BYTES && rd32(raw) == SET_FRSH) || (n == (int)FRSG_BYTES && rd32(raw) == SET_FRSG)) {
+        /* FRSH: this layout, its sound FRSH_NV long; FRSG: FRSH's first bytes, the bass's sequence not yet after them.
+         * A CC learned on a setting after the sound: on the same setting, its number moved on by the sounds added */
+        sound_over(set.v, raw + 4, FRSH_NV);
+        memcpy((uint8_t *)&set + offsetof(settings_t, octave), raw + 4u + FRSH_NV,
+               (n == (int)FRSH_BYTES ? FRSH_BYTES : FRSH_BSEQ) - 4u - FRSH_NV);
+        for (j = 0; j < NLEARN; j++)
+            if (set.learn_p[j] >= FRSH_NV && set.learn_p[j] < NPARAM - (NSOUND - FRSH_NV))
+                set.learn_p[j] = (uint8_t)(set.learn_p[j] + (NSOUND - FRSH_NV));
+        learn_scatter_gone();
+        set.magic = SET_MAGIC;
+        return 1;
+    }
     for (k = 0; k < sizeof OLD_SET / sizeof OLD_SET[0]; k++) {
         const layout_t *l = &OLD_SET[k];
         const uint8_t *o = raw + 4u + l->nv;
@@ -1016,34 +2021,53 @@ static void settings_over(void)           /* the settings in an earlier layout, 
         if (!l->extra && set.ch_bass == set.channel)
             set.ch_bass = 0;
         set.magic = SET_MAGIC;
-        return;
+        return 1;
     }
+    return 0;
 }
 
-void app_init(void)
+/* the state as at power-on (nothing latched, held or to undo; the keys the drones'), from the store: the scenes and
+ * the settings (an earlier layout's made over), the sound and the rest as the settings have them, else the first
+ * scene. At boot, and after a restore from USB */
+static void state_load(void)
 {
     uint32_t i;
-    frasil_init();
-    drone_init();
     st.octave = OCT_DEF;
     st.metro = 1;
+    st.glint = st.bass = 0;
+    st.compare = st.help = st.rec_took = st.sustain = 0;
+    st.prefs_due = 0;
+    store_old = 0;
     rst_valid = seq_had = 0;             /* (nothing to restore or undo yet; the host's reboot keeps statics) */
-    undo.valid = 0;
     mo.on = 0;
     memset(morph_off, 0, sizeof morph_off);
     arp.latch = 1;                       /* the arpeggio latched from the start, empty */
     arp.n = 0;
     bass_note = -1;
+    bq.run = bq.open = bq.wrap = 0;
+    bq.tn = bq.skip = -1;
     for (i = 0; i < NPARAM; i++)
         st.v[i] = PD[i].def;
-    if (plat_store_load(OBJ_SCENES, &scn, sizeof scn) != (int)sizeof scn || scn.magic != SCN_MAGIC) {
+    if (plat_store_load(OBJ_SCENES, raw, sizeof raw) == (int)SCN_BYTES && rd32(raw) == SCN_MAGIC) {
+        memcpy(&scn, raw, 8u);
+        for (i = 0; i < NSCENES; i++)
+            memcpy(&scn.s[i], raw + 8u + i * SC_REC, SC_REC);
+    } else {
         scn.used = 0;
-        scenes_over();
+        store_old |= (uint8_t)scenes_over();
         scn.magic = SCN_MAGIC;
+    }
+    {                                    /* their bass sequences (none in the store: each empty) */
+        int ok = plat_store_load(OBJ_BSEQ, raw, sizeof raw) == (int)BSQ_BYTES && rd32(raw) == BSQ_MAGIC;
+        for (i = 0; i < NSCENES; i++)
+            if (ok)
+                memcpy(scn.s[i].bnote, raw + 4u + i * BSQ_SCENE, BSQ_SCENE);
+            else
+                bseq_empty(&scn.s[i]);
     }
     if (plat_store_load(OBJ_SETTINGS, &set, sizeof set) != (int)sizeof set || set.magic != SET_MAGIC) {
         memset(&set, 0, sizeof set);     /* (nothing learned, the defaults, whatever was read) */
-        settings_over();
+        store_old |= (uint8_t)(settings_over() << 1);
     }
     if (set.magic == SET_MAGIC) {
         for (i = 0; i < NSOUND; i++)
@@ -1051,19 +2075,27 @@ void app_init(void)
         drone_take();
         st.octave = (int8_t)clamp(set.octave, -3, 2);
         st.metro = !set.metro_off;
-        st.v[P_MORPH] = set.morph > PD[P_MORPH].max ? 0 : set.morph;
-        st.v[P_KEEP] = set.keep ? 1 : 0;
+        st.v[P_MORPH] = 0;               /* (CUT at every start, whatever it was left on) */
+        st.v[P_LOAD] = set.load ? 1 : 0;
         st.v[P_KEYS] = set.keys ? 1 : 0;
         st.v[P_CANAL] = set.channel > 17u ? PD[P_CANAL].def : set.channel;
         st.v[P_CH_GLINT] = set.ch_glint > 17u ? PD[P_CH_GLINT].def : set.ch_glint;
         st.v[P_CH_BASS] = set.ch_bass > 17u ? PD[P_CH_BASS].def : set.ch_bass;
-        st.scene = set.scene % NSCENES;
+        st.scene = set.scene == SC_NEW ? SC_NEW : set.scene % NSCENES;
         st.v[P_TEMPO] = set.tempo > PD[P_TEMPO].max ? PD[P_TEMPO].def : set.tempo;
         for (i = 0; i < SC_SEQ; i++)
             seq[i] = set.seq[i];
         seq_view();
         if (st.v[P_SQ_TYPE] == SQT_SEQ)
             seq_begin();
+        memcpy(bnote, set.bnote, sizeof bnote);
+        memcpy(blen, set.blen, sizeof blen);
+        bseq_view();
+        st.v[P_BQ_ON] = set.bq_on ? 1 : 0;
+        st.v[P_BQ_STEPS] = set.bq_steps > PD[P_BQ_STEPS].max ? PD[P_BQ_STEPS].def : set.bq_steps;
+        st.v[P_BQ_TRANS] = set.bq_trans > PD[P_BQ_TRANS].max ? PD[P_BQ_TRANS].def : set.bq_trans;
+        if (st.v[P_BQ_ON])
+            bseq_begin();
     } else {
         scene_load(0);
     }
@@ -1071,6 +2103,14 @@ void app_init(void)
     st.page = PG_SON;
     sound_mark();                        /* the sound saved last: nothing changed yet */
     engine_push();
+}
+
+void app_init(void)
+{
+    frasil_init();
+    drone_init();
+    state_load();
+    st.booting = 1;
 }
 
 /* -------------------------------------------------------- the arpeggiator --- */
@@ -1305,7 +2345,7 @@ static uint32_t arp_chance(void)
     return c <= 0.0f ? 0u : c >= 127.0f ? 127u : (uint32_t)(c + 0.5f);
 }
 
-/* LENGTH as it plays now, 1 .. SC_SEQ: with what the LFOs add to it */
+/* SEQ LENGTH as it plays now, 1 .. SC_SEQ: with what the LFOs add to it */
 static uint32_t seq_len(void)
 {
     float c = (float)st.v[P_SQ_LEN] + mod[P_SQ_LEN];
@@ -1320,21 +2360,22 @@ static int seq_note(uint32_t b)
 }
 
 /* the sequencer on the grid: its note off at GATE's end (a TIE on the next step holds it on), the next step's on */
-static void seq_run(uint32_t now, int32_t stepn, uint32_t period)
+static void seq_run(uint32_t now, int32_t stepn, uint32_t period)   /* stepn: its own (seq_stepn) */
 {
     uint32_t len = seq_len(), b, nb;
-    int32_t pos;
+    int32_t pos, was = sq.n;
     uint32_t gate = (uint32_t)((float)period * (0.05f + 0.95f * (float)st.v[P_SQ_GATE] * (1.0f / 127.0f)));
     if (sq.sounding >= 0 && (int32_t)(now - sq.off_ms) >= 0)
         seq_note_off();
+    sq.n = stepn;
     if (sq.restart) {                    /* MIDI Start: its first step on the grid's top */
         sq.restart = 0;
         sq.run = 1;
         sq.start = stepn;
         sq.pos = sq.skip = -1;
-        arp.step_n = stepn - 1;
+        was = stepn - 1;
     }
-    if (!sq.run || stepn == arp.step_n)
+    if (!sq.run || stepn == was)
         return;
     pos = (stepn - sq.start) % (int32_t)len;
     if (pos < 0)
@@ -1364,9 +2405,10 @@ static void seq_run(uint32_t now, int32_t stepn, uint32_t period)
     }
 }
 
-/* a GLINT key or note while the sequencer has them: RECORD OFF, the sequence transposed from its first note to this
- * one along the scale; STEP, written at STEP, then on to the next (it sounds while down); LIVE, written on the step
- * nearest the playhead (it sounds as it is played; ahead of the playhead, that step skips this time round) */
+/* a GLINT key or note while the sequencer has them (seq_keys): RECORD OFF, the sequence transposed from its first note
+ * to this one along the scale and, playing, begun again from its first step on the nearest beat (seq_due); STEP,
+ * written at STEP, then on to the next (it sounds while down); LIVE, written on the step nearest the playhead (it
+ * sounds as it is played; ahead of the playhead, that step skips this time round) */
 static void seq_key(int n, int sound, uint32_t vel)   /* n: without GLINT's OCTAVE (kept so); sound: with it */
 {
     uint32_t len = st.v[P_SQ_LEN] + 1u, i;
@@ -1378,7 +2420,7 @@ static void seq_key(int n, int sound, uint32_t vel)   /* n: without GLINT's OCTA
         seq_view();
         frasil_glint_on(sound, (float)vel * (1.0f / 127.0f));
     } else if (st.v[P_SQ_REC] == 2u) {
-        float g = grid_now() / (float)ARP_TICKS[st.v[P_ARP_RATE] % 10u] - (float)sq.start, f;
+        float g = seq_grid(grid_now()) / (float)ARP_TICKS[st.v[P_ARP_RATE] % 10u] - (float)sq.start, f;
         int32_t q;
         len = seq_len();                 /* (as it plays now) */
         f = g - fm_floorf(g);
@@ -1392,13 +2434,61 @@ static void seq_key(int n, int sound, uint32_t vel)   /* n: without GLINT's OCTA
         seq_view();
         frasil_glint_on(sound, (float)vel * (1.0f / 127.0f));
     } else {
+        uint8_t t = st.v[P_SQ_TRANS];
         for (i = 0; i < len; i++)        /* from the first note (not a rest, not a tie) */
             if ((seq[i] & 127u) != SQ_REST && (seq[i] & 127u) != SQ_TIE)
                 break;
         if (i < len)
-            st.v[P_SQ_TRANS] = (uint8_t)clamp(14 + scale_steps(seq[i] & 127, n, st.v), 0, 28);
+            t = (uint8_t)clamp(14 + scale_steps(seq[i] & 127, n, st.v), 0, 28);
+        if (sq.run) {                    /* playing: again from its first step on the nearest beat, TRANSPOSE with
+                                          * it (seq_due): the one just gone, at once; in a beat's second half, the
+                                          * next (what plays till then as it was) */
+            float g = grid_now(), at = 24.0f * fm_floorf(g / 24.0f);
+            if (g - at >= 12.0f)
+                at += 24.0f;
+            sq.at = at >= 9600.0f ? at - 9600.0f : at;
+            sq.at_trans = t;
+        } else {
+            st.v[P_SQ_TRANS] = t;
+        }
     }
     st.dirty = (uint8_t)sound_changed();
+}
+
+/* a key's restart (seq_key), the grid on its beat: the sequence from its first step there, its steps on that beat
+ * from then on (sq.off), the one it is on now at once (seq_run: its NOTE sounds, as late as the key came; a TIE or a
+ * REST, none), TRANSPOSE from then; already playing so, nothing again. Recording, or the sequence stopped meanwhile:
+ * none */
+static void seq_due(uint32_t ticks)
+{
+    float d = arp.tick - sq.at;
+    uint8_t off = sq.off;
+    int32_t start = sq.start;
+    if (sq.at < 0.0f)
+        return;
+    if (!sq.run || st.v[P_SQ_REC]) {
+        sq.at = -1.0f;
+        return;
+    }
+    if (d < -4800.0f)                    /* (the grid wraps at 9600) */
+        d += 9600.0f;
+    else if (d > 4800.0f)
+        d -= 9600.0f;
+    if (d < 0.0f)
+        return;
+    sq.off = (uint8_t)((uint32_t)sq.at % ticks);
+    sq.start = seq_stepn(sq.at, ticks);
+    sq.at = -1.0f;
+    if (sq.off == off && (sq.start - start) % (int32_t)seq_len() == 0 && st.v[P_SQ_TRANS] == sq.at_trans &&
+        sq.pos >= 0)
+        return;                          /* (its steps fall there already, as transposed: no note twice) */
+    sq.n = seq_stepn(arp.tick, ticks) - 1;
+    sq.pos = sq.skip = -1;
+    seq_note_off();
+    if (st.v[P_SQ_TRANS] != sq.at_trans) {
+        st.v[P_SQ_TRANS] = sq.at_trans;
+        st.dirty = (uint8_t)sound_changed();
+    }
 }
 
 static void arp_run(void)
@@ -1424,7 +2514,8 @@ static void arp_run(void)
         arp_stop();
         arp.n = arp.pn = 0;
         arp.dirty = 0;
-        seq_run(now, stepn, period);
+        seq_due(ticks);
+        seq_run(now, seq_stepn(arp.tick, ticks), period);
         arp.step_n = stepn;
         return;
     }
@@ -1503,19 +2594,70 @@ static void arp_run(void)
     }
 }
 
-/* REC's metronome: a tick on each beat of the grid (MIDI clock, else TEMPO) while the sequencer records, the bar's
- * first higher; from the beat after it starts */
+/* REC's metronome, while a sequence records LIVE (GLINT's, else the bass's): a tick on each of its beats (24 MIDI
+ * clocks) counted from its first step, the higher one as it comes round to that step (a bass take's loop still open,
+ * growing: on each bar line too); a turn that is not a whole number of beats, its beats from its top again. Begun on
+ * a sequence playing, from its next beat. On STEP, or the sequence stopped, none. Its beats are REC's flash's too
+ * (mtr.at) */
+static struct {
+    float at;                            /* the clocks into the sequence's beat now, -1: none */
+    float t;                             /* the clocks into its turn at the last run, -1: it is about to begin (its
+                                          * first step ticks), -2: none (as it comes, its beat ticks only if it began
+                                          * since the last run) */
+    float g;                             /* the grid at the last run */
+    uint8_t src;                         /* the sequence it follows: 1 GLINT's, 2 the bass's, 0 none */
+    float ck;                            /* the grid at its last tick (the tests) */
+} mtr = {-1.0f, -2.0f, 0.0f, 0, 0.0f};
+
 static void metro_run(void)
 {
-    static int32_t last = -1;
-    int32_t b = (int32_t)(arp.tick * (1.0f / 24.0f));
-    if (!st.v[P_SQ_REC])
-        st.clicks = 0;
-    else if (b != last && last >= 0 && st.metro) {
-        frasil_click(b % 4 == 0);
-        st.clicks++;
+    float t = -1.0f, dg = arp.tick - mtr.g;
+    uint32_t src = 0, k, tick, hi;
+    int32_t b;
+    if (dg < -4800.0f)                   /* (the grid wraps at 9600; MIDI Start puts it back to 0) */
+        dg += 9600.0f;
+    else if (dg < 0.0f)
+        dg = 0.0f;
+    mtr.g = arp.tick;
+    if (!st.v[P_SQ_REC] && !st.v[P_BQ_REC])
+        st.clicks = st.hiclicks = 0;
+    if (st.v[P_SQ_REC] == 2u && sq.run) {   /* its step, and how far into it on the grid */
+        src = 1;
+        k = ARP_TICKS[st.v[P_ARP_RATE] % 10u];
+        if (sq.pos >= 0 && !sq.restart)
+            t = (float)((uint32_t)sq.pos * k) + seq_grid(arp.tick) - (float)sq.n * (float)k;
+    } else if (st.v[P_BQ_REC] == 2u && bq.run) {   /* the steps before it, and how far into it */
+        src = 2;
+        if (bseq_playing())
+            t = bseq_at();
+    } else if (st.v[P_SQ_REC] == 2u || st.v[P_BQ_REC] == 2u) {   /* LIVE, stopped: PLAY starts it from the top */
+        src = st.v[P_SQ_REC] == 2u ? 1u : 2u;
     }
-    last = b;
+    if (src != mtr.src || (src == 2u && bq.moved))   /* (another sequence, or none, or the bass's playhead put
+                                                      * elsewhere: from its next beat) */
+        mtr.t = -2.0f;
+    mtr.src = (uint8_t)src;
+    bq.moved = 0;
+    if (t < 0.0f) {                      /* (not begun yet, or stopped: it will, from its first step) */
+        mtr.at = -1.0f;
+        if (src)
+            mtr.t = -1.0f;
+        return;
+    }
+    b = (int32_t)(t * (1.0f / 24.0f));
+    mtr.at = t - 24.0f * (float)b;
+    if (mtr.t == -2.0f)
+        tick = mtr.at < dg;
+    else
+        tick = mtr.t < 0.0f || t < mtr.t || b != (int32_t)(mtr.t * (1.0f / 24.0f));
+    mtr.t = t;
+    hi = b == 0 || (src == 2u && bq.open && !(b & 3));
+    if (tick && st.metro) {
+        frasil_click((int)hi);
+        st.clicks++;
+        st.hiclicks += hi;
+        mtr.ck = arp.tick;
+    }
 }
 
 /* GENERATIVE FX's SPARKLE: glints by themselves now and then, on the notes the drones hold (GLINT's OCTAVE up, one
@@ -1611,7 +2753,8 @@ static void cc_learn(uint32_t cc)
     uint32_t i, at = NLEARN;
     char t[12];
     if (!st.touched_at || st.touched >= NPARAM) {
-        app_say("MIDI LEARN", "TURN A SETTING FIRST");
+        popup(POP_WARN, "MIDI LEARN", "TURN ONE FIRST", "TURN A SETTING ON THE FM-1,", "THEN HOLD GLO AND MOVE",
+              "A KNOB ON YOUR CONTROLLER.");
         return;
     }
     for (i = 0; i < NLEARN; i++)
@@ -1638,7 +2781,7 @@ static void cc_learn(uint32_t cc)
 static void glint_note_press(int n, float f)
 {
     uint32_t i;
-    if (st.v[P_SQ_TYPE] == SQT_SEQ) {    /* the sequencer's: the note sounding, louder and longer */
+    if (seq_keys()) {                    /* the sequencer's: the note sounding, louder and longer */
         if (sq.sounding >= 0)
             frasil_glint_pressure(sq.sounding, f);
         else if (st.v[P_SQ_REC])
@@ -1669,12 +2812,13 @@ static int on_ch(int p, uint32_t c) { return st.v[p] > 16u || (st.v[p] && st.v[p
 static void midi_glint_on(int n, uint32_t vel)
 {
     uint32_t i, held = 0;
+    int sk = seq_keys();
     for (i = 0; i < 4u; i++)
         held |= mgl[i];
     bit_put(mgl, n, 1);
     mgl_base[n] = (int8_t)(n - 12 * (int)st.v[P_GL_OCTAVE]);
-    bit_put(mgs, n, st.v[P_SQ_TYPE] == SQT_SEQ ? st.v[P_SQ_REC] != 0 : st.v[P_SQ_TYPE] != SQT_ARP);
-    if (st.v[P_SQ_TYPE] == SQT_SEQ) {    /* into the sequencer, as a key would */
+    bit_put(mgs, n, sk ? st.v[P_SQ_REC] != 0 : st.v[P_SQ_TYPE] != SQT_ARP);
+    if (sk) {                            /* into the sequencer, as a key would */
         seq_key(mgl_base[n], n, vel);
         return;
     }
@@ -1721,7 +2865,10 @@ static void midi_bass_on(int n, uint32_t vel)   /* mono, the last note on top */
         mb_n--;
     }
     mbass[mb_n++] = (int8_t)n;
-    bass_play(n, vel);
+    if (st.v[P_BQ_ON])                   /* into the bass's sequence, as a key would */
+        bseq_key(n - 12 * ((int)st.v[P_BS_OCTAVE] - 2), n, vel);
+    else
+        bass_play(n, vel);
 }
 
 static void midi_bass_off(int n)          /* the one on top let go: back to the one under it, else silence */
@@ -1732,6 +2879,10 @@ static void midi_bass_off(int n)          /* the one on top let go: back to the 
         if (mbass[i] != n)
             mbass[j++] = mbass[i];
     mb_n = j;
+    if (st.v[P_BQ_ON]) {                 /* (the bass's sequence's) */
+        bseq_up(n);
+        return;
+    }
     if (n != top || bass_note != bass_fold(n))
         return;                          /* not the one sounding (or the keys have the bass now) */
     if (mb_n)
@@ -1746,6 +2897,64 @@ static void midi_note_off(int n)
         return;
     chord_off(&mid[n]);
     bit_put(mid_on, n, 0);
+}
+
+static int holding_any(void)
+{
+    return lit[0] | lit[1] | lit[2] | lit[3] || bass_note >= 0 || arp.n || sq.run || bq.run;
+}
+
+/* the grid from its top, now: its beat and its bar begin here (MIDI Start; PLAY starting the transport, RELEASE ALL,
+ * RESTORE). The LFOs on the grid from the top of their turn, the arpeggio from the top of its pattern; OCT's blink, REC's
+ * flash, the metronome, PUMP and PULSE's divisions (one on the top itself) follow it. Each that follows the grid from
+ * its last run starts from there (no jump round the 9600). Following a MIDI clock, only its own Start does it (start):
+ * PLAY leaves the clock's beats as they are, 0 */
+static int grid_top(int start)
+{
+    if (!start && plat_ms() - arp.clk_at < 500u)
+        return 0;
+    arp.clk = arp.clk_new = 0;
+    arp.tick = 0.0f;
+    arp.step_n = -1;
+    arp.idx = -1;
+    lfo_restart = 1;
+    lfo_grid = mtr.g = bq.g = 0.0f;
+    bp.g = -1.0f;
+    return 1;
+}
+
+/* the sequences from their first steps at the grid's top (grid_top just done), at once: GLINT's, the bass's */
+static void seqs_top(int glint, int bass)
+{
+    if (glint) {
+        sq.restart = 1;
+        sq.off = 0;
+        sq.at = -1.0f;
+    }
+    if (bass) {
+        bseq_begin();
+        bq.wait = 2;
+    }
+}
+
+/* RELEASE ALL: PLAY held, or MIDI's All Sound Off (CC 120, on any channel: the River sends it before it sends a shard
+ * or a backup, so that the FM-1 plays nothing when the restore comes). Everything let go (the drones, the bass,
+ * GLINT's notes, the arpeggio, the sequences), what was held kept for RESTORE */
+static void sound_off(void)
+{
+    if (holding_any()) {
+        scene_notes_take(&rst);
+        rst_seq = sq.run;
+        rst_bseq = bq.run;
+        rst_valid = 1;
+    }
+    release_all();
+    arp.n = arp.pn = 0;
+    arp.dirty = 0;
+    arp.paused = 0;
+    seq_note_off();
+    sq.run = 0;
+    bseq_stop();
 }
 
 static void midi_in(void)
@@ -1766,18 +2975,18 @@ static void midi_in(void)
             arp.clk_at = now;
             continue;
         }
-        if (st8 == 0xFAu) {              /* start: the grid from its top (and the LFOs on it) */
-            arp.clk = arp.clk_new = 0;
-            arp.tick = 0.0f;
-            lfo_restart = 1;
-            if (st.v[P_SQ_TYPE] == SQT_SEQ)
-                sq.restart = 1;
-            arp.step_n = -1;
-            arp.idx = -1;
+        if (st8 == 0xFAu) {              /* start: the grid from its top, GLINT's sequence (SEQ on SEQ) and the bass's
+                                          * (SEQUENCE on) from their first steps there */
+            grid_top(1);
+            seqs_top(st.v[P_SQ_TYPE] == SQT_SEQ, st.v[P_BQ_ON]);
             continue;
         }
         if (st8 < 0x80u || st8 >= 0xF0u)
             continue;
+        if (kind == 0xB0u && d1 == 120u) {           /* all sound off: everything, whatever the channel */
+            sound_off();
+            continue;
+        }
         dr = on_ch(P_CANAL, ch + 1u);
         gl = on_ch(P_CH_GLINT, ch + 1u);
         bs = on_ch(P_CH_BASS, ch + 1u);
@@ -1835,7 +3044,7 @@ static void midi_in(void)
                             bit_put(sus, (int)i, 0);
                             midi_note_off((int)i);
                         }
-            } else if (d1 == 120u || d1 == 123u) {   /* all notes off: the track's */
+            } else if (d1 == 123u) {             /* all notes off: the track's */
                 if (dr)
                     release_drones();
                 if (gl)
@@ -1869,16 +3078,31 @@ static void midi_in(void)
                             param_set(CC_MAP[i].p, ((int32_t)d2 * PD[CC_MAP[i].p].max + 63) / 127);
                 }
             }
-        } else if (kind == 0xC0u && dr && d1 < NSCENES) {   /* Program Change: a scene, as SCENES' MORPH and KEEP */
+        } else if (kind == 0xC0u && dr && d1 < NSCENES) {   /* Program Change: a scene, as SCENES' MORPH and LOAD */
             scene_go(d1);
         }
     }
 }
 
 /* ---------------------------------------------------------------- input --- */
+/* a page come to from another button's (from: the page before; a tap, a page button held and SELECT's first detent,
+ * HOME): the keys play its track. ARP's pages GLINT, SEQ's BASS; the drone's (EDIT's, ENV's) and HOME's DRONE. The
+ * others (FX's, GLO's, SEL's HARMONY, LFO's, SCENES) leave them as they are, and every page does while a recording has
+ * them (rec_keys). Within a button's pages they stay (its taps, round, SELECT's next detents), and SAVE back from
+ * SCENES comes back as it left: KEYS turned by hand stay till another button's page; the header says KEYS when they
+ * change */
+static void keys_follow(uint32_t from)
+{
+    uint32_t b = PAGES[st.page].button;
+    int32_t kb = b == B_ARP ? 1 : b == B_SEQ ? 2 : b == B_EDIT || b == B_ENV || b == B_HOME ? 0 : -1;
+    if (kb < 0 || st.rec_took || PAGES[from].button == b || st.v[P_KB] == (uint8_t)kb)
+        return;
+    param_set(P_KB, kb);                 /* (no words in the header: the page's name stays; the keys' badge says it) */
+}
+
 static void page_button(uint32_t b)       /* (a page: the logo goes; PLAY and OCT leave it up) */
 {
-    uint32_t p, first = NPAGES;
+    uint32_t p, first = NPAGES, from = st.page;
     if (b != B_HOME)
         st.logo = 0;
     st.help = 0;
@@ -1886,11 +3110,11 @@ static void page_button(uint32_t b)       /* (a page: the logo goes; PLAY and OC
         if (PAGES[p].button == b && !page_hidden(p)) {
             if (first == NPAGES)
                 first = p;
-            if (p == st.page) {          /* again: its next page shown */
+            if (p == st.page) {          /* again: its next page shown (SEQ's last two numbered apart) */
                 uint32_t q = p + 1u;
-                while (q < NPAGES && PAGES[q].button == b && page_hidden(q))
+                while (q < NPAGES && (PAGES[q].button != b || page_hidden(q)))
                     q++;
-                if (q < NPAGES && PAGES[q].button == b) {
+                if (q < NPAGES) {
                     st.page = (uint8_t)q;
                     return;
                 }
@@ -1901,6 +3125,84 @@ static void page_button(uint32_t b)       /* (a page: the logo goes; PLAY and OC
         if (first == PG_SCENES)
             st.pick = st.scene;
     }
+    keys_follow(from);
+}
+
+/* a page button held and SELECT turned: that button's pages, a detent each, as its taps go (the hidden ones skipped),
+ * round; from another button's page, its first (turned back, its last), KEYS as that page has them (keys_follow);
+ * the button does nothing more when let go, and its hold, if it has acted already, is undone (hold_undo). SAVE's
+ * SCENES apart: SAVE has SELECT's KEYS */
+static uint32_t page_held(void)          /* the page button held (the last pressed), NB: none */
+{
+    uint32_t p, b, got = NB;
+    for (p = 0; p < NPAGES; p++) {
+        b = PAGES[p].button;
+        if (b != B_SAVE && b_held(b) && (got == NB || st.hold_at[b] - st.hold_at[got] < 0x80000000u))
+            got = b;
+    }
+    return got;
+}
+
+static void page_turn(uint32_t b, int32_t d)
+{
+    uint32_t p = st.page, k, from = st.page;
+    if (PAGES[p].button != b)            /* (before its first) */
+        p = d > 0 ? NPAGES - 1u : 0u;
+    for (; d; d += d > 0 ? -1 : 1)
+        for (k = 0; k < NPAGES; k++) {
+            p = (p + (d > 0 ? 1u : NPAGES - 1u)) % NPAGES;
+            if (PAGES[p].button == b && !page_hidden(p))
+                break;
+        }
+    st.page = (uint8_t)p;
+    keys_follow(from);
+}
+
+/* what a page button's hold did, undone once SELECT takes the button: FREEZE and the arpeggio's LATCH back as they
+ * were (the notes LATCH off let go, again: arp_was; LATCH on, GLINT's SEQ as it was, its sequence playing or not,
+ * recording or not, and the page), COMPARE over, SWELL down (swell_update); its words gone. HOME's help stays: SELECT
+ * turns its pages */
+static struct {
+    int8_t held[16];
+    float prs[16];
+    uint8_t n;
+    uint8_t typed;                       /* LATCH on turned SEQ to ARP: as it was, its sequence, RECORD, the page */
+    uint8_t type, run, rec, page;
+} arp_was;
+static void say_clear(void);             /* (the screen, below) */
+
+static void hold_undo(uint32_t b)
+{
+    if (!(st.hold_acted >> b & 1u))
+        return;
+    st.hold_acted &= ~(1u << b);
+    if (b == B_FX) {
+        param_set(P_FREEZE, !st.v[P_FREEZE]);
+    } else if (b == B_ARP) {
+        arp.latch ^= 1u;
+        if (arp.latch) {
+            memcpy(arp.held, arp_was.held, sizeof arp.held);
+            memcpy(arp.prs, arp_was.prs, sizeof arp.prs);
+            arp.n = arp_was.n;
+            arp.dirty = 1;
+        } else {
+            arp_keep_held();
+        }
+        if (arp_was.typed) {
+            arp_was.typed = 0;
+            param_set(P_SQ_TYPE, arp_was.type);
+            if (arp_was.type == SQT_SEQ && !arp_was.run) {   /* (it was stopped: stopped again) */
+                seq_note_off();
+                sq.run = 0;
+            }
+            param_set(P_SQ_REC, arp_was.rec);
+            st.page = arp_was.page;
+        }
+    } else if (b == B_EDIT) {
+        st.compare = 0;
+        st.engine_dirty = 1;
+    }
+    say_clear();
 }
 
 /* LFO held and an encoder turned: the setting under it moves to the next LFO (OFF, LFO 1, 2, 3, OFF), into its first
@@ -1959,7 +3261,7 @@ static int32_t accel(uint32_t e, int32_t d)
 
 static void encoders(void)
 {
-    uint32_t e;
+    uint32_t e, b;
     for (e = 0; e < NE; e++) {
         int32_t d = plat_enc((int)e), p;
         if (!d)
@@ -1970,16 +3272,25 @@ static void encoders(void)
         }
         st.help = 0;
         st.logo = 0;
+        if (e == EN_SELECT && (b = page_held()) < NB) {   /* a page button held: its pages */
+            b_used(b);
+            hold_undo(b);
+            page_turn(b, d);
+            continue;
+        }
         if (b_held(B_LFO) && e >= EN_K1) {   /* LFO held: the setting under it onto an LFO, the next, or off */
             b_used(B_LFO);
             lfo_route(st.page == PG_SCENES ? NPARAM : PAGES[st.page].p[e - EN_K1], d);
             continue;
         }
+        if (st.page == PG_SCENES && (e == EN_K1 || e == EN_SELECT)) {   /* the slots, NEW SHARD above the first:
+                                                                          * SELECT as K1 (KEYS stay as they are) */
+            p = clamp((st.pick >= NSCENES ? -1 : (int32_t)st.pick) + d, -1, NSCENES - 1);
+            st.pick = (uint8_t)(p < 0 ? SC_NEW : p);
+            continue;
+        }
         if (MACRO_OF[e] < NPARAM) {
             p = MACRO_OF[e];
-        } else if (st.page == PG_SCENES && e == EN_K1) {
-            st.pick = (uint8_t)clamp((int32_t)st.pick + d, 0, NSCENES - 1);
-            continue;
         } else {
             p = PAGES[st.page].p[e - EN_K1];
             if (p >= NPARAM)                 /* an empty slot */
@@ -1990,7 +3301,7 @@ static void encoders(void)
             if (st.keys_arm != s || plat_ms() - st.keys_arm_at > 2000u) {
                 st.keys_arm = s;
                 st.keys_arm_at = plat_ms();
-                app_say("KEYS", "TURN AGAIN");
+                app_say("KEY MODE", "TURN AGAIN");
                 continue;
             }
             st.keys_arm = 0;
@@ -2002,25 +3313,32 @@ static void encoders(void)
     }
 }
 
-/* REC tapped: into GLINT's sequencer, recording LIVE (TYPE on SEQ, the keys GLINT's, its first page, the sequence
- * playing); recording, RECORD OFF, the keys back to what they played, the page staying */
+/* REC tapped: into GLINT's sequencer, recording LIVE (the sequencer on, the keys GLINT's, its first page, the sequence
+ * playing); the keys on BASS, into the bass's (SEQUENCE on, BASS SEQ, playing). Recording, STEP or LIVE, RECORD OFF
+ * (both), the keys back to what they played (rec_keys), the page staying */
 static void rec_tap(void)
 {
-    if (st.v[P_SQ_REC]) {
+    if (st.v[P_SQ_REC] || st.v[P_BQ_REC]) {
         static const char *const KB[3] = {"DRONE", "GLINT", "BASS"};
-        int give = st.rec_took;
         param_set(P_SQ_REC, 0);
-        if (give)
-            param_set(P_KB, st.kb_rec);
+        param_set(P_BQ_REC, 0);
         app_say("RECORD OFF", KB[st.v[P_KB] % 3u]);
         return;
     }
-    st.kb_rec = st.v[P_KB];
+    if (st.bass) {
+        param_set(P_BQ_ON, 1);
+        param_set(P_BQ_REC, 2);
+        if (!bq.run)
+            bseq_begin();
+        st.logo = 0;
+        st.help = 0;
+        st.page = PG_BSEQ;
+        app_say("RECORD", "LIVE");
+        return;
+    }
     seq_keep();                          /* (UNDO: the sequence before this take) */
     param_set(P_SQ_TYPE, (int32_t)SQT_SEQ);
-    param_set(P_KB, 1);
-    param_set(P_SQ_REC, 2);
-    st.rec_took = 1;
+    param_set(P_SQ_REC, 2);              /* (the keys GLINT's: rec_keys) */
     if (!sq.run)
         seq_begin();
     st.logo = 0;
@@ -2029,57 +3347,74 @@ static void rec_tap(void)
     app_say("RECORD", "LIVE");
 }
 
-/* PLAY tapped: GLINT's transport (the sequence stops, or starts from its first step; the arpeggio waits, or goes on
- * from the top); on SCENES, the scene K1 points at (MORPH, KEEP) */
+/* PLAY tapped: the transport (GLINT's sequence and the bass's stop together, or start together from their first step;
+ * the arpeggio waits, or goes on from the top: with the bass's sequence, as it does); on SCENES, the scene K1 points
+ * at (MORPH, LOAD). Started, the beat begins there (grid_top), the sequences' first steps at once; following a MIDI
+ * clock, on its next step (its beats kept). Stopped, the grid goes on */
 static void play_tap(void)
 {
+    int gs = st.v[P_SQ_TYPE] == SQT_SEQ, ga = st.v[P_SQ_TYPE] == SQT_ARP, bs = st.v[P_BQ_ON];
     if (st.page == PG_SCENES) {
         scene_go(st.pick);
-    } else if (st.v[P_SQ_TYPE] == SQT_SEQ) {
-        if (sq.run) {
+    } else if (gs || bs) {
+        if ((gs && sq.run) || (bs && bq.run) || (ga && !arp.paused)) {
             seq_note_off();
             sq.run = 0;
+            bseq_stop();
+            if (ga) {
+                arp.paused = 1;
+                arp_stop();
+            }
             app_say("SEQUENCE", "STOPPED");
         } else {
-            seq_begin();
+            if (grid_top(0)) {
+                seqs_top(gs, bs);
+            } else {
+                if (gs)
+                    seq_begin();
+                if (bs)
+                    bseq_begin();
+            }
+            if (ga) {
+                arp.paused = 0;
+                arp.dirty = 1;
+            }
             app_say("SEQUENCE", "FROM THE TOP");
         }
-    } else if (st.v[P_SQ_TYPE] == SQT_ARP) {
+    } else if (ga) {
         arp.paused ^= 1u;
-        arp.dirty = 1;                   /* (back: its pattern from the top) */
+        arp.dirty = 1;                   /* (back: its pattern from the top, the beat from here) */
         if (arp.paused)
             arp_stop();
+        else
+            grid_top(0);
         app_say("ARPEGGIO", arp.paused ? "WAITING" : "PLAYING");
     } else {
         app_say("HOLD PLAY", "RELEASE ALL");
     }
 }
 
-/* PLAY held: everything let go (the drones, the bass, GLINT's notes, the arpeggio, the sequence), what was held kept;
- * held again with nothing held, that comes back (RESTORE) */
-static int holding_any(void) { return lit[0] | lit[1] | lit[2] | lit[3] || bass_note >= 0 || arp.n || sq.run; }
-
+/* PLAY held: RELEASE ALL (sound_off); held again with nothing held, what it let go comes back (RESTORE). Either way the
+ * beat begins there (grid_top: following a MIDI clock, its beats kept), RESTORE's sequences from their first steps */
 static void play_hold(void)
 {
     if (!holding_any() && rst_valid) {
+        int gs = rst_seq && st.v[P_SQ_TYPE] == SQT_SEQ, bs = rst_bseq && st.v[P_BQ_ON], top = grid_top(0);
         rst_valid = 0;
-        scene_notes_play(&rst);
-        if (rst_seq && st.v[P_SQ_TYPE] == SQT_SEQ)
-            seq_begin();
+        scene_notes_play(&rst);          /* (after grid_top: the bass's note played on the top) */
+        if (top) {
+            seqs_top(gs, bs);
+        } else {
+            if (gs)
+                seq_begin();
+            if (bs)
+                bseq_begin();
+        }
         app_say("RESTORED", "");
         return;
     }
-    if (holding_any()) {
-        scene_notes_take(&rst);
-        rst_seq = sq.run;
-        rst_valid = 1;
-    }
-    release_all();
-    arp.n = arp.pn = 0;                  /* and the arpeggio, latched or not; the sequence stops */
-    arp.dirty = 0;
-    arp.paused = 0;
-    seq_note_off();
-    sq.run = 0;
+    sound_off();
+    grid_top(0);
     app_say("RELEASE ALL", rst_valid ? "HOLD AGAIN: RESTORE" : "");
 }
 
@@ -2101,7 +3436,8 @@ static uint32_t help_for(uint32_t b)     /* the help's page with button b on it 
 static void tap(uint32_t k)              /* a button let go before its hold, alone */
 {
     switch (k) {
-    case B_HOME:                         /* its page; the help closes; SOUND, MIXER, the logo, the river */
+    case B_HOME:                         /* its page; the help closes; SOUND, MIXER, the logo, the river (KEYS as they
+                                          * are: HOME's pages) */
         if (st.help)
             st.help = 0;
         else if (st.page == PG_SON && st.logo) {
@@ -2118,7 +3454,7 @@ static void tap(uint32_t k)              /* a button let go before its hold, alo
             page_button(B_HOME);
         }
         break;
-    case B_SAVE:                         /* SCENES, and back where it came from */
+    case B_SAVE:                         /* SCENES, and back where it came from (as it left: KEYS as they are) */
         if (st.page == PG_SCENES) {
             st.page = st.prev_page < NPAGES && st.prev_page != PG_SCENES ? st.prev_page : PG_SON;
             if (page_hidden(st.page))
@@ -2155,6 +3491,7 @@ static void buttons_down(uint32_t btn)
         if (down >> k & 1u) {
             st.hold_at[k] = now;
             st.hold_done &= ~(1u << k);
+            st.hold_acted &= ~(1u << k);
         }
 }
 
@@ -2176,7 +3513,7 @@ static void buttons(uint32_t btn)
         } else if (k == B_REC && (btn >> B_SAVE & 1u)) {   /* SAVE held, REC: STORE (SCENES' slot, else the scene's) */
             b_used(B_SAVE);
             b_used(B_REC);
-            scene_save(st.page == PG_SCENES ? st.pick : st.scene);
+            scene_store();
         }
     }
     btn_prev = btn;
@@ -2195,12 +3532,25 @@ static void holds(void)
             st.help = 1;
             st.help_page = (uint8_t)help_for(PAGES[st.page].button);
             break;
-        case B_ARP:                      /* the arpeggio's latch */
+        case B_ARP:                      /* the arpeggio's latch; on, GLINT's SEQ on ARP too, as GLINT I turns it
+                                          * (off, SEQ stays) */
             b_used(b);
             arp.latch ^= 1u;
-            if (!arp.latch)              /* off: only the keys still down go on */
+            arp_was.typed = 0;
+            if (!arp.latch) {            /* off: only the keys still down go on (the rest kept for hold_undo) */
+                memcpy(arp_was.held, arp.held, sizeof arp_was.held);
+                memcpy(arp_was.prs, arp.prs, sizeof arp_was.prs);
+                arp_was.n = arp.n;
                 arp_keep_held();
-            app_say("ARP LATCH", arp.latch ? "ON" : "OFF");
+            } else if (st.v[P_SQ_TYPE] != SQT_ARP) {   /* (what it was, for hold_undo) */
+                arp_was.typed = 1;
+                arp_was.type = st.v[P_SQ_TYPE];
+                arp_was.run = sq.run;
+                arp_was.rec = st.v[P_SQ_REC];
+                arp_was.page = st.page;
+                param_set(P_SQ_TYPE, (int32_t)SQT_ARP);
+            }
+            app_say("ARP LATCH", !arp.latch ? "OFF" : arp_was.typed ? "ON, SEQ ON ARP" : "ON");
             break;
         case B_FX:                       /* FREEZE, the page staying */
             b_used(b);
@@ -2213,7 +3563,7 @@ static void holds(void)
             prefs_save();
             app_say("METRONOME", st.metro ? "ON" : "OFF");
             break;
-        case B_SEQ:                      /* SWELL, while it is held (swell_update) */
+        case B_ENV:                      /* SWELL, while it is held (swell_update): the drone's, as its page is */
             b_used(b);
             break;
         case B_EDIT:                     /* COMPARE: the scene as saved, while it is held */
@@ -2228,6 +3578,8 @@ static void holds(void)
         default:                         /* (SEL, SAVE, LFO, GLO: with something else; the rest, none) */
             break;
         }
+        if (st.hold_done >> b & 1u)
+            st.hold_acted |= 1u << b;
     }
     if (st.compare && !b_held(B_EDIT)) {
         st.compare = 0;
@@ -2241,7 +3593,8 @@ static void swell_update(uint32_t btn)
     uint32_t now = plat_ms(), dt = now - last;
     float s, step = (float)(dt > 100u ? 100u : dt) * (1.0f / 1500.0f);   /* 1.5 s up, 1.5 s down */
     last = now;
-    if ((btn >> B_SEQ & 1u) && now - st.hold_at[B_SEQ] >= HOLD_MS)
+    if ((btn >> B_ENV & 1u) && now - st.hold_at[B_ENV] >= HOLD_MS && (st.hold_acted >> B_ENV & 1u))   /* (its hold's:
+                                                                                          * none once SELECT took it) */
         st.swell_btn = st.swell_btn + step > 1.0f ? 1.0f : st.swell_btn + step;
     else
         st.swell_btn = st.swell_btn - step < 0.0f ? 0.0f : st.swell_btn - step;
@@ -2289,12 +3642,12 @@ static void key_down(uint32_t k, uint32_t vel)
         b_used(B_SEL);
     if (st.glint) {                      /* a glint: in the scale, GLINT's octaves up (the arpeggio and the sequence
                                           * keep it without them, OCTAVE on them as they play) */
-        int b = scale_snap(played, st.v), n = b + 12 * st.v[P_GL_OCTAVE];
+        int b = scale_snap(played, st.v), n = b + 12 * st.v[P_GL_OCTAVE], sk = seq_keys();
         key[k].kind = K_GLINT;
         key[k].root = (int8_t)(n > 127 ? 127 : n);
         key[k].gbase = (int8_t)b;
-        key[k].gsound = st.v[P_SQ_TYPE] == SQT_SEQ ? st.v[P_SQ_REC] != 0 : st.v[P_SQ_TYPE] != SQT_ARP;
-        if (st.v[P_SQ_TYPE] == SQT_SEQ) {
+        key[k].gsound = sk ? st.v[P_SQ_REC] != 0 : st.v[P_SQ_TYPE] != SQT_ARP;
+        if (sk) {
             seq_key(b, key[k].root, vel);
             return;
         }
@@ -2312,8 +3665,14 @@ static void key_down(uint32_t k, uint32_t vel)
     if (st.bass) {                       /* the bass: one note, in the scale, BASS's octaves down; held as a drone is */
         int n = scale_snap(played, st.v) + 12 * ((int)st.v[P_BS_OCTAVE] - 2);
         n = bass_fold(n);
-        key[k].kind = K_BASS;
         key[k].root = (int8_t)n;
+        if (st.v[P_BQ_ON]) {             /* its sequence on: into it (bseq_key) */
+            key[k].kind = K_BSEQ;
+            key[k].gbase = (int8_t)scale_snap(played, st.v);
+            bseq_key(key[k].gbase, n, vel);
+            return;
+        }
+        key[k].kind = K_BASS;
         if (!st.v[P_KEYS] && bass_note == key[k].root)
             key[k].was_lit = 1;          /* latched already: a tap lets it go */
         else
@@ -2379,6 +3738,10 @@ static void key_up(uint32_t k)
             bass_stop();                 /* latched: a tap on it */
         }
         break;
+    case K_BSEQ:
+        key[k].kind = K_NONE;            /* (not down any more, for bseq_held) */
+        bseq_up(key[k].root);
+        break;
     case K_LATCH:
         if (key[k].prs)
             chord_press(&lat[(uint8_t)key[k].root], 0.0f);
@@ -2404,7 +3767,7 @@ static void key_pressure(uint32_t k, uint8_t p)
         glint_note_press(key[k].root, f);
     else if (key[k].kind == K_HOLD)
         chord_press(&key[k].chord, f);
-    else if (key[k].kind == K_BASS && bass_note == key[k].root)
+    else if ((key[k].kind == K_BASS || key[k].kind == K_BSEQ) && bass_note == key[k].root)
         frasil_bass_pressure(f);
     else if (key[k].kind == K_LATCH && bit_get(lit, key[k].root))
         chord_press(&lat[(uint8_t)key[k].root], f);
@@ -2502,14 +3865,29 @@ static void keys_lights(uint32_t *bright, uint32_t *dim)
     *bright |= keys_prev;
 }
 
+#ifdef PLAT_HOST
+static void enc_late_in(void);          /* (the tests' detents, come in during a pass: app_host_cmd) */
+#endif
+
 static void input(void)
 {
     uint32_t btn = plat_buttons(), lb, mb, gb, kb, kd, i;
     frasil_view_t v[FR_NV];
+    if (pop.on) {                        /* a pop-up up: the buttons wait (the keys and MIDI play on) */
+        if (popup_input(btn))
+            btn = 0;
+    } else if (nm.on && name_input(btn)) {   /* a name being written: the same */
+        btn = 0;
+    }
+#ifdef PLAT_HOST
+    enc_late_in();                       /* (the tests: detents come in now, as the device's scan may bring them) */
+#endif
     btn_now = btn;
     buttons_down(btn);
     keys_scan();
     arp_run();
+    bseq_run();
+    pulse_run();                         /* (after the bass's sequence: a NOTE beginning on the division first) */
     delay_sync();
     midi_in();
     pump_sync();                         /* (after the MIDI: the clocks just come in) */
@@ -2517,27 +3895,42 @@ static void input(void)
     sparkle_run();
     metro_run();
     morph_run();
-    {                                    /* SCENES left: its MORPH and KEEP kept, if they changed */
+    {                                    /* SCENES left: its LOAD kept, if it changed (MORPH: CUT at every start) */
         static uint8_t was;
         if (was == PG_SCENES && st.page != PG_SCENES &&
-            (set.morph != st.v[P_MORPH] || set.keep != st.v[P_KEEP] || set.magic != SET_MAGIC))
+            (set.load != st.v[P_LOAD] || set.magic != SET_MAGIC))
             prefs_save();
         was = st.page;
     }
+    if (st.prefs_due && !st.store_hold)   /* (asked while a backup streamed) */
+        prefs_save();
     if (frasil_pump_gain() < pump_low)
         pump_low = frasil_pump_gain();
-    encoders();
+    if (!pop.on && !nm.on)               /* (up, the encoders are theirs alone: a detent come in since they read them
+                                          * waits for their next read, never the page under them: SCENES' LOAD) */
+        encoders();
     buttons(btn);
     holds();
     swell_update(btn);
     if (st.engine_dirty)
         engine_push();
+    if (pop.on) {                        /* a pop-up: every light out but SEL's, its one way out (back after) */
+        oct_soft = 0;
+        lights_set(1u << B_SEL, 0, 0, 0, 0);
+        return;
+    }
+    if (nm.on) {                         /* a name: its answers lit, SEL (store) and FX (cancel); OCT at the mid level */
+        oct_soft = 0;
+        lights_set(1u << B_SEL | 1u << B_FX, 1u << B_OCTDN | 1u << B_OCTUP, 0, 0, 0);
+        return;
+    }
     /* the buttons' lights, four levels (lights_set): the function buttons at the mid level, their names readable in the
      * dark; lit, what is chosen or on: the page's button, FX while the cloud is held, SEQ swelling. PLAY in the glow,
-     * lit while anything sounds. REC at the mid level; while the sequencer records, flashing on the beat, twice as quick
-     * as OCT. OCT- and OCT+ in the glow, a little brighter on the beat (MIDI clock, else TEMPO; app_tick). SAVE lit
-     * while the sound differs from the scene's. LFO in the glow while no LFO runs. ARP, off its pages, a flash on each
-     * of GLINT's steps */
+     * lit while anything sounds. REC at the mid level; while a sequencer records on STEP, lit; LIVE, flashing on the
+     * sequence's beats (as the metronome counts them), twice as quick as OCT. OCT- and OCT+ in the glow, a little
+     * brighter on the beat (MIDI clock, else TEMPO; app_tick). SAVE lit while the sound differs from the scene's. LFO
+     * in the glow while no LFO runs. ARP, off its pages, a flash on each of GLINT's steps; SEQ, off its pages, on each
+     * of the bass's sequence's NOTEs */
     lb = 1u << PAGES[st.page].button;
     mb = ((1u << B_REC) - 1u) & ~(1u << B_PLAY);
     gb = 1u << B_PLAY | 1u << B_OCTDN | 1u << B_OCTUP;
@@ -2557,15 +3950,28 @@ static void input(void)
         if (PAGES[st.page].button != B_ARP && (int32_t)(flash_until - plat_ms()) > 0)
             lb |= 1u << B_ARP;
     }
-    if (!st.v[P_SQ_REC])
+    {
+        static uint32_t steps_seen, flash_until;
+        if (bq.steps != steps_seen) {
+            steps_seen = bq.steps;
+            flash_until = plat_ms() + 60u;
+        }
+        if (PAGES[st.page].button != B_SEQ && (int32_t)(flash_until - plat_ms()) > 0)
+            lb |= 1u << B_SEQ;
+    }
+    if (!st.v[P_SQ_REC] && !st.v[P_BQ_REC])
         mb |= 1u << B_REC;
-    else if ((uint32_t)arp.tick % 12u < 3u)   /* (the first quarter of each half beat) */
+    else if (st.v[P_SQ_REC] != 2u && st.v[P_BQ_REC] != 2u)   /* STEP: lit, steady */
+        lb |= 1u << B_REC;
+    else if ((uint32_t)(mtr.at >= 0.0f ? mtr.at : arp.tick) % 12u < 3u)   /* LIVE: the first quarter of each
+                                                                          * half beat, the sequence's (stopped: the
+                                                                          * grid's) */
         lb |= 1u << B_REC;
     if (st.v[P_FREEZE])
         lb |= 1u << B_FX;
     oct_soft = (uint32_t)arp.tick % 24u < 6u;   /* the first quarter of each beat */
     if (st.swell_btn > 0.0f)
-        lb |= 1u << B_SEQ;
+        lb |= 1u << B_ENV;
     frasil_view(v);
     for (i = 0; i < FR_NV; i++)
         if (v[i].note >= 0)
@@ -2588,10 +3994,38 @@ static struct {
     uint32_t msg_until;
 } say;
 
+static int text_is(const char *a, const char *b)
+{
+    uint32_t i;
+    if (!a || !b)
+        return 0;
+    for (i = 0; a[i] && a[i] == b[i]; i++)
+        ;
+    return a[i] == b[i];
+}
+
+/* a gesture's words, in the header a moment; a restore's result (fm1-base's, main_fm1.c), a pop-up: the player's eyes
+ * may be on the computer, it waits for HOME */
 void app_say(const char *a, const char *b)
 {
     uint32_t i;
     char t[48];
+    if (text_is(a, "STOP FIRST")) {      /* (the River lets it all go first, CC 120: what is left, a key held down;
+                                          * from a terminal, anything) */
+        popup(POP_WARN, "RESTORE FROM USB", "STOP FIRST", "SOMETHING IS PLAYING: LET GO",
+              "OF THE KEYS, OR HOLD PLAY TO", "RELEASE ALL, THEN TRY AGAIN.");
+        return;
+    }
+    if (text_is(a, "RESTORE FROM USB")) {
+        if (text_is(b, "RESTORED"))
+            popup(POP_DONE, "RESTORE FROM USB", "RESTORED", "THE SCENES AND THE SETTINGS", "ARE BACK.", "");
+        else if (text_is(b, "NOTHING CHANGED"))
+            popup(POP_WARN, "RESTORE FROM USB", "NOT RESTORED", "FX, OR NO ANSWER IN A MINUTE.", "NOTHING CHANGED.", "");
+        else
+            popup(POP_WARN, "RESTORE FROM USB", "NOT RESTORED", "THE FILE DID NOT ARRIVE.", "NOTHING CHANGED.",
+                  "TRY AGAIN.");
+        return;
+    }
     for (i = 0; i < 23u && a && a[i]; i++)
         say.msg[0][i] = a[i];
     say.msg[0][i] = 0;
@@ -2610,13 +4044,28 @@ void app_say(const char *a, const char *b)
     }
 }
 
+static void say_clear(void) { say.msg_until = 0; }   /* the words gone (a hold undone: hold_undo) */
+
 #include "ui.c"
+
+/* the buttons down now taken as used: their release no tap (a restore's question answered with SEL or HOME, outside
+ * the app's loop: SEL let go would open HARMONY) */
+static void buttons_spent(void)
+{
+    btn_prev = btn_now = plat_buttons();
+    st.hold_done = ~0u;
+}
 
 void app_ui_init(void)
 {
+    buttons_spent();
     touch_on(1);                             /* velocity and pressure: the keys' readings on */
-    st.logo = 1;                             /* the logo a moment, alive, then the river */
-    st.logo_until = plat_ms() + 4000u;
+    if (st.booting) {                        /* at power-on, the logo a moment, alive, then the river; again (after a
+                                              * restore from USB was tried), the screen as it was */
+        st.booting = 0;
+        st.logo = 1;
+        st.logo_until = plat_ms() + 4000u;
+    }
     ui_init();
 }
 
@@ -2625,6 +4074,49 @@ void app_frame(void)
     input();
     load_watch();
     ui_frame();
+}
+
+/* --------------------------------------------- backup and restore over USB --- */
+/* (device/backup.c, fm1.toml backup = true; app.h's APP_BACKUP_*). Playing: a restore waits (STOP FIRST). Anything
+ * latched or held, a key down, a note from MIDI; GLINT's sequence or the bass's running with a note in it */
+int app_backup_playing(void)
+{
+    uint32_t k, midi = mb_n, notes = 0, bnotes = 0;
+    for (k = 0; k < 4u; k++)
+        midi |= mid_on[k] | mgl[k];
+    for (k = 0; k < SC_SEQ; k++)
+        notes += (seq[k] & 127u) != SQ_REST && (seq[k] & 127u) != SQ_TIE;
+    for (k = 0; k < SC_BSEQ; k++)
+        bnotes += (bnote[k] & 127u) != SQ_REST && (bnote[k] & 127u) != SQ_TIE;
+    return lit[0] | lit[1] | lit[2] | lit[3] || bass_note >= 0 || arp.n || (sq.run && notes) || (bq.run && bnotes) ||
+           keys_prev || midi;
+}
+
+/* a backup starts, nothing playing: a record the store still has in an earlier layout saved in this one (as boot made
+ * it over: the backup's scenes can go back one by one), SCENES' LOAD kept if it changed (else when SCENES is left). The sound as it is now is not stored: STORE is the player's */
+void app_backup_flush(void)
+{
+    if ((store_old & 1u) && scenes_save() == 0)
+        store_old &= ~1u;
+    if (set.magic == SET_MAGIC &&
+        (store_old & 2u || st.prefs_due || set.load != st.v[P_LOAD]))
+        prefs_save();
+}
+
+void app_backup_hold(int on) { st.store_hold = (uint8_t)(on != 0); }
+
+/* restored (SEL said yes; nothing was playing): every note let go, then everything as at power-on */
+void app_backup_restored(void)
+{
+    release_all();
+    arp.n = arp.pn = 0;
+    arp.dirty = arp.paused = 0;
+    arp_stop();
+    seq_note_off();
+    sq.run = 0;
+    bseq_stop();
+    state_load();
+    buttons_spent();
 }
 
 #ifdef PLAT_HOST
@@ -2682,15 +4174,37 @@ int app_expect(const char *what, int *got)
         bass_view_t bv;
         frasil_bass_view(&bv);
         *got = (int)(bv.pressure * 100.0f + 0.5f);
+    } else if (!strcmp(what, "pulses")) {    /* PULSE: the notes let go and played again since last asked (pulse_run);
+                                              * bpulses: those the bass played again after the gap, since last asked;
+                                              * pulsebeat: the clocks into its beat the last fell on */
+        *got = (int)bp.n;
+        bp.n = 0;
+    } else if (!strcmp(what, "bpulses")) {
+        static uint32_t was;
+        bass_view_t bv;
+        frasil_bass_view(&bv);
+        *got = (int)(bv.pulses - was);
+        was = bv.pulses;
+    } else if (!strcmp(what, "grid")) {     /* the grid now, MIDI clocks from its top (arp.tick); clickgrid: where the
+                                              * metronome's last tick fell on it */
+        *got = (int)arp.tick;
+    } else if (!strcmp(what, "clickgrid")) {
+        *got = (int)mtr.ck;
+    } else if (!strcmp(what, "pulsebeat")) {
+        *got = (int)bp.at % 24;
     } else if (!strcmp(what, "recled") || !strcmp(what, "fxled") || !strcmp(what, "octled") ||
-               !strcmp(what, "saveled") || !strcmp(what, "playled")) {
-        uint32_t b = what[0] == 'r' ? B_REC : what[0] == 'f' ? B_FX : what[0] == 's' ? B_SAVE : what[0] == 'p' ? B_PLAY
-                                                                                                         : B_OCTUP;
+               !strcmp(what, "saveled") || !strcmp(what, "playled") || !strcmp(what, "homeled") || !strcmp(what, "selled") ||
+               !strcmp(what, "envled")) {
+        uint32_t b = what[0] == 'r' ? B_REC : what[0] == 'f' ? B_FX : what[0] == 'e' ? B_ENV : what[1] == 'e' ? B_SEL
+                   : what[0] == 's' ? B_SAVE
+                   : what[0] == 'p' ? B_PLAY : what[0] == 'h' ? B_HOME : B_OCTUP;
         /* 0 off, 1 glow, 2 mid (OCT: its softer blink), 3 lit */
         *got = (leds_now >> b & 1u) ? 3 : (midleds_now >> b & 1u) ? 2 : b == B_OCTUP && oct_soft ? 2
              : (glowleds_now >> b & 1u) ? 1 : 0;
-    } else if (!strcmp(what, "clicks")) {    /* the metronome's ticks; metro: it on */
+    } else if (!strcmp(what, "clicks")) {    /* the metronome's ticks; hiclicks: the higher ones; metro: it on */
         *got = (int)st.clicks;
+    } else if (!strcmp(what, "hiclicks")) {
+        *got = (int)st.hiclicks;
     } else if (!strcmp(what, "metro")) {
         *got = st.metro;
     } else if (!strcmp(what, "sparkles")) {  /* SPARKLE's glints played */
@@ -2743,6 +4257,8 @@ int app_expect(const char *what, int *got)
         *got = sq.run;
     else if (!strcmp(what, "seqpos"))    /* its step now, -1: none yet */
         *got = sq.pos;
+    else if (!strcmp(what, "seqnote"))   /* the note its step sounds, -1: none */
+        *got = sq.sounding;
     else if (!strcmp(what, "seqsteps"))  /* the notes it has played */
         *got = (int)sq.steps;
     else if (!strcmp(what, "seqnotes")) {   /* its steps that hold a note */
@@ -2752,6 +4268,17 @@ int app_expect(const char *what, int *got)
             *got += (seq[i] & 127u) != SQ_REST && (seq[i] & 127u) != SQ_TIE;
     } else if (!strncmp(what, "seqstep", 7))   /* seqstepN: step N's byte (its note, + 128 with ACCENT) */
         *got = seq[atoi(what + 7) % SC_SEQ];
+    else if (!strcmp(what, "bseqrun"))   /* the bass's sequence playing; bseqpos: its step now, -1 none */
+        *got = bq.run;
+    else if (!strcmp(what, "bseqpos"))
+        *got = bq.pos;
+    else if (!strcmp(what, "bseqsteps")) /* the NOTEs it has played */
+        *got = (int)bq.steps;
+    else if (!strncmp(what, "bseq", 4))  /* bseqN: step N's note (0 CUT, 127 HOLD); blenN: its length (1/16 .. 4 BARS:
+                                          * 0 .. 10) */
+        *got = bnote[atoi(what + 4) % SC_BSEQ];
+    else if (!strncmp(what, "blen", 4))
+        *got = blen[atoi(what + 4) % SC_BSEQ];
     else if (!strncmp(what, "lfoon", 5)) /* lfoonN: LFO N (0, 1) running */
         *got = lfo[(uint32_t)(what[5] - '0') % NLFO].on;
     else if (!strncmp(what, "lfopeak", 7)) {   /* lfopeakN: its largest offset since last asked, x 100 */
@@ -2763,6 +4290,36 @@ int app_expect(const char *what, int *got)
         *got = st.help_page;
     else if (!strcmp(what, "page"))
         *got = st.page;
+    else if (!strcmp(what, "playing"))   /* a restore would wait (app_backup_playing: STOP FIRST) */
+        *got = app_backup_playing();
+    else if (!strcmp(what, "storeold"))  /* the records the store has in an earlier layout (bit 0 scenes, 1 settings) */
+        *got = store_old;
+    else if (!strcmp(what, "keyleds"))   /* the keys' lights last set: bit k = key k (lit or in the glow) */
+        *got = (int)keyleds_now;
+    else if (!strcmp(what, "naming"))    /* the name editor up (after STORE); namecur: its cursor */
+        *got = nm.on;
+    else if (!strcmp(what, "namecur"))
+        *got = nm.cur;
+    else if (!strncmp(what, "scnchar", 7))   /* scncharN: the current scene's name, its character N (0: none) */
+        *got = (st.scene < NSCENES ? scn.s[st.scene].name : NEW_SHARD.name)[atoi(what + 7) % SC_NAME];
+    else if (!strcmp(what, "pick"))      /* SCENES: the slot K1 points at (16: NEW SHARD) */
+        *got = st.pick;
+    else if (!strcmp(what, "scnacts"))   /* the words SCENES' box showed last (PLAY LOAD, SAVE + REC STORE: 4) */
+        *got = ui.acts;
+    else if (!strcmp(what, "setscene"))  /* the settings' scene byte, as last saved (16: NEW SHARD) */
+        *got = set.scene;
+    else if (!strcmp(what, "size_scene"))   /* the records' layouts, as schema_write has them: a scene (a shard) */
+        *got = (int)sizeof(scene_t);
+    else if (!strcmp(what, "size_scenes"))  /* OBJ_SCENES' record, OBJ_BSEQ's, the settings' */
+        *got = (int)SCN_BYTES;
+    else if (!strcmp(what, "size_bseqs"))
+        *got = (int)BSQ_BYTES;
+    else if (!strcmp(what, "size_settings"))
+        *got = (int)sizeof(settings_t);
+    else if (!strcmp(what, "at_scene"))     /* the settings' scene byte: where */
+        *got = (int)offsetof(settings_t, scene);
+    else if (!strcmp(what, "popup"))     /* a pop-up up: 1 a warning, 2 done */
+        *got = pop.on ? 1 + pop.kind : 0;
     else if (!strcmp(what, "octave"))
         *got = st.octave;
     else if (!strcmp(what, "latch"))
@@ -2786,13 +4343,258 @@ int app_expect(const char *what, int *got)
     return 1;
 }
 
-/* the tests' own command: "oldstore L" saves the records in an earlier layout, L: 3 FRSV + FRS3 (before BASS), 4 FRSW
- * + FRS4 (SPACE, 10, where MODEL is now), 5 FRSX + FRS5, 6 FRSX + FRS6 (GLINT on channel 5, BASS on 6), 7 FRSY + FRS7,
- * 8 FRSZ + FRS8, 9 FRSa + FRS9, 10 FRSb + FRSA, 11 FRSc + FRSB, 12 FRSd + FRSC, 13 FRSe + FRSD, 14 FRSf + FRSE (the
- * same channels):
- * slot 6 a scene
- * named OLD with a chord on D3 (and the bass on A1), the settings with TEMPO at 100 BPM and slot 6 last; for a reboot
- * to read and make over */
+/* ------------------------------------------------- the backup page's schema --- */
+/* "schema FILE": what the backup page reads the records with (tools/website.sh writes it; website/assemble.py checks
+ * it and puts it in the page): the records' layouts (and the earlier ones'), every setting with the screen's words for
+ * each of its values, the pages, the names, the factory scenes. From the code itself, never copied by hand */
+static void js_str(FILE *f, const char *s)
+{
+    fputc('"', f);
+    for (; *s; s++) {
+        if (*s == '"' || *s == '\\')
+            fputc('\\', f);
+        fputc(*s, f);
+    }
+    fputc('"', f);
+}
+
+static void js_strs(FILE *f, const char *const *s, uint32_t n)
+{
+    uint32_t i;
+    fputc('[', f);
+    for (i = 0; i < n; i++) {
+        if (i)
+            fputc(',', f);
+        js_str(f, s[i]);
+    }
+    fputc(']', f);
+}
+
+static void js_magic(FILE *f, uint32_t m)
+{
+    char t[5] = {(char)m, (char)(m >> 8), (char)(m >> 16), (char)(m >> 24), 0};
+    js_str(f, t);
+}
+
+static void js_layouts(FILE *f, const layout_t *l, uint32_t n, int scenes)   /* (scenes: their names' length) */
+{
+    uint32_t i;
+    fputc('[', f);
+    for (i = 0; i < n; i++) {
+        fprintf(f, "%s{\"magic\":", i ? "," : "");
+        js_magic(f, l[i].magic);
+        fprintf(f, ",\"nv\":%u,\"extra\":%u", l[i].nv, l[i].extra);
+        if (scenes)
+            fprintf(f, ",\"name\":%u", name_bytes(&l[i]));
+        fputc('}', f);
+    }
+    fputc(']', f);
+}
+
+static int schema_write(const char *path)
+{
+    static const char *const BUTTON[NB] = {"FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ",
+                                           "PLAY", "REC", "OCT-", "OCT+"};
+    FILE *f = fopen(path, "w");
+    uint32_t p, x, i, k;
+    char t[32];
+    if (!f)
+        return -1;
+    seq_shift = bseq_shift = 0;          /* (NOTE's words: the step's own note) */
+    fprintf(f, "{\"format\":\"frasil-schema\",\"version\":1,\n\"sizes\":{\"NSOUND\":%u,\"NPARAM\":%u,\"NSCENES\":%u,"
+               "\"SC_CHORDS\":%u,\"SC_ARP\":%u,\"SC_SEQ\":%u,\"SC_BSEQ\":%u,\"NFACTORY\":%u,\"NLEARN\":%u},\n",
+            (unsigned)NSOUND, (unsigned)NPARAM, NSCENES, SC_CHORDS, SC_ARP, SC_SEQ, SC_BSEQ, (unsigned)NFACTORY, NLEARN);
+    /* a scene (a shard) whole, its bass's sequence last; "rec": its bytes in the scenes' record (OBJ_SCENES), the rest
+     * in OBJ_BSEQ's (bseqs_t: after its magic, each scene's bnote then blen) */
+    fprintf(f, "\"scene_t\":{\"size\":%u,\"name\":%u,\"name_len\":%u,\"v\":%u,\"nch\":%u,\"narp\":%u,\"ch\":%u,\"arp\":%u,\"bass\":%u,"
+               "\"seq\":%u,\"bnote\":%u,\"blen\":%u,\"bq\":%u,\"rec\":%u},\n",
+            (unsigned)sizeof(scene_t), (unsigned)offsetof(scene_t, name), SC_NAME, (unsigned)offsetof(scene_t, v),
+            (unsigned)offsetof(scene_t, nch), (unsigned)offsetof(scene_t, narp), (unsigned)offsetof(scene_t, ch),
+            (unsigned)offsetof(scene_t, arp), (unsigned)offsetof(scene_t, bass), (unsigned)offsetof(scene_t, seq),
+            (unsigned)offsetof(scene_t, bnote), (unsigned)offsetof(scene_t, blen), (unsigned)offsetof(scene_t, bq_on),
+            (unsigned)SC_REC);
+    fprintf(f, "\"scenes_t\":{\"size\":%u,\"magic\":%u,\"used\":%u,\"s\":%u,\"rec\":%u},\n", (unsigned)sizeof(scenes_t),
+            (unsigned)offsetof(scenes_t, magic), (unsigned)offsetof(scenes_t, used), (unsigned)offsetof(scenes_t, s),
+            (unsigned)SCN_BYTES);
+    fprintf(f, "\"bseqs_t\":{\"size\":%u,\"magic\":0,\"s\":4,\"scene\":%u},\n", (unsigned)BSQ_BYTES, (unsigned)BSQ_SCENE);
+    fprintf(f, "\"settings_t\":{\"size\":%u,\"magic\":%u,\"v\":%u,\"octave\":%u,\"keys\":%u,\"channel\":%u,"
+               "\"scene\":%u,\"tempo\":%u,\"ch_glint\":%u,\"ch_bass\":%u,\"seq\":%u,\"metro_off\":%u,\"morph\":%u,"
+               "\"load\":%u,\"learn_cc\":%u,\"learn_p\":%u,\"bnote\":%u,\"blen\":%u,\"bq_on\":%u,\"bq_steps\":%u,"
+               "\"bq_trans\":%u},\n",
+            (unsigned)sizeof(settings_t), (unsigned)offsetof(settings_t, magic), (unsigned)offsetof(settings_t, v),
+            (unsigned)offsetof(settings_t, octave), (unsigned)offsetof(settings_t, keys),
+            (unsigned)offsetof(settings_t, channel), (unsigned)offsetof(settings_t, scene),
+            (unsigned)offsetof(settings_t, tempo), (unsigned)offsetof(settings_t, ch_glint),
+            (unsigned)offsetof(settings_t, ch_bass), (unsigned)offsetof(settings_t, seq),
+            (unsigned)offsetof(settings_t, metro_off), (unsigned)offsetof(settings_t, morph),
+            (unsigned)offsetof(settings_t, load), (unsigned)offsetof(settings_t, learn_cc),
+            (unsigned)offsetof(settings_t, learn_p), (unsigned)offsetof(settings_t, bnote),
+            (unsigned)offsetof(settings_t, blen), (unsigned)offsetof(settings_t, bq_on),
+            (unsigned)offsetof(settings_t, bq_steps), (unsigned)offsetof(settings_t, bq_trans));
+    fprintf(f, "\"magic\":{\"scenes\":");
+    js_magic(f, SCN_MAGIC);
+    fprintf(f, ",\"bseqs\":");
+    js_magic(f, BSQ_MAGIC);
+    fprintf(f, ",\"shard\":");
+    js_magic(f, SHARD_MAGIC);
+    fprintf(f, ",\"settings\":");
+    js_magic(f, SET_MAGIC);
+    fprintf(f, ",\"backup\":");
+    js_magic(f, APP_BACKUP_MAGIC);
+    fprintf(f, "},\n\"objs\":{\"settings\":%d,\"panel\":%d,\"scenes\":%d,\"bseqs\":%d},\n\"seq\":{\"rest\":%u,\"tie\":%u,"
+               "\"accent\":%u},\n",
+            OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, SQ_REST, SQ_TIE, SQ_ACC);
+    fprintf(f, "\"bseq\":{\"cut\":%u,\"hold\":%u,\"ticks\":[", SQ_REST, SQ_TIE);   /* (a STEP LENGTH's, MIDI clocks) */
+    for (i = 0; i < NBQLEN; i++)
+        fprintf(f, "%s%u", i ? "," : "", BQ_TICKS[i]);
+    /* a shard of an earlier layout: its name and NV sounds, then the rest of its scene's record as this one's (REC bytes
+     * in all), then its bass's sequence (SIZE - REC bytes: none, empty): FRSk, FRSi, then FRSh */
+    fprintf(f, "]},\n\"old_shards\":[{\"magic\":");
+    js_magic(f, SHARD_FRSK);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u},{\"magic\":", (unsigned)sizeof(scene_t), (unsigned)NSOUND,
+            (unsigned)SC_REC);
+    js_magic(f, SHARD_FRSI);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u},{\"magic\":", (unsigned)(FRSH_REC + BSQ_SCENE), FRSH_NV,
+            (unsigned)FRSH_REC);
+    js_magic(f, SCN_FRSH);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u}],\n\"old_scenes\":", (unsigned)FRSH_REC, FRSH_NV, (unsigned)FRSH_REC);
+    js_layouts(f, OLD_SCN, sizeof OLD_SCN / sizeof OLD_SCN[0], 1);
+    fprintf(f, ",\n\"old_settings\":");
+    js_layouts(f, OLD_SET, sizeof OLD_SET / sizeof OLD_SET[0], 0);
+    /* the settings settings_over makes over byte by byte: this layout with NV sounds (a setting learned after them
+     * numbered so), SIZE bytes, those after the sound to END as this one's (the bass's sequence: none, empty): FRSI,
+     * FRSH, FRSG */
+    fprintf(f, ",\n\"old_settings_over\":[{\"magic\":");
+    js_magic(f, SET_FRSI);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u},{\"magic\":", (unsigned)sizeof(settings_t), (unsigned)NSOUND,
+            (unsigned)sizeof(settings_t));
+    js_magic(f, SET_FRSH);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u},{\"magic\":", FRSH_BYTES, FRSH_NV, FRSH_BYTES);
+    js_magic(f, SET_FRSG);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u}]", FRSG_BYTES, FRSH_NV, (unsigned)FRSH_BSEQ);
+    /* every earlier layout kept SCATTER where GLINT's RELEASE is: made over, RELEASE as its DECAY let a glint go then
+     * (sound_over: OF[DECAY]), a CC learned on it learned no more */
+    fprintf(f, ",\n\"scatter_gone\":{\"p\":%d,\"decay\":%d,\"of\":[", (int)P_GL_RELEASE, (int)P_GL_DECAY);
+    for (i = 0; i < 128u; i++)
+        fprintf(f, "%s%u", i ? "," : "", glint_release_of(i));
+    fprintf(f, "]}");
+#define ID(n) fprintf(f, "%s\"" #n "\":%d", k++ ? "," : "", (int)(n))
+    fprintf(f, ",\n\"ids\":{");
+    k = 0;
+    ID(P_ROOT), ID(P_SCALE), ID(P_CHORD), ID(P_VOICING), ID(P_DR_PRESET), ID(P_DR_FULL), ID(P_GL_PRESET);
+    ID(P_GL_OCTAVE), ID(P_SQ_TYPE), ID(P_ARP_MODE), ID(P_ARP_RATE), ID(P_ARP_RANGE), ID(P_ARP_CHANCE), ID(P_SQ_LEN);
+    ID(P_SQ_GATE), ID(P_SQ_TRANS), ID(P_BS_OCTAVE), ID(P_BS_MODEL), ID(P_KEYS), ID(P_CANAL), ID(P_TEMPO);
+    ID(P_CH_GLINT), ID(P_CH_BASS), ID(P_MORPH), ID(P_LOAD), ID(P_TIMBRE), ID(P_GX_SPARK), ID(P_GX_BLUR);
+    ID(P_GX_SINK), ID(P_GD_TIME), ID(P_L1_SHAPE), ID(P_L2_SHAPE), ID(P_L3_SHAPE), ID(P_MX_DRONE), ID(P_MX_BASS);
+    ID(P_MX_GLINT), ID(P_MX_CLOUD), ID(PG_ARP), ID(PG_SEQ), ID(PG_SEQ2), ID(PG_SEQ3), ID(PG_SCENES), ID(SQT_ARP);
+    ID(SQT_SEQ), ID(OCT_DEF), ID(P_BQ_ON), ID(P_BQ_STEPS), ID(P_BQ_TRANS), ID(P_BQ_LEN), ID(PG_BSEQ), ID(PG_BSEQ2);
+    ID(P_BS_ATTACK), ID(P_BS_DECAY), ID(P_BS_SUSTAIN), ID(P_BS_RELEASE), ID(P_BS_PULSE), ID(P_GL_ATTACK);
+    ID(P_GL_DECAY), ID(P_GL_SUSTAIN), ID(P_GL_RELEASE);
+#undef ID
+    fprintf(f, "},\n\"params\":[\n");
+    for (p = 0; p < NPARAM; p++) {       /* each with its words for every value, as the screen writes them */
+        uint32_t fm = PD[p].fmt;
+        fprintf(f, "%s{\"name\":", p ? ",\n" : "");
+        js_str(f, PD[p].name);
+        fprintf(f, ",\"max\":%u,\"def\":%u,\"kind\":\"%s\",\"texts\":[", PD[p].max, PD[p].def,
+                fm == F_LTGT ? "target" : PD[p].max <= 16u && fm != F_PCT ? "steps" : "gauge");
+        for (x = 0; x <= PD[p].max; x++) {
+            value_text((int)p, (uint8_t)x, t);
+            if (x)
+                fputc(',', f);
+            js_str(f, t);
+        }
+        fprintf(f, "]}");
+    }
+    fprintf(f, "],\n\"pages\":[\n");
+    for (i = 0; i < NPAGES; i++) {
+        fprintf(f, "%s{\"name\":", i ? ",\n" : "");
+        js_str(f, PAGES[i].name);
+        fprintf(f, ",\"button\":\"%s\",\"p\":[", BUTTON[PAGES[i].button % NB]);
+        for (k = 0; k < 4u; k++)
+            fprintf(f, "%s%d", k ? "," : "", PAGES[i].p[k] < NPARAM ? (int)PAGES[i].p[k] : -1);
+        fprintf(f, "]}");
+    }
+    fprintf(f, "],\n\"drone\":{\"names\":");
+    js_strs(f, DRONE_NAME, NDPRESET + 1u);
+    fprintf(f, ",\"p\":[");
+    for (i = 0; i < NDRONE; i++)
+        fprintf(f, "%s%u", i ? "," : "", DRONE_P[i]);
+    fprintf(f, "],\"presets\":[");
+    for (k = 0; k < NDPRESET; k++) {
+        fprintf(f, "%s[", k ? "," : "");
+        for (i = 0; i < NDRONE; i++)
+            fprintf(f, "%s%u", i ? "," : "", DRONE_PRESET[k][i]);
+        fputc(']', f);
+    }
+    fprintf(f, "]},\n\"glint\":{\"names\":");
+    js_strs(f, GLINT_NAME, NGPRESET);
+    fprintf(f, "},\n\"lfo\":{\"base\":[%u,%u,%u],\"nfree\":%u,\"shapes\":", LFO_BASE[0], LFO_BASE[1], LFO_BASE[2],
+            LFO_NFREE);
+    js_strs(f, LFO_SHAPE_NAME, 7);
+    fprintf(f, ",\"targets\":[");
+    for (i = 0; i < NLFO_TGT; i++) {     /* each in its track's colour, as the screen has it (tgt_col) */
+        uint16_t c = tgt_col(i);
+        fprintf(f, "%s{\"name\":", i ? "," : "");
+        js_str(f, LFO_TGT_NAME[i]);
+        fprintf(f, ",\"p\":%d,\"track\":\"%s\"}", LFO_TGT[i] < NPARAM ? (int)LFO_TGT[i] : -1,
+                c == C_ICE ? "glint" : c == C_LAMP ? "bass" : c == C_FOG ? "drone" : "off");
+    }
+    fprintf(f, "]},\n\"notes\":");
+    js_strs(f, NOTE_NAME, 12);
+    fprintf(f, ",\"scales\":");
+    js_strs(f, SCALE_NAME, NSCALES);
+    fprintf(f, ",\"chords\":");
+    js_strs(f, CHORD_NAME, NCHORDS);
+    fprintf(f, ",\n\"factory\":[");      /* each slot with nothing saved in it, as scene_get gives it: its bytes, hex */
+    for (i = 0; i < NSCENES; i++) {
+        scene_t sc;
+        const uint8_t *b = (const uint8_t *)&sc;
+        factory_get(i, &sc);
+        fprintf(f, "%s\n\"", i ? "," : "");
+        for (k = 0; k < sizeof sc; k++)
+            fprintf(f, "%02x", b[k]);
+        fputc('"', f);
+    }
+    fprintf(f, "]}\n");
+    fclose(f);
+    return 0;
+}
+
+/* the tests' own commands: "schema FILE" (above); "backuphold 1|0" (app_backup_hold, as a backup streaming);
+ * "nosettings" (the settings' record gone, as a new FM-1 has none);
+ * "oldstore L" saves the records in an earlier layout, L: 3 FRSV + FRS3 (before BASS), 4 FRSW + FRS4 (SPACE, 10,
+ * where MODEL is now), 5 FRSX + FRS5, 6 FRSX + FRS6 (GLINT on channel 5, BASS on 6), 7 FRSY + FRS7, 8 FRSZ + FRS8,
+ * 9 FRSa + FRS9, 10 FRSb + FRSA, 11 FRSc + FRSB, 12 FRSd + FRSC, 13 FRSe + FRSD, 14 FRSf + FRSE (the same channels):
+ * slot 6 a scene named OLD with a chord on D3 (and the bass on A1), the settings with TEMPO at 100 BPM and slot 6
+ * last; 15 FRSg, 16 FRSG (no OBJ_BSEQ), 17 FRSh + FRSH (from the records as last saved: app_host_cmd); for a reboot
+ * (or a backup) to read and make over */
+/* "enclate E N": N detents of encoder E (0 SELECT .. 6 K4) that come in during the next pass, once the name editor
+ * or a pop-up has read the encoders (on the device the scan brings them any time) */
+static int32_t enc_late[NE];
+static void enc_late_in(void)
+{
+    uint32_t e;
+    for (e = 0; e < NE; e++) {
+        enc_acc[e] += enc_late[e];
+        enc_late[e] = 0;
+    }
+}
+
+/* the settings as last saved, into raw as FRSH kept them (the tests: oldstore 16, 17): the sound FRSH_NV long, a
+ * setting learned after it numbered so; the magic the caller's */
+static void set_frsh(void)
+{
+    uint32_t i;
+    memcpy(raw, &set, 4u + FRSH_NV);
+    memcpy(raw + 4u + FRSH_NV, (uint8_t *)&set + offsetof(settings_t, octave), FRSH_BYTES - 4u - FRSH_NV);
+    for (i = 0; i < NLEARN; i++) {
+        uint8_t *l = raw + offsetof(settings_t, learn_p) - (NSOUND - FRSH_NV) + i;
+        if (*l >= NSOUND && *l < NPARAM)
+            *l = (uint8_t)(*l - (NSOUND - FRSH_NV));
+    }
+}
+
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
 {
     static const uint8_t SCN_OF[12] = {0, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10};   /* L's scenes layout */
@@ -2803,6 +4605,102 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     (void)b;
     (void)c;
     (void)d;
+    if (!strcmp(cmd, "backuphold")) {    /* backuphold 1|0: a backup streaming, as device/backup.c holds the saving */
+        app_backup_hold(atoi(a));
+        return 1;
+    }
+    if (!strcmp(cmd, "askscreen")) {     /* askscreen: the restore question's screen, as fm1-base's rs_ask draws it */
+        app_backup_ask_screen();
+        return 1;
+    }
+    if (!strcmp(cmd, "enclate")) {
+        enc_late[atoi(a) % NE] += atoi(b);
+        return 1;
+    }
+    if (!strcmp(cmd, "schema")) {        /* schema FILE: the backup page's (schema_write) */
+        if (schema_write(a))
+            printf("schema: cannot write %s\n", a);
+        return 1;
+    }
+    if (!strcmp(cmd, "nosettings")) {    /* nosettings: the settings never saved, as on a new FM-1 (the scenes kept),
+                                          * for a reboot */
+        plat_store_save(OBJ_SETTINGS, raw, 0);
+        return 1;
+    }
+    if (!strcmp(cmd, "oldstore") && k == 12) {   /* oldstore 15: the scenes as 1.1's first build kept them (FRSg,
+                                                  * names of ten), the settings left as they are: slot 6 TENLETTERS, an
+                                                  * arpeggio (60 64) and a sequence (72) on GLINT's OCTAVE 1 */
+        ls = &OLD_SCN[11];
+        rs = scn_bytes(ls);
+        nv = ls->nv;
+        memset(raw, 0, sizeof raw);
+        for (i = 0; i < 4u; i++)
+            raw[i] = (uint8_t)(ls->magic >> (8u * i));
+        raw[4] = 1u << 5;
+        o = raw + 8u + 5u * rs;
+        memcpy(o, "TENLETTERS", 10);
+        for (i = 0; i < nv; i++)
+            o[10u + i] = st.v[i];
+        o[10u + P_GL_OCTAVE] = 1;
+        o[10u + P_SQ_TYPE] = SQT_ARP;
+        o[11u + nv] = 2;                 /* narp */
+        o[12u + nv + SC_CHORDS * 5u] = 60;
+        o[13u + nv + SC_CHORDS * 5u] = 64;
+        o[12u + nv + SC_CHORDS * 5u + SC_ARP] = 0xFF;   /* no bass */
+        o[13u + nv + SC_CHORDS * 5u + SC_ARP] = 72;     /* the sequence's first step */
+        plat_store_save(OBJ_SCENES, raw, 8u + NSCENES * rs);
+        return 1;
+    }
+    if (!strcmp(cmd, "oldstore") && k == 13) {   /* oldstore 16: 1.1's records before the bass's sequence: the
+                                                  * settings as last saved, in FRSG's layout (without it), and no
+                                                  * OBJ_BSEQ (the scenes' record as it is) */
+        set_frsh();
+        for (i = 0; i < 4u; i++)
+            raw[i] = (uint8_t)(SET_FRSG >> (8u * i));
+        memset(raw + FRSH_BSEQ, 0, FRSG_BYTES - FRSH_BSEQ);
+        plat_store_save(OBJ_SETTINGS, raw, FRSG_BYTES);
+        plat_store_save(OBJ_BSEQ, raw, 0);
+        return 1;
+    }
+    if (!strcmp(cmd, "oldstore") && k == 14) {   /* oldstore 17: 1.1's records before BASS's DECAY, SUSTAIN and
+                                                  * PULSE (FRSh, FRSH): the scenes and the settings as last saved,
+                                                  * without them (a CC learned on a setting after the sound numbered
+                                                  * as it was); OBJ_BSEQ as it is */
+        set_frsh();
+        for (i = 0; i < 4u; i++)
+            raw[i] = (uint8_t)(SET_FRSH >> (8u * i));
+        plat_store_save(OBJ_SETTINGS, raw, FRSH_BYTES);
+        memcpy(raw, &scn, 8u);
+        for (i = 0; i < 4u; i++)
+            raw[i] = (uint8_t)(SCN_FRSH >> (8u * i));
+        for (i = 0; i < NSCENES; i++) {
+            o = raw + 8u + i * FRSH_REC;
+            memcpy(o, &scn.s[i], SC_NAME + FRSH_NV);
+            memcpy(o + SC_NAME + FRSH_NV, &scn.s[i].nch, SC_REC - SC_NAME - NSOUND);
+        }
+        plat_store_save(OBJ_SCENES, raw, 8u + NSCENES * FRSH_REC);
+        return 1;
+    }
+    if (!strcmp(cmd, "oldstore") && k == 15) {   /* oldstore 18 [N]: 1.1's records before GLINT's RELEASE (FRSj,
+                                                  * FRSI): the scenes and the settings as last saved, SCATTER (N, else
+                                                  * its default 80) where RELEASE is; OBJ_BSEQ as it is */
+        uint8_t sc = b && *b ? (uint8_t)atoi(b) : 80u;
+        memcpy(raw, &set, sizeof set);
+        for (i = 0; i < 4u; i++)
+            raw[i] = (uint8_t)(SET_FRSI >> (8u * i));
+        raw[offsetof(settings_t, v) + P_GL_RELEASE] = sc;
+        plat_store_save(OBJ_SETTINGS, raw, sizeof set);
+        memcpy(raw, &scn, 8u);
+        for (i = 0; i < 4u; i++)
+            raw[i] = (uint8_t)(SCN_FRSJ >> (8u * i));
+        for (i = 0; i < NSCENES; i++) {
+            o = raw + 8u + i * SC_REC;
+            memcpy(o, &scn.s[i], SC_REC);
+            o[offsetof(scene_t, v) + P_GL_RELEASE] = sc;
+        }
+        plat_store_save(OBJ_SCENES, raw, 8u + NSCENES * SC_REC);
+        return 1;
+    }
     if (strcmp(cmd, "oldstore") || k < 0 || k > 11)
         return 0;
     ls = &OLD_SCN[SCN_OF[k]];

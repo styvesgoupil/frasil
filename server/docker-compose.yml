@@ -1,0 +1,19 @@
+# FRASIL River's service on nimbus (Hetzner): the API only, published on a local port. The host's system Caddy does
+# TLS for river.frasilsynth.com, serves the River's page and passes /api/* here (README.md, "Caddy"). Host
+# convention: one compose project per app in ~/apps/<name>, port 127.0.0.1:30xx. Fill .env from .env.example.
+services:
+  api:
+    build: .
+    container_name: frasil-api
+    restart: unless-stopped
+    mem_limit: 512m                 # (argon2: 64 MiB a hash, 4 at a time; nimbus has 3.7 GB for all its apps)
+    env_file: .env
+    environment:
+      RIVER_DB: /data/river.sqlite
+      TZ: ${TZ:-America/Toronto}
+    volumes:
+      - frasil-data:/data
+    ports:
+      - "127.0.0.1:3050:8080"
+volumes:
+  frasil-data:

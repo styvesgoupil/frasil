@@ -4,8 +4,10 @@
  * table, 0.1 % off); the square and the saws are PolyBLEP's (their steps smoothed, no aliasing to speak of this
  * low). A chunk of 32 frames at a time: the model's wave into a buffer, then DRIVE, the low-pass (a TPT state
  * variable filter, 12 dB an octave, its coefficients a chunk) and the gain. The pitch glides in octaves a chunk at a
- * time; the envelope, the level and the pressure ramp across a chunk, as the drones' do. A new MODEL comes in through
- * a dip: the old one out over four chunks, the new one in over four (6 ms in all), no click. */
+ * time; the envelope, the level and the pressure ramp across a chunk, as the drones' do. The envelope: ATTACK up to the
+ * top (95 %, at the time ATTACK shows), then DECAY to SUSTAIN while held (at 100 %, on up as the attack went: the bass
+ * as it was before DECAY and SUSTAIN), RELEASE once let go; each step a chunk's share of the way left. A new MODEL comes
+ * in through a dip: the old one out over four chunks, the new one in over four (6 ms in all), no click. */
 #include "dsp.h"
 #include "bass.h"
 
@@ -15,6 +17,12 @@
 static struct {
     int8_t note;                         /* -1: silent */
     uint8_t gate;
+    uint8_t dec;                         /* held, the attack done: DECAY toward SUSTAIN */
+    float ts;                            /* seconds in its stage: ATTACK, DECAY (dec), RELEASE (the screen) */
+    uint8_t let_dec;                     /* let go: in its DECAY then, and how long it had been in its stage */
+    float let_ts;
+    uint32_t again;                      /* PULSE's gap: the chunks till the note sounds again (0: none) */
+    uint32_t pulses;                     /* the notes played again so (bass_view) */
     int model;                           /* the one sounding */
     float mg;                            /* its share, 0..1: a new model comes in through a dip of 6 ms */
     float vel, vel_t;                    /* velocity's share of the level, gliding (a legato note's: no step) */
@@ -30,7 +38,11 @@ static struct {
 /* each model's level, so that they sound about as loud as the sine through FILTER's default */
 static const float MODEL_G[BASS_NMODEL] = {1.0f, 1.1f, 0.62f, 1.0f, 1.6f, 1.0f, 1.1f, 1.15f};
 
-void bass_init(void) { b.note = -1; }
+void bass_init(void)
+{
+    b.note = -1;
+    b.again = 0;
+}
 
 void bass_on(int note, float vel)
 {
@@ -47,13 +59,39 @@ void bass_on(int note, float vel)
     b.oct_t = o;
     b.note = (int8_t)note;
     b.gate = 1;
+    b.dec = 0;                           /* (a note played: from its ATTACK, a legato one too) */
+    b.ts = 0.0f;
+    b.again = 0;
     b.vel_t = vel;
+}
+
+static void let_go(void)                 /* (where the envelope was, for the screen) */
+{
+    if (b.gate) {
+        b.let_dec = b.dec;
+        b.let_ts = b.ts;
+        b.ts = 0.0f;
+    }
 }
 
 void bass_off(void)
 {
+    let_go();
     b.gate = 0;
+    b.again = 0;
     b.prs_t = 0.0f;                      /* the next note starts unpressed */
+}
+
+/* PULSE: let go (RELEASE) for a moment, then again from ATTACK; its note, velocity and pressure as they were, nothing to
+ * glide */
+void bass_pulse(float gap)
+{
+    uint32_t n = (uint32_t)(gap * BR_FS * (1.0f / (float)CH) + 0.5f);
+    if (b.note < 0 || !b.gate)
+        return;                          /* (let go already: nothing to play again) */
+    let_go();
+    b.gate = 0;
+    b.again = n ? n : 1u;
 }
 
 void bass_press(float p) { b.prs_t = br_clampf(p, 0.0f, 1.0f); }
@@ -132,7 +170,7 @@ static void wave(int model, float *s, uint32_t d)
 
 void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
 {
-    float kg, ka, kr, drv, norm, mix, k, trim;
+    float kg, ka, kd, kr, sus, drv, norm, mix, k, trim;
     uint32_t c, i;
     if (b.note < 0)
         return;
@@ -143,6 +181,8 @@ void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
     }
     ka = 1.0f - fm_expf(-(float)CH * BR_INV_FS * 3.0f / (0.005f * fm_powf(1000.0f, p->attack)));
     kr = 1.0f - fm_expf(-(float)CH * BR_INV_FS * 3.0f / (0.03f * fm_powf(500.0f, p->release)));
+    kd = 1.0f - fm_expf(-(float)CH * BR_INV_FS * 3.0f / (0.01f * fm_powf(1000.0f, p->decay)));
+    sus = p->sustain >= 1.0f ? 1.0f : fm_sqrtf(p->sustain);   /* (the gain is the envelope's square: SUSTAIN a level) */
     if (!b.set) {
         b.flt = p->filter;
         b.res = p->resonance;
@@ -165,7 +205,23 @@ void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
             b.mg = b.mg + 0.25f > 1.0f ? 1.0f : b.mg + 0.25f;
         }
         b.oct += (b.oct_t - b.oct) * kg;
-        b.env += ((b.gate ? 1.0f : 0.0f) - b.env) * (b.gate ? ka : kr);
+        if (b.again && !--b.again) {     /* PULSE's gap gone by: the note again, from its ATTACK */
+            b.gate = 1;
+            b.dec = 0;
+            b.ts = 0.0f;
+            b.pulses++;
+        }
+        b.ts += (float)CH * BR_INV_FS;
+        if (!b.gate) {
+            b.env += (0.0f - b.env) * kr;
+        } else if (!b.dec) {
+            b.env += (1.0f - b.env) * ka;
+            b.dec = b.env >= 0.95f;
+            if (b.dec)
+                b.ts = 0.0f;
+        } else {
+            b.env += (sus - b.env) * (sus < 1.0f ? kd : ka);
+        }
         b.prs += (b.prs_t - b.prs) * 0.15f;
         b.vel += (b.vel_t - b.vel) * 0.15f;
         b.flt += (p->filter - b.flt) * 0.12f;
@@ -207,7 +263,7 @@ void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
         if (swap)                        /* faded out: the new model from the next chunk */
             b.model = model;
     }
-    if (!b.gate && b.env < 0.001f)
+    if (!b.gate && !b.again && b.env < 0.001f)
         b.note = -1;
 }
 
@@ -215,6 +271,11 @@ void bass_view(bass_view_t *v)
 {
     v->note = b.note;
     v->gate = b.gate;
+    v->stage = !b.gate ? 2u : b.dec ? 1u : 0u;
+    v->t = b.ts;
+    v->let_stage = b.let_dec;
+    v->let_t = b.let_ts;
     v->level = b.env;
     v->pressure = b.prs;
+    v->pulses = b.pulses;
 }

@@ -29,6 +29,10 @@
   position: absolute; z-index: 2; right: var(--gutter); top: clamp(84px, 11vh, 120px);
   font: 600 12.5px/1 var(--f-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--mist);
 }
+.hero-version .dl { position: absolute; right: 0; top: 100%; margin-top: 12px; white-space: nowrap; }
+.sec-install .dhead .status { position: relative; }
+.sec-install .dhead .status .dl { position: absolute; right: 0; top: 100%; margin-top: 26px; }
+.sec-install .dhead .status .dl::before { content: none; }
 .hero-sky { flex: none; height: max(150px, calc(47svh - var(--logo-h) * var(--wl))); }
 .hero-line {
   position: relative;

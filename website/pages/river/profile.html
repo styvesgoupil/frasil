@@ -1,0 +1,75 @@
+<!--
+title: Profile · FRASIL River
+description: Your FRASIL River account: the display name the River shows on the shards you share, your email, your password, your sessions, everything you keep in the River as one file, and leaving the River.
+-->
+<main id="main" class="river" data-install="{{site}}guide/install/">
+
+<section class="rv-top rv-top-v2 wrap" aria-labelledby="rv-title">
+  <div class="pt"><div class="pt-tabs"><h1 class="pt-t is-on" id="rv-title">Account</h1></div><p class="pt-sub" id="pf-sub"></p></div>
+  <div class="voice" id="voice"><span class="voice-dot" aria-hidden="true"></span><p class="voice-say" role="status"></p><p class="voice-alarm" role="alert"></p></div>
+</section>
+
+<section class="wrap pf-out" id="pf-out" hidden>
+  <p>You are not signed in.</p>
+  <div class="rv-btns"><a class="btn btn-ice" href="/yours/#signin">Sign in</a><a class="btn btn-plain" href="/yours/#register">Create an account <span class="arrow" aria-hidden="true">→</span></a></div>
+</section>
+
+<!-- the account: one column of rows on hairlines (river-profile.js) -->
+<section class="wrap" id="account" aria-label="Your account" hidden>
+  <div class="list rows">
+    <div class="pr" id="r-name">
+      <h2 class="pr-l">Display name</h2>
+      <div class="pr-v">
+        <p class="pr-val" id="pf-name"></p>
+        <p class="pr-n">Public: the author’s name on the shards you share.</p>
+        <form id="f-name" novalidate hidden>
+          <label class="field"><span class="sr-only">Display name</span><input name="display_name" required maxlength="40" autocomplete="nickname"></label>
+          <p class="form-say" role="alert"></p>
+          <div class="form-acts"><button class="btn btn-ice" type="submit">Save the name</button><button class="btn btn-plain" type="button" data-cancel>Cancel</button></div>
+        </form>
+      </div>
+      <div class="pr-acts"><button class="a" type="button" id="name-go" aria-controls="f-name" aria-expanded="false">Change</button></div>
+    </div>
+    <div class="pr">
+      <h2 class="pr-l">Email</h2>
+      <div class="pr-v"><p class="pr-val"><span id="acct-email"></span><span class="ok" id="acct-verified"></span></p><p class="pr-n" id="acct-email-n">Never shown to anyone.</p></div>
+      <div class="pr-acts"></div>
+    </div>
+    <div class="pr" id="r-pass">
+      <h2 class="pr-l">Password</h2>
+      <div class="pr-v">
+        <p class="pr-val" id="pass-v">••••••••••</p>
+        <p class="pr-n" id="pass-p">Changing it signs out your other sessions.</p>
+        <form id="f-pass" novalidate hidden>
+          <label class="field" id="pass-now"><span class="field-l">Current password</span><input type="password" name="password" autocomplete="current-password"></label>
+          <label class="field"><span class="field-l">New password</span><input type="password" name="new_password" autocomplete="new-password" minlength="8" maxlength="256"></label>
+          <p class="form-say" role="alert"></p>
+          <div class="form-acts"><button class="btn btn-ice" type="submit">Change the password</button><button class="btn btn-plain" type="button" data-cancel>Cancel</button></div>
+        </form>
+      </div>
+      <div class="pr-acts"><button class="a" type="button" id="pass-go" aria-controls="f-pass" aria-expanded="false">Change…</button></div>
+    </div>
+    <div class="pr">
+      <h2 class="pr-l">Sessions</h2>
+      <div class="pr-v"><p class="pr-val">This browser</p></div>
+      <div class="pr-acts"><button class="a" type="button" id="out-here">Sign out</button><button class="a a-txt" type="button" id="out-all">Sign out everywhere</button></div>
+    </div>
+    <div class="pr">
+      <h2 class="pr-l">Your data</h2>
+      <div class="pr-v"><p class="pr-val">Your account, your shards and your backups, in one file</p><p class="pr-n">A zip: Quick Backup opens its scene package.</p></div>
+      <div class="pr-acts"><a class="a" href="/api/me/export" download id="export"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v7.5M4.8 6.8 8 10l3.2-3.2M3 13.5h10"/></svg><span>Download</span></a></div>
+    </div>
+    <div class="pr">
+      <h2 class="pr-l">Privacy</h2>
+      <div class="pr-v"><p class="pr-val">What the River keeps about you, and its terms</p></div>
+      <div class="pr-acts"><a class="a a-txt" href="/privacy/">Read</a></div>
+    </div>
+    <div class="pr">
+      <h2 class="pr-l">Leave the River</h2>
+      <div class="pr-v"><p class="pr-val">Delete the account, your shards and your backups</p><p class="pr-n">The shards you shared leave the Community River and others’ favorites; copies others saved before stay theirs, without your name.</p></div>
+      <div class="pr-acts"><button class="a a-txt a-danger" type="button" id="del-me">Delete my account…</button></div>
+    </div>
+  </div>
+</section>
+
+</main>
