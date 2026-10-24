@@ -17,8 +17,10 @@
 static float sintab[TN + 1u];
 
 typedef struct {
-    int8_t note;
+    int8_t note;                         /* as it was played (OCTAVE not on it) */
     uint8_t gate;
+    int8_t octv;                         /* OCTAVE as it is on it now */
+    float f0, ratio;                     /* its frequency before OCTAVE (its detune on it), RATIO at the strike */
     uint32_t pc, pm, dc, dm;             /* carrier and modulator: phases, increments */
     float amp, ka, kr;                   /* amplitude, its decay a sample (held), and once let go (RELEASE) */
     float amp0;                          /* its level at the strike (SUSTAIN's share of it is held) */
@@ -56,6 +58,16 @@ void glint_init(void)
 
 static float decay_k(float seconds) { return fm_exp2f(-9.965784f / (seconds * BR_FS)); }   /* -60 dB over it */
 
+/* a glint's increments, as fractions of a turn, OCTAVE on it (kept under 0.45: no wrap past Nyquist, and inside an
+ * int32) */
+static void tune(glint_t *s, int octave)
+{
+    float f = s->f0 * fm_exp2f((float)octave);
+    s->octv = (int8_t)octave;
+    s->dc = (uint32_t)(int32_t)(br_clampf(f * BR_INV_FS, 0.0f, 0.45f) * 4294967296.0f);
+    s->dm = (uint32_t)(int32_t)(br_clampf(f * s->ratio * BR_INV_FS, 0.0f, 0.45f) * 4294967296.0f);
+}
+
 void glint_on(int note, float vel, const glint_params_t *p)
 {
     glint_t *s = 0;
@@ -74,9 +86,9 @@ void glint_on(int note, float vel, const glint_params_t *p)
     t = 0.08f * fm_powf(75.0f, br_clampf(p->decay, 0.0f, 1.0f));
     s->note = (int8_t)note;
     s->gate = 1;
-    /* increments as fractions of a turn, kept under 0.45 (no wrap past Nyquist, and inside an int32) */
-    s->dc = (uint32_t)(int32_t)(br_clampf(f * BR_INV_FS, 0.0f, 0.45f) * 4294967296.0f);
-    s->dm = (uint32_t)(int32_t)(br_clampf(f * p->ratio * BR_INV_FS, 0.0f, 0.45f) * 4294967296.0f);
+    s->f0 = f;
+    s->ratio = p->ratio;
+    tune(s, p->octave);
     s->pc = 0;
     s->pm = 0;
     s->amp = s->amp0 = (0.35f + 0.65f * vel) * 0.3f;
@@ -139,6 +151,8 @@ void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, 
         float amp, att, katt, idx, ie, k, ki, gl, gr, pg, dpg, fl;
         if (s->note < 0)
             continue;
+        if (s->octv != p->octave)        /* OCTAVE turned: it sounds there at once */
+            tune(s, p->octave);
         s->blocks++;
         s->t += (float)n * BR_INV_FS;
         if (!s->gate)
@@ -210,7 +224,7 @@ void glint_view(glint_view_t v[GLINT_NV])
 {
     uint32_t i;
     for (i = 0; i < GLINT_NV; i++) {
-        v[i].note = sp[i].note;
+        v[i].note = sp[i].note < 0 ? -1 : (int8_t)(sp[i].note + 12 * sp[i].octv > 127 ? 127 : sp[i].note + 12 * sp[i].octv);
         v[i].gate = sp[i].gate;
         v[i].level = sp[i].amp * sp[i].pg * (1.0f / 0.3f);
         v[i].env = sp[i].amp0 > 0.0f ? sp[i].att * sp[i].amp / sp[i].amp0 : 0.0f;

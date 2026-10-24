@@ -15,7 +15,8 @@
 #define BASS_G 0.42f                     /* a full bass beside the drones */
 
 static struct {
-    int8_t note;                         /* -1: silent */
+    int8_t note;                         /* -1: silent; else as it is played (OCTAVE not on it) */
+    int8_t octv;                         /* OCTAVE as it is now on it */
     uint8_t gate;
     uint8_t dec;                         /* held, the attack done: DECAY toward SUSTAIN */
     float ts;                            /* seconds in its stage: ATTACK, DECAY (dec), RELEASE (the screen) */
@@ -23,6 +24,7 @@ static struct {
     float let_ts;
     uint32_t again;                      /* PULSE's gap: the chunks till the note sounds again (0: none) */
     uint32_t pulses;                     /* the notes played again so (bass_view) */
+    uint32_t ons;                        /* the notes struck (bass_view) */
     int model;                           /* the one sounding */
     float mg;                            /* its share, 0..1: a new model comes in through a dip of 6 ms */
     float vel, vel_t;                    /* velocity's share of the level, gliding (a legato note's: no step) */
@@ -44,9 +46,18 @@ void bass_init(void)
     b.again = 0;
 }
 
-void bass_on(int note, float vel)
+static int sounding(int note, int octave)   /* a note with OCTAVE on it, C1 at the lowest (under it, nothing a
+                                             * speaker plays) */
 {
-    float o = ((float)note - 69.0f) * (1.0f / 12.0f);
+    note += 12 * octave;
+    while (note < 24)
+        note += 12;
+    return note > 127 ? 127 : note;
+}
+
+void bass_on(int note, float vel, const bass_params_t *p)
+{
+    float o = ((float)sounding(note, p->octave) - 69.0f) * (1.0f / 12.0f);
     if (b.note < 0) {                    /* from silence: no glide from nowhere, the phases from zero */
         b.oct = o;
         b.ph = b.ph2 = b.phs = 0;
@@ -58,6 +69,8 @@ void bass_on(int note, float vel)
     }
     b.oct_t = o;
     b.note = (int8_t)note;
+    b.octv = (int8_t)p->octave;
+    b.ons++;
     b.gate = 1;
     b.dec = 0;                           /* (a note played: from its ATTACK, a legato one too) */
     b.ts = 0.0f;
@@ -92,6 +105,15 @@ void bass_pulse(float gap)
     let_go();
     b.gate = 0;
     b.again = n ? n : 1u;
+}
+
+void bass_retune(int note, float vel)
+{
+    if (b.note < 0)
+        return;
+    b.note = (int8_t)note;
+    b.oct_t = ((float)sounding(note, b.octv) - 69.0f) * (1.0f / 12.0f);
+    b.vel_t = vel;
 }
 
 void bass_press(float p) { b.prs_t = br_clampf(p, 0.0f, 1.0f); }
@@ -204,6 +226,10 @@ void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
         } else if (b.mg < 1.0f) {
             b.mg = b.mg + 0.25f > 1.0f ? 1.0f : b.mg + 0.25f;
         }
+        if (b.octv != p->octave) {       /* OCTAVE turned: the note sounding moves there, gliding as GLIDE does */
+            b.octv = (int8_t)p->octave;
+            b.oct_t = ((float)sounding(b.note, b.octv) - 69.0f) * (1.0f / 12.0f);
+        }
         b.oct += (b.oct_t - b.oct) * kg;
         if (b.again && !--b.again) {     /* PULSE's gap gone by: the note again, from its ATTACK */
             b.gate = 1;
@@ -269,7 +295,7 @@ void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
 
 void bass_view(bass_view_t *v)
 {
-    v->note = b.note;
+    v->note = b.note < 0 ? -1 : (int8_t)sounding(b.note, b.octv);
     v->gate = b.gate;
     v->stage = !b.gate ? 2u : b.dec ? 1u : 0u;
     v->t = b.ts;
@@ -278,4 +304,5 @@ void bass_view(bass_view_t *v)
     v->level = b.env;
     v->pressure = b.prs;
     v->pulses = b.pulses;
+    v->ons = b.ons;
 }

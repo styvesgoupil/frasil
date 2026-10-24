@@ -2,6 +2,15 @@
 #   app/build/host/frasil_host app/tests/basic.txt app/build/host
 wait 600
 shot boot.png
+# never saved yet: NEW SHARD (16), GLINT's SEQ on ARP, at 90 BPM; from here, the scene the tests were written on
+# (testscene: 1.1's first MIST, as slot 01)
+expect scene 16
+expect p123 1
+expect p132 60
+testscene
+wait 100
+expect scene 0
+expect p123 0
 expect page 0
 # PLAY in the glow, nothing sounding; OCT- and OCT+ in the glow, a little brighter on the beat
 expect playled 1
@@ -631,7 +640,7 @@ expect glints >0
 expect seqpos <4
 # RECORD OFF, on GLINT SEQ's pages a key or a GLINT note plays its glint, as with SEQ OFF (a line tried before it is
 # recorded): TRANSPOSE and the steps as they were, the sequence going on; stopped, the glint heard is the key's (its
-# note, none of the sequence's, GLINT's OCTAVE up: 45 + 12), the MIDI note's as it comes
+# note, none of the sequence's, GLINT's OCTAVE up: 45 + 12), the MIDI note's with OCTAVE on it too (60 + 12)
 key 13 down 100
 wait 30
 expect seqrun 1
@@ -649,7 +658,7 @@ expect glintnote 57
 key 4 up
 midi 91 3C 7F
 wait 30
-expect glintnote 60
+expect glintnote 72
 midi 81 3C 00
 expect p112 14
 expect seqnotes 3
@@ -953,19 +962,19 @@ expect arpnotes 1
 expect glints >0
 expect held 0
 midi 81 48 00
-# channel 3: BASS, mono, the last note on top; let go, back to the one still held
+# channel 3: BASS, mono, the last note on top (OCTAVE on it, as on a key's: -1); let go, back to the one still held
 midi 92 24 64
 wait 50
-expect bassnote 36
+expect bassnote 24
 midi 92 28 64
 wait 50
-expect bassnote 40
+expect bassnote 28
 midi A2 28 60
 wait 300
 expect bprs >30
 midi 82 28 00
 wait 50
-expect bassnote 36
+expect bassnote 24
 midi 82 24 00
 wait 50
 expect bassnote -1
@@ -978,7 +987,7 @@ expect held 1
 midi B0 7B 00
 wait 50
 expect held 0
-expect bassnote 36
+expect bassnote 24
 midi B2 7B 00
 wait 50
 expect bassnote -1
@@ -994,18 +1003,18 @@ wait 50
 expect held 0
 expect bassnote -1
 midi 83 3C 00
-# scenes: save the sound into slot 3, change it, load slot 3 back
+# scenes: save the sound into slot 8 (an empty one: the factory scenes kept), change it, load slot 8 back
 tap SAVE
 wait 30
 expect page 38
-turn K1 2
+turn K1 7
 wait 30
 press SAVE
 tap REC
 release SAVE
 tap FX
 wait 50
-expect scene 2
+expect scene 7
 expect dirty 0
 tap EDIT
 turn K1 -10
@@ -1019,8 +1028,8 @@ expect p31 67
 reboot
 wait 600
 expect p31 67
-expect scene 2
-# a scene keeps what plays: two latched drones, the arpeggio's two notes and the bass, into slot 4
+expect scene 7
+# a scene keeps what plays: two latched drones, the arpeggio's two notes and the bass, into slot 9
 tap HOME
 tapkey 5
 tapkey 9
@@ -1051,8 +1060,8 @@ tap REC
 release SAVE
 tap FX
 wait 50
-expect scene 3
-# everything let go, then slot 4 again: the drones and the arpeggio come back
+expect scene 8
+# everything let go, then slot 9 again: the drones and the arpeggio come back
 tap HOME
 press PLAY
 wait 650
@@ -1070,7 +1079,7 @@ expect lit50 1
 expect held 2
 expect arpnotes 2
 expect bassnote 29
-# another note on top, then slot 4 again: that note goes, the scene's notes play
+# another note on top, then slot 9 again: that note goes, the scene's notes play
 tap HOME
 tapkey 2
 wait 50
@@ -1083,15 +1092,30 @@ expect lit43 0
 expect lit46 1
 expect lit50 1
 expect arpnotes 2
-# loading a scene lets every note go: a factory scene plays nothing after
-turn K1 -3
+# loading a scene lets every note go, then plays its own: NORTH RIVER (slot 1), its two sevenths latched on B2 and F#3
+# (eight voices), GLINT's arpeggio (three notes, no sequence) and the bass's sequence
+turn K1 -8
 tap PLAY
 wait 100
 expect scene 0
 expect lit46 0
-expect held 0
+expect held 8
+expect lit47 1
+expect lit54 1
+expect arpnotes 3
+expect seqrun 0
+expect bseqrun 1
+# then LONG NIGHT (slot 4): its fifth latched on A2 (two voices), GLINT's sequence and the bass's
+turn K1 3
+tap PLAY
+wait 100
+expect scene 3
+expect lit47 0
+expect held 2
+expect lit45 1
 expect arpnotes 0
-expect bassnote -1
+expect seqrun 1
+expect bseqrun 1
 tap HOME
 press PLAY
 wait 650
@@ -1671,14 +1695,14 @@ tap REC
 wait 30
 expect glint 0
 expect bass 0
-# MIDI: CC 14 on the drones' channel turns SPARKLE (p124); Program Change 3 loads scene 3 (SPARKLE back at its 0);
-# GLO held and CC 21: CC 21 turns the setting turned last from then on (SINK, p126), the page staying
+# MIDI: CC 14 on the drones' channel turns SPARKLE (p124); Program Change 5 loads scene 5 (OPEN WATER: SPARKLE back at
+# its 0); GLO held and CC 21: CC 21 turns the setting turned last from then on (SINK, p126), the page staying
 midi B0 0E 40
 wait 30
 expect p124 64
-midi C0 02 00
+midi C0 04 00
 wait 100
-expect scene 2
+expect scene 4
 expect p124 0
 tap FX
 turn K4 10
@@ -1696,8 +1720,12 @@ wait 30
 expect p126 127
 turn K4 -127
 # SCENES' MORPH (K2, p143) and LOAD (K3, p144): MORPH 1 S, LOAD SND ONLY: a scene comes in, the drone goes on, the sound
-# glides there in a second
+# glides there in a second (OPEN WATER's own drone let go first; D3 in D Dorian: 50)
 tap HOME
+press PLAY
+wait 700
+release PLAY
+wait 30
 tapkey 9
 wait 100
 expect lit50 1
@@ -1723,15 +1751,17 @@ press PLAY
 wait 700
 release PLAY
 wait 30
-# SAVE held and a white key: its scene (the fourth white key, B2, scene 4), nothing sounding, the page staying
+# SAVE held and a white key: its scene (the fourth white key, B2, scene 4, LONG NIGHT), its fifth sounding (two
+# voices), the page staying
 press SAVE
 tapkey 6
 release SAVE
 wait 100
 expect scene 3
 expect page 0
-expect held 0
-# LFO held and an encoder: the setting under it onto LFO 1 (DRONE PARAMS' K1, TIMBRE: LFO 1's TARGET 1), DEPTH up;
+expect held 2
+# LFO held and an encoder: the setting under it onto LFO 1 (DRONE PARAMS' K1, TIMBRE: LFO 1's first free TARGET, 3:
+# LONG NIGHT's LFO 1 has its first two, its LFO 2 one: TARGET 2), DEPTH up;
 # again, LFO 2; back, LFO 1; the page staying
 tap EDIT
 wait 30
@@ -1739,16 +1769,16 @@ expect page 1
 press LFO
 turn K1 1
 wait 30
-expect p98 1
+expect p100 1
 expect p96 >0
 turn K1 1
 wait 30
-expect p98 0
-expect p106 1
+expect p100 0
+expect p107 1
 turn K1 -1
 wait 30
-expect p106 0
-expect p98 1
+expect p107 0
+expect p100 1
 release LFO
 wait 30
 expect page 1
@@ -1756,7 +1786,7 @@ press LFO
 turn K1 -1
 release LFO
 wait 30
-expect p98 0
+expect p100 0
 # EDIT held: COMPARE, the scene as saved, let go: as it is now, the page staying
 press EDIT
 wait 500
@@ -2002,10 +2032,7 @@ expect scene 5
 expect p132 70
 expect storeold 3
 # a backup (nothing playing) saves them in this layout first: it holds the scenes as this FRASIL has them
-press PLAY
-wait 650
-release PLAY
-wait 50
+expect playing 0
 backup out:new.frasil
 expect storeold 0
 reboot
@@ -2195,7 +2222,7 @@ expect scene 12
 tap SAVE
 wait 30
 # BASS's sequencer: SEQ's two last pages (numbered after SCENES), BASS SEQ (p148 STEP, p149 NOTE, p150 STEP LENGTH,
-# p151 RECORD) and BASS SEQ II (p152 STEPS, p153 SEQUENCE, p154 CLEAR, p155 TRANSPOSE). A clean start: everything let
+# p151 RECORD) and BASS SEQ II (p152 SEQ STEPS, p153 SEQUENCE, p154 CLEAR, p155 TRANSPOSE). A clean start: everything let
 # go, D minor (HARMONY), GLINT's SEQ OFF, the keys on BASS
 tap HOME
 wait 30
@@ -2284,7 +2311,7 @@ expect blen1 1
 expect blen2 1
 expect blen3 4
 expect p149 0
-# STEPS 4 (BASS SEQ II's K1)
+# SEQ STEPS 4 (BASS SEQ II's K1)
 tap SEQ
 wait 30
 expect page 40
@@ -2292,7 +2319,7 @@ spin K1 -12
 wait 30
 expect p152 3
 # on MIDI's clock (24 a beat): Start puts it at its first step, at the grid's top; each step as long as its STEP
-# LENGTH: D from 0 to 36 (its 1/4, then the HOLD's 1/8), A at 36, the CUT at 48, round again at 96 (STEPS 4)
+# LENGTH: D from 0 to 36 (its 1/4, then the HOLD's 1/8), A at 36, the CUT at 48, round again at 96 (SEQ STEPS 4)
 midi FA
 clock 12
 expect bseqpos 0
@@ -2316,8 +2343,8 @@ clock 1
 expect bseqpos 0
 expect bassnote 38
 expect bseqsteps >2
-# PLAY: GLINT's sequence (the sequencer on, 1/8: a step every 12 clocks) and the bass's stop together, and start
-# together from their first steps, at GLINT's next step
+# PLAY: GLINT's sequence (the sequencer on, 1/8: a step every 12 clocks; GLINT SEQ II's K2) and the bass's stop
+# together, and start together from their first steps, at GLINT's next step
 tap ARP
 wait 30
 expect page 8
@@ -2325,6 +2352,22 @@ spin K2 2
 wait 30
 expect p123 2
 expect seqrun 1
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+wait 30
+expect page 14
+spin K2 -20
+wait 30
+turn K2 5
+wait 30
+expect p46 5
+tap ARP
+tap ARP
+wait 30
+expect page 8
 midi FA
 clock 5
 tap PLAY
@@ -2386,14 +2429,14 @@ tapkey 9
 wait 30
 expect p155 14
 expect p135 6
-midi 95 29 64
+midi 95 35 64
 wait 30
 expect p155 16
-midi 85 29 00
-midi 95 26 64
+midi 85 35 00
+midi 95 32 64
 wait 30
 expect p155 14
-midi 85 26 00
+midi 85 32 00
 wait 30
 # REC with the keys on BASS: into its sequence, recording LIVE (p151 2), on BASS SEQ; the metronome ticks. LIVE is a
 # take over the loop as it is (D 1/4 on through its HOLD 1/8 to clock 36, A 1/8, a CUT 1/2: 96 clocks, a sixteenth
@@ -2401,7 +2444,7 @@ wait 30
 # and its length to the sixteenth, over the time it covers alone. A3 down a clock late, at 25 (its start: 24), A2 at
 # once; G3 down at 37, A3 still down (legato: A to 36, G from 36, over the old A); A3 let go (G has the bass), G3 at 47
 # (a 1/8). As each ends the steps are written again, the loop as long as it was: D 1/4, A 1/8, G 1/8, the CUT 1/2,
-# STEPS 4; round again, they play so
+# SEQ STEPS 4; round again, they play so
 tap REC
 wait 30
 expect p151 2
@@ -2455,7 +2498,7 @@ tap REC
 wait 30
 expect p151 0
 expect page 39
-# RECORD on STEP: STEP wraps within STEPS (from step 4 back to 1)
+# RECORD on STEP: STEP wraps within SEQ STEPS (from step 4 back to 1)
 expect p148 3
 turn K4 1
 wait 30
@@ -2467,7 +2510,7 @@ turn K4 -1
 wait 30
 # a scene keeps the bass's sequence: stored in slot 16 (SAVE + REC; NAME IT left as it is), the sequence CLEARED
 # (BASS SEQ II's K3, twice: every step a CUT, a 1/16), then slot 16 loaded (SAVE + its white key): it comes back; the
-# settings keep it too, with SEQUENCE, STEPS and TRANSPOSE (a reboot)
+# settings keep it too, with SEQUENCE, SEQ STEPS and TRANSPOSE (a reboot)
 tap SAVE
 wait 30
 expect page 38
@@ -2520,13 +2563,13 @@ tapkey w15
 release SAVE
 wait 100
 expect bseq1 57
-# a scene plays its own bass's sequence, with its own SEQUENCE and STEPS: MIST (slot 1, none) loaded, it is off and
-# stops; slot 16 again, on, its four steps, running
+# a scene plays its own bass's sequence, with its own SEQUENCE and SEQ STEPS: WHITEOUT (slot 6, none) loaded, it is off
+# and stops; slot 16 again, on, its four steps, running
 press SAVE
-tapkey w0
+tapkey w5
 release SAVE
 wait 100
-expect scene 0
+expect scene 5
 expect p153 0
 expect p152 15
 expect bseqrun 0
@@ -2539,7 +2582,7 @@ expect p153 1
 expect p152 3
 expect bseqrun 1
 # the settings as 1.1 kept them before the bass's sequence (FRSG) and no OBJ_BSEQ: made over at power-on, the
-# sequence empty and off, STEPS 16, TRANSPOSE 0; slot 16 there, its bass's sequence empty
+# sequence empty and off, SEQ STEPS 16, TRANSPOSE 0; slot 16 there, its bass's sequence empty
 oldstore 16
 reboot
 wait 600
@@ -2766,7 +2809,7 @@ tap REC
 expect p139 0
 expect p142 0
 expect clicks 0
-# the bass's (GLINT's SEQ OFF: it begins on the next sixteenth): STEPS 3, a 1/4, a 1/8, a 1/4 (a turn of 60 clocks,
+# the bass's (GLINT's SEQ OFF: it begins on the next sixteenth): SEQ STEPS 3, a 1/4, a 1/8, a 1/4 (a turn of 60 clocks,
 # two beats and a half); stopped at clock 3, REC (the keys on BASS) starts it at 6: high at 6, low at 30 and 54 (the
 # third beat a half), high at 66 as it comes round
 tap HOME
@@ -2943,8 +2986,8 @@ expect bseq1 53
 expect blen1 1
 expect p148 2
 expect p150 1
-midi 92 2B 50
-midi 82 2B 00
+midi 92 37 50
+midi 82 37 00
 wait 30
 expect bseq2 55
 expect blen2 1
@@ -3084,7 +3127,7 @@ expect p35 3
 expect p36 1
 expect p37 8
 expect p39 32
-expect p123 0
+expect p123 1
 expect p62 5
 expect p55 16
 expect p56 34
@@ -3149,8 +3192,8 @@ expect pick 16
 tap SAVE
 wait 30
 expect page 1
-# SAVE + REC from another page, NEW SHARD loaded: into the first EMPTY slot, 09 (a factory scene stays), then NAME
-# IT, as any STORE
+# SAVE + REC from another page, NEW SHARD loaded: into the first EMPTY slot, 08 (the factory scenes stay, 06 one stored
+# over), then NAME IT, as any STORE
 press SAVE
 tap REC
 release SAVE
@@ -3159,10 +3202,20 @@ expect naming 1
 tap FX
 wait 30
 expect naming 0
-expect used8 1
-expect scene 8
+expect used7 1
+expect scene 7
 expect dirty 0
-# again, from NEW SHARD each time: 10, 11, 12, then 15 (13 holds a scene), 16 ...
+# again, from NEW SHARD each time: 09 ... 12, then 14 (13 holds one), 15 ...
+tap SAVE
+spin K1 -20
+tap PLAY
+tap SAVE
+press SAVE
+tap REC
+release SAVE
+tap FX
+wait 30
+expect scene 8
 tap SAVE
 spin K1 -20
 tap PLAY
@@ -3235,12 +3288,16 @@ shot new-shard-choose.png
 tap SAVE
 wait 30
 expect page 1
-# power-on with NEW SHARD the last scene: a new FM-1 (no settings saved yet) starts on slot 01; NEW SHARD loaded, the
-# metronome turned (REC held: the settings saved whole, the first time), the settings' scene byte 16; at power-on,
-# NEW SHARD again: its sound, nothing changed, K1 on it on SCENES. The records' layouts as the schema has them
+# power-on with NEW SHARD the last scene: a new FM-1 (no settings saved yet) starts on NEW SHARD too (the tests'
+# scene loaded again, then NEW SHARD); NEW SHARD loaded, the metronome turned (REC held: the settings saved whole, the
+# first time), the settings' scene byte 16; at power-on, NEW SHARD again: its sound, nothing changed, K1 on it on
+# SCENES. The records' layouts as the schema has them
 nosettings
 reboot
 wait 600
+expect scene 16
+testscene
+wait 30
 expect scene 0
 tap SAVE
 wait 30
@@ -3274,9 +3331,9 @@ wait 500
 release REC
 wait 30
 expect metro 1
-expect size_scene 272
+expect size_scene 273
 expect size_scenes 3800
-expect size_bseqs 564
+expect size_bseqs 580
 expect size_settings 228
 expect at_scene 137
 # a page button held and SELECT turned: that button's pages, a detent each, as its taps go, round (from another
@@ -3405,8 +3462,6 @@ expect compare 0
 tap ARP
 wait 30
 expect page 8
-spin K2 1
-wait 30
 expect p123 1
 key 12 down 100
 key 16 down 100
@@ -3932,7 +3987,7 @@ expect seqpos 1
 # The bass's LIVE take: a note goes in as it was played, its start and its length to the sixteenth (6 clocks), over
 # the time it covers alone; a stretch the lengths have no step for, in as few as make it (a 5/16: a NOTE of 1/4 and a
 # HOLD of 1/16). A clean start: everything let go, D minor (HARMONY), GLINT's SEQ OFF, the keys on BASS, its OCTAVE
-# -1; BASS SEQ II: CLEAR, STEPS 16, SEQUENCE off, TRANSPOSE 0; the grid on MIDI's clock
+# -1; BASS SEQ II: CLEAR, SEQ STEPS 16, SEQUENCE off, TRANSPOSE 0; the grid on MIDI's clock
 press PLAY
 wait 700
 release PLAY
@@ -3984,7 +4039,7 @@ expect octave -1
 # an empty sequence (all CUT): REC, LIVE. Before the first note the loop goes round as it is (sixteen 1/16, a bar), the
 # metronome high on each of its turns. The take begins at the bar of the first note, the time before it in that bar a
 # CUT: F3 down two clocks early in the second bar (118: its start the bar's fifth sixteenth, 120), F2 at once; the loop
-# a bar of CUT from that bar's line (STEPS 1), then, F3 let go at 141 (23 clocks: a 1/4), CUT 1/4, F 1/4, CUT 1/2. A3
+# a bar of CUT from that bar's line (SEQ STEPS 1), then, F3 let go at 141 (23 clocks: a 1/4), CUT 1/4, F 1/4, CUT 1/2. A3
 # from 156 for 30 clocks (a 5/16: NOTE 1/4, HOLD 1/16), a sixteenth's CUT after it
 midi FA
 clock 1
@@ -4036,7 +4091,7 @@ expect blen4 0
 expect bseq5 0
 expect blen5 0
 expect p152 5
-# the take's loop at its end (192): a bar of CUT more, not round (STEPS 7: the CUT after A a bar and a 1/16); the
+# the take's loop at its end (192): a bar of CUT more, not round (SEQ STEPS 7: the CUT after A a bar and a 1/16); the
 # metronome high on each of its bar lines. D3 down two clocks late (194: its start the bar's first sixteenth, 192),
 # for 49 clocks (a 1/2); at the next bar line (288) a bar more again (the CUT after D 1.5 BARS)
 clock 6
@@ -4065,7 +4120,7 @@ expect blen7 7
 expect clicks 13
 expect hiclicks 4
 # REC in the third bar's first half (300, 12 clocks into it): the loop to the bar line nearest, two bars (the bar just
-# begun gone): CUT 1/4, F 1/4, CUT 1/8, A 1/4 + HOLD 1/16, CUT 1/16, D 1/2, CUT 1/2; STEPS 8; the playhead as far
+# begun gone): CUT 1/4, F 1/4, CUT 1/8, A 1/4 + HOLD 1/16, CUT 1/16, D 1/2, CUT 1/2; SEQ STEPS 8; the playhead as far
 # into its turn (12), round from there
 clock 12
 tap REC
@@ -4087,7 +4142,7 @@ expect bassnote 45
 # it was. From the top (MIDI Start): G3 down a clock late at 85 (its start 84, over A's last sixteenth, the CUT and
 # D's start), G2 at once; D's NOTE (96) silent under it; let go a clock early, at 107 (22 clocks: a 1/4). D, cut short,
 # does not sound on after it: CUT till the CUT there was (144). The rest as it was: CUT 1/4, F 1/4, CUT 1/8, A 1/4, G
-# 1/4, CUT 1/2D, CUT 1/8; STEPS 7. Round again: G from 276 (84) to 300 (108), nothing after it. The metronome as
+# 1/4, CUT 1/2D, CUT 1/8; SEQ STEPS 7. Round again: G from 276 (84) to 300 (108), nothing after it. The metronome as
 # before, from the loop's first step (high at 0, 192), REC flashing on its beats
 tap REC
 wait 30
@@ -4189,7 +4244,7 @@ expect blen15 0
 # an empty loop filled: REC off, CLEAR, REC: a new take, from the top. Its first note a clock before the second bar
 # (95): its start that bar's line, the take from there (the loop round once more first). A sixteenth each, a
 # sixteenth apart, eight in the bar: sixteen steps at its end, no room for a bar more: BASS SEQ FULL, LOOP CLOSED,
-# the loop that bar (STEPS 16), round from its first note
+# the loop that bar (SEQ STEPS 16), round from its first note
 tap REC
 wait 30
 expect p151 0
@@ -4735,18 +4790,18 @@ tap PLAY
 wait 30
 expect seqrun 0
 expect grid >40
-# PLAY held: RELEASE ALL, the beat from there (the sequences stopped); held again: RESTORE, the beat from there too,
-# both sequences from step 1, the metronome's tick on it
+# PLAY held, nothing playing (the sequences stopped): the scene again (RESTORE), both sequences from step 1, the beat
+# from there; held again: RELEASE ALL, the beat from there too, both stopped; again: both from step 1, the
+# metronome's tick on it
 press PLAY
 wait 620
 expect grid <2
-release PLAY
-wait 200
-tap PLAY
-wait 10
-expect grid <3
+expect seqrun 1
+expect bseqrun 1
 expect seqpos 0
-wait 400
+expect bseqpos 0
+release PLAY
+wait 300
 press PLAY
 wait 620
 expect grid <2
@@ -4891,3 +4946,403 @@ expect p44 112
 midi B0 17 7F
 wait 30
 expect p44 112
+# a scene keeps its TEMPO (GLOBAL's K1, p132; 30 + its value BPM): slot 14 stored at 110 BPM (80); TEMPO turned to 80
+# BPM (50): the amber dot (the scene changed); slot 14 loaded (PLAY on SCENES, LOAD SND+NOTES): 110 BPM again, nothing
+# changed. LOAD SND ONLY (SCENES' K3, p144) from 80 BPM: the TEMPO stays, as what plays does (the dot: not the scene's)
+tap GLO
+wait 30
+expect page 34
+expect p132 70
+turn K1 10
+wait 30
+expect p132 80
+tap SAVE
+wait 30
+expect pick 13
+press SAVE
+tap REC
+release SAVE
+tap FX
+wait 50
+expect scene 13
+expect dirty 0
+tap GLO
+wait 30
+turn K1 -30
+wait 30
+expect p132 50
+expect dirty 1
+tap SAVE
+wait 30
+tap PLAY
+wait 100
+expect scene 13
+expect p132 80
+expect dirty 0
+tap GLO
+wait 30
+turn K1 -30
+wait 30
+tap SAVE
+wait 30
+turn K3 1
+wait 30
+expect p144 1
+tap PLAY
+wait 100
+expect p132 50
+expect dirty 1
+turn K3 -1
+wait 30
+expect p144 0
+# 1.1's basses' record before the scenes' TEMPO (FRBS) made over at power-on: each scene the TEMPO the settings kept
+# (the one played at). Slot 15 stored at 80 BPM (the settings too); FRBS written; at power-on, slot 14 (stored at 110)
+# at 80 BPM, as slot 15; the store still in FRBS (a backup saves it first). (SCENES still up: K1 to slot 15)
+turn K1 1
+wait 30
+expect pick 14
+press SAVE
+tap REC
+release SAVE
+tap FX
+wait 50
+expect scene 14
+expect p132 50
+oldstore 19
+expect storeold 0
+reboot
+wait 600
+expect storeold 1
+expect scene 14
+expect p132 50
+midi C0 0D 00
+wait 100
+expect scene 13
+expect p132 50
+expect dirty 0
+# BASS II's OCTAVE (K2, p59): the bass's notes as they sound, every one (a key's, a MIDI note's, the sequence's), the
+# one sounding moved at once: a key latched (D3 at -1: D2, 38), OCTAVE down: D1 (26); up twice: D3 (50); the same key
+# lets it go (on the tests' scene, its keys LATCH)
+press PLAY
+wait 650
+release PLAY
+wait 30
+testscene
+wait 30
+expect p130 0
+turn SELECT -2
+turn SELECT 2
+wait 30
+expect p142 2
+tap SEQ
+tap SEQ
+wait 30
+expect page 17
+expect p59 1
+tapkey 9
+wait 50
+expect bassnote 38
+turn K2 -1
+wait 30
+expect p59 0
+expect bassnote 26
+expect bassvoice 26
+turn K2 2
+wait 30
+expect p59 2
+expect bassnote 50
+tapkey 9
+wait 50
+expect bassnote -1
+turn K2 -1
+wait 30
+expect p59 1
+# and the bass's sequence's step sounding: LONG NIGHT (slot 4), its first NOTE a whole bar (A1, 33 at -1), OCTAVE up
+# while it sounds: A2 (45) at once; down again: A1
+press SAVE
+tapkey w3
+release SAVE
+wait 1500
+expect scene 3
+expect bseqrun 1
+expect bassnote 33
+turn K2 1
+wait 30
+expect p59 2
+expect bassnote 45
+expect bassvoice 45
+turn K2 -1
+wait 30
+expect p59 1
+expect bassnote 33
+press PLAY
+wait 650
+release PLAY
+wait 30
+# a MIDI note on BASS's channel (3 again) the same: D3 played, D2 as it sounds (38); OCTAVE up: D3 (50) at once
+testscene
+wait 30
+midi 92 32 64
+wait 30
+expect bassnote 38
+expect bassvoice 38
+turn K2 1
+wait 30
+expect p59 2
+expect bassnote 50
+expect bassvoice 50
+turn K2 -1
+wait 30
+expect bassvoice 38
+midi 82 32 00
+wait 30
+expect bassnote -1
+# GLINT's OCTAVE (GLINT II's K1, p42) the same, on a glint held: a key's (A2 at +1: A3, 57); OCTAVE up: A4 (69) at once
+turn SELECT -1
+wait 30
+expect p142 1
+tap ARP
+tap ARP
+wait 30
+expect page 9
+expect p42 1
+key 4 down 100
+wait 30
+expect glintnote 57
+turn K1 1
+wait 30
+expect p42 2
+expect glintnote 69
+key 4 up
+turn K1 -1
+wait 30
+expect p42 1
+# PULSE on (BASS II's K4, 1/4 BEAT: every 6 clocks, the grid on MIDI's): a note changed by hand isn't struck off the
+# beat; the bass goes to it, PULSE strikes it on its next division. A key latched on the grid's top (D3: D2, 38,
+# struck); another key three clocks on (F3: F2, 41): not struck, the bass there; the next division strikes it
+expect playing 0
+turn SELECT 1
+wait 30
+expect p142 2
+tap SEQ
+tap SEQ
+wait 30
+expect page 17
+turn K4 2
+wait 30
+expect p129 2
+expect bons >-1
+expect bpulses >-1
+midi FA
+clock 1
+tapkey 9
+wait 10
+expect bons 1
+expect bassnote 38
+clock 3
+tapkey 12
+wait 10
+expect bons 0
+expect bassnote 41
+expect bassvoice 41
+expect bpulses 0
+clock 2
+wait 80
+expect bpulses 1
+expect bons 0
+expect bassvoice 41
+# PULSE OFF: a key strikes at once, as ever
+turn K4 -2
+wait 30
+expect p129 0
+tapkey 14
+wait 10
+expect bons 1
+expect bassnote 43
+press PLAY
+wait 650
+release PLAY
+wait 30
+# the bass's STEP LENGTH up to 8 BARS and 16 BARS (p150, 12): on BASS SEQ (SEQ twice from BASS II), K3 all the way up
+tap SEQ
+tap SEQ
+wait 30
+expect page 39
+turn K3 20
+wait 30
+expect p150 12
+turn K3 -1
+wait 30
+expect p150 11
+turn K3 -20
+wait 30
+# an empty sequence leaves the keys their notes. The bass's SEQUENCE on (BASS SEQ II's K2), CLEARed (its K3, twice),
+# RECORD OFF: a key plays the bass (D3: D2, 38), and the sequence running (its CUTs) cuts nothing; a NOTE written
+# (RECORD on STEP), a key transposes it again, as ever
+tap SEQ
+wait 30
+expect page 40
+spin K3 1
+wait 100
+spin K3 1
+wait 30
+expect bseq0 0
+turn K2 1
+wait 30
+expect p153 1
+expect p151 0
+midi FA
+clock 2
+tapkey 9
+wait 30
+expect bassnote 38
+clock 30
+wait 10
+expect bseqrun 1
+expect bassnote 38
+expect bassvoice 38
+tapkey 9
+wait 30
+expect bassnote -1
+tap SEQ
+wait 30
+expect page 16
+tap SEQ
+tap SEQ
+tap SEQ
+wait 30
+expect page 39
+turn K4 1
+wait 30
+expect p151 1
+tapkey 9
+wait 30
+expect bseq0 50
+turn K4 -1
+wait 30
+expect p151 0
+tapkey 12
+wait 30
+expect p155 >14
+tapkey 9
+wait 30
+expect p155 14
+tap SEQ
+wait 30
+expect page 40
+turn K2 -1
+wait 30
+expect p153 0
+# GLINT the same: SEQ on SEQ (GLINT I's K2), its sequence CLEARed (GLINT SEQ III's K2, twice), RECORD OFF, away from
+# its pages (HOME, the keys on GLINT again): a key plays its glint (A2 at +1: A3, 57)
+turn SELECT -1
+wait 30
+expect p142 1
+tap ARP
+wait 30
+expect page 8
+spin K2 -5
+wait 30
+turn K2 2
+wait 30
+expect p123 2
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+tap ARP
+wait 30
+expect page 15
+turn K2 1
+wait 100
+turn K2 1
+wait 30
+expect seqnotes 0
+tap HOME
+turn SELECT 1
+wait 30
+expect glint 1
+key 4 down 100
+wait 30
+expect glintnote 57
+key 4 up
+wait 30
+tap ARP
+wait 30
+expect page 8
+spin K2 -5
+wait 30
+expect p123 0
+# a scene loaded starts its sequences from the top, the beat beginning there, as PLAY does: OPEN WATER (slot 5, its
+# bass's sequence in eighths at 118 BPM) loaded at any moment, PULSE on 1/2 BEAT (BASS II's K4): its divisions fall on
+# the NOTEs' own starts, nothing struck again (none doubled)
+wait 1234
+press SAVE
+tapkey w4
+release SAVE
+wait 30
+expect scene 4
+expect bseqrun 1
+tap SEQ
+tap SEQ
+wait 30
+expect page 17
+turn K4 3
+wait 30
+expect p129 3
+expect bpulses >-1
+expect bons >-1
+wait 3000
+expect bpulses 0
+expect bons >5
+turn K4 -3
+wait 30
+press PLAY
+wait 650
+release PLAY
+wait 30
+# PLAY held, nothing playing: the scene again, every sequence on from its first step. LONG NIGHT (slot 4: its fifth,
+# GLINT's sequence, the bass's): PLAY held, RELEASE ALL; PLAY tapped, the sequences alone again; PLAY held, RELEASE
+# ALL (the drone kept, from before); PLAY held: the drone, both sequences
+press SAVE
+tapkey w3
+release SAVE
+wait 100
+expect scene 3
+expect held 2
+expect seqrun 1
+expect bseqrun 1
+press PLAY
+wait 650
+release PLAY
+wait 30
+expect held 0
+expect seqrun 0
+expect bseqrun 0
+tap PLAY
+wait 100
+expect held 0
+expect seqrun 1
+expect bseqrun 1
+press PLAY
+wait 650
+release PLAY
+wait 30
+expect seqrun 0
+expect bseqrun 0
+expect playing 0
+press PLAY
+wait 650
+release PLAY
+wait 100
+said RESTORED
+expect held 2
+expect seqrun 1
+expect bseqrun 1
+press PLAY
+wait 650
+release PLAY
+wait 30
+expect playing 0
+

@@ -25,7 +25,7 @@ them, BASS holds one deep note, or plays its own line of sixteen steps.
 
 FRASIL is designed as one voice in a larger setup. It takes MIDI notes, pressure, CCs and clock over USB and TRS.
 
-> **FRASIL 1.0.** Install at your own risk: the installer can always put M-VAVE's firmware back. FRASIL is not
+> **FRASIL 2.0.** Install at your own risk: the installer can always put M-VAVE's firmware back. FRASIL is not
 > affiliated with M-VAVE.
 
 ## Install
@@ -36,7 +36,8 @@ FRASIL is designed as one voice in a larger setup. It takes MIDI notes, pressure
 - **Back to the official firmware:** install M-VAVE's V15 from the hub. If the FM-1 no longer starts, hold OCT−
   while you switch it on: it waits for an update over USB.
 
-Package identity: `FM-1_47XXYYZZ`, its version in it: 1.0 is `FM-1_47010000`. The version is in `VERSION`.
+Package identity: `FM-1_47XXYYZZ`, its version in it: 1.0 is `FM-1_47010000`, 2.0 `FM-1_47020000`. The version is in
+`VERSION`.
 
 ### Where your scenes are kept
 
@@ -46,7 +47,7 @@ firmwares uses. It has no area of its own:
 | What | Where | How |
 | --- | --- | --- |
 | The 16 scenes | `0xDA000` | two 4 KiB sectors, written in turn, each record with a CRC |
-| The scenes' bass sequences | `0xD8000` | the same |
+| The scenes' bass sequences and TEMPOs | `0xD8000` | the same |
 | The settings: the sound at power-on, MIDI channels, tempo, LOAD, the metronome, the learned CCs | `0xFC000` | the same, in the sector pair where Felucca keeps its globals |
 | The panel's calibration | `0xDC000` | in Felucca's own format, so it stays valid from one to the other |
 
@@ -62,7 +63,8 @@ When you switch firmwares:
 - **Back up your scenes before you switch firmwares.** FRASIL 1.1 and later back up the 16 scenes and the settings
   to a file over USB, and put them back:
   - **in the browser**: [the River](https://river.frasilsynth.com/) (Chrome or Edge). Back up, download everything or the
-    scenes you select, then put a backup back whole, or scenes into the slots you choose, several at once;
+    scenes you select, then put a backup back whole, or, with FRASIL 2.0 on the FM-1, scenes into the slots you choose,
+    several at once;
   - **from a terminal**: `python3 base/tools/fm1_backup.py backup scenes.frasil --magic FRBK`, then
     `python3 base/tools/fm1_backup.py restore scenes.frasil` (`info` shows what a file holds).
 
@@ -97,14 +99,14 @@ BRASS, SQUARE, SUB LEAD, STRINGS, REED: SUSTAIN holds them while the key is down
 (ATTACK, DECAY, SUSTAIN, RELEASE), drawn there with each glint riding it. Its SEQ (GLINT I) chooses how the keys
 play it: each key its glint, its own arpeggiator (UP, DOWN, UPDOWN, RANDOM, DRIFT, with latch and chance), or a
 32-step sequencer (written step by step or live, REC straight into it, with accents and ties, transposed along the scale
-by the keys, one per scene). OCTAVE moves the arpeggio and the sequence as they play. It has a tempo-synced delay, mono
-or ping-pong. Pressure makes a glint louder and longer, and with VIBRATO a wiggle of the finger bends its pitch slightly
-(a steady press stays in tune).
+by the keys, one per scene). OCTAVE is GLINT's own: it moves every glint, the arpeggio's and the sequence's too, those
+sounding at once. It has a tempo-synced delay, mono or ping-pong. Pressure makes a glint louder and longer, and with
+VIBRATO a wiggle of the finger bends its pitch slightly (a steady press stays in tune).
 
 **BASS** sits underneath: one deep note at a time, from eight MODELs (SINE, TRIANGLE, SQUARE, SAW, REESE, SUB, ORGAN,
 FM), DRIVE into a soft clip, a resonant low-pass (FILTER, RESONANCE), gliding from note to note. It is held like a
 drone and stays out of the reverb. Or it plays its own 16-step sequencer: each step a NOTE, a CUT or a HOLD, and as
-long as you want it, from a sixteenth to four bars; written step by step or live, transposed along the scale by the
+long as you want it, from a sixteenth to sixteen bars; written step by step or live, transposed along the scale by the
 keys, one per scene, started and stopped with GLINT's by PLAY.
 
 **GENERATIVE FX** (FX's first page) acts on the whole: SWELL swells every voice and holds it there, SPARKLE plays
@@ -125,7 +127,7 @@ low-pass.
 | **EDIT, ENV, LFO, FX, GLO** | DRONE PARAMS and the LAYERS (×7: each layer and its second page), DRONE SHAPE, DRONE MOTION and the three LFOs (×7), GENERATIVE FX, CLOUD (×3) and PUMP (×2), GLOBAL, MIDI and MASTERING. Hold ENV: SWELL, every drone voice swells together. Hold EDIT: COMPARE, the scene as saved. Hold FX: FREEZE. Hold LFO and turn K1–K4: that setting onto an LFO. Hold GLO and move a CC: MIDI learn |
 | **HOME** | the play page; again: the MIXER; again: the living logo screen. Hold: on-screen help (5 pages, turn SELECT) |
 | **SAVE** | SCENES (K1 or SELECT the slot, or NEW SHARD above slot 01 to start fresh, KEYS left as they are; MORPH, LOAD); again: back. Hold SAVE and press REC: STORE. Hold SAVE and press a white key: load that scene |
-| **PLAY** | the transport: GLINT's sequence and the bass's stop together or start together from the top, the arpeggio waits or goes on; on SCENES, load. Hold: RELEASE ALL; hold again: RESTORE. Starting or held, it restarts the beat there, as a MIDI Start (a MIDI clock's beats are left as they are) |
+| **PLAY** | the transport: GLINT's sequence and the bass's stop together or start together from the top, the arpeggio waits or goes on; on SCENES, load. Hold: RELEASE ALL; with nothing playing, RESTORE: the scene again, its sequences from the top. Starting or held, it restarts the beat there, as a MIDI Start (a MIDI clock's beats are left as they are) |
 | **FREEZE** (hold FX, or CLOUD's K4) | the cloud holds what is in it, nothing more goes in (FX bright meanwhile) |
 | **OCT− / OCT+** | octave, −3 to +2 (both: back to −1). They blink on the beat |
 
@@ -133,8 +135,8 @@ A press shows, a hold acts: the buttons do their job when you let them go (OCT a
 
 On screen, each setting wears the badge of its control: a blue disc 1–4 for K1–K4, an orange disc A, B or C for the
 three left encoders. On the play page, each layer shows in the river: the current is CHOIR, the crystals PARTIALS,
-the mist BREATH; the bass is a slow swell across the river, the water darker under it. The four strata below the
-waterline show the exact mix, WARMTH with it. The header names the scene, with an amber dot once the sound has
+the mist BREATH; the bass is a slow swell of lamp light across the river, the water darker under it. The four strata
+below the waterline show the exact mix, WARMTH with it. The header names the scene, with an amber dot once the sound has
 changed, and dots under each page's title say where it is among its button's pages. At the top right, a badge shows
 what the keys play (SELECT) and the octave: a small keyboard and DRONE in white, BASS in orange, or in blue what
 GLINT's keys do (GLINT, ARP, SEQ; REC in orange). Its frame is solid while the notes latch, dotted while they sound
@@ -149,24 +151,28 @@ follows MIDI clock, or TEMPO when no clock comes in. A new chord takes effect on
 stays on the grid. MIDI Start resets the grid. With LATCH on (the default), the pattern keeps going after you lift your
 hands. The key whose note is sounding lights up for as long as the note lasts.
 
-**Bass.** With the keys on BASS, a tap holds a note: the key's note in the scale, an octave down (BASS II's OCTAVE:
-one or two). Tap another key and the bass glides to it; tap its own key and it lets go. Pressing into it makes it
-louder and opens its filter. With GLOBAL's KEY MODE on HOLD, it sounds while its key is down. BASS ADSR is its
-envelope, in ADSR's order (ATTACK, DECAY, SUSTAIN, RELEASE: DECAY is heard once SUSTAIN is under 100 %), drawn on the
-page with the note riding it; PULSE (BASS II) lets the held note go a moment and plays it again on each division of the
-grid, from 1/8 of a beat to 4 beats. With its SEQUENCE on (BASS SEQ II), the keys transpose its sequence, or write
-into it (RECORD on STEP or LIVE; REC goes straight in).
+**Bass.** With the keys on BASS, a tap holds a note: the key's note in the scale, an octave down (BASS II's OCTAVE,
+the bass's own: none, one or two, on every note it plays, the one sounding moved at once). Tap another key and the
+bass glides to it; tap its own key and it lets go. Pressing into it makes it louder and opens its filter. With
+GLOBAL's KEY MODE on HOLD, it sounds while its key is down. BASS ADSR is its envelope, in ADSR's order (ATTACK, DECAY,
+SUSTAIN, RELEASE: DECAY is heard once SUSTAIN is under 100 %), drawn on the page with the note riding it; PULSE (BASS
+II) lets the held note go a moment and plays it again on each division of the grid, from 1/8 of a beat to 4 beats,
+and keeps the beat: a note changed by hand is struck on the next division. With its SEQUENCE on (BASS SEQ II), the
+keys transpose its sequence, or write into it (RECORD on STEP or LIVE; REC goes straight in); an empty sequence leaves
+them the bass.
 
 **Mixer, pump, mastering.** HOME's second screen is a MIXER: a fader and a live meter for DRONE, BASS, GLINT and
 CLOUD, the reverb's return. PUMP (FX) ducks each track on the beat, as a sidechain would, from 4 bars to 1/8, synced
 to MIDI clock or TEMPO, its release, attack and offset on PUMP II. MASTERING (GLO) is a light compressor on the output, with its gain reduction on screen.
 
-**Scenes.** 16 slots, 8 of them factory scenes (MIST, GLASS, ABYSS, CHORALE, WIND, BELLS, TIDE, AURORA). A scene
-holds the sound, the latched drones, GLINT's arpeggio and sequence, the bass and its sequence. SAVE held and REC stores (then name it, up to
-sixteen characters); SAVE held and a white key loads one of the 16, as does PLAY on SCENES or a MIDI Program Change. MORPH glides into a scene, up
-to two minutes, or cuts; LOAD on SND+NOTES lets everything go and plays the scene's notes, on SND ONLY changes the sound
-alone. Hold EDIT to hear the scene as saved (COMPARE); SAVE lights while the sound has changed. Scenes saved by an
-earlier FRASIL load as they were, the newer settings at their defaults.
+**Scenes.** 16 slots, 7 of them factory scenes that play once loaded, each at its own TEMPO (NORTH RIVER, LUMIERE
+NOCTURNE, RESILIENCE, LONG NIGHT, OPEN WATER, WHITEOUT, THAW). A new FM-1 starts on NEW SHARD, a fresh sound to begin
+from. A scene holds the sound, its TEMPO, the latched drones, GLINT's arpeggio and sequence, the bass and its
+sequence. SAVE held and REC stores (then name it, up to sixteen characters); SAVE held and a white key loads one of the
+16, as does PLAY on SCENES or a MIDI Program Change. MORPH glides into a scene, up to two minutes, or cuts; LOAD on
+SND+NOTES lets everything go and plays the scene's notes at its TEMPO, its sequences from the top, on SND ONLY changes
+the sound alone. Hold EDIT to hear the scene as saved (COMPARE); SAVE lights while the sound has changed. Scenes saved
+by an earlier FRASIL load as they were, the newer settings at their defaults.
 
 The full manual is [app/docs/MANUAL.md](app/docs/MANUAL.md). A one-page field card (in French) is
 [docs/cheatsheet.html](docs/cheatsheet.html).
@@ -175,8 +181,8 @@ The full manual is [app/docs/MANUAL.md](app/docs/MANUAL.md). A one-page field ca
 
 Each track has its own channel, whatever the keys play: the drones 1, GLINT 2, BASS 3 by default (GLO's second
 page, MIDI: OFF, 1–16 or OMNI each). Notes for the drones go through the harmony, so a sequencer's single note plays
-a chord; sustain (CC 64) holds them. GLINT's and BASS's notes play as they come, with no scale or octave added (GLINT's
-go into its arpeggiator or its sequencer while one is on); the bass is mono, its last note on top. Notes sound only while held.
+a chord; sustain (CC 64) holds them. GLINT's and BASS's notes play as they come, with no scale, their track's OCTAVE
+on them (GLINT's go into its arpeggiator or its sequencer while one is on); the bass is mono, its last note on top. Notes sound only while held.
 Polyphonic aftertouch swells a note; channel pressure swells the whole track. The sound's CCs come in on the drones'
 channel; 123 releases the notes of the track whose channel it comes on, 120 (All Sound Off), on any channel, everything. Program Change 0–15 on the drones'
 channel loads scenes 1–16.
