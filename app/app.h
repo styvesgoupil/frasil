@@ -19,9 +19,27 @@ void app_splash(void);
 void app_tick(void);
 #define APP_TAGLINE "DRONE TEXTURES FROZEN IN MOTION"
 #define APP_AUTHOR "by Styves Goupil"
-/* the store: the app's objects and the panel calibration (the platform's), and their flash offsets */
-enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_NOBJ };
-#define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDA000u}
+/* the store: the app's objects and the panel calibration (the platform's), and their flash offsets. The scenes'
+ * bass sequences apart (OBJ_BSEQ: the sixteen scenes no longer fit one object), in the free pair under the scenes */
+enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_NOBJ };
+#define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDA000u, 0xD8000u}
+/* backup and restore over USB (fm1.toml backup = true: device/backup.c): the settings and the scenes (their bass
+ * sequences too), never the panel's calibration (the unit's). The version stays 1 when a record's layout changes:
+ * each object carries its own magic, and a restore reloads it as a boot does (an earlier layout made over) */
+#define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SCENES, OBJ_BSEQ}
+#define APP_BACKUP_MAGIC 0x4B425246u     /* "FRBK" */
+#define APP_BACKUP_VERSION 1u
+#define APP_BACKUP_WHAT "replaces all scenes"
+#define APP_BACKUP_YES B_SEL               /* the restore question: SEL yes, FX no, as every question here */
+#define APP_BACKUP_YES_NAME "SEL"
+#define APP_BACKUP_NO B_FX
+#define APP_BACKUP_NO_NAME "FX"
+#define APP_BACKUP_ASK                   /* ... drawn as a pop-up (ui.c) */
+void app_backup_ask_screen(void);
+int app_backup_playing(void);            /* something held or playing: no restore (STOP FIRST) */
+void app_backup_flush(void);             /* a backup starts: MORPH and KEEP kept, if they changed */
+void app_backup_hold(int on);            /* while a backup streams: nothing saved (a learned CC kept for after) */
+void app_backup_restored(void);          /* everything from the store again, as at power-on */
 /* the contract: the platform calls these */
 void app_init(void);                     /* boot: the engine, then the saved state (or the first scene) */
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12);   /* audio interrupt: n stereo frames, 24-bit */
@@ -30,6 +48,7 @@ void app_ui_init(void);                  /* the first screen, after the splash *
 void app_frame(void);                    /* the UI: input and a redraw, about 60 times a second */
 void app_input_only(void);               /* between frames: input only */
 void app_say(const char *a, const char *b);   /* a short message on the screen and to a screen reader */
+#define APP_WEB                          /* the browser build's own exports (web.c): the River plays a shard */
 /* the host simulator's checks (host/plat_host.c "expect") */
 #define APP_HOST_EXPECT
 int app_expect(const char *what, int *got);

@@ -32,7 +32,7 @@
 #define VOICE_G 0.2f
 
 /* ---------------------------------------------------------------- events --- */
-enum { EV_ON = 1, EV_OFF, EV_ALLOFF, EV_PRS, EV_SPON, EV_SPOFF, EV_SPPRS, EV_BON, EV_BOFF, EV_BPRS, EV_CLICK };
+enum { EV_ON = 1, EV_OFF, EV_ALLOFF, EV_PRS, EV_SPON, EV_SPOFF, EV_SPPRS, EV_BON, EV_BOFF, EV_BPRS, EV_BPUL, EV_CLICK };
 typedef struct {
     uint8_t type;
     int8_t note;
@@ -65,6 +65,7 @@ void frasil_glint_pressure(int note, float p) { ev_push(EV_SPPRS, note, p); }
 void frasil_bass_on(int note, float vel) { ev_push(EV_BON, note, vel); }
 void frasil_bass_off(void) { ev_push(EV_BOFF, 0, 0.0f); }
 void frasil_bass_pressure(float p) { ev_push(EV_BPRS, 0, p); }
+void frasil_bass_pulse(float gap) { ev_push(EV_BPUL, 0, gap); }
 void frasil_click(int accent) { ev_push(EV_CLICK, 0, accent ? 1.0f : 0.0f); }
 
 /* ---------------------------------------------------------------- voices --- */
@@ -235,6 +236,9 @@ static void events(void)
             break;
         case EV_BPRS:
             bass_press(e.v);
+            break;
+        case EV_BPUL:
+            bass_pulse(e.v);
             break;
         case EV_CLICK:                   /* a tick: 1.7 kHz, the bar's first 2.6 kHz and louder */
             ck_ph = 0.0f;

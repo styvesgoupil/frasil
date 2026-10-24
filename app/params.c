@@ -15,7 +15,9 @@ enum {
     P_COUPEBAS, P_LARGEUR, P_ACCORD,
     P_TIMBRE, P_ESPACE,
     P_ROOT, P_SCALE, P_CHORD, P_VOICING, /* the harmony (harmony.c) */
-    P_GL_PRESET, P_GL_RATIO, P_GL_BRIGHT, P_GL_DECAY, P_GL_LEVEL, P_GL_OCTAVE, P_GL_SPACE, P_GL_SCATTER,   /* GLINT */
+    P_GL_PRESET, P_GL_RATIO, P_GL_BRIGHT, P_GL_DECAY, P_GL_LEVEL, P_GL_OCTAVE, P_GL_SPACE, P_GL_RELEASE,   /* GLINT
+                                          * (RELEASE where SCATTER was: an earlier layout's made over, app.c
+                                          * sound_over) */
     P_ARP_MODE, P_ARP_RATE, P_ARP_RANGE, P_ARP_CHANCE,   /* GLINT's arpeggiator */
     P_GL_ATTACK, P_GL_PING,              /* GLINT, later additions */
     P_GD_TIME, P_GD_FB, P_GD_MODE, P_GD_MIX,   /* GLINT's delay */
@@ -34,11 +36,13 @@ enum {
     P_L1_SHAPE, P_L1_RATE, P_L1_DEPTH, P_L1_POL, P_L1_T1, P_L1_T2, P_L1_T3, P_L1_T4,   /* LFO 1, and its four targets */
     P_L2_SHAPE, P_L2_RATE, P_L2_DEPTH, P_L2_POL, P_L2_T1, P_L2_T2, P_L2_T3, P_L2_T4,   /* LFO 2 */
     P_SQ_LEN, P_SQ_GATE, P_SQ_TRANS,     /* GLINT SEQ: its length, its notes', its transposition (its steps: seq[]) */
-    P_DR_PRESET, P_DR_FULL,              /* the drone's preset (0: CUSTOM), its FULLNESS (DRONE PARAMS) */
+    P_DR_PRESET, P_DR_FULL,              /* the drone's preset (0: CUSTOM), its BODY (DRONE PARAMS) */
     P_L3_SHAPE, P_L3_RATE, P_L3_DEPTH, P_L3_POL, P_L3_T1, P_L3_T2, P_L3_T3, P_L3_T4,   /* LFO 3 */
     P_SQ_TYPE,                           /* GLINT's sequence: OFF, the arpeggiator, the sequencer */
     P_GX_SPARK, P_GX_BLUR, P_GX_SINK,    /* GENERATIVE FX (SWELL beside them, not kept): glints by themselves, the
                                           * drone into the cloud, everything under */
+    P_BS_DECAY, P_BS_SUSTAIN, P_BS_PULSE,   /* BASS III's DECAY and SUSTAIN (between its ATTACK and RELEASE), BASS II's
+                                             * PULSE: the note let go and played again on the grid */
     NSOUND,                              /* a scene ends here; the rest are settings that pages show */
     P_KEYS = NSOUND,
     P_CANAL,
@@ -50,9 +54,15 @@ enum {
     P_SWELL,                             /* GENERATIVE FX's K1: every drone voice swelled, as far as it is turned
                                           * (not kept) */
     P_KB,                                /* SELECT's: what the keys play, DRONE, GLINT, BASS (not kept) */
-    P_MORPH, P_KEEP,                     /* SCENES' K2, K3: how a scene comes in (kept with the settings) */
-    P_SC_UNDO,                           /* SCENES' K4: the last STORE undone (turned twice) */
+    P_MORPH, P_LOAD,                     /* SCENES' K2, K3: how a scene comes in (LOAD kept with the settings;
+                                          * MORPH on CUT at every start) */
+    P_SC_GONE,                           /* (SCENES' UNDO, gone: its number kept, so that the ones after it stay as
+                                          * the settings' MIDI LEARN and the River's backups have them; no page) */
     P_SQ_NEW, P_SQ_UNDO,                 /* GLINT SEQ III's K3, K4: a new take, the last take or CLEAR undone */
+    P_BQ_STEP, P_BQ_NOTE, P_BQ_LEN, P_BQ_REC,   /* BASS SEQ: the step on K1, its note and its length (the bass's
+                                                 * sequence's, shown), RECORD (not kept) */
+    P_BQ_STEPS, P_BQ_ON, P_BQ_CLEAR, P_BQ_TRANS,   /* BASS SEQ II: the steps it plays, SEQUENCE, CLEAR (not kept),
+                                                    * TRANSPOSE: kept with the settings, not in a scene */
     NPARAM
 };
 
@@ -61,7 +71,8 @@ enum { F_PCT, F_ATT, F_REL, F_DECAY, F_PREDELAY, F_HZ, F_TAU, F_PERIOD, F_INTERV
        F_CHORD, F_VOICING, F_KEYS, F_GPRESET, F_RATIO, F_OCTAVE, F_GDECAY, F_ARPMODE, F_ARPRATE, F_RANGE, F_BPM, F_GATTACK, F_DTIME, F_DMODE,
        F_GLIDE, F_BOCTAVE, F_BATT, F_BREL, F_ONOFF, F_PCTOFF, F_HZBASS, F_BMODEL, F_TRKCH, F_PUMP, F_THRESH, F_CRATIO,
        F_CREL, F_DBGAIN, F_LEVEL, F_PATT, F_SHAPE, F_CINT, F_HARM, F_BPITCH, F_SIGNED, F_CTYPE, F_LSHAPE, F_LRATE, F_LPOL,
-       F_LTGT, F_SQLEN, F_SQNOTE, F_SQREC, F_SQCLEAR, F_SQTRANS, F_DPRESET, F_SQTYPE, F_KB, F_MORPH, F_KEEP, F_UNDO, F_NEWTAKE };
+       F_LTGT, F_SQLEN, F_SQNOTE, F_SQREC, F_SQCLEAR, F_SQTRANS, F_DPRESET, F_SQTYPE, F_KB, F_MORPH, F_LOAD, F_UNDO, F_NEWTAKE,
+       F_BQNOTE, F_BQLEN, F_BDEC, F_BPULSE, F_GREL };
 
 typedef struct {
     const char *name;
@@ -71,6 +82,7 @@ typedef struct {
 #define NLFO_TGT 41u                     /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below) */
 #define NDRONE 32u                       /* the settings a drone preset sets (DRONE_P, below) */
 #define NDPRESET 24u
+#define NPULSE 7u                        /* PULSE's choices: OFF, then its divisions (PULSE_TICKS, below) */
 static const pdesc_t PD[NPARAM] = {
     [P_CHOEUR] = {"CHOIR", 127, 76, F_PCT},
     [P_PARTIELS] = {"PARTIALS", 127, 89, F_PCT},
@@ -116,7 +128,8 @@ static const pdesc_t PD[NPARAM] = {
     [P_GL_LEVEL] = {"LEVEL", 127, 90, F_PCT},
     [P_GL_OCTAVE] = {"OCTAVE", 3, 2, F_OCTAVE},
     [P_GL_SPACE] = {"SPACE", 127, 90, F_PCT},
-    [P_GL_SCATTER] = {"SCATTER", 127, 80, F_PCT},
+    [P_GL_RELEASE] = {"RELEASE", 127, 76, F_GREL},     /* 20 ms .. 6 s, once let go (600 MS: as DECAY's default
+                                                        * let it go before) */
     [P_GL_ATTACK] = {"ATTACK", 127, 0, F_GATTACK},
     [P_GL_PING] = {"PING", 127, 68, F_PCT},
     [P_GD_TIME] = {"TIME", 23, 19, F_DTIME},           /* 1/32 .. 1/2 mono, then the same ping-pong */
@@ -134,6 +147,9 @@ static const pdesc_t PD[NPARAM] = {
     [P_BS_OCTAVE] = {"OCTAVE", 2, 1, F_BOCTAVE},   /* -2 .. 0 under the keys */
     [P_BS_ATTACK] = {"ATTACK", 127, 30, F_BATT},
     [P_BS_RELEASE] = {"RELEASE", 127, 50, F_BREL},
+    [P_BS_DECAY] = {"DECAY", 127, 64, F_BDEC},         /* 10 ms .. 10 s, from the top down to SUSTAIN */
+    [P_BS_SUSTAIN] = {"SUSTAIN", 127, 127, F_PCT},     /* the level held (100 %: no decay, the bass as it was) */
+    [P_BS_PULSE] = {"PULSE", NPULSE - 1u, 0, F_BPULSE},   /* OFF, 1/8 BEAT .. 4 BEATS */
     [P_BS_MODEL] = {"MODEL", BASS_NMODEL - 1, 0, F_BMODEL},
     [P_BS_RESO] = {"RESONANCE", 127, 20, F_PCT},
     [P_PUMP_RATE] = {"RATE", 6, 0, F_PUMP},
@@ -181,7 +197,7 @@ static const pdesc_t PD[NPARAM] = {
     [P_L2_T2] = {"TARGET 2", NLFO_TGT - 1u, 0, F_LTGT},
     [P_L2_T3] = {"TARGET 3", NLFO_TGT - 1u, 0, F_LTGT},
     [P_L2_T4] = {"TARGET 4", NLFO_TGT - 1u, 0, F_LTGT},
-    [P_SQ_TYPE] = {"TYPE", 2, 0, F_SQTYPE},
+    [P_SQ_TYPE] = {"SEQ", 2, 0, F_SQTYPE},       /* GLINT I's K2: OFF, ARP, SEQ (TYPE till 1.1) */
     [P_GX_SPARK] = {"SPARKLE", 127, 0, F_PCT},
     [P_GX_BLUR] = {"BLUR", 127, 0, F_PCT},
     [P_GX_SINK] = {"SINK", 127, 0, F_PCT},
@@ -193,7 +209,7 @@ static const pdesc_t PD[NPARAM] = {
     [P_L3_T2] = {"TARGET 2", NLFO_TGT - 1u, 0, F_LTGT},
     [P_L3_T3] = {"TARGET 3", NLFO_TGT - 1u, 0, F_LTGT},
     [P_L3_T4] = {"TARGET 4", NLFO_TGT - 1u, 0, F_LTGT},
-    [P_SQ_LEN] = {"LENGTH", 31, 15, F_SQLEN},          /* 1 .. 32 steps */
+    [P_SQ_LEN] = {"SEQ LENGTH", 31, 15, F_SQLEN},      /* 1 .. 32 steps */
     [P_SQ_GATE] = {"GATE", 127, 64, F_PCT},            /* a note's length, 5 .. 100 % of its step */
     [P_SQ_TRANS] = {"TRANSPOSE", 28, 14, F_SQTRANS},   /* -14 .. +14 steps of the scale */
     [P_SQ_STEP] = {"STEP", 31, 0, F_SQLEN},
@@ -202,16 +218,24 @@ static const pdesc_t PD[NPARAM] = {
     [P_SQ_REC] = {"RECORD", 2, 0, F_SQREC},            /* OFF (the keys transpose), STEP, LIVE */
     [P_SQ_CLEAR] = {"CLEAR", 2, 0, F_SQCLEAR},         /* turned twice: the steps cleared */
     [P_DR_PRESET] = {"PRESET", NDPRESET, 0, F_DPRESET},   /* PRESETS': CUSTOM, then the 24 */
-    [P_DR_FULL] = {"FULLNESS", 127, 127, F_PCT},       /* 100 %: the drone as its settings have it; down, thinner */
+    [P_DR_FULL] = {"BODY", 127, 127, F_PCT},           /* 100 %: the drone as its settings have it; down, thinner */
     [P_SWELL] = {"SWELL", 127, 0, F_PCT},
-    [P_KB] = {"KEYBOARD", 2, 0, F_KB},
+    [P_KB] = {"KEYS", 2, 0, F_KB},                     /* what they play */
     [P_MORPH] = {"MORPH", 8, 0, F_MORPH},              /* CUT, 1 S .. 2:00: the sound glides to the scene's */
-    [P_KEEP] = {"KEEP", 1, 0, F_KEEP},                 /* SCENE: its notes; PLAYING: what plays goes on */
-    [P_SC_UNDO] = {"UNDO", 2, 0, F_UNDO},
+    [P_LOAD] = {"LOAD", 1, 0, F_LOAD},                 /* SND+NOTES: the sound and its notes; SND ONLY: what plays goes on */
+    [P_SC_GONE] = {"-", 0, 0, F_UNDO},                 /* (nothing to turn: a CC learned on UNDO turns nothing) */
     [P_SQ_NEW] = {"NEW TAKE", 2, 0, F_NEWTAKE},
-    [P_SQ_UNDO] = {"UNDO", 2, 0, F_UNDO},
+    [P_SQ_UNDO] = {"UNDO TAKE", 2, 0, F_UNDO},
+    [P_BQ_STEP] = {"STEP", 15, 0, F_SQLEN},
+    [P_BQ_NOTE] = {"NOTE", 127, 0, F_BQNOTE},          /* CUT, a note, HOLD */
+    [P_BQ_LEN] = {"STEP LENGTH", 10, 0, F_BQLEN},      /* a step's: 1/16 .. 4 BARS (BQ_TICKS) */
+    [P_BQ_REC] = {"RECORD", 2, 0, F_SQREC},            /* OFF (the keys transpose), STEP, LIVE */
+    [P_BQ_STEPS] = {"STEPS", 15, 15, F_SQLEN},         /* 1 .. 16 steps */
+    [P_BQ_ON] = {"SEQUENCE", 1, 0, F_ONOFF},
+    [P_BQ_CLEAR] = {"CLEAR", 2, 0, F_SQCLEAR},         /* turned twice: every step a CUT of a sixteenth */
+    [P_BQ_TRANS] = {"TRANSPOSE", 28, 14, F_SQTRANS},   /* -14 .. +14 steps of the scale */
     [P_GL_VIBRATO] = {"VIBRATO", 127, 50, F_PCTOFF},
-    [P_KEYS] = {"KEYS", 1, 0, F_KEYS},
+    [P_KEYS] = {"KEY MODE", 1, 0, F_KEYS},
     [P_CANAL] = {"DRONE CH", 17, 1, F_TRKCH},   /* a track's MIDI channel: OFF, 1 .. 16, OMNI */
     [P_CH_GLINT] = {"GLINT CH", 17, 2, F_TRKCH},
     [P_CH_BASS] = {"BASS CH", 17, 3, F_TRKCH},
@@ -225,13 +249,21 @@ static const char *const COMP_RATIO_NAME[8] = {"OFF", "1.5:1", "2:1", "3:1", "4:
 /* PUMP's rates, in MIDI clocks (24 a beat, 96 a bar) */
 static const uint16_t PUMP_TICKS[7] = {0, 384, 192, 96, 48, 24, 12};
 static const char *const PUMP_NAME[7] = {"OFF", "4 BARS", "2 BARS", "1 BAR", "1/2", "1/4", "1/8"};
+/* BASS II's PULSE: the bass's note let go and played again every this many MIDI clocks, an eighth of a beat .. four
+ * beats (app.c pulse_run) */
+static const uint8_t PULSE_TICKS[NPULSE] = {0, 3, 6, 12, 24, 48, 96};
+static const char *const PULSE_NAME[NPULSE] = {"OFF", "1/8 BEAT", "1/4 BEAT", "1/2 BEAT", "1 BEAT", "2 BEATS",
+                                               "4 BEATS"};
 
 /* the pages: a page button, and the four parameters K1 .. K4 turn; a button with more than one page steps
  * through them */
 enum { PG_SON, PG_DRONE, PG_CHOEUR, PG_CHOEUR2, PG_PARTIELS, PG_PARTIELS2, PG_SOUFFLE, PG_SOUFFLE2, PG_GLINT, PG_GLINT2, PG_GLINT3, PG_GDELAY, PG_ARP, PG_SEQ, PG_SEQ2, PG_SEQ3, PG_BASS,
        PG_BASS2,
        PG_BASS3, PG_FORME, PG_MOUVEMENT, PG_LFO1, PG_LFO1T, PG_LFO2, PG_LFO2T, PG_LFO3, PG_LFO3T, PG_HARMONY, PG_GENFX, PG_NUAGE, PG_NUAGE2, PG_NUAGE3, PG_PUMP, PG_PUMP2, PG_GLOBAL, PG_GLOBAL2,
-       PG_MASTER, PG_MIXER, PG_SCENES, NPAGES };
+       PG_MASTER, PG_MIXER, PG_SCENES,
+       PG_BSEQ, PG_BSEQ2,                /* the bass's sequence: SEQ's after BASS III (app.c page_button), numbered last
+                                          * (the others' numbers kept) */
+       NPAGES };
 typedef struct {
     const char *name;
     uint8_t button;
@@ -246,17 +278,19 @@ static const page_t PAGES[NPAGES] = {
     [PG_PARTIELS2] = {"PARTIALS II", B_EDIT, {P_PA_EVOLVE, P_PA_BEAT, P_PA_FORMANT, P_PA_PEAK}},
     [PG_SOUFFLE] = {"BREATH", B_EDIT, {P_SOUFFLE, P_RESONANCE, P_COULEUR, P_ECART}},
     [PG_SOUFFLE2] = {"BREATH II", B_EDIT, {P_BR_GRAIN, P_BR_PITCH, P_BR_TONE, P_BR_AIR}},
-    [PG_GLINT] = {"GLINT PARAMS", B_ARP, {P_GL_PRESET, P_SQ_TYPE, P_GL_LEVEL, P_GL_BRIGHT}},
-    [PG_GLINT2] = {"GLINT II", B_ARP, {P_GL_ATTACK, P_GL_DECAY, P_GL_OCTAVE, P_GL_RATIO}},
-    [PG_GLINT3] = {"GLINT III", B_ARP, {P_GL_PING, P_GL_SCATTER, P_GL_VIBRATO, P_GL_SUSTAIN}},
+    [PG_GLINT] = {"GLINT I", B_ARP, {P_GL_PRESET, P_SQ_TYPE, P_GL_LEVEL, P_GL_BRIGHT}},
+    [PG_GLINT2] = {"GLINT II", B_ARP, {P_GL_OCTAVE, P_GL_RATIO, P_GL_PING, P_GL_VIBRATO}},
+    [PG_GLINT3] = {"GLINT ADSR", B_ARP, {P_GL_ATTACK, P_GL_DECAY, P_GL_SUSTAIN, P_GL_RELEASE}},   /* (ui.c adsr_scope) */
     [PG_GDELAY] = {"GLINT DELAY", B_ARP, {P_GD_TIME, P_GD_FB, P_GD_MIX, P_GL_SPACE}},   /* and the reverb */
     [PG_ARP] = {"GLINT ARP", B_ARP, {P_ARP_MODE, P_ARP_RATE, P_ARP_RANGE, P_ARP_CHANCE}},
     [PG_SEQ] = {"GLINT SEQ", B_ARP, {P_SQ_STEP, P_SQ_NOTE, P_SQ_ACC, P_SQ_REC}},
     [PG_SEQ2] = {"GLINT SEQ II", B_ARP, {P_SQ_LEN, P_ARP_RATE, P_SQ_GATE, P_ARP_CHANCE}},
     [PG_SEQ3] = {"GLINT SEQ III", B_ARP, {P_SQ_TRANS, P_SQ_CLEAR, P_SQ_NEW, P_SQ_UNDO}},
     [PG_BASS] = {"BASS", B_SEQ, {P_BS_MODEL, P_BS_DRIVE, P_BS_FILTER, P_BS_RESO}},
-    [PG_BASS2] = {"BASS II", B_SEQ, {P_BS_LEVEL, P_BS_OCTAVE, P_BS_GLIDE, NPARAM}},
-    [PG_BASS3] = {"BASS III", B_SEQ, {P_BS_ATTACK, P_BS_RELEASE, NPARAM, NPARAM}},
+    [PG_BASS2] = {"BASS II", B_SEQ, {P_BS_LEVEL, P_BS_OCTAVE, P_BS_GLIDE, P_BS_PULSE}},
+    [PG_BASS3] = {"BASS ADSR", B_SEQ, {P_BS_ATTACK, P_BS_DECAY, P_BS_SUSTAIN, P_BS_RELEASE}},   /* (ui.c adsr_scope) */
+    [PG_BSEQ] = {"BASS SEQ", B_SEQ, {P_BQ_STEP, P_BQ_NOTE, P_BQ_LEN, P_BQ_REC}},
+    [PG_BSEQ2] = {"BASS SEQ II", B_SEQ, {P_BQ_STEPS, P_BQ_ON, P_BQ_CLEAR, P_BQ_TRANS}},
     [PG_FORME] = {"DRONE SHAPE", B_ENV, {P_ATTAQUE, P_RELACHE, P_PRESSION, P_VELOCITE}},
     [PG_MOUVEMENT] = {"DRONE MOTION", B_LFO, {P_MOUVEMENT, P_VITESSE, P_MAREE, P_PERIODE}},
     [PG_LFO1] = {"LFO 1", B_LFO, {P_L1_SHAPE, P_L1_RATE, P_L1_DEPTH, P_L1_POL}},
@@ -276,7 +310,7 @@ static const page_t PAGES[NPAGES] = {
     [PG_GLOBAL2] = {"MIDI", B_GLO, {P_CANAL, P_CH_GLINT, P_CH_BASS, NPARAM}},
     [PG_MASTER] = {"MASTERING", B_GLO, {P_MS_THRESH, P_MS_RATIO, P_MS_RELEASE, P_MS_GAIN}},
     [PG_MIXER] = {"MIXER", B_HOME, {P_MX_DRONE, P_MX_BASS, P_MX_GLINT, P_MX_CLOUD}},   /* HOME's second (app.c) */
-    [PG_SCENES] = {"SCENES", B_SAVE, {NPARAM, P_MORPH, P_KEEP, P_SC_UNDO}},   /* (K1: the slot, app.c) */
+    [PG_SCENES] = {"SCENES", B_SAVE, {NPARAM, P_MORPH, P_LOAD, NPARAM}},   /* (K1: the slot, app.c) */
 };
 /* the three left encoders, always the same: the performance's hands */
 static const uint8_t MACRO_OF[NE] = {[EN_SELECT] = P_KB, [EN_ALGO] = P_DR_FULL, [EN_PRESET] = P_DR_PRESET,
@@ -287,18 +321,22 @@ static const uint8_t MACRO_OF[NE] = {[EN_SELECT] = P_KB, [EN_ALGO] = P_DR_FULL, 
 #define SC_CHORDS 8u                     /* latched drone chords a scene keeps */
 #define SC_ARP 16u                       /* and GLINT's arpeggio notes */
 #define SC_SEQ 32u                       /* and GLINT's sequence: a byte a step (app.c, SQ_*) */
+#define SC_NAME 16u                      /* a name's characters */
+#define SC_BSEQ 16u                      /* and the bass's sequence: a note and a length a step (app.c, bnote) */
 typedef struct {
-    char name[10];
+    char name[SC_NAME];                  /* NUL-padded; all sixteen used, none (app.c name_text) */
     uint8_t v[NSOUND];
     uint8_t nch, narp;                   /* what it plays: none (a factory scene) keeps what is playing */
     int8_t ch[SC_CHORDS][5];             /* each chord: its root, then its notes (-1: none) */
     int8_t arp[SC_ARP];                  /* the arpeggio's notes, low to high */
     int8_t bass;                         /* the bass's note, -1: none */
     uint8_t seq[SC_SEQ];                 /* GLINT's sequence */
+    uint8_t bnote[SC_BSEQ], blen[SC_BSEQ];   /* the bass's sequence (kept apart from the rest: app.c OBJ_BSEQ) */
+    uint8_t bq_on, bq_steps, bq_trans;   /* and its SEQUENCE, STEPS, TRANSPOSE: a scene plays its own, as GLINT's */
 } scene_t;
 
 /* the factory scenes (slots 1 .. 8 until something is saved over them) */
-#define S(n, ...) {n, {__VA_ARGS__}, 0, 0, {{0}}, {0}, -1, {0}}   /* a factory scene plays nothing */
+#define S(n, ...) {n, {__VA_ARGS__}, 0, 0, {{0}}, {0}, -1, {0}, {0}, {0}, 0, 15, 14}   /* a factory scene plays nothing */
 static const scene_t FACTORY[] = {
     /*          CHO PAR SOU CHA  DES FIL PEN IMP  ETI RES COU ECA  ATT REL PRE VEL  MOU VIT MAR PER  TAI DUR TEI SHI
      *          DIF MOD PRD INT  CBA LAR ACC  TIM ESP  ROOT SCALE CHORD VOICING  GLINT PRESET (its sound: glint_preset) */
@@ -327,8 +365,30 @@ static const scene_t FACTORY[] = {
       110, 70, 35, 0, 50, 127, 50, 80, 90,
       7, 6, 2, 2, 7),
 };
+/* NEW SHARD: SCENES' first line, above slot 01. No slot (nothing is stored into it): a sound to begin a shard from,
+ * in the code as the factory scenes are (app.c new_shard), playing nothing. A calm drone, CUSTOM: the choir soft, a
+ * little PARTIALS and BREATH, warm; slow to come and to go; MOTION at half, its drift slow; a lush cloud, not a wash
+ * (LOW CUT at 83 HZ: no boom swelling under it as the drift moves the low notes). A seventh in A minor, open (A E G C:
+ * Am7 on A). GLINT's SINE */
+static const scene_t NEW_SHARD = S("NEW SHARD", 84, 50, 44, 40, 50, 46, 60, 20, 0, 60, 0, 100, 96, 90, 76, 30, 64, 36,
+                                   30, 38, 98, 82, 60, 0, 100, 85, 20, 0, 56, 127, 50, 64, 66,
+                                   9, 2, 3, 1, 8);
+/* ... and its settings past the factory scenes' (the rest at their defaults): BODY at half (the drone thinner, the
+ * SUB under it), the breath's noise darker; GLINT dim (BRIGHT a quarter); the bass a SUB, soft, slow to come. The
+ * three LFOs on, slow sines (23 S, 37 S, 16 S: never in step), a little deep, each on two settings (TARGET's values:
+ * LFO_TGT, below): LFO 1 the drone's breath, TIMBRE and BREATH; LFO 2 its distance, SPACE and SPREAD; LFO 3 the
+ * other two tracks' tone, GLINT's BRIGHT and the bass's FILTER */
+static const uint8_t NEW_SHARD_P[][2] = {
+    {P_DR_FULL, 64}, {P_BR_TONE, 50}, {P_GL_BRIGHT, 32},
+    {P_BS_MODEL, 5}, {P_BS_DRIVE, 16}, {P_BS_FILTER, 34}, {P_BS_RESO, 10}, {P_BS_ATTACK, 96}, {P_BS_RELEASE, 88},
+    {P_L1_RATE, 18}, {P_L1_DEPTH, 14}, {P_L1_T1, 1}, {P_L1_T2, 7},       /* TIMBRE, BREATH */
+    {P_L2_RATE, 14}, {P_L2_DEPTH, 12}, {P_L2_T1, 2}, {P_L2_T2, 24},      /* SPACE, SPREAD */
+    {P_L3_RATE, 21}, {P_L3_DEPTH, 16}, {P_L3_T1, 26}, {P_L3_T2, 31},     /* GL BRIGHT, BS FILTER */
+};
 #undef S
 #define NFACTORY (sizeof FACTORY / sizeof FACTORY[0])
+#define SC_NEW NSCENES                   /* NEW SHARD's number: the scene loaded (st.scene), SCENES' K1, the settings'
+                                          * scene byte (app.c settings_t) */
 
 /* GLINT's presets: PRESET loads one into the parameters after it, which then shape it */
 #define NGPRESET 22u
@@ -336,31 +396,32 @@ static const char *const GLINT_NAME[NGPRESET] = {"ICE", "BELL", "BLIP", "GLASS",
                                                  "SINE", "KALIMBA", "MARIMBA", "MUSIC BOX", "VIBES", "HARP", "PIPE",
                                                  "BOWED", "WARM LEAD", "BRASS", "SQUARE", "SUB LEAD", "STRINGS", "REED"};
 static const uint8_t GLINT_PRESET[NGPRESET][10] = {
-    /* RATIO BRIGHT DECAY LEVEL OCTAVE SPACE SCATTER ATTACK PING SUSTAIN */
-    {6, 70, 70, 90, 2, 90, 80, 0, 68, 0},       /* ICE: a high bell, scattered */
-    {2, 80, 95, 85, 1, 80, 50, 0, 68, 0},       /* BELL: inharmonic, long */
-    {3, 55, 25, 95, 2, 70, 100, 0, 68, 0},      /* BLIP */
-    {9, 50, 85, 80, 2, 100, 70, 0, 68, 0},      /* GLASS */
-    {4, 75, 110, 80, 1, 90, 60, 0, 68, 0},      /* CHIME: a bar's modes */
-    {1, 90, 30, 100, 1, 60, 90, 0, 68, 0},      /* DROP */
-    {11, 45, 55, 75, 2, 110, 120, 0, 68, 0},    /* FROST: glitter high up */
-    {7, 60, 60, 90, 2, 80, 40, 0, 68, 0},       /* CELESTA */
-    {1, 0, 90, 90, 1, 90, 60, 10, 0, 0},        /* SINE: pure */
-    {1, 45, 50, 95, 1, 70, 50, 0, 120, 0},      /* KALIMBA: a woody pluck, its ring nearly pure */
-    {7, 60, 35, 95, 0, 60, 40, 0, 127, 0},      /* MARIMBA: a bar, short */
-    {8, 40, 75, 85, 2, 85, 60, 0, 90, 0},       /* MUSIC BOX */
-    {3, 40, 100, 85, 1, 85, 40, 5, 40, 0},      /* VIBES: round, long */
-    {1, 70, 80, 90, 1, 80, 70, 0, 110, 0},      /* HARP */
-    {1, 25, 105, 80, 1, 90, 40, 75, 10, 0},     /* PIPE: a soft flute, breathed in */
-    {3, 35, 120, 80, 1, 100, 60, 105, 0, 0},    /* BOWED: glass rubbed, slow to sound */
+    /* RATIO BRIGHT DECAY LEVEL OCTAVE SPACE RELEASE ATTACK PING SUSTAIN (RELEASE as DECAY let each go before it:
+     * glint_release_of) */
+    {6, 70, 70, 90, 2, 90, 76, 0, 68, 0},       /* ICE: a high bell */
+    {2, 80, 95, 85, 1, 80, 87, 0, 68, 0},       /* BELL: inharmonic, long */
+    {3, 55, 25, 95, 2, 70, 50, 0, 68, 0},       /* BLIP */
+    {9, 50, 85, 80, 2, 100, 80, 0, 68, 0},      /* GLASS */
+    {4, 75, 110, 80, 1, 90, 99, 0, 68, 0},      /* CHIME: a bar's modes */
+    {1, 90, 30, 100, 1, 60, 54, 0, 68, 0},      /* DROP */
+    {11, 45, 55, 75, 2, 110, 72, 0, 68, 0},     /* FROST: glitter high up */
+    {7, 60, 60, 90, 2, 80, 76, 0, 68, 0},       /* CELESTA */
+    {1, 0, 90, 90, 1, 90, 84, 10, 0, 0},        /* SINE: pure */
+    {1, 45, 50, 95, 1, 70, 69, 0, 120, 0},      /* KALIMBA: a woody pluck, its ring nearly pure */
+    {7, 60, 35, 95, 0, 60, 57, 0, 127, 0},      /* MARIMBA: a bar, short */
+    {8, 40, 75, 85, 2, 85, 76, 0, 90, 0},       /* MUSIC BOX */
+    {3, 40, 100, 85, 1, 85, 91, 5, 40, 0},      /* VIBES: round, long */
+    {1, 70, 80, 90, 1, 80, 76, 0, 110, 0},      /* HARP */
+    {1, 25, 105, 80, 1, 90, 95, 75, 10, 0},     /* PIPE: a soft flute, breathed in */
+    {3, 35, 120, 80, 1, 100, 106, 105, 0, 0},   /* BOWED: glass rubbed, slow to sound */
     /* the leads: held while the key is down (SUSTAIN), the modulator at the note or near it (a saw's harmonics, a
      * pulse's), PING the filter's sweep at the start, drier */
-    {1, 62, 95, 88, 1, 55, 40, 12, 45, 105},    /* WARM LEAD: all the harmonics, round, a little bite at the start */
-    {1, 78, 80, 88, 1, 50, 30, 45, 85, 95},     /* BRASS: swells in bright, settles darker */
-    {3, 58, 100, 85, 1, 55, 40, 8, 25, 115},    /* SQUARE: the odd harmonics, hollow */
-    {0, 55, 100, 90, 1, 45, 30, 8, 35, 110},    /* SUB LEAD: an octave under it too */
-    {1, 48, 110, 85, 1, 85, 70, 85, 15, 120},   /* STRINGS: slow to come, an ensemble's spread */
-    {5, 45, 95, 85, 1, 55, 40, 15, 40, 100},    /* REED: nasal (no third harmonic) */
+    {1, 62, 95, 88, 1, 55, 87, 12, 45, 105},    /* WARM LEAD: all the harmonics, round, a little bite at the start */
+    {1, 78, 80, 88, 1, 50, 76, 45, 85, 95},     /* BRASS: swells in bright, settles darker */
+    {3, 58, 100, 85, 1, 55, 91, 8, 25, 115},    /* SQUARE: the odd harmonics, hollow */
+    {0, 55, 100, 90, 1, 45, 91, 8, 35, 110},    /* SUB LEAD: an octave under it too */
+    {1, 48, 110, 85, 1, 85, 99, 85, 15, 120},   /* STRINGS: slow to come, an ensemble */
+    {5, 45, 95, 85, 1, 55, 87, 15, 40, 100},    /* REED: nasal (no third harmonic) */
 };
 /* the drone's presets (PRESETS turns them): each sets the NDRONE settings in DRONE_P, the three layers (their
  * levels, their pages and their second pages) and the drone's own (DRONE PARAMS but FULLNESS, ALGORITHM's: a hand
@@ -418,20 +479,23 @@ static const uint8_t LFO_TGT[NLFO_TGT] = {NPARAM, P_TIMBRE, P_ESPACE, P_MOUVEMEN
                                     P_BR_TONE, P_BR_AIR, P_ECART, P_GL_LEVEL, P_GL_BRIGHT, P_GL_PING, P_GL_SPACE,
                                     P_MX_DRONE, P_MX_GLINT, P_BS_FILTER, P_BS_RESO, P_BS_DRIVE, P_MX_BASS, P_DR_FULL,
                                     P_ARP_CHANCE, P_SQ_LEN, P_GX_SPARK, P_GX_BLUR, P_GX_SINK};   /* (GLINT's CHANCE,
-                                                                * its sequence's LENGTH, SPARKLE: app.c's, arp_chance,
+                                                                * its SEQ LENGTH, SPARKLE: app.c's, arp_chance,
                                                                 * seq_len, sparkle_run) */
 static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MOTION", "WARMTH", "CHOIR", "PARTIALS",
                                              "BREATH", "DETUNE", "FILTER", "SHAPE", "CH RESO", "TILT", "ODD",
                                              "STRETCH", "EVOLVE", "BEAT", "FORMANT", "PEAK", "BR RESO", "COLOR",
                                              "GRAIN", "BR TONE", "AIR", "SPREAD", "GL LEVEL", "GL BRIGHT", "GL PING",
                                              "GL SPACE", "DRONE LVL", "GLINT LVL", "BS FILTER", "BS RESO",
-                                             "BS DRIVE", "BASS LVL", "FULLNESS", "GL CHANCE", "SEQ LEN",
+                                             "BS DRIVE", "BASS LVL", "BODY", "GL CHANCE", "SEQ LEN",
                                              "SPARKLE", "BLUR", "SINK"};   /* (new ones at the end: a saved TARGET
                                                                          * keeps its setting) */
 static float lfo_hz(uint32_t r) { return 0.005f * fm_powf(2000.0f, (float)r / (float)(LFO_NFREE - 1u)); }
 /* GLINT's OCTAVE, in semitones: the arpeggio's and the sequence's notes are kept without it, played with it (app.c
  * sets it with the engine), and NOTE shows them so */
 static int32_t seq_shift;
+/* BASS's OCTAVE, in semitones: its sequence's notes are kept without it, played with it (folded up to C1, as the bass
+ * plays), and NOTE shows them so */
+static int32_t bseq_shift;
 /* a scene's MORPH: what each setting still lacks of the scene's, in its own steps, toward 0 (app.c, morph_run) */
 static float morph_off[NSOUND];
 /* what the LFOs add to each setting now, in its own steps (app.c, lfo_run); params_to_engine takes them */
@@ -445,6 +509,11 @@ static const char *const GD_NAME[12] = {"1/32", "1/16T", "1/16", "1/8T", "1/16D"
 static const uint8_t ARP_TICKS[10] = {96, 48, 32, 24, 16, 12, 8, 6, 4, 3};
 static const char *const ARP_RATE_NAME[10] = {"1/1", "1/2", "1/2T", "1/4", "1/4T", "1/8", "1/8T", "1/16", "1/16T",
                                               "1/32"};
+/* a step of the bass's sequence, its STEP LENGTH: a quarter of a beat .. sixteen beats, in MIDI clocks (24 a beat) */
+#define NBQLEN 11u
+static const uint16_t BQ_TICKS[NBQLEN] = {6, 12, 24, 36, 48, 72, 96, 144, 192, 288, 384};
+static const char *const BQ_LEN_NAME[NBQLEN] = {"1/16", "1/8", "1/4", "1/4D", "1/2", "1/2D", "1 BAR", "1.5 BARS",
+                                                "2 BARS", "3 BARS", "4 BARS"};
 static const float GLINT_RATIO[13] = {0.5f, 1.0f, 1.414f, 2.0f, 2.756f, 3.0f, 3.5f, 4.0f, 5.0f, 7.0f, 9.0f, 11.0f, 13.6f};
 static const char *const RATIO_NAME[13] = {"X0.5", "X1", "X1.41", "X2", "X2.76", "X3", "X3.5", "X4", "X5", "X7", "X9",
                                            "X11", "X13.6"};
@@ -469,6 +538,17 @@ static void later_defaults(uint8_t *v, uint32_t from)   /* the parameters from `
     uint32_t p;
     for (p = from; p < NSOUND; p++)
         v[p] = PD[p].def;
+}
+
+/* GLINT's RELEASE as DECAY let a glint go before RELEASE was one (where SCATTER was: an earlier layout's made over,
+ * app.c sound_over; the River's and the server's from the schema's table): DECAY's time up to 0.6 s, else half of it,
+ * 0.6 s at least */
+static uint8_t glint_release_of(uint32_t decay)
+{
+    float t = 0.08f * fm_powf(75.0f, (float)(decay > 127u ? 127u : decay) / 127.0f), r, x;
+    r = t < 0.6f ? t : t * 0.5f > 0.6f ? t * 0.5f : 0.6f;
+    x = 127.0f * fm_log2f(r / 0.02f) / fm_log2f(300.0f) + 0.5f;
+    return (uint8_t)(x < 0.0f ? 0.0f : x > 127.0f ? 127.0f : x);
 }
 
 static void glint_preset(uint8_t *v, uint32_t i)   /* preset i into the GLINT parameters */
@@ -532,7 +612,7 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
     b->glint.decay = u7(v, P_GL_DECAY);
     b->glint.level = u7(v, P_GL_LEVEL);
     b->glint.space = u7(v, P_GL_SPACE);
-    b->glint.scatter = u7(v, P_GL_SCATTER);
+    b->glint.release = u7(v, P_GL_RELEASE);
     b->glint.attack = u7(v, P_GL_ATTACK);
     b->glint.ping = u7(v, P_GL_PING);
     b->glint.delay_fb = u7(v, P_GD_FB);
@@ -591,6 +671,8 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
     b->bass.level = u7(v, P_BS_LEVEL);
     b->bass.attack = u7(v, P_BS_ATTACK);
     b->bass.release = u7(v, P_BS_RELEASE);
+    b->bass.decay = u7(v, P_BS_DECAY);
+    b->bass.sustain = u7(v, P_BS_SUSTAIN);
 }
 
 #include "harmony.c"
@@ -716,6 +798,9 @@ static void value_text(int p, uint8_t x, char *b)
     case F_GDECAY:
         time_text(0.08f * fm_powf(75.0f, u), b);
         break;
+    case F_GREL:
+        time_text(0.02f * fm_powf(300.0f, u), b);
+        break;
     case F_DTIME:                        /* the time, then PP: ping-pong */
         text_cat(b, GD_NAME[x % 12u]);
         if (x >= 12u)
@@ -726,8 +811,8 @@ static void value_text(int p, uint8_t x, char *b)
         text_cat(b, MO[x % 9u]);
         break;
     }
-    case F_KEEP:
-        text_cat(b, x ? "PLAYING" : "SCENE");
+    case F_LOAD:
+        text_cat(b, x ? "SND ONLY" : "SND+NOTES");
         break;
     case F_UNDO:
     case F_NEWTAKE:
@@ -772,6 +857,12 @@ static void value_text(int p, uint8_t x, char *b)
         break;
     case F_BREL:
         time_text(0.03f * fm_powf(500.0f, u), b);
+        break;
+    case F_BDEC:
+        time_text(0.01f * fm_powf(1000.0f, u), b);
+        break;
+    case F_BPULSE:
+        text_cat(b, PULSE_NAME[x % NPULSE]);
         break;
     case F_ONOFF:
         text_cat(b, x ? "ON" : "OFF");
@@ -889,6 +980,27 @@ static void value_text(int p, uint8_t x, char *b)
                 ;
             int_text(n / 12 - 1, e);
         }
+        break;
+    case F_BQNOTE:                       /* CUT, HOLD, or the note with BASS's OCTAVE on it, as it sounds (TRANSPOSE
+                                          * aside) */
+        if (x == 0)
+            text_cat(b, "CUT");
+        else if (x >= 127u)
+            text_cat(b, "HOLD");
+        else {
+            char *e;
+            int32_t n = (int32_t)x + bseq_shift;
+            while (n < 24)
+                n += 12;
+            n = n > 127 ? 127 : n;
+            text_cat(b, NOTE_NAME[n % 12]);
+            for (e = b; *e; e++)
+                ;
+            int_text(n / 12 - 1, e);
+        }
+        break;
+    case F_BQLEN:
+        text_cat(b, BQ_LEN_NAME[x % NBQLEN]);
         break;
     case F_SQREC: {
         static const char *const RC[3] = {"OFF", "STEP", "LIVE"};

@@ -2,13 +2,15 @@
  * Copyright (C) 2026 Styves Goupil */
 /* GLINT (glint.h). Phases are 32-bit (they wrap by themselves); the sine is a 2048-point table with linear
  * interpolation; the envelopes are per-sample multiplies: the amplitude over DECAY to silence, or while the key is
- * down to SUSTAIN's level (sooner once the key is up), the index from bright at the strike down to half (a ping, then
- * a softer ring). */
+ * down to SUSTAIN's level, over RELEASE once the key is up, the index from bright at the strike down to half (a ping,
+ * then a softer ring). */
 #include "dsp.h"
 #include "glint.h"
 
 #define TBITS 11u
 #define TN (1u << TBITS)
+#define SPREAD 0.63f                    /* each glint's place in the field (either way) and its detune (8 cents a
+                                         * whole), at random: SCATTER's default, fixed since it went */
 #define IDX_UNIT 2670176.8f             /* the index in 2^-24 turns a radian (2^24 / 2 pi): idx x m stays well inside
                                          * an int32, then << 8 is a phase offset that wraps by itself */
 
@@ -18,7 +20,7 @@ typedef struct {
     int8_t note;
     uint8_t gate;
     uint32_t pc, pm, dc, dm;             /* carrier and modulator: phases, increments */
-    float amp, ka, kr;                   /* amplitude, its decay a sample (held), and once let go */
+    float amp, ka, kr;                   /* amplitude, its decay a sample (held), and once let go (RELEASE) */
     float amp0;                          /* its level at the strike (SUSTAIN's share of it is held) */
     float att, katt;                     /* the onset, 0 .. 1, and its step a sample (ATTACK) */
     float idx, idx_end, ki;              /* the index (in phase units), where it settles, its decay a sample */
@@ -30,6 +32,7 @@ typedef struct {
     uint8_t landed, calm;                /* the finger has pressed in and settled (100 ms steady): from then on, its
                                           * changes are the wiggle; let go to nothing, it lands again */
     uint32_t age, blocks;
+    float t, toff;                       /* seconds since the strike, since let go (the screen) */
 } glint_t;
 
 static glint_t sp[GLINT_NV];
@@ -65,8 +68,8 @@ void glint_on(int note, float vel, const glint_params_t *p)
         for (i = 0; i < GLINT_NV; i++)
             if (!s || sp[i].amp < s->amp)
                 s = &sp[i];
-    det = br_randf(&sp_rng) * p->scatter * 8.0f;                 /* cents */
-    pan = br_randf(&sp_rng) * p->scatter;
+    det = br_randf(&sp_rng) * SPREAD * 8.0f;                     /* cents */
+    pan = br_randf(&sp_rng) * SPREAD;
     f = 440.0f * fm_exp2f(((float)note - 69.0f + det * 0.01f) * (1.0f / 12.0f));
     t = 0.08f * fm_powf(75.0f, br_clampf(p->decay, 0.0f, 1.0f));
     s->note = (int8_t)note;
@@ -79,7 +82,7 @@ void glint_on(int note, float vel, const glint_params_t *p)
     s->amp = s->amp0 = (0.35f + 0.65f * vel) * 0.3f;
     s->att = 0.0f;
     s->ka = decay_k(t);
-    s->kr = decay_k(t < 0.6f ? t : (t * 0.5f > 0.6f ? t * 0.5f : 0.6f));   /* let go: it still rings, damped */
+    s->kr = decay_k(0.02f * fm_powf(300.0f, br_clampf(p->release, 0.0f, 1.0f)));   /* let go: RELEASE */
     {                                    /* the index: from the strike (PING brighter) down to the ring */
         float base = p->bright * p->bright * 5.0f * IDX_UNIT, pg = br_clampf(p->ping, 0.0f, 1.0f);
         s->idx = base * (1.0f + 1.5f * pg);
@@ -99,15 +102,18 @@ void glint_on(int note, float vel, const glint_params_t *p)
     s->landed = s->calm = 0;
     s->age = ++sp_age;
     s->blocks = 0;
+    s->t = s->toff = 0.0f;
 }
 
 void glint_off(int note, const glint_params_t *p)
 {
     uint32_t i;
-    (void)p;
     for (i = 0; i < GLINT_NV; i++)
-        if (note < 0 || sp[i].note == note)   /* (-1: every one) */
+        if ((note < 0 || sp[i].note == note) && sp[i].gate) {   /* (-1: every one) */
             sp[i].gate = 0;
+            sp[i].toff = 0.0f;
+            sp[i].kr = decay_k(0.02f * fm_powf(300.0f, br_clampf(p->release, 0.0f, 1.0f)));   /* (RELEASE now) */
+        }
 }
 
 void glint_press(int note, float p)
@@ -134,6 +140,9 @@ void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, 
         if (s->note < 0)
             continue;
         s->blocks++;
+        s->t += (float)n * BR_INV_FS;
+        if (!s->gate)
+            s->toff += (float)n * BR_INV_FS;
         /* pressure: louder (up to +8 dB, gliding across the block), and while the key is held the bell rings on
          * (its decay slowed as it is pressed) */
         pg = s->pg;
@@ -202,7 +211,11 @@ void glint_view(glint_view_t v[GLINT_NV])
     uint32_t i;
     for (i = 0; i < GLINT_NV; i++) {
         v[i].note = sp[i].note;
+        v[i].gate = sp[i].gate;
         v[i].level = sp[i].amp * sp[i].pg * (1.0f / 0.3f);
+        v[i].env = sp[i].amp0 > 0.0f ? sp[i].att * sp[i].amp / sp[i].amp0 : 0.0f;
+        v[i].t = sp[i].t;
+        v[i].toff = sp[i].toff;
         v[i].age = sp[i].blocks;
         v[i].cents = sp[i].cents;
     }

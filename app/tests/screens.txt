@@ -68,8 +68,8 @@ turn K2 -1
 turn K3 -25
 turn K4 -31
 wait 300
-# GLINT: the keys to it (SELECT), GLINT PARAMS (ARP's first), TYPE on ARP; its arpeggiator page (after GLINT DELAY),
-# two keys held
+# GLINT: the keys to it (SELECT), GLINT I (ARP's first), SEQ on ARP; its arpeggiator page (after GLINT DELAY),
+# two keys held on the play page (HOME has the keys on DRONE: SELECT to GLINT again)
 turn SELECT 1
 wait 1500
 tap ARP
@@ -84,13 +84,15 @@ turn K1 2
 wait 200
 shot screen-glint-arp.png
 tap HOME
+turn SELECT 1
+wait 1500
 key 18 down 110
 key 22 down 100
 wait 700
 shot screen-glints.png
 key 18 up
 key 22 up
-# the sequencer: TYPE on SEQ (GLINT PARAMS), sixteen steps written (GLINT SEQ: RECORD on STEP, an accent on each
+# the sequencer on (GLINT I's SEQ), sixteen steps written (GLINT SEQ: RECORD on STEP, an accent on each
 # beat), then playing
 tap ARP
 turn K2 1
@@ -124,8 +126,8 @@ tap ARP
 turn K2 -1
 tap HOME
 wait 300
-# BASS: SELECT again, a deep D under the drones; its page (SEQ)
-turn SELECT 1
+# BASS: SELECT all the way (HOME has the keys on DRONE), a deep D under the drones; its page (SEQ)
+turn SELECT 2
 wait 200
 tapkey 9 100
 wait 2500
@@ -133,6 +135,55 @@ shot screen-bass.png
 tap SEQ
 wait 300
 shot screen-bass-page.png
+# its sequence (SEQ three times more: BASS SEQ): RECORD on STEP, eight keys (D D A C D F G A); then K1 to each step,
+# K2 a HOLD and a CUT, K3 the lengths; STEPS 8 (BASS SEQ II); PLAY, PLAY: from the top
+tap SEQ
+tap SEQ
+tap SEQ
+turn K4 1
+tapkey 9
+tapkey 9
+tapkey 16
+tapkey 7
+tapkey 9
+tapkey 12
+tapkey 14
+tapkey 16
+turn K4 -1
+spin K1 -20
+spin K3 2
+spin K1 1
+spin K2 127
+spin K3 1
+spin K1 1
+spin K3 3
+spin K1 1
+spin K3 1
+spin K1 1
+spin K3 4
+spin K1 1
+spin K3 1
+spin K1 1
+spin K2 -127
+spin K3 1
+spin K1 1
+spin K3 2
+spin K1 -3
+tap SEQ
+spin K1 -8
+tap PLAY
+tap PLAY
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+wait 2620
+shot screen-bass-seq.png
+# SEQUENCE off again (BASS SEQ II), the D held as before
+tap SEQ
+spin K2 -1
+tapkey 9 100
+wait 300
 tap HOME
 turn SELECT -2
 wait 1500
@@ -178,3 +229,43 @@ turn SELECT 1
 wait 100
 shot screen-help-5.png
 tap HOME
+# the envelopes. BASS ADSR (the keys on BASS, SEQ three times): DECAY 210 MS, SUSTAIN 41, a held D waiting at the end
+# of the plateau. GLINT ADSR (the keys on GLINT, ARP three times) on WARM LEAD (GLINT I's PRESET 16): two glints held
+# on its DECAY, one let go on its RELEASE
+press PLAY
+wait 650
+release PLAY
+wait 1500
+turn SELECT 2
+wait 100
+tap SEQ
+tap SEQ
+tap SEQ
+spin K2 -8
+wait 30
+spin K3 -75
+wait 30
+tapkey 9 100
+wait 2600
+shot screen-bass-adsr.png
+tapkey 9
+wait 1500
+turn SELECT -1
+wait 100
+tap ARP
+turn K1 8
+wait 30
+tap ARP
+tap ARP
+wait 1200
+key 10 down 100 0
+wait 60
+key 14 down 100 0
+wait 500
+key 17 down 100 0
+wait 700
+key 10 up
+wait 150
+shot screen-glint-adsr.png
+key 14 up
+key 17 up
