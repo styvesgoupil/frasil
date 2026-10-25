@@ -1,0 +1,16 @@
+# FRASIL in the host simulator, from its first millisecond: ./build.sh --host, then
+#   app/build/host/frasil_host app/tests/boot.txt app/build/host
+# a scene loaded as FRASIL starts (the website's players: a fresh engine a tune, the scene sent at once): no MIDI clock
+# has come, so the grid is TEMPO's from the start and the load begins it at its top: the bass's NOTEs on the beat (its
+# steps NORTH RIVER's: 2 BARS, 1 BAR, 1/2, 1/4, 1/4), PULSE's strikes with them
+wait 60
+press SAVE
+tapkey w0
+release SAVE
+wait 30
+expect scene 0
+expect bseqrun 1
+wait 6000
+expect bqbeat 0
+expect pulselate >-6
+expect pulselate <6

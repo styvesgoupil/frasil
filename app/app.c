@@ -563,6 +563,11 @@ static struct {
     float g, ng, at;
     uint8_t fresh;
     uint32_t n;
+#ifdef PLAT_HOST
+    uint32_t seen;                       /* (the tests: the engine's strikes seen, and how late the last fell: ms after
+                                          * its division) */
+    int32_t late;
+#endif
 } bp;
 
 static void bass_play(int note, uint32_t vel)   /* note: as played (the engine puts OCTAVE on it) */
@@ -1095,6 +1100,9 @@ static void bseq_stop(void)              /* its note let go (a take under way cl
 
 /* step i begins: its NOTE plays (GLIDE from the last), its CUT stops the bass, a HOLD changes nothing. LIVE, none of
  * it while the take's note is down (it has the bass), nor on the step a note just let go has written ahead */
+#ifdef PLAT_HOST
+static float bq_beat;
+#endif
 static void bseq_step(int32_t i)
 {
     uint32_t b = bnote[i] & 127u;
@@ -1109,6 +1117,9 @@ static void bseq_step(int32_t i)
     } else if (b != SQ_TIE) {
         bass_play(bseq_note(b), 100);
         bq.steps++;
+#ifdef PLAT_HOST
+        bq_beat = arp.tick;              /* (the tests: where on the grid the NOTE began) */
+#endif
     }
 }
 
@@ -1178,36 +1189,72 @@ static void bseq_run(void)
 }
 
 /* BASS II's PULSE: while the bass's note sounds (a key held or latched, a MIDI note, a NOTE of its sequence: bass_note),
- * on each of PULSE's divisions of the grid (MIDI clock, else TEMPO: arp.tick, from its beats), the note let go a moment
- * and played again from its ATTACK (frasil_bass_pulse: the same note and velocity, its pressure on, no glide). The gap:
- * a quarter of the division, 8 ms at least, 60 ms at most (a short breath, whatever the tempo: at 120 BPM 16 ms on an
- * eighth of a beat, 31 ms on a quarter, 60 ms from half a beat on). A note played less than a clock before the
- * division, or as it comes (a key; a step of the bass's sequence beginning there: bseq_run, just before), is its attack
- * already: none then. On a CUT nothing sounds: none */
+ * on each of PULSE's divisions of the grid (MIDI clock, else TEMPO: arp.tick, from its beats), the note played again
+ * from its ATTACK right on the division (frasil_bass_pulse: the same note and velocity, its pressure on, no glide), let
+ * go a moment before it: the gap, a quarter of the division, 8 ms at least, 60 ms at most (a short breath, whatever the
+ * tempo: at 120 BPM 16 ms on an eighth of a beat, 31 ms on a quarter, 60 ms from half a beat on). So the strikes fall
+ * on the beat, as the sequence's NOTEs do. A step of the bass's sequence beginning on the division is its own: a NOTE
+ * strikes there itself, a CUT ends the note (none then; a HOLD, the note going on, has its strike). A note played less
+ * than a clock before the gap begins, or in it (a key, a MIDI note), is its attack already: none then */
+/* the step of the bass's sequence that begins on the grid at `at` (within half a clock; g: the grid now), or -1 */
+static int32_t bseq_step_at(float g, float at)
+{
+    float d;
+    if (!bq.run || bq.wait || bq.tn >= 0)
+        return -1;
+    d = g + (float)bseq_ticks(bq.pos) - bq.t - at;
+    if (d < -0.5f || d > 0.5f)
+        return -1;
+    return bq.pos < (int32_t)st.v[P_BQ_STEPS] ? bq.pos + 1 : 0;
+}
+
 static void pulse_run(void)
 {
     uint32_t r = st.v[P_BS_PULSE] % NPULSE;
-    float g = arp.tick, was = bp.g, per = (float)PULSE_TICKS[r], at, ms_tick, gap;
+    float g = arp.tick, was = bp.g, per = (float)PULSE_TICKS[r], at, ms_tick, gap, lead, left;
     int fresh = bp.fresh;
     bp.g = g;
     if (bp.fresh) {
         float d = g - bp.ng;
         bp.fresh = (d < 0.0f ? d + 9600.0f : d) <= 3.0f;   /* (the grid wraps at 9600) */
     }
-    if (!r || bass_note < 0 || fm_floorf(g / per) == fm_floorf(was / per))
+    ms_tick = plat_ms() - arp.clk_at < 500u && arp.clk_ms > 1.0f ? arp.clk_ms : 2500.0f / (float)(st.v[P_TEMPO] + 30u);
+#ifdef PLAT_HOST
+    if (r) {
+        bass_view_t bv;
+        frasil_bass_view(&bv);
+        if (bv.pulses != bp.seen) {      /* a strike: where it fell, from its division */
+            bp.seen = bv.pulses;
+            bp.late = (int32_t)fm_floorf((g - per * fm_floorf(g / per + 0.5f)) * ms_tick + 0.5f);
+        }
+    }
+#endif
+    if (!r || bass_note < 0)
         return;
-    at = per * fm_floorf(g / per);       /* the division just come */
+    gap = 0.25f * per * ms_tick;
+    gap = gap < 8.0f ? 8.0f : gap > 60.0f ? 60.0f : gap;
+    lead = gap / ms_tick;                /* the gap in clocks: the grid that far ahead, the division about to come */
+    if (g < was - 4800.0f)
+        was -= 9600.0f;                  /* (wrapped: 9600 is every division's multiple) */
+    if (fm_floorf((g + lead) / per) == fm_floorf((was + lead) / per))
+        return;
+    at = per * fm_floorf((g + lead) / per);
+    {
+        int32_t nx = bseq_step_at(g, at);
+        uint32_t b = nx >= 0 ? bnote[nx] & 127u : SQ_TIE;
+        if (b != SQ_TIE && (b != SQ_REST || bseq_has_notes()))
+            return;
+    }
     if (fresh) {
-        float d = at - bp.ng;
+        float d = g - bp.ng;
         d = d > 4800.0f ? d - 9600.0f : d < -4800.0f ? d + 9600.0f : d;
         if (d <= 1.0f)
             return;
     }
-    ms_tick = plat_ms() - arp.clk_at < 500u && arp.clk_ms > 1.0f ? arp.clk_ms : 2500.0f / (float)(st.v[P_TEMPO] + 30u);
-    gap = 0.25f * per * ms_tick;
-    frasil_bass_pulse((gap < 8.0f ? 8.0f : gap > 60.0f ? 60.0f : gap) * 0.001f);
+    left = (at - g) * ms_tick;           /* (to the division: the strike there, whatever the clock's steps) */
+    frasil_bass_pulse((left < 8.0f ? 8.0f : left > 60.0f ? 60.0f : left) * 0.001f);
     bp.n++;
-    bp.at = at;
+    bp.at = at >= 9600.0f ? at - 9600.0f : at;
 }
 
 /* a BASS key or note while the sequence is on (n: as the sequence keeps it, without OCTAVE; sound: as it sounds).
@@ -2232,6 +2279,8 @@ static void state_load(void)
 
 void app_init(void)
 {
+    arp.clk_at = plat_ms() - 60000u;     /* no MIDI clock yet (else the first half second would follow one: the grid
+                                          * still, a scene loaded then not from its top) */
     frasil_init();
     drone_init();
     state_load();
@@ -4311,6 +4360,8 @@ int app_expect(const char *what, int *got)
                                               * pulsebeat: the clocks into its beat the last fell on */
         *got = (int)bp.n;
         bp.n = 0;
+    } else if (!strcmp(what, "pulselate")) {   /* how late the last strike fell after its division, in ms */
+        *got = (int)bp.late;
     } else if (!strcmp(what, "bons")) {     /* the notes the bass struck since last asked (bass_on: not PULSE's) */
         static uint32_t was;
         bass_view_t bv;
@@ -4330,6 +4381,8 @@ int app_expect(const char *what, int *got)
         *got = (int)mtr.ck;
     } else if (!strcmp(what, "pulsebeat")) {
         *got = (int)bp.at % 24;
+    } else if (!strcmp(what, "bqbeat")) {    /* the clocks into its beat the bass's last NOTE began (0: on it) */
+        *got = (int)fm_floorf(bq_beat + 0.5f) % 24;
     } else if (!strcmp(what, "recled") || !strcmp(what, "fxled") || !strcmp(what, "octled") ||
                !strcmp(what, "saveled") || !strcmp(what, "playled") || !strcmp(what, "homeled") || !strcmp(what, "selled") ||
                !strcmp(what, "envled")) {
