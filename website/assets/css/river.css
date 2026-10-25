@@ -783,6 +783,17 @@ a.pt-t:focus-visible, .pt-t:focus-visible { outline: 2px solid var(--lamp); outl
 .sr-open { position: absolute; inset: 0; z-index: 1; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; cursor: pointer; color: var(--mist); }
 .sr-open svg { display: none; }
 .sr-open:focus-visible { outline: 2px solid var(--lamp); outline-offset: -3px; border-radius: 6px; }
+/* closed, the row says it opens: a ring with a chevron down at its end (the row hovered: lit, nudged down); the
+ * columns' heads keep the room it takes */
+.sr-item:not(.open) > .sr, .lh:not(.ch-lh) { padding-right: 58px; }
+.sr-item:not(.open) .sr-open svg {
+  display: block; position: absolute; right: 14px; top: 50%; box-sizing: border-box; width: 30px; height: 30px; margin-top: -15px;
+  padding: 7px; rotate: 180deg; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--steel); color: var(--mist);
+  transition: color .2s, box-shadow .2s, translate .25s var(--ease);
+}
+.sr-item:not(.open) > .sr:hover .sr-open svg, .sr-item:not(.open) .sr-open:focus-visible svg {
+  color: var(--ice); box-shadow: inset 0 0 0 1.5px var(--ice), 0 0 12px rgba(110, 208, 255, .3); translate: 0 2px;
+}
 .sr .play, .sr .ck, .sr .acts { position: relative; z-index: 2; }
 .sr-item:not(.open) > .sr:has(> .sr-open:hover) { background: #0d1219; }
 .sr-item.kept > .sr { background: rgba(110, 208, 255, .045); }
@@ -1028,6 +1039,8 @@ a.pt-t:focus-visible, .pt-t:focus-visible { outline: 2px solid var(--lamp); outl
   .list { margin-inline: calc(-1 * var(--gutter)); }
   .lh { display: none; }
   .sr, .list.pub .sr, .list.fav .sr { --cols: 36px minmax(0, 1fr) auto; min-height: 0; row-gap: 10px; padding: 12px var(--gutter); }
+  .sr-item:not(.open) > .sr { padding-right: calc(var(--gutter) + 40px); }
+  .sr-item:not(.open) .sr-open svg { right: calc(var(--gutter) - 2px); }
   .list:not(.pub) .sr { --cols: 36px minmax(0, 1fr) auto 24px; }
   .sr .play { grid-column: 1; grid-row: 1; }
   .sr .nm { grid-column: 2; grid-row: 1; }

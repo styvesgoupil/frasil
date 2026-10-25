@@ -100,38 +100,63 @@
 .fig-cap .label { color: var(--fog); }
 
 /* ---------------------------------------------------------------- 1 the instrument */
-.intro { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: clamp(36px, 5vw, 80px) clamp(32px, 6vw, 96px); }
-.intro .display { grid-column: 1 / -1; max-width: 17ch; }
-.intro-body > * + * { margin-top: 30px; }
-.intro-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px clamp(24px, 4vw, 48px); }
+.intro { display: grid; gap: clamp(36px, 5vw, 80px); }
+.intro .display { max-width: none; }   /* (its <br>: "richly textured soundscapes." a line of its own) */
+.intro-body > * + * { margin-top: clamp(30px, 4vw, 48px); }
+.intro-cols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; gap: 44px clamp(40px, 6vw, 104px); }
+.intro-text > * + * { margin-top: clamp(30px, 3.6vw, 44px); }
 .intro-cols h3 { margin-bottom: 10px; }
 .intro-cols p { color: var(--text-2); }
-.intro-side { align-self: start; margin-top: 8px; display: flex; flex-direction: column; gap: 52px; min-width: 0; }
-.lexicon { padding: 4px 0 6px 26px; border-left: 1px solid var(--steel); position: relative; }
-.lexicon::before { content: ""; position: absolute; left: -1px; top: 0; height: 46px; width: 1px; background: var(--ice); box-shadow: 0 0 12px var(--ice); }
-.lex-word { font: italic 300 44px/1 var(--f-text); font-variation-settings: "opsz" 72; color: var(--white); }
-.lex-pos { font: 600 13px var(--f-ui); font-style: normal; letter-spacing: .14em; color: var(--mist); margin-left: .4em; }
-.lex-def { margin-top: 14px; color: var(--text-2); font-size: 18px; }
-.lex-def em { color: var(--fog); }
-@media (max-width: 960px) { .intro { grid-template-columns: 1fr; } .intro-side { max-width: 46ch; width: 100%; } }
+.intro-cols p + p { margin-top: 14px; }
+/* the name, alone between the river and the instrument, as a dictionary has it: the word, a line (its top lit in ice),
+ * what it means; room all around. Narrow, the word above, the line beside the meaning */
+.name-fold {
+  min-height: 92vh; min-height: 92svh; display: grid; place-items: center;
+  padding: clamp(96px, 14vh, 180px) var(--gutter);
+}
+.name-in { display: flex; align-items: center; gap: clamp(32px, 4.5vw, 72px); }
+.name-word { flex: none; font: italic 300 clamp(68px, 10vw, 150px)/1 var(--f-text); font-variation-settings: "opsz" 72; color: var(--white); }
+.name-pos {
+  font: 600 clamp(13px, 1.1vw, 16px)/1 var(--f-ui); font-style: normal; letter-spacing: .18em; color: var(--mist);
+  margin-left: .35em; vertical-align: .2em;
+}
+.name-line { flex: none; align-self: stretch; position: relative; width: 1px; background: var(--steel); }
+.name-line::before { content: ""; position: absolute; left: 0; top: 0; width: 1px; height: 38%; background: var(--ice); box-shadow: 0 0 12px var(--ice); }
+.name-def { max-width: 30ch; font-size: clamp(20px, 1.9vw, 27px); line-height: 1.6; color: var(--text-2); text-wrap: pretty; }
+.name-def em { color: var(--fog); }
+@media (max-width: 760px) {
+  .name-in { display: grid; grid-template-columns: 1px minmax(0, 1fr); gap: 26px 22px; }
+  .name-word { grid-column: 1 / -1; }
+  .name-line { grid-row: 2; }
+}
 
-/* the factory scenes (js/listen.js): a row each, its dot and its line; the one sounding glows (--lv: how loud, 0..1),
- * its line a current carrying ice; cued (the browser holding sound back until a click), its dot breathes */
-.listen { padding-left: 27px; }
-.tunes-lede { margin-top: 8px; font-size: 15.5px; line-height: 1.45; color: var(--dim); }
-.tunes-phones { margin-top: 10px; display: flex; align-items: center; gap: 9px; font: 500 13.5px/1.3 var(--f-ui); letter-spacing: .04em; color: var(--mist); }
-.tunes-phones svg { flex: none; width: 17px; height: 15px; color: var(--ice); filter: drop-shadow(0 0 5px rgba(110, 208, 255, .45)); }
+/* the factory scenes (js/listen.js): a row each, its play button and its line; the one sounding glows (--lv: how loud,
+ * 0..1), its line a current carrying ice */
+.listen { container-type: inline-size; min-width: 0; }
+.listen-h { display: flex; align-items: center; gap: 14px; font: 600 clamp(24px, 2.2vw, 30px)/1 var(--f-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--white); }
+.listen-h svg { flex: none; width: 34px; height: 31px; color: var(--lamp); filter: drop-shadow(0 0 10px rgba(242, 166, 90, .55)); }
+.tunes-phones { margin-top: 12px; font: 500 14px/1.35 var(--f-ui); letter-spacing: .04em; color: var(--mist); }
 .tunes { list-style: none; padding: 0; margin-top: 18px; border-top: 1px solid var(--rule); }
 .tune { border-bottom: 1px solid var(--rule); --lv: 0; }
 .tune-b {
   all: unset; box-sizing: border-box; width: 100%; cursor: pointer;
-  display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; grid-template-rows: auto 24px; column-gap: 10px;
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-rows: auto 24px; column-gap: 14px;
   align-items: center; padding: 12px 0 2px;
 }
 .tune-b:focus-visible { outline: 1px solid var(--ice); outline-offset: 3px; border-radius: 2px; }
-.tune-dot {
-  width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--slate);
-  transition: box-shadow .35s var(--ease), background-color .35s var(--ease), border-radius .25s var(--ease), transform .35s var(--ease);
+/* its play button: a ring with ▶; playing, ice-filled with ■, glowing as loud as it is; starting, an arc turning */
+.tune-play {
+  grid-row: 1 / 3; align-self: center; position: relative; width: 32px; height: 32px; border-radius: 50%;
+  color: var(--fog); box-shadow: inset 0 0 0 1.5px var(--slate);
+  transition: box-shadow .35s var(--ease), background-color .35s var(--ease), color .35s var(--ease);
+}
+.tune-play::before {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 11px; translate: -36% -50%;
+  background: currentColor; clip-path: polygon(0 0, 100% 50%, 100% 50%, 0 100%);
+  transition: clip-path .25s var(--ease), translate .25s var(--ease), width .25s, height .25s;
+}
+.tune-play::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid transparent; opacity: 0;
 }
 .tune-name {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -143,20 +168,29 @@
   background: linear-gradient(var(--steel), var(--steel)) center / 100% 1px no-repeat;
 }
 .tune-b:hover .tune-name { color: var(--white); }
-.tune-b:hover .tune-dot { box-shadow: inset 0 0 0 1.5px var(--ice); }
+.tune-b:hover .tune-play, .tune-b:focus-visible .tune-play {
+  color: var(--ice); box-shadow: inset 0 0 0 1.5px var(--ice), 0 0 14px rgba(110, 208, 255, .35);
+}
 .tune[data-state="playing"] .tune-name { color: var(--white); text-shadow: 0 0 calc(4px + 14px * var(--lv)) rgba(110, 208, 255, .55); }
 .tune[data-state="playing"] .tune-meta { color: var(--mist); }
-.tune[data-state="playing"] .tune-dot {
-  background-color: var(--ice); box-shadow: 0 0 calc(5px + 14px * var(--lv)) rgba(110, 208, 255, .85), inset 0 0 0 1.5px var(--ice);
+.tune[data-state="playing"] .tune-play {
+  background-color: var(--ice); color: var(--night);
+  box-shadow: inset 0 0 0 1.5px var(--ice), 0 0 calc(8px + 18px * var(--lv)) rgba(110, 208, 255, .75);
 }
-.tune[data-state="playing"] .tune-b:hover .tune-dot { border-radius: 1.5px; }
-.tune[data-state="loading"] .tune-dot { box-shadow: inset 0 0 0 1.5px var(--ice); animation: tune-wait 1.1s var(--ease-io) infinite alternate; }
-.tune[data-state="cued"] .tune-dot { box-shadow: inset 0 0 0 1.5px var(--ice), 0 0 10px rgba(110, 208, 255, .6); animation: tune-wait 1.8s var(--ease-io) infinite alternate; }
-.tune[data-state="cued"] .tune-name { color: var(--white); }
-@keyframes tune-wait { from { opacity: .35; transform: scale(.8); } to { opacity: 1; transform: scale(1.1); } }
+.tune[data-state="playing"] .tune-play::before { width: 9px; height: 9px; translate: -50% -50%; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+.tune[data-state="loading"] .tune-play { color: var(--ice); box-shadow: inset 0 0 0 1.5px var(--steel); }
+.tune[data-state="loading"] .tune-play::after { opacity: 1; border-top-color: var(--ice); animation: tune-turn .9s linear infinite; }
+@keyframes tune-turn { to { rotate: 1turn; } }
 .tunes-note { margin-top: 12px; min-height: 1.4em; font-size: 14.5px; color: var(--mist); }
+/* a narrow list (beside the intro's text): the key and tempo under the name, the name whole */
+@container (max-width: 400px) {
+  .tune-b { grid-template-columns: 32px minmax(0, 1fr); grid-template-rows: auto auto 22px; row-gap: 3px; }
+  .tune-play { grid-row: 1 / 3; }
+  .tune-meta { grid-column: 2; grid-row: 2; font-size: 12px; }
+  .tune-flow { grid-column: 2; grid-row: 3; height: 22px; }
+}
 .tunes-note:empty { visibility: hidden; }
-@media (prefers-reduced-motion: reduce) { .tune-dot { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .tune-play, .tune-play::after { animation: none !important; } }
 @media (max-width: 600px) { .intro-cols { grid-template-columns: 1fr; } }
 
 .specs {

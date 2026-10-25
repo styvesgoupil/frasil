@@ -4526,6 +4526,9 @@ expect pulses 3
 expect bpulses 3
 expect pulsebeat 0
 expect basslvl >90
+# each strike right on its division (let go the gap before it: 60 ms at 1 BEAT, not struck 60 ms late)
+expect pulselate >-6
+expect pulselate <6
 # with the bass's sequence: two steps of a quarter, a NOTE (D2), a CUT. The note let go and played again inside the
 # NOTE only, at 1/4 BEAT: on its second, third and fourth sixteenths (its first is the NOTE's own attack), none in the
 # CUT: three a turn (1.33 s), twelve in four

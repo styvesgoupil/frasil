@@ -3,9 +3,8 @@
  * The landing's factory scenes (assemble.py factory_tunes: the rows, and their bytes in #tunes-data), each played live
  * by FRASIL's own engine (river-player.js: the Play page's app.wasm), one at a time: another one replaces it, the one
  * playing tapped again stops. The one sounding glows, its line a current carrying ice: crystals drifting downstream at
- * its tempo, the current as tall as it is loud. The first one starts by itself on arrival; where the browser holds
- * sound back until a click or a key, it is cued (its dot breathing) and starts on the first one anywhere on the page,
- * unless that one chose another. Escape stops it. With reduced motion, the line is still: a glowing calm wave. */
+ * its tempo, the current as tall as it is loud. Nothing plays until a row's button is pressed. Escape stops it. With
+ * reduced motion, the line is still: a glowing calm wave. */
 "use strict";
 (() => {
   const list = document.querySelector(".tunes"), data = document.getElementById("tunes-data"), pl = window.RiverPlayer;
@@ -16,7 +15,6 @@
   const note = document.querySelector(".tunes-note");
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
   const ICE = "110, 208, 255", WHITE = "243, 246, 249";
-  let chosen = false;                    // a scene picked (or stopped) by hand: nothing starts by itself any more
 
   const say = (t) => { if (note) note.textContent = t; };
   function mark(i, state) {
@@ -34,13 +32,11 @@
     say("");
     rows.forEach((r, i) => { if (i !== e.detail.id && r.dataset.state) mark(i, ""); });
     mark(e.detail.id, "playing");
-    off();
     wake();
   });
   pl.addEventListener("stopped", (e) => { mark(e.detail.id, ""); wake(); });
   pl.addEventListener("error", (e) => {
-    const { id, code, message } = e.detail;
-    if (!chosen && id === 0 && code !== "missing" && code !== "unsupported") { cue(); return; }   // (held back, not broken)
+    const { id, message } = e.detail;
     mark(id, "");
     say(message);
   });
@@ -52,34 +48,11 @@
   }
   list.addEventListener("click", (e) => {
     const r = e.target.closest(".tune");
-    if (!r) return;
-    chosen = true;
-    play(Number(r.dataset.i));
+    if (r) play(Number(r.dataset.i));
   });
   addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && pl.state !== "idle" && !document.querySelector("dialog[open]")) { chosen = true; pl.stop(); }
+    if (e.key === "Escape" && pl.state !== "idle" && !document.querySelector("dialog[open]")) pl.stop();
   });
-
-  // ---------------------------------------------------------------- the first one, by itself
-  function cue() {
-    if (chosen || pl.state === "playing") return;
-    mark(0, "cued");
-    say("It starts on your first click or key.");
-  }
-  // (the inputs a browser counts as a person's: keydown but Escape, a mouse's press, a finger's lift)
-  const KICKS = ["mousedown", "pointerup", "touchend", "keydown"];
-  function kick(e) {
-    if (e.type === "keydown" && e.key === "Escape") return;
-    pl.unlock();
-    if (!chosen && pl.state !== "playing" && !(e.target.closest && e.target.closest(".tune"))) pl.play(TUNES[0].bytes, 0);
-  }
-  function off() { KICKS.forEach((t) => removeEventListener(t, kick, true)); }
-  KICKS.forEach((t) => addEventListener(t, kick, true));
-  pl.play(TUNES[0].bytes, 0);
-  const held = setInterval(() => {   // (the engine ready, the sound held back: cued)
-    if (chosen || pl.state !== "loading" || pl.id !== 0) clearInterval(held);
-    else if (pl.held) { clearInterval(held); cue(); }
-  }, 300);
 
   // ---------------------------------------------------------------- the current
   const flows = rows.map((r) => ({ c: r.querySelector(".tune-flow"), amp: 0, drawn: false }));

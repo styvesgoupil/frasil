@@ -29,9 +29,19 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
       <a class="btn btn-plain" href="{{root}}guide/install/">Install on FM-1 <span class="arrow" aria-hidden="true">→</span></a>
     </div>
   </div>
-  <a class="hero-more" href="#instrument" aria-label="More below: the instrument">
+  <a class="hero-more" href="#frasil" aria-label="More below">
     <svg viewBox="0 0 24 14" aria-hidden="true"><path d="M2 2l10 10L22 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </a>
+</section>
+
+<!-- ============================================================ the name, alone -->
+<section class="name-fold" id="frasil" aria-label="The name">
+  <div class="name-in rv">
+    <p class="name-word">frasil <span class="name-pos">n.</span></p>
+    <span class="name-line" aria-hidden="true"></span>
+    <p class="name-def">Ice crystals that form in fast, open water, on the St. Lawrence River among others. They stay
+      suspended in the current: grainy, drifting, <em>never still</em>.</p>
+  </div>
 </section>
 
 <!-- ============================================================ 1 what it is -->
@@ -39,12 +49,13 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
   <div class="wrap">
     <div class="dhead rv"><p class="dhead-name">The instrument<span class="idx">1/11</span></p></div>
     <div class="intro">
-      <h2 class="display rv" id="h-instrument">The notes stay where you put them. <em>The sound is never still.</em></h2>
+      <h2 class="display rv" id="h-instrument">Infinite, evolving,<br> <em>richly textured soundscapes.</em></h2>
       <div class="intro-body" data-caps>
-        <p class="lede rv">FRASIL turns the M-VAVE FM-1 into an instrument for ambient drones and textures. A tap latches a
-          drone: a note, or a chord built in the key you chose. Pressing harder makes it swell. The timbre drifts and ebbs
-          on its own, slowly, and everything flows into a large, lush reverb with shimmer and freeze.</p>
         <div class="intro-cols">
+          <div class="intro-text">
+          <p class="lede rv">FRASIL turns the M-VAVE FM-1 into an instrument for ambient drones and textures. A tap latches a
+            drone: a note, or a chord built in the key you chose. Pressing harder makes it swell. The timbre drifts and
+            ebbs on its own, slowly, and everything flows into a large, lush reverb with shimmer and freeze.</p>
           <div class="rv">
             <h3 class="label">Fixed notes, endless motion</h3>
             <p>The drones are the notes you light, and they never change. Above them, GLINT plays small icy bells,
@@ -54,30 +65,20 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
               it joins one. Over the drones’ own drift, they weave rich textures that evolve without end, never the
               same twice. Chance comes in only where you let it: CHANCE skips steps, RANDOM and DRIFT pick the
               arpeggio’s order, SPARKLE lets glints fall on the notes your drones hold.</p>
+            <p>FRASIL is designed as one voice in a larger setup: it takes MIDI notes, pressure, CCs and clock over USB
+              and TRS, a channel for each of its tracks.</p>
           </div>
-          <div class="rv" style="--d:.08s">
-            <h3 class="label">Who it is for</h3>
-            <p>For players who want a sound to hold rather than a pattern to follow. FRASIL is designed as one voice in a
-              larger setup: it takes MIDI notes, pressure, CCs and clock over USB and TRS, a channel for each of its tracks.</p>
           </div>
-        </div>
-      </div>
-      <div class="intro-side">
-        <aside class="lexicon rv" aria-label="The name">
-          <p class="lex-word">frasil <span class="lex-pos">n.</span></p>
-          <p class="lex-def">Ice crystals that form in fast, open water, on the St. Lawrence River among others. They stay
-            suspended in the current: grainy, drifting, <em>never still</em>.</p>
-        </aside>
-        <!-- the factory scenes, played live by FRASIL's engine (js/listen.js): the first one by itself on arrival -->
-        <div class="listen rv" style="--d:.1s" role="group" aria-labelledby="h-listen">
-          <h3 class="label" id="h-listen">Listen</h3>
-          <p class="tunes-lede">The {{tunes_count}} scenes FRASIL starts with, played live by its own engine in your browser.</p>
-          <p class="tunes-phones"><svg viewBox="0 0 20 18" aria-hidden="true"><path d="M3 11V9a7 7 0 0 1 14 0v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2" y="10.5" width="4" height="6.5" rx="1.5" fill="currentColor"/><rect x="14" y="10.5" width="4" height="6.5" rx="1.5" fill="currentColor"/></svg>Put your headphones on for a richer experience.</p>
-          <ol class="tunes" role="list" data-emu="{{tunes_emu}}">
+          <!-- the factory scenes, played live by FRASIL's engine (js/listen.js), each by its own button -->
+          <div class="listen rv" style="--d:.08s" role="group" aria-labelledby="h-listen" data-nocaps>
+            <h3 class="listen-h" id="h-listen"><svg viewBox="0 0 24 22" aria-hidden="true"><path d="M3.5 13.5V11a8.5 8.5 0 0 1 17 0v2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="2" y="12.5" width="5.2" height="8" rx="1.8" fill="currentColor"/><rect x="16.8" y="12.5" width="5.2" height="8" rx="1.8" fill="currentColor"/></svg>Listen</h3>
+            <p class="tunes-phones">Put your headphones on for a richer experience.</p>
+            <ol class="tunes" role="list" data-emu="{{tunes_emu}}">
         {{tunes}}
-          </ol>
-          <p class="tunes-note" aria-live="polite"></p>
-          <script type="application/json" id="tunes-data">{{tunes_json}}</script>
+            </ol>
+            <p class="tunes-note" aria-live="polite"></p>
+            <script type="application/json" id="tunes-data">{{tunes_json}}</script>
+          </div>
         </div>
       </div>
     </div>

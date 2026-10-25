@@ -626,6 +626,9 @@ class Site:
                 "harmony": harmony_widget(), **shots(root)}
 
     def head_html(self, root, rel, title, description, og_title=None, canonical=None, assets=None):
+        return self.head_fill(root, rel, title, description, og_title, canonical, assets) + engine_meta()
+
+    def head_fill(self, root, rel, title, description, og_title=None, canonical=None, assets=None):
         # the fonts every page sets its header and titles in, asked for at once (base.css declares them all)
         a = root if assets is None else assets
         preload = "\n".join(f'<link rel="preload" href="{a}assets/fonts/{f}-latin.woff2" as="font" type="font/woff2" crossorigin>'
@@ -783,6 +786,12 @@ def play_page(site, geo):
                         nobreak(fill(site.footer, v, "footer")), "</main>")
     page = replace_once(page, r"</body>", f'<script src="{asset(root, "js/site.js")}" defer></script>\n'
                         f'<script src="{asset(root, "js/play.js")}" defer></script>\n</body>', "</body>")
+    ev = re.search(r'content="([0-9a-f]+)"', engine_meta())   # the engine asked for by its version (as river-player.js)
+    for f in ("fetch(\"app.wasm\")", "addModule(\"app_worklet.js\")", "addModule(\"worklet.js\")"):
+        if f not in page:
+            die(f"the emulator's page no longer has {f}: update website/assemble.py's play_page (its engine's version)")
+        if ev:
+            page = page.replace(f, f.replace('")', f'?v={ev.group(1)}")'))
     (dst / "index.html").write_text(page, encoding="utf-8")
     return True
 
@@ -850,6 +859,18 @@ def backup_schema():
     return s
 
 
+@functools.lru_cache(maxsize=None)
+def engine_meta():
+    """the engine's version (app/build/emu: app.wasm and its worklets, hashed), for river-player.js to ask for them by
+    it: a cache (Cloudflare's keeps them 4 hours) never hands an engine of before to a page of now"""
+    emu = REPO / "app" / "build" / "emu"
+    files = [emu / f for f in ("app.wasm", "worklet.js", "app_worklet.js")]
+    if not all(f.exists() for f in files):
+        return ""
+    h = hashlib.sha1(b"".join(f.read_bytes() for f in files)).hexdigest()[:8]
+    return f'\n<meta name="frasil-engine" content="{h}">'
+
+
 def factory_tunes(root):
     """the landing's factory scenes (the schema's, as a FRASIL starts with them): a row each, its name, key and tempo in
     the screen's words, and their bytes (scene_t, as river-player.js plays them) for listen.js"""
@@ -865,11 +886,10 @@ def factory_tunes(root):
         bpm = words("P_TEMPO")[b[st["tempo"]]]
         data.append({"name": name, "bpm": int(bpm.split()[0]), "hex": hx})
         rows.append(f'<li class="tune" data-i="{i}"><button type="button" class="tune-b" aria-pressed="false" '
-                    f'aria-label="Play {html.escape(name)}"><span class="tune-dot" aria-hidden="true"></span>'
+                    f'aria-label="Play {html.escape(name)}"><span class="tune-play" aria-hidden="true"></span>'
                     f'<span class="tune-name">{html.escape(name)}</span><span class="tune-meta">{html.escape(key)} · '
                     f'{html.escape(bpm)}</span><canvas class="tune-flow" aria-hidden="true"></canvas></button></li>')
-    count = ("one two three four five six seven eight nine ten eleven twelve".split() + [str(len(rows))] * 99)[len(rows) - 1]
-    return {"tunes": "\n        ".join(rows), "tunes_count": count, "tunes_emu": root + "play/",
+    return {"tunes": "\n        ".join(rows), "tunes_emu": root + "play/",
             "tunes_json": json.dumps(data, separators=(",", ":")).replace("</", "<\\/")}
 
 

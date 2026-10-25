@@ -26,7 +26,7 @@ fi
 
 # the host checks
 ./build.sh --host >/dev/null
-OUT="$(app/build/host/frasil_host app/tests/basic.txt app/build/host)"
+OUT="$(app/build/host/frasil_host app/tests/basic.txt app/build/host; app/build/host/frasil_host app/tests/boot.txt app/build/host)"
 OK="$(printf '%s\n' "$OUT" | grep -c '^  ok' || true)"
 if printf '%s\n' "$OUT" | grep -q '^FAIL'; then
     printf '%s\n' "$OUT" | grep '^FAIL'

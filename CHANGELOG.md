@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0.1 (2026-10-24)
+
+Two timing fixes for the bass.
+
+- PULSE strikes on the beat. It used to let the note go on each division and strike it again a moment later (up to
+  60 ms, a quarter of the division), so its strikes fell behind the beat while the bass's sequence's NOTEs fell on it:
+  the bass seemed to drag. Now the note is let go just before the division and struck right on it. A step of the
+  bass's sequence beginning on the division is its own: a NOTE strikes there itself, a CUT ends the note; a HOLD has
+  its strike.
+- No MIDI clock at startup. For the first half second after FRASIL started, it took a MIDI clock as coming in: the
+  grid stood still, and a scene loaded then began its sequences off the beat (the bass's NOTEs a sixteenth late, PULSE's
+  strikes between them). On the FM-1 only a scene loaded at once at power-on met it; the website's players, which start
+  an engine for each scene, always did.
+
 ## 2.0 (2026-10-24)
 
 FRASIL 2.0 is a major upgrade release. Since 1.0, the instrument has grown a second sequencer, a way of playing its
