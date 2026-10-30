@@ -11,6 +11,8 @@ container on nimbus; the host's Caddy serves the page and passes `/api/*` here, 
 | `auth.py` | accounts, sessions, email verification and password reset, Google, `/api/me` |
 | `shards.py` | my shards, favorites and backups, the public River, counters, save, report, moderation, the export |
 | `scenes.py` | what is accepted: shards and backups, read with the schema |
+| `waitlist.py` | the waitlists (FRASIL for iPad, FRASIL VST): an email left to be told when it is out |
+| `admin.py` | the admin page's routes (admin.frasilsynth.com): accounts, uploads, waitlists, behind `FRASIL_ADMIN_KEY` |
 | `guard.py` | rate limits, the word filter, same-origin JSON for changes, cleaning what users type |
 | `mail.py` | the emails (SMTP over TLS; with no SMTP, the log) |
 | `store.py` | the settings (from the environment) and the database |
@@ -70,6 +72,8 @@ All from the environment (`.env` on nimbus, from `.env.example`; `store.Settings
 | `WORD_FILTER` | `guard.WORDS` | comma-separated words replacing the default list |
 | `CLIENT_IP_HEADER` | `cf-connecting-ip` | where the client's address is (Cloudflare's, through Caddy); empty: the connection |
 | `COOKIE_SECURE` | `1` | `0` only for a local run over plain http |
+| `SITE_URL` | `https://frasilsynth.com` | the main site's origin: `POST /api/waitlist` is accepted from it too |
+| `FRASIL_ADMIN_KEY` | none | the admin page's key, in the header `X-Frasil-Admin` (none: `/api/admin/overview`, `users/{id}`, `waitlist` are 404) |
 | `RIVER_STATIC` | none | a folder served at `/` (a local run only) |
 | `TZ` | `America/Toronto` | the container's |
 
@@ -97,8 +101,8 @@ site can make one. Requests are 64 KB at most.
 | `POST /api/auth/reset {token, password}` | a new password: other sessions end, signed in, the email verified |
 | `GET /api/me` · `PATCH /api/me {display_name?, password?, new_password?}` · `DELETE /api/me` | the account (changing the password: the current one in `password`) |
 | `GET /api/me/export` | a zip: `account.json`, `backups/*.frasil`, `shards-FRSg.frasilscenes` (the page's package, `FB.readPack`) |
-| `GET /api/shards` · `POST /api/shards {name?, layout, firmware, data, from_slot?, description?}` | my library (`data`: the `scene_t` in base64; `from_slot`: 0-15, the page's `scene.slot`) |
-| `PATCH /api/shards/{id} {name?, description?}` · `DELETE /api/shards/{id}` | a new name is written into `data` (upper-cased) |
+| `GET /api/shards` · `POST /api/shards {name?, layout, firmware, data, from_slot?, description?, origin?}` | my library (`data`: the `scene_t` in base64; `from_slot`: 0-15, the page's `scene.slot`; `origin`: the shard the editor's SAVE AS made it from: someone else's public one is credited, CC BY 4.0, as a copy is; one of mine passes its credit on) |
+| `PATCH /api/shards/{id} {name?, description?, data?, layout?, firmware?}` · `DELETE /api/shards/{id}` | a new name is written into `data` (upper-cased); `data` (the editor's SAVE: the current `layout` only) replaces its sound, checked as a new shard's, its name kept |
 | `POST /api/shards/{id}/share {name?, description?}` · `POST /api/shards/{id}/unshare` | public under CC BY 4.0 (needs a verified email; 50 a day) |
 | `GET /api/favorites` | `{items}`: my favorites, the newest favorited first (below) |
 | `POST /api/favorites/{id}` · `DELETE /api/favorites/{id}` | `{favorited, favorites}`: a shard of the River bookmarked (201; one already: 200; my own: 409; not in the River: 404), or not any more (one no longer shared too; not one: 200 all the same) |
@@ -110,6 +114,8 @@ site can make one. Requests are 64 KB at most.
 | `POST /api/public/shards/{id}/report {reason}` | a report (once per reporter) |
 | `GET /api/admin/reports?all=` · `POST /api/admin/reports/{id}/resolve` | the admins' |
 | `POST /api/admin/shards/{id}/hide\|unhide\|delete` · `POST /api/admin/users/{id}/ban\|unban` | the admins' |
+| `POST /api/waitlist {list: ipad\|vst, email}` | `{ok: true}`; once per list and email (again: the same, nothing added); no email sent; 20 / h per IP; from the River or `SITE_URL` |
+| `GET /api/admin/overview` · `GET /api/admin/users/{id}` · `GET /api/admin/waitlist` | the admin page's, read-only: `X-Frasil-Admin: $FRASIL_ADMIN_KEY` or 404 (`admin.py`) |
 | `GET /api/health` | `{ok, layout, firmware}` |
 
 A shard: `{id, name, description, layout, firmware, data, from_slot, root, scale, type, drone, glint, bseq,

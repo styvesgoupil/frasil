@@ -1,7 +1,7 @@
 <!--
 title: Install
-lede: Put it on the FM-1, from Chrome or Edge or from a terminal, and back to the official firmware whenever you like.
-description: How to install FRASIL on the M-VAVE FM-1, from Chrome or Edge or from a terminal, and go back to M-VAVE's firmware.
+lede: Install it from Chrome or Edge, or from a terminal. Go back to the official firmware any time.
+description: Install FRASIL on the M-VAVE FM-1 from Chrome, Edge or a terminal, and go back to M-VAVE's firmware.
 -->
 <aside class="callout" data-nocaps>
   <p class="status">{{status}}<span class="dl" data-downloads hidden></span></p>
@@ -9,53 +9,38 @@ description: How to install FRASIL on the M-VAVE FM-1, from Chrome or Edge or fr
 </aside>
 
 <h2 id="browser">Install from the browser</h2>
-<p>In Chrome or Edge, connect the FM-1 by USB, open the installer and press Install. The browser asks once to allow
-  MIDI: allow it. Don’t unplug the cable while it writes.</p>
-<p>The installer is <a href="{{hub}}">FRASIL on The FM-1 Firmware Hub</a>.</p>
+<ol>
+  <li>Connect the FM-1 by USB.</li>
+  <li>In Chrome or Edge, open <a href="{{hub}}">FRASIL on The FM-1 Firmware Hub</a>.</li>
+  <li>Press Install. Allow MIDI when the browser asks.</li>
+  <li>Don’t unplug the cable while it writes.</li>
+</ol>
 
 <h2 id="terminal">Install from a terminal</h2>
-<p>Download <code>frasil-X.Y.fwsc</code> from the <a href="{{releases}}">releases</a>, then run, from a checkout of
-  FRASIL’s repository:</p>
+<p>Download <code>frasil-X.Y.fwsc</code> from the <a href="{{releases}}">releases</a>. In a checkout of FRASIL’s
+  repository, run:</p>
 <pre><code>python3 base/tools/fm1_install.py frasil-X.Y.fwsc</code></pre>
 
 <h2 id="back">Back to the official firmware</h2>
-<p>Install M-VAVE’s V15 from the installer or from The FM-1 Firmware Hub. If the FM-1 no longer starts, hold OCT−
-  while you switch it on: it waits for an update over USB.</p>
+<p>Install M-VAVE’s V15 from the installer or The FM-1 Firmware Hub. If the FM-1 won’t start, hold OCT− while you
+  switch it on: it waits for an update over USB.</p>
 
-<h2 id="what-it-keeps">Where your scenes are kept</h2>
-<p>FRASIL keeps what you save in the FM-1’s flash, outside the firmware itself, in the area the Felucca family of
-  firmwares uses. It has no area of its own.</p>
-<table class="params ctl-table">
-  <thead><tr><th>What</th><th>Where</th></tr></thead>
-  <tbody>
-    <tr><td>The 16 scenes</td><td><code>0xDA000</code>: two 4 KiB sectors, written in turn, each record with a CRC</td></tr>
-    <tr><td>The scenes’ bass sequences and TEMPOs</td><td><code>0xD8000</code>: the same</td></tr>
-    <tr><td>The settings</td><td><code>0xFC000</code>, the sector pair where Felucca keeps its globals: the sound at power-on, the MIDI channels, TEMPO, LOAD, the metronome, the learned CCs</td></tr>
-    <tr><td>The panel’s calibration</td><td><code>0xDC000</code>, in Felucca’s own format, so it stays valid from one to the other</td></tr>
-  </tbody>
-</table>
-<p>When you switch firmwares:</p>
+<h2 id="what-it-keeps">Your scenes when you switch firmwares</h2>
 <ul>
-  <li><b>FRASIL reads only its own records.</b> It does not read another firmware’s projects or samples. Anything
-    else at those addresses is ignored: FRASIL then starts with its factory scenes and default settings.</li>
-  <li><b>Saving can overwrite another firmware’s data</b>: Felucca’s globals, and a part of the area where Felucca
-    keeps its projects and samples. Back up the firmware you come from before you save in FRASIL.</li>
-  <li><b>Another firmware may overwrite FRASIL’s scenes.</b> Updating or installing FRASIL writes only the firmware’s
-    own area: your scenes stay. What another firmware’s install does depends on its own update loader. M-VAVE’s V15
-    writes its whole image: assume your scenes won’t survive it.</li>
-  <li><b>Back up your scenes before you switch firmwares.</b> FRASIL 1.1 and later back up the 16 scenes and the
-    settings to a file over USB, and put them back: in the browser, in <a href="{{river}}">the River</a> (Chrome or
-    Edge), or from a terminal with <code>base/tools/fm1_backup.py</code>. See <a href="{{root}}guide/scenes/#backing-up">backing
-    up</a>.</li>
+  <li><b>Back up your scenes first</b> (FRASIL 1.1 and later): in <a href="{{river}}">the River</a> (Chrome or Edge)
+    or with <code>base/tools/fm1_backup.py</code>. See <a href="{{root}}guide/scenes/#backing-up">backing up</a>.</li>
+  <li><b>Updating FRASIL keeps your scenes.</b> M-VAVE’s V15 erases them. Other firmwares may too.</li>
+  <li><b>Saving in FRASIL can overwrite another firmware’s data</b> (Felucca’s settings, projects and samples). Back
+    that firmware up before you save.</li>
+  <li>FRASIL ignores other firmwares’ data. With none of its own, it starts with its factory scenes.</li>
 </ul>
 
 <h2 id="versions">Versions</h2>
-<p>Package identity: <code>FM-1_47XXYYZZ</code>, its version in it: 1.0 is <code>FM-1_47010000</code>, 2.0 is
-  <code>FM-1_47020000</code> (a fix, 2.0.1: <code>FM-1_47020001</code>). The logo screen shows the version the FM-1 runs.</p>
+<p>The logo screen shows the version the FM-1 runs. The package is named <code>FM-1_47XXYYZZ</code>: 2.0 is
+  <code>FM-1_47020000</code>.</p>
 
 <h2 id="source">From source</h2>
-<p>For the curious and for forks: the host simulator, the checks, the browser emulator and the firmware all build from
-  the repository.</p>
+<p>For forks: the host simulator, the checks, the browser emulator and the firmware.</p>
 <pre><code>git clone --recursive https://github.com/styvesgoupil/frasil
 cd frasil
 python3 -m venv .venv &amp;&amp; .venv/bin/pip install Pillow fonttools mido python-rtmidi numpy scipy matplotlib
@@ -65,5 +50,5 @@ brew install libraqm                     # the screen's fonts (macOS)
 app/build/host/frasil_host app/tests/basic.txt app/build/host      # the checks
 ./build.sh --web                         # the browser emulator: app/build/emu/ (Emscripten)
 ./build.sh                               # the firmware: app/build/frasil-VERSION.fwsc</code></pre>
-<p>The firmware build needs JieLi’s Linux toolchain and the AC79 SDK, run in Docker (OrbStack on macOS). See
-  <a href="https://github.com/charlesvestal/fm1-base#readme">fm1-base’s README</a> for setup.</p>
+<p>The firmware build needs JieLi’s toolchain and the AC79 SDK in Docker. See
+  <a href="https://github.com/charlesvestal/fm1-base#readme">fm1-base’s README</a>.</p>

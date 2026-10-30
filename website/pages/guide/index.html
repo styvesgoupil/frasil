@@ -1,19 +1,18 @@
 <!--
 title: Guide
 h1: The guide
-lede: FRASIL turns the M-VAVE FM-1 into an instrument for ambient drones and textures. The drones are the notes you light, and they never change; GLINT’s arpeggiator plays the keys you hold, GLINT’s and the bass’s sequencers the steps you write, and chance comes in only where you let it: CHANCE, RANDOM and DRIFT, SPARKLE.
-description: The FRASIL guide: installing, how the drones work, the screen, harmony, the three LFOs, GLINT and its sequencer, BASS and its sequencer, GENERATIVE FX, CLOUD and FREEZE, the mixer, every page and knob, scenes, MIDI, the lights and troubleshooting.
+lede: FRASIL turns the M-VAVE FM-1 into an instrument for ambient drones.
+description: The FRASIL guide: install, the drones, the screen, harmony, LFOs, GLINT, BASS, effects, mixer, scenes, MIDI, PERFORM, lights and troubleshooting.
 -->
-<p>A tap latches a drone, and pressing makes it swell. The timbre drifts and ebbs slowly on its own; the drones’ notes
-  never change. Everything flows into a large reverb with shimmer and freeze. Above the drones, GLINT plays small icy FM
-  bells, by hand, through an arpeggiator or a 32-step sequencer. Under them, BASS holds one deep note.</p>
+<p>Tap a key: a drone lights and stays. Press: it swells. The timbre drifts on its own; the notes never change.
+  Everything flows into a large reverb. GLINT plays icy bells on top. BASS holds one deep note under.</p>
 
 <h2 id="panel">The panel at a glance</h2>
 <figure class="panel-map">
 <div class="panel-map-scroll"><div class="panel-map-inner">
 <svg viewBox="0 0 1180 790" role="img" aria-labelledby="panel-title panel-desc" xmlns="http://www.w3.org/2000/svg">
 <title id="panel-title">The FM-1 under FRASIL: what each control does</title>
-<desc id="panel-desc">Left: MASTER is the volume; SELECT, PRESETS and ALGORITHM are the hands A, B, C: KEYS, the drone preset, BODY; OCT minus and plus set the octave. Centre: the screen. Right: K1 to K4 turn the four settings of the page on screen. Row one: FX effects (held: FREEZE), SEL harmony (held with a key: one note), ENV the drone shape (held: swell), LFO motion and the LFOs (held with K1 to K4: route to an LFO), EDIT the drone and its layers (held: compare), GLO global (held with a MIDI CC: learn). Row two: HOME the play page (held: help), SAVE the scenes (held with REC: store; with a white key: load), ARP GLINT (held: latch), SEQ BASS, PLAY start and stop (held: release all), REC record (held: the metronome). Below: the keys; with SAVE held, the 16 white keys are the 16 scenes.</desc>
+<desc id="panel-desc">Left: MASTER is the volume; SELECT, PRESETS and ALGORITHM are the hands A, B, C: KEYS, the drone preset, BODY; OCT minus and plus set the octave. Centre: the screen. Right: K1 to K4 turn the four settings of the page on screen. Row one: FX effects (held: FREEZE), SEL harmony (held with a key: one note), ENV the drone shape (held: swell), LFO motion and the LFOs (held with K1 to K4: route to an LFO), EDIT the drone and its layers (with OCT minus held: compare), GLO global (held with a MIDI CC: learn). Row two: HOME the play page (held: help), SAVE the scenes (held with REC: store; with a white key: load), ARP GLINT (held: latch), SEQ BASS, PLAY start and stop (held: release all; with OCT minus held: cut), REC record (held: the metronome). Below: the keys; with SAVE held, the 16 white keys are the 16 scenes.</desc>
 <rect x="8" y="8" width="1164" height="774" rx="40" fill="#111821" stroke="#26303c"/>
 <circle cx="118" cy="112" r="32" fill="#0b1016"/>
 <circle cx="118" cy="112" r="26" fill="#161d26" stroke="#3a4654" stroke-width="1.5"/>
@@ -97,7 +96,7 @@ description: The FRASIL guide: installing, how the drones work, the screen, harm
 <rect x="972" y="238" width="64" height="40" rx="9" fill="#18202a" stroke="#3a4654" stroke-width="1.2"/>
 <text x="1004" y="263" font-size="14" font-weight="600" fill="#8b95a4" letter-spacing="1.2" text-anchor="middle">EDIT</text>
 <text x="1004" y="299" font-size="13.5" font-weight="600" fill="#dce3ea" letter-spacing="2" text-anchor="middle">LAYERS</text>
-<text x="1004" y="316" font-size="11" font-weight="500" fill="#f2a65a" letter-spacing="0.3" text-anchor="middle">COMPARE</text>
+<text x="1004" y="316" font-size="11" font-weight="500" fill="#f2a65a" letter-spacing="0.3" text-anchor="middle">OCT− +: COMPARE</text>
 <rect x="1053" y="238" width="64" height="40" rx="9" fill="#18202a" stroke="#3a4654" stroke-width="1.2"/>
 <text x="1085" y="263" font-size="14" font-weight="600" fill="#8b95a4" letter-spacing="1.2" text-anchor="middle">GLO</text>
 <text x="1085" y="299" font-size="13.5" font-weight="600" fill="#dce3ea" letter-spacing="2" text-anchor="middle">GLOBAL</text>
@@ -122,6 +121,7 @@ description: The FRASIL guide: installing, how the drones work, the screen, harm
 <text x="1004" y="375" font-size="14" font-weight="600" fill="#8b95a4" letter-spacing="1.2" text-anchor="middle">PLAY</text>
 <text x="1004" y="411" font-size="11" font-weight="600" fill="#dce3ea" letter-spacing="0.6" text-anchor="middle">START·STOP</text>
 <text x="1004" y="428" font-size="11" font-weight="500" fill="#f2a65a" letter-spacing="0.3" text-anchor="middle">RELEASE ALL</text>
+<text x="1004" y="442" font-size="11" font-weight="500" fill="#f2a65a" letter-spacing="0.3" text-anchor="middle">OCT− +: CUT</text>
 <rect x="1053" y="350" width="64" height="40" rx="9" fill="#18202a" stroke="#3a4654" stroke-width="1.2"/>
 <text x="1085" y="375" font-size="14" font-weight="600" fill="#8b95a4" letter-spacing="1.2" text-anchor="middle">REC</text>
 <text x="1085" y="411" font-size="13.5" font-weight="600" fill="#dce3ea" letter-spacing="2" text-anchor="middle">RECORD</text>
@@ -177,50 +177,49 @@ description: The FRASIL guide: installing, how the drones work, the screen, harm
 </svg>
 <button class="panel-zoom" type="button" aria-label="The panel, full screen"></button>
 </div></div>
-<figcaption data-nocaps>Under each button, what a tap does; in amber, what it does held (a <b>+</b>: held, with what follows). The orange discs A, B and C are the three hands, the same on every page; the ice discs 1 to 4, K1 to K4, the page’s own. See <a href="{{root}}guide/playing/#the-buttons">the buttons</a> for each one tapped and held. Click the panel to see it full screen.</figcaption>
+<figcaption data-nocaps>Under each button: a tap. In amber: held (<b>+</b>: held, with what follows). A, B, C: the same on every page. 1 to 4: the page’s own. Click to enlarge. See <a href="{{root}}guide/playing/#the-buttons">the buttons</a>.</figcaption>
 </figure>
 
 <h2 id="chapters">The chapters</h2>
 <ol class="chapters" role="list" data-nocaps>
-  <li><a href="{{root}}guide/install/"><span class="n">01</span><span class="t">Install</span><span class="d">Try it in the browser, put it on the FM-1, and go back.</span></a></li>
-  <li><a href="{{root}}guide/how-it-works/"><span class="n">02</span><span class="t">How FRASIL works</span><span class="d">Voices, three layers each, 24 drone presets, and where the sound goes.</span></a></li>
-  <li><a href="{{root}}guide/screen/"><span class="n">03</span><span class="t">The screen</span><span class="d">The river at night, the badges, the header, the mixer, the logo, the help.</span></a></li>
-  <li><a href="{{root}}guide/playing/"><span class="n">04</span><span class="t">Playing drones</span><span class="d">Tap, tap again, press, SWELL, the octave, FREEZE; what each button does, tapped and held.</span></a></li>
+  <li><a href="{{root}}guide/install/"><span class="n">01</span><span class="t">Install</span><span class="d">Put it on the FM-1, and go back.</span></a></li>
+  <li><a href="{{root}}guide/how-it-works/"><span class="n">02</span><span class="t">How FRASIL works</span><span class="d">Voices, layers, presets, where the sound goes.</span></a></li>
+  <li><a href="{{root}}guide/screen/"><span class="n">03</span><span class="t">The screen</span><span class="d">The river, the badges, the header, the mixer, the help.</span></a></li>
+  <li><a href="{{root}}guide/playing/"><span class="n">04</span><span class="t">Playing drones</span><span class="d">The gestures, and every button tapped and held.</span></a></li>
   <li><a href="{{root}}guide/harmony/"><span class="n">05</span><span class="t">Harmony</span><span class="d">A key set once: scales, chords, voicings.</span></a></li>
   <li><a href="{{root}}guide/layers/"><span class="n">06</span><span class="t">The layers’ second pages</span><span class="d">CHOIR II, PARTIALS II, BREATH II.</span></a></li>
-  <li><a href="{{root}}guide/lfo/"><span class="n">07</span><span class="t">The LFOs</span><span class="d">Three of them, seven shapes, free or on the beat, four targets each.</span></a></li>
-  <li><a href="{{root}}guide/glint/"><span class="n">08</span><span class="t">GLINT</span><span class="d">Icy FM bells and leads, the arpeggiator, the sequencer and REC, the delay.</span></a></li>
+  <li><a href="{{root}}guide/lfo/"><span class="n">07</span><span class="t">The LFOs</span><span class="d">Three of them, free or on the beat.</span></a></li>
+  <li><a href="{{root}}guide/glint/"><span class="n">08</span><span class="t">GLINT</span><span class="d">FM bells, the arpeggiator, the sequencer, the delay.</span></a></li>
   <li><a href="{{root}}guide/bass/"><span class="n">09</span><span class="t">BASS</span><span class="d">One deep held note, eight models.</span></a></li>
-  <li><a href="{{root}}guide/cloud/"><span class="n">10</span><span class="t">GENERATIVE FX &amp; CLOUD</span><span class="d">SWELL, SPARKLE, BLUR, SINK; the reverb, its shimmer, and holding it still.</span></a></li>
-  <li><a href="{{root}}guide/mixer/"><span class="n">11</span><span class="t">Mixer · Pump · Mastering</span><span class="d">Four faders, a duck on the beat, a compressor.</span></a></li>
+  <li><a href="{{root}}guide/cloud/"><span class="n">10</span><span class="t">GENERATIVE FX &amp; CLOUD</span><span class="d">SWELL, SPARKLE, BLUR, SINK; the reverb and FREEZE.</span></a></li>
+  <li><a href="{{root}}guide/mixer/"><span class="n">11</span><span class="t">Mixer · Pump · Mastering</span><span class="d">Faders, filter, tape, PUMP, EQ, compressor.</span></a></li>
   <li><a href="{{root}}guide/pages/"><span class="n">12</span><span class="t">Pages reference</span><span class="d">Every page and every knob, in one table.</span></a></li>
-  <li><a href="{{root}}guide/scenes/"><span class="n">13</span><span class="t">Scenes</span><span class="d">Sixteen slots, seven factory scenes; store, name, load, MORPH, LOAD, COMPARE.</span></a></li>
-  <li><a href="{{root}}guide/midi/"><span class="n">14</span><span class="t">MIDI</span><span class="d">A channel for each track, pressure, CCs and MIDI learn, Program Change, clock.</span></a></li>
-  <li><a href="{{root}}guide/lights/"><span class="n">15</span><span class="t">Lights</span><span class="d">What each light on the panel means.</span></a></li>
-  <li><a href="{{root}}guide/troubleshooting/"><span class="n">16</span><span class="t">Troubleshooting</span><span class="d">No sound, crackles, the installer, an FM-1 that won’t start.</span></a></li>
+  <li><a href="{{root}}guide/scenes/"><span class="n">13</span><span class="t">Scenes</span><span class="d">Sixteen slots: store, load, MORPH, COMPARE.</span></a></li>
+  <li><a href="{{root}}guide/midi/"><span class="n">14</span><span class="t">MIDI</span><span class="d">Channels, CCs, MIDI learn, clock.</span></a></li>
+  <li><a href="{{root}}guide/perform/"><span class="n">15</span><span class="t">PERFORM</span><span class="d">Your play on a large screen, live.</span></a></li>
+  <li><a href="{{root}}guide/lights/"><span class="n">16</span><span class="t">Lights</span><span class="d">What each light on the panel means.</span></a></li>
+  <li><a href="{{root}}guide/troubleshooting/"><span class="n">17</span><span class="t">Troubleshooting</span><span class="d">No sound, crackles, an FM-1 that won’t start.</span></a></li>
 </ol>
 
 <h2 id="controls">The controls at a glance</h2>
 <table class="params ctl-table">
   <thead><tr><th>Control</th><th>What it does</th></tr></thead>
   <tbody>
-    <tr><td>Keys</td><td>Tap: light a drone (it rises slowly and stays). Tap it again: it fades. Hold and press: it swells and opens</td></tr>
-    <tr><td>SELECT · PRESETS · ALGORITHM</td><td>The same on every page: <span class="disc abc">A</span> KEYS, what the keys play (DRONE, GLINT, BASS); <span class="disc abc">B</span> the drone’s preset (CUSTOM, then 24); <span class="disc abc">C</span> its BODY</td></tr>
-    <tr><td>K1–K4</td><td>The four settings of the page on screen</td></tr>
-    <tr><td>REC</td><td>Into GLINT’s sequencer, recording LIVE (with the keys on BASS, into the bass’s); again: RECORD off, the keys back to what they played before REC. It flashes on the beat while a sequencer records, with a metronome; held: the metronome off or on</td></tr>
-    <tr><td>ARP</td><td>GLINT’s pages (tap again for the next): GLINT I, II, ADSR, GLINT DELAY, then the arpeggiator’s or the sequencer’s as GLINT I’s SEQ has it. Hold: arpeggio LATCH (turned on, SEQ on ARP too)</td></tr>
-    <tr><td>SEQ</td><td>BASS’s pages (tap again for the next: BASS, II, ADSR, then BASS SEQ, BASS SEQ II)</td></tr>
-    <tr><td>SEL</td><td>HARMONY: root, scale, chord, voicing. Hold SEL and tap a key: a single note over a chord</td></tr>
-    <tr><td>EDIT, ENV, LFO, FX, GLO</td><td>DRONE, LAYERS (×7: DRONE PARAMS, then each layer and its second page), DRONE SHAPE, DRONE MOTION (×7: then LFO 1, LFO 2 and LFO 3, each with its targets), GENERATIVE FX, then CLOUD (×3) and PUMP, GLOBAL, MIDI and MASTERING. Held: ENV, SWELL (every drone voice swells together); EDIT, COMPARE (the scene as saved); FX, FREEZE; LFO and K1–K4 turned, that setting onto an LFO; GLO and a CC from a controller, MIDI learn</td></tr>
-    <tr><td>HOME</td><td>The play page; again: the MIXER; again: the living logo screen. Hold: on-screen help (5 pages, turn SELECT)</td></tr>
-    <tr><td>SAVE</td><td>SCENES: K1 the slot, MORPH, LOAD; again: back. Hold SAVE and press REC: STORE. Hold SAVE and press a white key: load that scene</td></tr>
-    <tr><td>PLAY</td><td>The transport: GLINT’s sequence and the bass’s stop together, or start together from their first steps; the arpeggio waits, or goes on. On SCENES: load. Hold: release everything; with nothing playing: RESTORE, the scene again</td></tr>
-    <tr><td>FREEZE (hold FX)</td><td>The cloud holds what is in it, nothing more goes in (FX bright meanwhile). Also CLOUD’s K4</td></tr>
-    <tr><td>OCT− · OCT+</td><td>Octave, −3 to +2 (both: back to −1). They blink on the beat</td></tr>
+    <tr><td>Keys</td><td>Tap: light a drone. Again: it fades. Press: it swells</td></tr>
+    <tr><td>SELECT · PRESETS · ALGORITHM</td><td>On every page: <span class="disc abc">A</span> KEYS (DRONE, GLINT, BASS), <span class="disc abc">B</span> the drone’s preset, <span class="disc abc">C</span> BODY</td></tr>
+    <tr><td>K1–K4</td><td>The page’s four settings</td></tr>
+    <tr><td>REC</td><td>Record LIVE into GLINT’s sequencer (or the bass’s); again: off. Hold: metronome</td></tr>
+    <tr><td>ARP</td><td>GLINT’s pages. Hold: arpeggio LATCH</td></tr>
+    <tr><td>SEQ</td><td>BASS’s pages</td></tr>
+    <tr><td>SEL</td><td>HARMONY. Hold + key: a single note</td></tr>
+    <tr><td>EDIT, ENV, LFO, FX, GLO</td><td>The drone and its layers, DRONE SHAPE, DRONE MOTION and the LFOs, the effects, GLOBAL. Hold: ENV SWELL, FX FREEZE, LFO + K1–K4 route to an LFO, GLO + CC MIDI learn. OCT− + EDIT: COMPARE</td></tr>
+    <tr><td>HOME</td><td>The play page, MIXER, the logo. Hold: help</td></tr>
+    <tr><td>SAVE</td><td>SCENES; again: back. Hold + REC: STORE. Hold + white key: load that scene</td></tr>
+    <tr><td>PLAY</td><td>Start or stop the sequences. With nothing playing: the scene. Twice or hold: RELEASE ALL. Hold with nothing playing: RESTORE. OCT− + PLAY: CUT</td></tr>
+    <tr><td>FREEZE (hold FX)</td><td>The reverb holds what is in it. Also CLOUD’s K4</td></tr>
+    <tr><td>OCT− · OCT+</td><td>Octave −3 to +2 (both: −1). Hold OCT− + turn a preset: pick it unheard. On MIXER, OCT− + K1–K4: pan</td></tr>
   </tbody>
 </table>
-<p>A press shows, a hold acts: each button does its job when you let it go (OCT− and OCT+ at once), and held, its
-  other thing. See <a href="{{root}}guide/playing/#the-buttons">the buttons</a>.</p>
-<p class="g-note">All of it on one page, to print and keep by the FM-1: <a href="{{root}}cheatsheet/">the cheat sheet</a>
-  (<a href="{{cheat_pdf}}">PDF</a>, A4). The full manual is also in the repository:
-  <a href="{{repo}}/blob/main/app/docs/MANUAL.md">app/docs/MANUAL.md</a>.</p>
+<p>Buttons act when released; held, they do their other thing. See <a href="{{root}}guide/playing/#the-buttons">the buttons</a>.</p>
+<p class="g-note">All of it on one page to print: <a href="{{root}}cheatsheet/">the cheat sheet</a>
+  (<a href="{{cheat_pdf}}">PDF</a>, A4). The full manual: <a href="{{repo}}/blob/main/app/docs/MANUAL.md">app/docs/MANUAL.md</a>.</p>

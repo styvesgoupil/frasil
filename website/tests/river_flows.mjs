@@ -8,8 +8,10 @@
 //   record (refused), ready (the cards, their slot pickers, a drag onto a slot, Back where they came from, the Send
 //   button counting what is placed), a slot changed since read, the confirmation (the slots replaced), sending (CC 120
 //   before the restore), the FM-1's question (FX and SEL only lit), done, not sent (FX), something held (STOP FIRST);
-//   Restore it all (held, FX, yes); a package, a bad file, an earlier FRASIL's backup; a row opened in place and its ▶
-//   with FRASIL's engine (emu/, the page's js/river-player.js), and with no engine; phones with no horizontal scroll.
+//   Restore it all (held, FX, yes); a package, a bad file, an earlier FRASIL's backup; a row opened in place (its slot's
+//   number in its own column, the LFOs, THE KEYS with nothing to edit) and its ▶ with FRASIL's engine (emu/,
+//   the page's js/river-player.js): the card follows the sound (its keys lit, its LFOs moving, GLINT's walk as it
+//   goes, the MIXER's meters), at rest once stopped; and with no engine; phones with no horizontal scroll.
 //   the River at RIVER_URL (default its service at localhost:8050: server/README.md, RIVER_STATIC=build/website/river;
 //   the assembled site served by website/serve.py is enough), then
 //   PLAYWRIGHT=/path/to/playwright/index.mjs node website/tests/river_flows.mjs [OUT_DIR]
@@ -295,8 +297,10 @@ await p3.waitForSelector("#shard-8");
 check(await p3.getAttribute("#shard-8 .sr-open", "aria-expanded") === "false" && !(await p3.$("#shard-8 .oc-body")), "a row starts closed (its card not built)");
 check(/D MAJOR/.test(await p3.textContent("#shard-8 .kv")) && (await p3.textContent("#shard-8 .gt")).includes("ARP"), "closed: its key, GLINT's type");
 await p3.click("#shard-8 .sr-open");
-await p3.waitForSelector("#shard-8.open .oc-body .kb");
-check((await p3.$$("#shard-8 .sec")).length >= 8, "opened in place: the keyboard, GLINT, the sections");
+await p3.waitForSelector("#shard-8.open .oc-keys .k-board");
+check((await p3.$$("#shard-8 .sec")).length >= 8, "opened in place: GLINT, the sections, THE KEYS");
+check(!(await p3.$("#shard-8 .oc-keys [data-k^='KEY MODE']")) && !(await p3.$("#shard-8 .oc-kset .k-tools")) && !(await p3.$("#shard-8 .oc-kset .cell[role='slider']")),
+      "...a slot of the FM-1's: THE KEYS show, nothing to edit (no KEY MODE, no tools, its settings still)");
 check((await p3.$$("#shard-10 .ms-bq")).length >= 3 && /bass's sequence/.test(await p3.getAttribute("#shard-10 .ms", "aria-label")), "AURORA closed: its bass's sequence on the line of what plays");
 await p3.click("#settings .sr-open");
 await p3.waitForSelector("#settings.open .set-grid");
@@ -312,6 +316,35 @@ if (engine) {
   await p3.keyboard.press("Escape");
   await p3.waitForTimeout(300);
   check(!(await p3.getAttribute("#shard-9", "data-sound")) && await p3.evaluate(() => window.RiverPlayer.state) === "idle", "Escape: silence");
+  // ---- NORTH RIVER opened, playing: its card follows the sound
+  await p3.click("#shard-0 .sr-open");
+  await p3.waitForSelector("#shard-0.open .oc-lfo");
+  const head = await p3.evaluate(() => ["no", "play", "nm"].map((c) => document.querySelector(`#shard-0 .sr .${c}`).getBoundingClientRect()));
+  check(head[0].right <= head[1].left && head[1].right <= head[2].left && head[2].left - head[1].right < 40, "Quick Backup, a row opened: its number, ▶ and its name side by side");
+  check(await p3.$$eval("#shard-0 .oc-keys .k-key", (k) => k.length) === 85 && /C#8 E8/.test(await p3.textContent("#shard-0 .oc-keys .lg")),
+        "NORTH RIVER opened: THE KEYS, C1 to C8; the legend, all GLINT's RANGE plays (C#8 E8)");
+  check((await p3.$$("#shard-0 .oc-lfo .lf:not(.is-off)")).length === 3, "...the LFO column: its three LFOs");
+  await p3.evaluate(() => document.querySelectorAll("#shard-0 details.sec").forEach((d) => { if (/^(BASS|MIXER)$/.test(d.querySelector(".sec-name").textContent)) d.open = true; }));
+  await p3.click("#shard-0 .play");
+  const following = () => p3.evaluate(() => {
+    const a = document.querySelector("#shard-0"), on = (els) => [...els].filter((e) => +e.getAttribute("opacity") > 0.05).length;
+    return { kb: !!a.querySelector(".k-kb.is-live"), keys: on(a.querySelectorAll(".k-kb rect.k-on")), lfos: on(a.querySelectorAll(".lf-sc circle")),
+             walk: !!a.querySelector(".sh-glint .strip.is-live"), meters: [...a.querySelectorAll(".sec-body .mx-m")].filter((r) => +r.getAttribute("height") > 1).length,
+             bass: on(a.querySelectorAll(".sh-bass .strip rect[width='1.2']")) };
+  });
+  try {
+    await p3.waitForFunction(() => { const a = document.querySelector("#shard-0"); return a.querySelector(".k-kb.is-live") && [...a.querySelectorAll(".lf-sc circle")].some((c) => +c.getAttribute("opacity") > 0.5); }, null, { timeout: 30000 });
+  } catch (_) { /* (said below) */ }
+  await p3.waitForTimeout(2500);
+  const f1 = await following();
+  check(f1.kb && f1.keys >= 8, `NORTH RIVER playing: its keys light with the sound (${f1.keys} lit)`);
+  check(f1.lfos >= 3, `...its LFOs move (${f1.lfos} lights on their scopes)`);
+  check(f1.walk, "...GLINT's arpeggio: the walk it takes, as it goes");
+  check(f1.meters >= 2 && f1.bass >= 1, `...the MIXER's meters (${f1.meters}), the bass's playhead`);
+  await p3.click("#shard-0 .play");
+  await p3.waitForTimeout(400);
+  const f2 = await following();
+  check(!f2.kb && f2.keys === 0 && f2.lfos === 0 && !f2.walk && f2.meters === 0 && f2.bass === 0, "stopped: the card at rest, nothing lit " + JSON.stringify(f2));
 } else console.log("    (no emu/ on this site: the engine's own states not checked)");
 const p4 = (await open(DESK, "no engine")).page;
 await withPlayer(p4);

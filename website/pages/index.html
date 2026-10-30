@@ -20,14 +20,8 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
   </div>
   <div class="hero-water">
     <p class="hero-tag">Drone textures frozen in motion</p>
-    <p class="hero-sub">A custom firmware that turns the M-VAVE FM-1 into an instrument for ambient drones and textures.</p>
-    <div class="hero-cta">
-      <a class="btn btn-ice" href="{{root}}play/">
-        <svg class="kbd-ico" viewBox="0 0 22 12" aria-hidden="true"><rect x=".75" y=".75" width="20.5" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 1v5.5M9.5 1v5.5M13.5 1v5.5M17 1v5.5" stroke="currentColor" stroke-width="2"/></svg>
-        Try it in the browser</a>
-      <a class="btn" href="{{root}}guide/">Read the guide</a>
-      <a class="btn btn-plain" href="{{root}}guide/install/">Install on FM-1 <span class="arrow" aria-hidden="true">→</span></a>
-    </div>
+    <p class="hero-sub">Firmware that turns the M-VAVE FM-1 into a drone instrument.</p>
+    <ul class="ways hero-ways" role="list" aria-label="Ways to FRASIL">{{ways}}</ul>
   </div>
   <a class="hero-more" href="#frasil" aria-label="More below">
     <svg viewBox="0 0 24 14" aria-hidden="true"><path d="M2 2l10 10L22 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -39,13 +33,12 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
   <div class="name-in rv">
     <p class="name-word">frasil <span class="name-pos">n.</span></p>
     <span class="name-line" aria-hidden="true"></span>
-    <p class="name-def">Ice crystals that form in fast, open water, on the St. Lawrence River among others. They stay
-      suspended in the current: grainy, drifting, <em>never still</em>.</p>
+    <p class="name-def">Ice crystals in fast, open water, as on the St. Lawrence. Grainy, drifting, <em>never still</em>.</p>
   </div>
 </section>
 
 <!-- ============================================================ 1 what it is -->
-<section class="sec" id="instrument" aria-labelledby="h-instrument">
+<section class="sec" id="instrument" data-nav="Sound" aria-labelledby="h-instrument">
   <div class="wrap">
     <div class="dhead rv"><p class="dhead-name">The instrument<span class="idx">1/11</span></p></div>
     <div class="intro">
@@ -53,26 +46,22 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
       <div class="intro-body" data-caps>
         <div class="intro-cols">
           <div class="intro-text">
-          <p class="lede rv">FRASIL turns the M-VAVE FM-1 into an instrument for ambient drones and textures. A tap latches a
-            drone: a note, or a chord built in the key you chose. Pressing harder makes it swell. The timbre drifts and
-            ebbs on its own, slowly, and everything flows into a large, lush reverb with shimmer and freeze.</p>
-          <div class="rv">
-            <h3 class="label">Fixed notes, endless motion</h3>
-            <p>The drones are the notes you light, and they never change. Above them, GLINT plays small icy bells,
-              arpeggiated or in steps you write; under them, BASS holds one deep note, or walks a slow line of its own.
-              The sound itself never stops moving: three LFOs, seven shapes, from a turn of over three minutes to a
-              sixteenth on the beat, each moving up to four of forty settings at once. Hold LFO and turn any setting:
-              it joins one. Over the drones’ own drift, they weave rich textures that evolve without end, never the
-              same twice. Chance comes in only where you let it: CHANCE skips steps, RANDOM and DRIFT pick the
-              arpeggio’s order, SPARKLE lets glints fall on the notes your drones hold.</p>
-            <p>FRASIL is designed as one voice in a larger setup: it takes MIDI notes, pressure, CCs and clock over USB
-              and TRS, a channel for each of its tracks.</p>
-          </div>
+          <p class="lede rv">FRASIL turns the M-VAVE FM-1 into an instrument for ambient drones. Tap a key: a drone
+            latches and drifts on its own, into a large reverb with shimmer and freeze.</p>
+          <p class="rv">Icy bells above it, a deep bass under it. The notes stay; the sound never stops moving.</p>
+          <ul class="specs rv" role="list" aria-label="In numbers" data-nocaps>
+            <li><b>8</b><span>drone voices</span></li>
+            <li><b>3</b><span>layers each</span></li>
+            <li><b>24</b><span>drone presets</span></li>
+            <li><b>23</b><span>GLINT presets</span></li>
+            <li><b>8</b><span>bass models</span></li>
+            <li><b>16</b><span>scenes</span></li>
+          </ul>
           </div>
           <!-- the factory scenes, played live by FRASIL's engine (js/listen.js), each by its own button -->
           <div class="listen rv" style="--d:.08s" role="group" aria-labelledby="h-listen" data-nocaps>
             <h3 class="listen-h" id="h-listen"><svg viewBox="0 0 24 22" aria-hidden="true"><path d="M3.5 13.5V11a8.5 8.5 0 0 1 17 0v2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="2" y="12.5" width="5.2" height="8" rx="1.8" fill="currentColor"/><rect x="16.8" y="12.5" width="5.2" height="8" rx="1.8" fill="currentColor"/></svg>Listen</h3>
-            <p class="tunes-phones">Put your headphones on for a richer experience.</p>
+            <p class="tunes-phones">Best in headphones.</p>
             <ol class="tunes" role="list" data-emu="{{tunes_emu}}">
         {{tunes}}
             </ol>
@@ -82,27 +71,11 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
         </div>
       </div>
     </div>
-    <ul class="specs rv" role="list" aria-label="In numbers">
-      <li><b>8</b><span>drone voices</span></li>
-      <li><b>3</b><span>layers each</span></li>
-      <li><b>60 s</b><span>of reverb tail</span></li>
-      <li><b>22</b><span>GLINT presets</span></li>
-      <li><b>8</b><span>bass models</span></li>
-      <li><b>16</b><span>scenes</span></li>
-    </ul>
-    <ul class="specs specs-more rv" role="list" aria-label="In numbers: what moves">
-      <li><b>5</b><span>arpeggio modes</span></li>
-      <li><b>32</b><span>GLINT sequencer steps</span></li>
-      <li><b>16</b><span>bass sequencer steps</span></li>
-      <li><b>3</b><span>LFOs</span></li>
-      <li><b>40</b><span>LFO targets</span></li>
-      <li><b>4</b><span>generative FX</span></li>
-    </ul>
   </div>
 </section>
 
 <!-- ============================================================ 2 pressure -->
-<section class="sec sec-press" id="pressure" aria-labelledby="h-pressure">
+<section class="sec sec-press" id="pressure" data-nav="Pressure" aria-labelledby="h-pressure">
   <div class="wrap">
     <div class="dhead rv">
       <p class="dhead-name">Pressure<span class="idx">2/11</span></p>
@@ -111,14 +84,11 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
     <div class="split">
       <div class="split-text" data-caps>
         <h2 class="display sm rv" id="h-pressure">Pressure warms <em>the ice.</em></h2>
-        <p class="lede rv">On the screen, every voice is a current carrying ice. Hold a key and press into it: the voice
-          swells and opens, and its crystals warm to lamp light. Let go, and it stays lit.</p>
+        <p class="lede rv">Hold a key and press into it: the voice swells and opens, its ice warmed to lamp light.</p>
         <dl class="gestures rv">
-          <div><dt>Tap a key</dt><dd>It rises over ATTACK and stays.</dd></div>
-          <div><dt>Tap it again</dt><dd>It fades over RELEASE.</dd></div>
-          <div><dt>Hold and press</dt><dd>It swells and opens. PRESSURE sets how much.</dd></div>
-          <div><dt>Hold ENV</dt><dd>SWELL: after 0.4 s, every voice swells together.</dd></div>
-          <div><dt>SWELL, on FX</dt><dd>Every voice swelled as far as you turn it, and held there.</dd></div>
+          <div><dt>Tap a key</dt><dd>It rises and stays.</dd></div>
+          <div><dt>Tap it again</dt><dd>It fades.</dd></div>
+          <div><dt>Hold and press</dt><dd>It swells.</dd></div>
         </dl>
       </div>
       <figure class="split-fig rv">
@@ -127,14 +97,14 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
           <canvas aria-hidden="true"></canvas>
           <p class="river-hint" aria-hidden="true"><span class="hint-dot"></span><span class="hint-t">Press and hold</span></p>
         </div>
-        <figcaption class="fig-cap"><span class="label">A3 · D3 · G2</span> Three voices of D minor, drawn as FRASIL's screen draws them. Hold to press.</figcaption>
+        <figcaption class="fig-cap"><span class="label">A3 · D3 · G2</span> Hold to press.</figcaption>
       </figure>
     </div>
   </div>
 </section>
 
 <!-- ============================================================ 3 the layers -->
-<section class="sec" id="layers" aria-labelledby="h-layers">
+<section class="sec" id="layers" data-nav="Layers" aria-labelledby="h-layers">
   <div class="wrap">
     <div class="dhead rv">
       <p class="dhead-name">Layers<span class="idx">3/11</span></p>
@@ -142,56 +112,32 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
     </div>
     <div class="layers-head" data-caps>
       <h2 class="display sm rv" id="h-layers">The current, the crystals, <em>the mist.</em></h2>
-      <p class="lede rv">Every note you light is a voice, up to eight, and every voice has three layers. All three play
-        every note: you mix them and shape each one. On the screen each is a thing in the river, and strata under the
-        waterline show the exact mix, WARMTH with it.</p>
+      <p class="lede rv">Up to eight voices, each in three layers you mix and shape.</p>
     </div>
     <ol class="layers" role="list" data-caps>
       <li class="layer rv">
         <img class="stratum" src="{{root}}assets/img/stratum-choir.png" width="128" height="10" alt="CHOIR's stratum on the screen: a solid line">
         <h3><span class="layer-name">CHOIR</span> <span class="layer-is">the current</span></h3>
-        <p>Three detuned saws, or pulses, through a low-pass filter that follows the note. Warm, wide, vocal.</p>
-        <p class="layer-ii"><span class="label">CHOIR II</span> SHAPE takes the saws toward a square, hollow and woody,
-          then narrow pulses, bright and nasal. INTERVAL moves the centre saw an octave or a fifth; RESONANCE and TYPE
-          shape the filter: LOW, BAND or HIGH.</p>
+        <p>Detuned saws through a filter. Warm, wide, vocal.</p>
       </li>
       <li class="layer rv" style="--d:.1s">
         <img class="stratum" src="{{root}}assets/img/stratum-partials.png" width="128" height="10" alt="PARTIALS' stratum on the screen: a line of ice crystals">
         <h3><span class="layer-name">PARTIALS</span> <span class="layer-is">the crystals</span></h3>
-        <p>Eight additive harmonics, each drifting on its own in level and tuning. Bright or dark, odd, stretched into
-          bells, with a formant.</p>
-        <p class="layer-ii"><span class="label">PARTIALS II</span> EVOLVE lets their levels wander deeper and quicker;
-          BEAT makes each one pulse at its own pace. FORMANT and PEAK lift them around one harmonic, as a vowel does,
-          up to that one alone: the drone sings a single overtone.</p>
+        <p>Eight drifting harmonics, dark or bright, up to bells.</p>
       </li>
       <li class="layer rv" style="--d:.2s">
         <img class="stratum" src="{{root}}assets/img/stratum-breath.png" width="128" height="10" alt="BREATH's stratum on the screen: a soft band of haze">
         <h3><span class="layer-name">BREATH</span> <span class="layer-is">the mist</span></h3>
-        <p>Noise, a hiss or sparse grains, through three resonators tuned to the note, from air to glass.</p>
-        <p class="layer-ii"><span class="label">BREATH II</span> GRAIN turns the hiss into grains that ring like ice
-          ticking, or rain on glass. PITCH moves the resonators an octave down, or up into a halo over the drone.</p>
+        <p>Noise tuned to the note, from air to glass.</p>
       </li>
     </ol>
-    <div class="presets rv">
-      <p class="label preset-sub">24 drones <span>PRESETS, on any page: each sets the three layers and the drone’s own</span></p>
-      <ul role="list" class="preset-list">
-        <li>MIST</li><li>CATHEDRAL</li><li>GLACIER</li><li>ABYSS</li><li>AURORA</li><li>EMBER</li><li>TIDE</li><li>DUST</li><li>WIND</li><li>ORGAN</li><li>HOLLOW</li><li>VOWEL</li>
-        <li>SHIMMER</li><li>CHANTER</li><li>ENSEMBLE</li><li>BELLS</li><li>NOCTURNE</li><li>HAZE</li><li>PULSE</li><li>RIME</li><li>DEEP</li><li>SPECTRAL</li><li>RUST</li><li>STILL</li>
-      </ul>
-      <p class="label preset-sub">And CUSTOM <span>your own: turn any of their settings and the drone becomes CUSTOM</span></p>
-    </div>
     <div class="layers-foot">
       <div class="motion-text" data-caps>
-        <p class="rv">Your drones’ notes never change. What moves on its own is the sound: MOTION, a slow random
-          drift of each partial, detune and resonance; TIDE, a slow swell of the timbre over minutes. Turned up, CHANCE
-          and SPARKLE let chance into GLINT’s notes.</p>
         <div class="lfo-note rv">
           <h3 class="label label-ice">LFO 1 · LFO 2 · LFO 3</h3>
-          <p>Press LFO again: three LFOs of your own, seven shapes, free or on the beat. Each moves up to four settings
-            together, around the values you gave them; a scene keeps it all.</p>
+          <p>Seven shapes, free or on the beat, each moving up to four settings.</p>
         </div>
-        <p class="motion-links rv"><a class="link" href="{{root}}guide/how-it-works/#presets">The drone’s presets</a>
-          <a class="link" href="{{root}}guide/layers/">The layers’ second pages</a>
+        <p class="motion-links rv"><a class="link" href="{{root}}guide/layers/">The layers</a>
           <a class="link" href="{{root}}guide/lfo/">The LFOs</a></p>
       </div>
       <figure class="lfo-fig rv" style="--d:.1s">
@@ -214,35 +160,30 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
             <button type="button" class="chip" data-shape="6" aria-pressed="false">DRIFT</button>
           </div>
         </div>
-        <figcaption class="fig-cap"><span class="label">FILTER · TIMBRE</span> Each keeps its value and its white mark; the ice-blue one is where the LFO has it now.</figcaption>
+        <figcaption class="fig-cap"><span class="label">FILTER · TIMBRE</span> White: the value. Ice: where the LFO has it now.</figcaption>
       </figure>
     </div>
   </div>
 </section>
 
-<!-- ============================================================ 4 CLOUD and FREEZE -->
-<section class="sec sec-cloud" id="cloud" aria-labelledby="h-cloud">
+<!-- ============================================================ 4 the effects: CLOUD and FREEZE, then the filter, the tape, the EQ -->
+<section class="sec sec-cloud" id="effects" data-nav="Effects" aria-labelledby="h-cloud">
   <div class="wrap">
     <div class="dhead rv">
-      <p class="dhead-name">Cloud<span class="idx">4/11</span></p>
-      <div class="dhead-ctl" aria-hidden="true"><div class="dhead-btns"><span class="key">FX</span></div><p class="dhead-hint">Again: cloud · Hold: freeze</p></div>
+      <p class="dhead-name">Effects<span class="idx">4/11</span></p>
+      <div class="dhead-ctl" aria-hidden="true"><div class="dhead-btns"><span class="key">FX</span></div><p class="dhead-hint">Again: cloud, filter, tape · Hold: freeze</p></div>
     </div>
     <div class="cloud-grid">
       <div class="cloud-text" data-caps>
         <h2 class="display sm rv" id="h-cloud">Everything flows <em>into the cloud.</em></h2>
-        <p class="lede rv">WARMTH, a soft saturation, feeds CLOUD, the reverb: eight modulated lines with diffusion inside
-          their loop, a pre-delay, and a shimmer pitched inside the loop. Its tail runs from 0.4 to 60 seconds.</p>
+        <p class="lede rv">CLOUD, a large reverb with shimmer, its tail up to a minute long.</p>
         <div class="freeze-note rv">
           <h3 class="label label-ice">Generative FX</h3>
-          <p>FX opens on four knobs that play the whole sound. SWELL swells every voice and holds it there; SPARKLE lets
-            glints fall by themselves, now and then, on the notes the drones hold; BLUR dissolves the drone into the
-            cloud; SINK takes everything under, a low-pass on the whole mix.</p>
+          <p>SWELL, SPARKLE, BLUR, SINK: four knobs that play the whole sound.</p>
         </div>
         <div class="freeze-note rv">
           <h3 class="label label-ice">Freeze</h3>
-          <p>Hold FX: the cloud holds what is in it, without end and without darkening. Nothing more goes in: what you
-            play next sounds dry over it. Hold FX again and it thaws, fading over DECAY. On the screen, the crystals set
-            into a lattice and the water stills.</p>
+          <p>Hold FX: the cloud holds what is in it, without end.</p>
         </div>
       </div>
       <div class="cloud-fig rv">
@@ -254,30 +195,73 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
             </button>
           </div>
         </div>
-        <div class="pages3" data-caps>
-          <dl class="page4">
-            <dt class="label">CLOUD</dt>
-            <dd><span class="disc">1</span>SIZE</dd><dd><span class="disc">2</span>DECAY <i>0.4–60 s</i></dd>
-            <dd><span class="disc">3</span>TONE</dd><dd><span class="disc">4</span>FREEZE <i>OFF · ON</i></dd>
-          </dl>
-          <dl class="page4">
-            <dt class="label">CLOUD II</dt>
-            <dd><span class="disc">1</span>DIFFUSION</dd><dd><span class="disc">2</span>MODULATION</dd>
-            <dd><span class="disc">3</span>PRE-DELAY <i>0–200 ms</i></dd><dd><span class="disc">4</span>WIDTH</dd>
-          </dl>
-          <dl class="page4">
-            <dt class="label">CLOUD III</dt>
-            <dd><span class="disc">1</span>SHIMMER</dd><dd><span class="disc">2</span>INTERVAL <i>+12 +7 +5 +19 −12</i></dd>
-            <dd><span class="disc">3</span>BRIGHT <i>700 Hz–8 kHz</i></dd>
-          </dl>
-        </div>
       </div>
     </div>
+
+    <!-- the three after the cloud (2.5), each drawn as its page draws it (js/landing.js): the filter's curve, the
+         cassette, the EQ's curve; under each its page, K1 a choice, K2–K4 the screen's gauges -->
+    <div class="fx-head" data-caps>
+      <h3 class="fx-title rv" id="h-fx" data-nocaps>Through a filter, onto tape, <em>out through an EQ.</em></h3>
+    </div>
+    <ol class="fx-cards" role="list" aria-labelledby="h-fx">
+      <li class="fx-card rv" data-fx="filter">
+        <div class="fx-pic" role="img" aria-label="MASTER FILTER's page: its response, a low-pass with a resonant peak at the corner, CUTOFF sweeping slowly"><canvas aria-hidden="true"></canvas></div>
+        <h4 class="fx-name">MASTER FILTER <span class="key">FX</span></h4>
+        <p data-caps>Low-pass or high-pass, with RESONANCE. An LFO can sweep it, as here.</p>
+        <div class="fx-page">
+          <div class="fx-k1"><p class="label" id="fl-l"><span class="disc">1</span>TYPE</p>
+            <div class="chips" role="group" aria-labelledby="fl-l">
+              <button type="button" class="chip" data-v="0" aria-pressed="false">OFF</button>
+              <button type="button" class="chip" data-v="1" aria-pressed="true">LOW PASS</button>
+              <button type="button" class="chip" data-v="2" aria-pressed="false">HIGH PASS</button>
+            </div></div>
+          <div class="gauge"><p class="label"><span class="disc">2</span>CUTOFF</p><b data-g="cut">2.3<small>KHZ</small></b><div class="gauge-line"></div></div>
+          <div class="gauge" style="--v: .5"><p class="label"><span class="disc">3</span>RESONANCE</p><b data-g="reso">50</b><div class="gauge-line"></div></div>
+          <div class="gauge gauge-list"><p class="label"><span class="disc">4</span>TRACKS</p><b>ALL</b><i class="gauge-dots" style="--n: 7; --i: 0"></i></div>
+        </div>
+      </li>
+      <li class="fx-card rv" style="--d:.08s" data-fx="tape">
+        <div class="fx-pic" role="img" aria-label="LOFI TAPE's page: a cassette's two reels turning, the tape round two rollers and over the head, glowing as SATURATION grows; now and then the tape drags, then catches up"><canvas aria-hidden="true"></canvas></div>
+        <h4 class="fx-name">LOFI TAPE <span class="key">FX</span></h4>
+        <p data-caps>SATURATION warms and thickens. WOBBLE is the tape’s wow and flutter.</p>
+        <div class="fx-page">
+          <div class="fx-k1"><p class="label" id="tp-l"><span class="disc">1</span>TAPE</p>
+            <div class="chips" role="group" aria-labelledby="tp-l">
+              <button type="button" class="chip" data-v="0" aria-pressed="false">OFF</button>
+              <button type="button" class="chip" data-v="1" aria-pressed="true">ON</button>
+            </div></div>
+          <div class="gauge"><p class="label"><span class="disc">2</span>SATURATION</p><b data-g="sat">50</b><div class="gauge-line"></div></div>
+          <div class="gauge"><p class="label"><span class="disc">3</span>WOBBLE</p><b data-g="wob">70</b><div class="gauge-line"></div></div>
+          <div class="gauge gauge-list"><p class="label"><span class="disc">4</span>TRACKS</p><b>ALL</b><i class="gauge-dots" style="--n: 7; --i: 0"></i></div>
+        </div>
+      </li>
+      <li class="fx-card rv" style="--d:.16s" data-fx="eq">
+        <div class="fx-pic" role="img" aria-label="MASTER EQ's page: its curve over the spectrum, what it raises in lamp light, what it cuts in ice, stepping through its presets"><canvas aria-hidden="true"></canvas></div>
+        <h4 class="fx-name">MASTER EQ <span class="key">GLO</span></h4>
+        <p data-caps>LOW, MID and HIGH on the whole mix, or a preset.</p>
+        <div class="fx-page">
+          <div class="fx-k1"><p class="label" id="eq-l"><span class="disc">1</span>PRESET</p>
+            <div class="chips" role="group" aria-labelledby="eq-l">
+              <button type="button" class="chip" data-v="0" aria-pressed="false">OFF</button>
+              <button type="button" class="chip" data-v="2" aria-pressed="false">FLAT</button>
+              <button type="button" class="chip" data-v="3" aria-pressed="true">WARM</button>
+              <button type="button" class="chip" data-v="4" aria-pressed="false">AIR</button>
+              <button type="button" class="chip" data-v="5" aria-pressed="false">MUD CUT</button>
+              <button type="button" class="chip" data-v="6" aria-pressed="false">BOX CUT</button>
+              <button type="button" class="chip" data-v="7" aria-pressed="false">LOUD</button>
+              <button type="button" class="chip" data-v="8" aria-pressed="false">SMALL SPEAKER</button>
+            </div></div>
+          <div class="gauge"><p class="label"><span class="disc">2</span>LOW</p><b data-g="low">+2.5<small>DB</small></b><div class="gauge-line"></div></div>
+          <div class="gauge"><p class="label"><span class="disc">3</span>MID</p><b data-g="mid">0<small>DB</small></b><div class="gauge-line"></div></div>
+          <div class="gauge"><p class="label"><span class="disc">4</span>HIGH</p><b data-g="high">−2<small>DB</small></b><div class="gauge-line"></div></div>
+        </div>
+      </li>
+    </ol>
   </div>
 </section>
 
 <!-- ============================================================ 5 GLINT -->
-<section class="sec sec-glint" id="glint" aria-labelledby="h-glint">
+<section class="sec sec-glint" id="glint" data-nav="Glint" aria-labelledby="h-glint">
   <div class="wrap">
     <div class="dhead rv">
       <p class="dhead-name">Glint<span class="idx">5/11</span></p>
@@ -285,8 +269,7 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
     </div>
     <div class="glint-head" data-caps>
       <h2 class="display sm rv" id="h-glint">Small icy bells, <em>above the drones.</em></h2>
-      <p class="lede rv">GLINT is four voices of clean two-operator FM, played from the keys once SELECT turns them over to it.
-        Never latched: each note rings and fades like a bell, while the drones keep sounding under it.</p>
+      <p class="lede rv">Turn SELECT to GLINT and the keys play FM bells: each note rings and fades while the drones hold.</p>
     </div>
     <div class="sky rv" data-sky>
       <canvas aria-hidden="true"></canvas>
@@ -311,44 +294,26 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
     <div class="glint-cols" data-caps>
       <div class="rv">
         <h3 class="label">The hand</h3>
-        <p>Pressure makes a glint louder and longer. With VIBRATO, a wiggle of the finger bends its pitch, both ways
-          around the note, as a string player’s does; a steady press stays in tune. SUSTAIN turns a bell into a lead.</p>
+        <p>Press harder: louder, longer. A wiggle bends it.</p>
       </div>
       <div class="rv" style="--d:.08s">
         <h3 class="label">The arpeggiator</h3>
-        <p>It plays the GLINT keys you hold, one at a time, at RATE, over RANGE octaves, on the grid of MIDI clock or
-          TEMPO. LATCH is on from the start: the pattern keeps playing after you lift your hands. Hold ARP to turn it
-          off, or on again. Tap PLAY and it waits; again, it goes on from the top.</p>
+        <p>Plays the keys you hold, on the beat, and keeps going when you let go.</p>
       </div>
       <div class="rv" style="--d:.16s">
         <h3 class="label">The sequencer</h3>
-        <p>SEQ on <span class="k">SEQ</span> (GLINT I, K2): 32 steps in place of the arpeggio, on the same grid. REC goes straight there and records you
-          live as it runs, to a metronome; or write it a key a step. With RECORD off, the keys transpose it along the scale.
-          PLAY stops it; again, it starts from the top. A NEW TAKE starts it over from nothing, and UNDO brings back the
-          one before.</p>
+        <p>32 steps, recorded live with REC or written a key a step.</p>
       </div>
       <div class="rv" style="--d:.24s">
         <h3 class="label">The delay</h3>
-        <p>GLINT’s own, tempo-synced, from 1/32 to 1/2 with triplets and dotted times, mono or ping-pong. Its echoes
-          go into the cloud too.</p>
+        <p>Ping-pong, on the beat, into the cloud.</p>
       </div>
-    </div>
-    <div class="presets rv">
-      <p class="label">22 presets</p>
-      <ul role="list" class="preset-list">
-        <li>ICE</li><li>BELL</li><li>BLIP</li><li>GLASS</li><li>CHIME</li><li>DROP</li><li>FROST</li><li>CELESTA</li>
-        <li>SINE</li><li>KALIMBA</li><li>MARIMBA</li><li>MUSIC BOX</li><li>VIBES</li><li>HARP</li><li>PIPE</li><li>BOWED</li>
-      </ul>
-      <p class="label preset-sub">And six leads <span>SUSTAIN holds them while the key is down</span></p>
-      <ul role="list" class="preset-list preset-leads">
-        <li>WARM LEAD</li><li>BRASS</li><li>SQUARE</li><li>SUB LEAD</li><li>STRINGS</li><li>REED</li>
-      </ul>
     </div>
   </div>
 </section>
 
 <!-- ============================================================ 6 BASS -->
-<section class="sec sec-bass" id="bass" aria-labelledby="h-bass">
+<section class="sec sec-bass" id="bass" data-nav="Bass" aria-labelledby="h-bass">
   <div class="swell" aria-hidden="true">
     <svg viewBox="0 0 1600 220" preserveAspectRatio="none">
       <defs>
@@ -377,33 +342,25 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
     <div class="bass-grid">
       <div class="bass-text" data-caps>
         <h2 class="display sm rv" id="h-bass">One deep note, <em>held like a drone.</em></h2>
-        <p class="lede rv">Turn SELECT to BASS and the keys play it: one note at a time, the key’s note in the scale, OCTAVE
-          octaves down. Tap another key and it glides there without starting again; tap its own key and it lets go.
-          Press into it: louder, and its filter opens.</p>
-        <p class="lede rv">Or let it walk. The bass has a step sequencer of its own, two more pages under SEQ: sixteen steps,
-          each a NOTE, a CUT or a HOLD, and each as long as you want it, from a sixteenth to sixteen bars. A slow line under
-          drones that never change. Write it step by step or live with REC, move it with a key; PLAY
-          starts it with GLINT’s, on the same grid, and each scene keeps its own.</p>
-        <p class="rv muted">DRIVE into a soft clip, a resonant low-pass, and none of it in the reverb. A pure sine this low
-          barely reaches the FM-1’s small speaker: DRIVE, or a richer MODEL, gives it the harmonics that let you hear it
-          there. In headphones, SINE with DRIVE at 0 is a clean sub.</p>
+        <p class="lede rv">Turn SELECT to BASS: one deep note, gliding from key to key. Or let it walk a slow line,
+          sixteen steps of its own.</p>
       </div>
       <ol class="models rv" role="list" aria-label="The eight MODELs" data-caps>
         <li><svg class="wave" data-wave="sine" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>SINE</b><span>pure</span></li>
         <li><svg class="wave" data-wave="triangle" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>TRIANGLE</b><span>soft, a little hollow</span></li>
         <li><svg class="wave" data-wave="square" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>SQUARE</b><span>hollow, woody</span></li>
         <li><svg class="wave" data-wave="saw" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>SAW</b><span>bright, buzzing</span></li>
-        <li><svg class="wave" data-wave="reese" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>REESE</b><span>two saws ten cents apart, beating slowly</span></li>
-        <li><svg class="wave" data-wave="sub" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>SUB</b><span>the sine and its octave below</span></li>
-        <li><svg class="wave" data-wave="organ" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>ORGAN</b><span>three drawbars: the note, its octave, its twelfth</span></li>
-        <li><svg class="wave" data-wave="fm" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>FM</b><span>a sine modulating itself: round, growling</span></li>
+        <li><svg class="wave" data-wave="reese" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>REESE</b><span>two saws, beating slowly</span></li>
+        <li><svg class="wave" data-wave="sub" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>SUB</b><span>an octave deeper</span></li>
+        <li><svg class="wave" data-wave="organ" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>ORGAN</b><span>three drawbars</span></li>
+        <li><svg class="wave" data-wave="fm" viewBox="0 0 64 24" aria-hidden="true"><path d=""/></svg><b>FM</b><span>round, growling</span></li>
       </ol>
     </div>
   </div>
 </section>
 
 <!-- ============================================================ 7 HARMONY -->
-<section class="sec" id="harmony" aria-labelledby="h-harmony">
+<section class="sec" id="harmony" data-nav="Harmony" aria-labelledby="h-harmony">
   <div class="wrap">
     <div class="dhead rv">
       <p class="dhead-name">Harmony<span class="idx">7/11</span></p>
@@ -411,15 +368,14 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
     </div>
     <div class="harmony-head" data-caps>
       <h2 class="display sm rv" id="h-harmony">Set a key once. <em>Every key you tap belongs to it.</em></h2>
-      <p class="lede rv">Twelve scales, eight chords built from the scale’s own notes and seven fixed ones, three
-        voicings. A key outside the scale plays the scale’s note just below it, and the scale’s keys glow faintly.</p>
+      <p class="lede rv">Twelve scales, fifteen chords, three voicings. No wrong notes.</p>
     </div>
     {{harmony}}
   </div>
 </section>
 
 <!-- ============================================================ 8 MIXER, PUMP, MASTERING -->
-<section class="sec sec-mixer" id="mixer" aria-labelledby="h-mixer">
+<section class="sec sec-mixer" id="mixer" data-nav="Mixer" aria-labelledby="h-mixer">
   <div class="wrap">
     <div class="dhead rv">
       <p class="dhead-name">Mixer<span class="idx">8/11</span></p>
@@ -428,13 +384,11 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
     <div class="mixer-grid">
       <div class="mixer-text" data-caps>
         <h2 class="display sm rv" id="h-mixer">The river breathes <em>on the beat.</em></h2>
-        <p class="lede rv">HOME’s second screen is a MIXER: a fader and a live meter for DRONE, BASS, GLINT and CLOUD,
-          the reverb’s return.</p>
+        <p class="lede rv">A fader and a meter for DRONE, BASS, GLINT and CLOUD. PUMP ducks them on the beat, a sidechain
+          without a kick.</p>
         <dl class="gestures rv">
-          <div><dt>PUMP</dt><dd>Ducks each track on the beat, as a sidechain from a kick would, without a kick: from
-            4 BARS to 1/8, on MIDI clock or TEMPO. DRONE, BASS and GLINT set how deep each one goes; the cloud pumps
-            with the drones.</dd></div>
-          <div><dt>MASTERING</dt><dd>A light compressor on the whole output, its gain reduction on the screen, live.</dd></div>
+          <div><dt>MASTERING</dt><dd>A light compressor on the whole output.</dd></div>
+          <div><dt>SPK/JACK</dt><dd>OFF: record over USB, the room quiet.</dd></div>
         </dl>
       </div>
       <div class="mixer-fig rv" data-mixer>
@@ -460,7 +414,7 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
 </section>
 
 <!-- ============================================================ 9 SCENES and MIDI -->
-<section class="sec" id="scenes" aria-labelledby="h-scenes">
+<section class="sec" id="scenes" data-nav="Scenes" aria-labelledby="h-scenes">
   <div class="wrap">
     <div class="dhead rv">
       <p class="dhead-name">Scenes · MIDI<span class="idx">9/11</span></p>
@@ -469,29 +423,23 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
     <div class="scenes-grid">
       <div data-caps>
         <h2 class="display sm rv" id="h-scenes">Sixteen scenes. <em>A channel for each track.</em></h2>
-        <p class="lede rv">A scene holds the sound and its TEMPO, the latched drones, GLINT’s arpeggio and its sequence, and the bass with its own. Hold SAVE
-          and press REC to store one; hold SAVE and press a white key to load one of the sixteen, from any page: it plays, its
-          sequences from the top. MORPH glides into it, over up to two minutes, and LOAD on SND ONLY leaves what plays playing
-          while only the sound changes. Seven slots hold the factory scenes; nine are free.</p>
+        <p class="lede rv">A scene keeps the sound, the latched drones and every sequence. Load one and it plays, or MORPH
+          glides into it.</p>
       </div>
       <ol class="scene-list rv" role="list" aria-label="The factory scenes">
-        <li><b>01</b><span class="sn">NORTH RIVER</span><span class="sd">F# penta minor, SEVENTH wide, 90 BPM · FROST</span></li>
-        <li><b>02</b><span class="sn">LUMIERE NOCTURNE</span><span class="sd">A major, ADD9 wide, 60 BPM · SINE</span></li>
-        <li><b>03</b><span class="sn">RESILIENCE</span><span class="sd">F# penta minor, SEVENTH wide, 90 BPM · HARP</span></li>
-        <li><b>04</b><span class="sn">LONG NIGHT</span><span class="sd">A phrygian, FIFTH wide, 60 BPM · BOWED</span></li>
-        <li><b>05</b><span class="sn">OPEN WATER</span><span class="sd">D dorian, SUS2 open, 118 BPM · MARIMBA</span></li>
-        <li><b>06</b><span class="sn">WHITEOUT</span><span class="sd">C# minor, SUS4 wide, 72 BPM · FROST</span></li>
-        <li><b>07</b><span class="sn">THAW</span><span class="sd">D# major, ADD9 open, 78 BPM · DROP</span></li>
+        <li><b>01</b><span class="sn">NORTH RIVER</span></li>
+        <li><b>02</b><span class="sn">LUMIERE NOCTURNE</span></li>
+        <li><b>03</b><span class="sn">RESILIENCE</span></li>
+        <li><b>04</b><span class="sn">LONG NIGHT</span></li>
+        <li><b>05</b><span class="sn">OPEN WATER</span></li>
+        <li><b>06</b><span class="sn">WHITEOUT</span></li>
+        <li><b>07</b><span class="sn">THAW</span></li>
       </ol>
     </div>
     <div class="midi rv" data-caps>
       <div class="midi-text">
         <h3 class="label">MIDI over USB and TRS</h3>
-        <p>Each track has its own channel, whatever the keys play. The drones’ notes go through the harmony, so a
-          sequencer’s single note plays a chord; GLINT’s and BASS’s play as they come. Polyphonic aftertouch swells a
-          note; channel pressure, the whole track. Program Change loads the scenes. Hold GLO and move a knob on your
-          controller: it now turns the setting you touched last. Clock drives GLINT’s arpeggiator, its sequencer and its
-          delay, the bass’s sequencer, and the synced LFOs; Start resets the grid and starts the sequences.</p>
+        <p>A channel for each track: notes, pressure, CCs, Program Change and clock.</p>
       </div>
       <ul class="midi-ch" role="list" aria-label="The default channels">
         <li style="--c: var(--fog)"><span class="ch-n">CH 1</span><span class="ch-line"></span><span class="ch-t">DRONE</span></li>
@@ -503,7 +451,7 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
 </section>
 
 <!-- ============================================================ 10 the screen -->
-<section class="sec" id="screen" aria-labelledby="h-screen">
+<section class="sec" id="screen" data-nav="Screen" aria-labelledby="h-screen">
   <div class="wrap">
     <div class="dhead rv">
       <p class="dhead-name">The screen<span class="idx">10/11</span></p>
@@ -511,9 +459,7 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
     </div>
     <div class="screen-head" data-caps>
       <h2 class="display sm rv" id="h-screen">A river at night, <em>240 pixels square.</em></h2>
-      <p class="lede rv">Pitch is height above the waterline. Each voice is a current carrying ice; GLINT shines in the
-        sky above; the bass is a slow swell across the river. Every setting wears the badge of the control that turns
-        it: a blue disc for K1–K4, an orange one for the three encoders on the left.</p>
+      <p class="lede rv">Each voice a current carrying ice, GLINT in the sky, the bass a slow swell.</p>
     </div>
     <ul class="gallery" role="list">
       {{gallery}}
@@ -521,35 +467,29 @@ description: FRASIL is a custom firmware that turns the M-VAVE FM-1 into an inst
   </div>
 </section>
 
-<!-- ============================================================ 11 install -->
-<section class="sec sec-install" id="install" aria-labelledby="h-install">
+<!-- ============================================================ 11 PERFORM: the play on a big screen -->
+<section class="sec sec-perform" id="perform" data-nav="Perform" aria-labelledby="h-perform">
   <div class="wrap">
-    <div class="dhead rv"><p class="dhead-name">Install<span class="idx">11/11</span></p><p class="status">{{status}}<span class="dl" data-downloads hidden></span></p></div>
-    <h2 class="display sm rv" id="h-install">Try it first. <em>Then give it to the FM-1.</em></h2>
-    <ol class="steps" role="list" data-caps>
-      <li class="rv">
-        <p class="step-n">01</p>
-        <h3>In the browser</h3>
-        <p>The emulator runs the same code the FM-1 runs, with sound. No FM-1 needed.</p>
-        <a class="btn btn-ice" href="{{root}}play/">Play <span class="arrow" aria-hidden="true">→</span></a>
-      </li>
-      <li class="rv" style="--d:.08s">
-        <p class="step-n">02</p>
-        <h3>On the FM-1</h3>
-        <p>From the browser: Chrome or Edge, the FM-1 connected by USB, through <a class="link" href="{{hub}}">FRASIL on
-          The FM-1 Firmware Hub</a>. From a terminal: download <code>frasil-X.Y.fwsc</code> from the
-          releases, then, from a checkout of the repository:</p>
-        <pre><code>python3 base/tools/fm1_install.py frasil-X.Y.fwsc</code></pre>
-        <a class="btn" href="{{releases}}">Download <span class="arrow" aria-hidden="true">↓</span></a>
-      </li>
-      <li class="rv" style="--d:.16s">
-        <p class="step-n">03</p>
-        <h3>And back</h3>
-        <p>Install M-VAVE’s V15 from the hub. If the FM-1 no longer starts, hold OCT− while you switch it on: it waits
-          for an update over USB.</p>
-        <a class="btn" href="{{root}}guide/install/">The install guide <span class="arrow" aria-hidden="true">→</span></a>
-      </li>
-    </ol>
+    <div class="dhead rv">
+      <p class="dhead-name">Perform<span class="idx">11/11</span></p>
+      <div class="dhead-ctl" aria-hidden="true"><p class="perform-url">perform.frasilsynth.com</p><p class="dhead-hint">Chrome or Edge · USB</p></div>
+    </div>
+    <div class="perform-head" data-caps>
+      <h2 class="display sm rv" id="h-perform">Your play, <em>on the big screen.</em></h2>
+      <p class="lede rv">Plug the FM-1 into a computer: your play, full screen, for a stage or a film.</p>
+    </div>
+    <figure class="perform-fig rv">
+      <a class="perform-shot" href="https://perform.frasilsynth.com/" tabindex="-1" aria-hidden="true">
+        <img src="{{root}}assets/img/perform-live.webp" srcset="{{root}}assets/img/perform-live-1200.webp 1200w, {{root}}assets/img/perform-live.webp 1920w"
+             sizes="(min-width: 1340px) 780px, (min-width: 961px) 58vw, 92vw" width="1920" height="1080" loading="lazy" decoding="async"
+             alt="Perform, full screen: NORTH RIVER's drones as a wide river of ice, the bass a lamp-lit current through it; above, DR GL BS playing; under it LIVE, GENERATIVE FX's BLUR turned to 29, the three LFOs' waves, the cloud's rings, the tape and the filter">
+      </a>
+      <figcaption class="fig-cap"><span class="label">NORTH RIVER · DEMO</span> <span>The FM-1’s river, very large; LIVE under it, what the hand does.</span></figcaption>
+    </figure>
+    <p class="perform-cta rv">
+      <a class="btn btn-ice" href="https://perform.frasilsynth.com/">Open Perform <span class="arrow" aria-hidden="true">→</span></a>
+      <span class="perform-note">With FRASIL 2.5 · Or its DEMO, no FM-1 needed</span>
+    </p>
   </div>
 </section>
 

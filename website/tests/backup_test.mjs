@@ -41,38 +41,52 @@ const raw = (objs) => {
 };
 const emptyBass = (b) => !b.on && b.notes.every((x) => !x) && b.lens.every((x) => !x) &&
   b.steps === S.params[S.ids.P_BQ_STEPS].def && b.trans === S.params[S.ids.P_BQ_TRANS].def;
-/* the earlier layouts: a scene_t as FRSi kept it (the sound without DECAY, SUSTAIN and PULSE), as FRSh (and without its
- * bass's sequence); one made over (the three at their defaults; its bass, or an empty one) */
-const N = S.sizes, SG = S.settings_t, SS = S.scenes_t, OS = Object.fromEntries(S.old_shards.map((x) => [x.magic, x]));
+/* the earlier layouts, from this one's bytes: a scene_t as an earlier shard kept it (its nv sounds, then the rest to its
+ * size: GLINT's sequence in its record, its bass's or some of it, or none), one made over (the sound's new settings at
+ * their defaults; its bass, its TEMPO kept or at its default, or an empty bass; GLINT's RELEASE where SCATTER was) */
+const N = S.sizes, SG = S.settings_t, SS = S.scenes_t, SB = S.bseqs_t, OS = Object.fromEntries(S.old_shards.map((x) => [x.magic, x]));
 const OV = Object.fromEntries(S.old_settings_over.map((x) => [x.magic, x])), ONV = OS.FRSi.nv, ADD = N.NSOUND - ONV;
-const EMPTY_BQ = new Uint8Array(ST.size - ST.rec);
-EMPTY_BQ[ST.bq - ST.rec + 1] = S.params[S.ids.P_BQ_STEPS].def;
-EMPTY_BQ[ST.bq - ST.rec + 2] = S.params[S.ids.P_BQ_TRANS].def;
+const OB = Object.fromEntries(S.old_bseqs.map((x) => [x.magic, x])), BN = ST.bnote;
+const EMPTY_BQ = new Uint8Array(ST.size - BN);             // (an empty bass's sequence, from bnote on)
+EMPTY_BQ[ST.bq - BN + 1] = S.params[S.ids.P_BQ_STEPS].def;
+EMPTY_BQ[ST.bq - BN + 2] = S.params[S.ids.P_BQ_TRANS].def;
 const TEMPO_DEF = S.params[S.ids.P_TEMPO].def;
-EMPTY_BQ[ST.tempo - ST.rec] = TEMPO_DEF;
-const noTempo = (b) => Uint8Array.from(b.subarray(0, ST.size - 1));   // (a scene_t as FRSm and FRSk kept it)
-const frsi = (b) => Uint8Array.from([...b.subarray(0, ST.v + ONV), ...b.subarray(ST.v + N.NSOUND, ST.size - 1)]);
-const frsh = (b) => frsi(b).subarray(0, OS.FRSh.rec);
+EMPTY_BQ[ST.tempo - BN] = TEMPO_DEF;
+const asOld = (b, nv, size) => Uint8Array.from([...b.subarray(0, ST.v + nv), ...b.subarray(ST.v + N.NSOUND, ST.v + N.NSOUND + size - ST.v - nv)]);
+const noTempo = (b) => asOld(b, OS.FRSm.nv, OS.FRSm.size);   // (a scene_t as FRSm and FRSk kept it)
+const frsi = (b) => asOld(b, ONV, OS.FRSi.size);
+const frsh = (b) => asOld(b, ONV, OS.FRSh.size);
 /* GLINT's RELEASE where every earlier layout kept SCATTER: as its DECAY let a glint go then (the schema's table) */
 const GO = S.scatter_gone, gone = (b, v) => { const o = Uint8Array.from(b); o[v + GO.p] = GO.of[o[v + GO.decay]]; return o; };
-const madeOver = (b, bass) => gone(Uint8Array.from([...b.subarray(0, ST.v + ONV), ...S.params.slice(ONV, N.NSOUND).map((p) => p.def),
-                                                    ...b.subarray(ST.v + N.NSOUND, ST.rec),
-                                                    ...(bass ? [...b.subarray(ST.rec, ST.size - 1), TEMPO_DEF] : EMPTY_BQ)]), ST.v);
-/* a backup's settings (this layout's) as an earlier one kept them (OV: FRSH, FRSG), a CC learned after the sound
- * numbered so; its scenes' record as FRSh's */
+const madeOver = (b, bass, nv = ONV, scatter = true, tempo = TEMPO_DEF) => {
+  const o = Uint8Array.from([...b.subarray(0, ST.v + nv), ...S.params.slice(nv, N.NSOUND).map((p) => p.def),
+                             ...b.subarray(ST.v + N.NSOUND, BN), ...(bass ? [...b.subarray(BN, ST.size - 1), tempo] : EMPTY_BQ)]);
+  return scatter ? gone(o, ST.v) : o;
+};
+/* a backup's records as an earlier FRASIL kept them: its settings (OV: FRSJ, FRSI, FRSH, FRSG; a CC learned after the
+ * sound numbered so), its scenes' record (each scene's nv sounds, the rest to rec: GLINT's sequence in it), its basses'
+ * (OB: FRBT, FRBS, from the bass's notes on) */
 const setDown = (p, magic) => {
-  const l = OV[magic], b = new Uint8Array(l.size);
+  const l = OV[magic], add = N.NSOUND - l.nv, b = new Uint8Array(l.size);
   [...magic].forEach((c, i) => { b[i] = c.charCodeAt(0); });
-  b.set(p.subarray(SG.v, SG.v + ONV), 4);
-  b.set(p.subarray(SG.octave, SG.octave + l.end - 4 - ONV), 4 + ONV);
-  for (let i = 0; i < N.NLEARN; i++) { const at = SG.learn_p - ADD + i; if (b[at] >= N.NSOUND) b[at] -= ADD; }
+  b.set(p.subarray(SG.v, SG.v + l.nv), 4);
+  b.set(p.subarray(SG.octave, SG.octave + l.end - 4 - l.nv), 4 + l.nv);
+  for (let i = 0; i < N.NLEARN; i++) { const at = SG.learn_p - add + i; if (b[at] >= N.NSOUND) b[at] -= add; }
   return b;
 };
-const scenesDown = (p) => {
-  const b = new Uint8Array(8 + N.NSCENES * OS.FRSh.rec);
+const fullOf = (p, q, s) => Uint8Array.from([...p.subarray(SS.s + s * ST.rec, SS.s + (s + 1) * ST.rec),
+                                             ...q.subarray(SB.s + s * SB.scene, SB.s + (s + 1) * SB.scene)]);
+const scenesDown = (p, q, magic, nv, rec) => {
+  const b = new Uint8Array(8 + N.NSCENES * rec);
   b.set(p.subarray(0, 8));
-  [..."FRSh"].forEach((c, i) => { b[i] = c.charCodeAt(0); });
-  for (let s = 0; s < N.NSCENES; s++) b.set(frsh(p.subarray(SS.s + s * ST.rec, SS.s + (s + 1) * ST.rec)), 8 + s * OS.FRSh.rec);
+  [...magic].forEach((c, i) => { b[i] = c.charCodeAt(0); });
+  for (let s = 0; s < N.NSCENES; s++) b.set(asOld(fullOf(p, q, s), nv, rec), 8 + s * rec);
+  return b;
+};
+const bseqDown = (q, magic) => {
+  const o = OB[magic], b = new Uint8Array(SB.s + N.NSCENES * o.scene);
+  [...magic].forEach((c, i) => { b[i] = c.charCodeAt(0); });
+  for (let s = 0; s < N.NSCENES; s++) b.set(q.subarray(SB.s + s * SB.scene + o.at, SB.s + s * SB.scene + o.at + o.scene), SB.s + s * o.scene);
   return b;
 };
 
@@ -122,20 +136,29 @@ if (mode === "make") {
     check(bad, `... a ${ST.size}-byte scene in it: damaged`);
   }
   {                                                      // a package made before GLINT's RELEASE (FRSk): SCATTER 99 there
-    const frsk = noTempo(bassy);
-    frsk[ST.v + GO.p] = 99;
-    frsk[ST.v + GO.decay] = 127;
+    const bk = Uint8Array.from(bassy);
+    bk[ST.v + GO.p] = 99;
+    bk[ST.v + GO.decay] = 127;
+    const frsk = noTempo(bk);
     const sc = FB.readPack(JSON.stringify({ format: "frasil-scenes", version: 1, layout: "FRSk", scenes: [{ name: src.name, from: 15, data: b64(frsk) }] })).scenes[0];
-    check(OS.FRSk.size === ST.size - 1 && same(sc.bytes, gone([...frsk, TEMPO_DEF], ST.v)) && sc.raw_v[GO.p] === GO.of[127] && GO.of[127] === 112 &&
+    check(frsk.length === OS.FRSk.size && same(sc.bytes, madeOver(bk, true, OS.FRSk.nv)) && sc.raw_v[GO.p] === GO.of[127] && GO.of[127] === 112 &&
           sc.bseq.on && sc.tempo === TEMPO_DEF,
           `a package made before GLINT's RELEASE (FRSk): SCATTER 99 made over, RELEASE as DECAY 127 let it go (${GO.of[127]}), TEMPO at its default, the rest as it was`);
   }
   {                                                      // ... and before the scenes' TEMPO (FRSm): RELEASE 33 kept
-    const frsm = noTempo(bassy);
-    frsm[ST.v + GO.p] = 33;
+    const bm = Uint8Array.from(bassy);
+    bm[ST.v + GO.p] = 33;
+    const frsm = noTempo(bm);
     const sc = FB.readPack(JSON.stringify({ format: "frasil-scenes", version: 1, layout: "FRSm", scenes: [{ name: src.name, from: 15, data: b64(frsm) }] })).scenes[0];
-    check(OS.FRSm.size === ST.size - 1 && !OS.FRSm.scatter && same(sc.bytes, Uint8Array.from([...frsm, TEMPO_DEF])) && sc.raw_v[GO.p] === 33,
+    check(frsm.length === OS.FRSm.size && !OS.FRSm.scatter && same(sc.bytes, madeOver(bm, true, OS.FRSm.nv, false)) && sc.raw_v[GO.p] === 33,
           "a package made before the scenes' TEMPO (FRSm): its TEMPO at the default, its RELEASE as it was, the rest too");
+  }
+  {                                                      // ... and before MASTER EQ, MASTER FILTER and LOFI TAPE (FRSn)
+    const frsn = asOld(bassy, OS.FRSn.nv, OS.FRSn.size);
+    const sc = FB.readPack(JSON.stringify({ format: "frasil-scenes", version: 1, layout: "FRSn", scenes: [{ name: src.name, from: 15, data: b64(frsn) }] })).scenes[0];
+    check(frsn.length === OS.FRSn.size && !OS.FRSn.scatter && same(sc.bytes, madeOver(bassy, true, OS.FRSn.nv, false, bassy[ST.tempo])) &&
+          sc.raw_v[S.ids.P_EQ_PRESET] === 0 && sc.raw_v[S.ids.P_FL_TYPE] === 0 && sc.raw_v[S.ids.P_TP_ON] === 0 && sc.bseq.on && sc.tempo === bassy[ST.tempo],
+          "a package made before MASTER EQ, MASTER FILTER and LOFI TAPE (FRSn): those off, at their defaults, its TEMPO and the rest as they were");
   }
   const out = FB.patch(dev.image, [{ slot: 2, bytes: pack.scenes[0].bytes }, { slot: 6, bytes: bassy }]);
   const bq = FB.read(PB.parse(out)).scenes[6].bseq;
@@ -146,7 +169,8 @@ if (mode === "make") {
   // a backup from before the bass's sequence (1.1's test builds): its settings (FRSG) and its scenes' record (FRSh), no
   // OBJ_BSEQ
   const o = PB.parse(dev.image).objs, of = (objs, obj) => objs.find((x) => x.obj === obj).data;
-  const old10 = raw([{ obj: O.settings, data: setDown(of(o, O.settings), "FRSG") }, { obj: O.scenes, data: scenesDown(of(o, O.scenes)) }]);
+  const old10 = raw([{ obj: O.settings, data: setDown(of(o, O.settings), "FRSG") },
+                     { obj: O.scenes, data: scenesDown(of(o, O.scenes), of(o, O.bseqs), "FRSh", ONV, OS.FRSh.rec) }]);
   const r10 = FB.read(PB.parse(old10));
   check(!r10.current && r10.layout === "FRSh" && r10.scenes[14].state === "saved" && r10.scenes[14].name === src.name &&
         r10.scenes[14].chords.length === 2 && r10.scenes.every((x) => emptyBass(x.bseq) || x.state !== "saved"),
@@ -161,7 +185,8 @@ if (mode === "make") {
   const po = PB.parse(out).objs, set11 = setDown(of(po, O.settings), "FRSH");
   set11[SG.learn_cc - ADD] = 22;
   set11[SG.learn_p - ADD] = S.ids.P_TEMPO - ADD;
-  const old11 = raw([{ obj: O.settings, data: set11 }, { obj: O.scenes, data: scenesDown(of(po, O.scenes)) }, { obj: O.bseqs, data: of(po, O.bseqs) }]);
+  const old11 = raw([{ obj: O.settings, data: set11 }, { obj: O.scenes, data: scenesDown(of(po, O.scenes), of(po, O.bseqs), "FRSh", ONV, OS.FRSh.rec) },
+                     { obj: O.bseqs, data: of(po, O.bseqs) }]);
   const r11 = FB.read(PB.parse(old11));
   check(!r11.current && r11.layout === "FRSh" && r11.scenes[2].name === src.name && r11.scenes[6].state === "saved" &&
         r11.scenes[6].bseq.on && r11.scenes[6].bseq.steps === 3 && r11.scenes[6].bseq.notes.slice(0, 4).join() === `50,${S.bseq.hold},${S.bseq.cut},57`,
@@ -175,13 +200,12 @@ if (mode === "make") {
   fs.writeFileSync(path.join(dir, "old11.frasil"), old11);
   // the patched backup as made before GLINT's RELEASE: FRSI (SCATTER 99 where RELEASE is, CC 23 learned on it), FRSj
   // (each scene SCATTER 99 there), OBJ_BSEQ
-  const set12 = Uint8Array.from(of(po, O.settings)), sc12 = Uint8Array.from(of(po, O.scenes));
-  [..."FRSI"].forEach((c, i) => { set12[i] = c.charCodeAt(0); });
-  [..."FRSj"].forEach((c, i) => { sc12[i] = c.charCodeAt(0); });
-  set12[SG.v + GO.p] = 99;
-  set12[SG.learn_cc] = 23;
-  set12[SG.learn_p] = GO.p;
-  for (let s = 0; s < N.NSCENES; s++) sc12[SS.s + s * ST.rec + ST.v + GO.p] = 99;
+  const set12 = setDown(of(po, O.settings), "FRSI"), at12 = N.NSOUND - OV.FRSI.nv;
+  const sc12 = scenesDown(of(po, O.scenes), of(po, O.bseqs), "FRSj", OS.FRSn.nv, OS.FRSn.rec);
+  set12[4 + GO.p] = 99;
+  set12[SG.learn_cc - at12] = 23;
+  set12[SG.learn_p - at12] = GO.p;
+  for (let s = 0; s < N.NSCENES; s++) sc12[8 + s * OS.FRSn.rec + ST.v + GO.p] = 99;
   const old12 = raw([{ obj: O.settings, data: set12 }, { obj: O.scenes, data: sc12 }, { obj: O.bseqs, data: of(po, O.bseqs) }]);
   const r12 = FB.read(PB.parse(old12));
   check(!r12.current && r12.layout === "FRSj" && r12.scenes[6].state === "saved" && r12.scenes[6].bseq.on,
@@ -191,20 +215,32 @@ if (mode === "make") {
   fs.writeFileSync(path.join(dir, "old12.frasil"), old12);
   // the patched backup as an FM-1 keeps it just updated, before its basses' TEMPO (FRBS, a scene's bass without it):
   // the settings at 70 BPM (40); read, an earlier FRASIL's scenes, each at the settings' TEMPO; never patched
-  const set13 = Uint8Array.from(of(po, O.settings)), bqNow = of(po, O.bseqs), OB = S.old_bseqs[0], SB = S.bseqs_t;
+  const set13 = Uint8Array.from(of(po, O.settings));
   set13[SG.tempo] = 40;
-  const bq13 = new Uint8Array(SB.s + N.NSCENES * OB.scene);
-  [...OB.magic].forEach((c, i) => { bq13[i] = c.charCodeAt(0); });
-  for (let s = 0; s < N.NSCENES; s++) bq13.set(bqNow.subarray(SB.s + s * SB.scene, SB.s + s * SB.scene + OB.scene), SB.s + s * OB.scene);
-  const old13 = raw([{ obj: O.settings, data: set13 }, { obj: O.scenes, data: of(po, O.scenes) }, { obj: O.bseqs, data: bq13 }]);
+  const old13 = raw([{ obj: O.settings, data: set13 }, { obj: O.scenes, data: scenesDown(of(po, O.scenes), of(po, O.bseqs), "FRSl", OS.FRSn.nv, OS.FRSn.rec) },
+                     { obj: O.bseqs, data: bseqDown(of(po, O.bseqs), "FRBS") }]);
   const r13 = FB.read(PB.parse(old13));
-  check(!r13.current && r13.layout === OB.magic && OB.scene === SB.scene - 1 && r13.scenes[6].tempo === 40 && r13.scenes[6].bseq.on &&
+  check(!r13.current && r13.layout === "FRSl" && OB.FRBS.scene === OB.FRBT.scene - 1 && r13.scenes[6].tempo === 40 && r13.scenes[6].bseq.on &&
         r13.scenes[6].bseq.steps === 3 && r13.scenes[2].tempo === 40,
         "a backup with its basses before the scenes' TEMPO (FRBS): an earlier FRASIL's, each scene at the settings' TEMPO, its bass kept");
   bad = false;
   try { FB.patch(old13, [{ slot: 4, bytes: bassy }]); } catch (_) { bad = true; }
   check(bad, "... an FM-1 keeping its basses so: no shard put into it");
   fs.writeFileSync(path.join(dir, "old13.frasil"), old13);
+  // the patched backup as 2.1's first builds kept it, before MASTER EQ, MASTER FILTER and LOFI TAPE: FRSJ (CC 24 learned
+  // on TEMPO, numbered then), FRSl (GLINT's sequence in each scene), FRBT; read, an earlier FRASIL's, each its TEMPO
+  const set14 = setDown(of(po, O.settings), "FRSJ"), at14 = N.NSOUND - OV.FRSJ.nv;
+  set14[SG.learn_cc - at14] = 24;
+  set14[SG.learn_p - at14] = S.ids.P_TEMPO - at14;
+  set14[SG.speaker_off - at14] = 3;                      // (MORPH's byte then, as an earlier FRASIL may have left it)
+  const old14 = raw([{ obj: O.settings, data: set14 }, { obj: O.scenes, data: scenesDown(of(po, O.scenes), of(po, O.bseqs), "FRSl", OS.FRSn.nv, OS.FRSn.rec) },
+                     { obj: O.bseqs, data: bseqDown(of(po, O.bseqs), "FRBT") }]);
+  const r14 = FB.read(PB.parse(old14));
+  check(!r14.current && r14.layout === "FRSl" && r14.scenes[6].state === "saved" && r14.scenes[6].bseq.on && r14.scenes[6].bseq.steps === 3 &&
+        r14.scenes[6].tempo === bassy[ST.tempo] && r14.settings.current && r14.settings.layout === "FRSJ" &&
+        r14.settings.learned.some((l) => l.cc === 24 && l.p === S.ids.P_TEMPO) && r14.settings.speaker,
+        "a backup from before MASTER EQ, MASTER FILTER and LOFI TAPE (FRSJ, FRSl, FRBT): an earlier FRASIL's scenes, their basses and TEMPO, CC 24 on TEMPO, SPEAKER on");
+  fs.writeFileSync(path.join(dir, "old14.frasil"), old14);
   const parsed = PB.parse(dev.image);                    // (the FM-1's scenes record in another layout)
   const objs = parsed.objs.map((o) => ({ obj: o.obj, data: Uint8Array.from(o.data) }));
   objs.find((o) => o.obj === FB.S.objs.scenes).data[3] = "f".charCodeAt(0);
@@ -230,6 +266,12 @@ if (mode === "make") {
   const a13 = load("after13r.frasil");
   check(a13.current && a13.scenes[6].tempo === 40 && a13.scenes[2].tempo === 40 && a13.scenes[6].bseq.on && a13.scenes[6].bseq.steps === 3 &&
         a13.settings.tempo === 40, "the FRBS backup restored, made over by the FM-1: each scene at the settings' TEMPO (70 BPM), its bass kept");
+  const a14 = load("after14r.frasil");
+  check(a14.current && same(a14.scenes[6].bytes, madeOver(bassy, true, OS.FRSn.nv, false, bassy[ST.tempo])) &&
+        same(a14.scenes[2].bytes, madeOver(src.bytes, true, OS.FRSn.nv, false, src.bytes[ST.tempo])) &&
+        same(a14.settings.raw_v, dev.settings.raw_v) && a14.settings.learned.some((l) => l.cc === 24 && l.p === S.ids.P_TEMPO) &&
+        a14.settings.speaker,
+        "the FRSJ / FRSl / FRBT backup restored, made over by the FM-1: MASTER EQ, MASTER FILTER and LOFI TAPE off, the rest as it was, CC 24 on TEMPO, SPEAKER on");
   const a12 = load("after12r.frasil");
   check(a12.current && same(a12.scenes[6].bytes, gone(bassy, ST.v)) && a12.scenes[6].raw_v[GO.p] !== 99 &&
         a12.scenes.every((s) => s.state !== "saved" || s.raw_v[GO.p] === GO.of[s.raw_v[GO.decay]]) &&

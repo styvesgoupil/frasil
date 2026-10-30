@@ -38,6 +38,7 @@ typedef struct {
 } glint_t;
 
 static glint_t sp[GLINT_NV];
+static int sounding;                     /* a glint sounded in the last glint_render (glint_delay: else its input is 0) */
 static uint32_t sp_age, sp_rng = 0x6C8E9CF5u;
 
 static inline float tsin(uint32_t ph)
@@ -145,12 +146,14 @@ void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, 
 {
     uint32_t i, j;
     float lv = p->level, snd = p->space;
+    sounding = 0;
     for (j = 0; j < GLINT_NV; j++) {
         glint_t *s = &sp[j];
         uint32_t pc, pm, dm, dc;
         float amp, att, katt, idx, ie, k, ki, gl, gr, pg, dpg, fl;
         if (s->note < 0)
             continue;
+        sounding = 1;
         if (s->octv != p->octave)        /* OCTAVE turned: it sounds there at once */
             tune(s, p->octave);
         s->blocks++;
@@ -243,25 +246,41 @@ void glint_view(glint_view_t v[GLINT_NV])
 #define DL_N 20480u                      /* each line, half-rate samples: 0.93 s */
 #define DL_Q 16384.0f
 static int16_t dl[2][DL_N] BR_POOL;
+
+/* every glint silent and its echoes gone (the render's, between blocks: FRASIL's CUT) */
+void glint_cut(void)
+{
+    uint32_t i;
+    for (i = 0; i < GLINT_NV; i++)
+        sp[i].note = -1;
+    for (i = 0; i < DL_N; i++)
+        dl[0][i] = dl[1][i] = 0;
+}
 static struct {
     uint32_t w;
+    uint32_t zrun;                       /* how many steps the lines have been written nothing but 0 (DL_N on: they
+                                          * hold nothing) */
+    int pp;                              /* the ping-pong it counted them in (mono writes the left line alone) */
     float d;                             /* the time now, half-rate samples */
     float lp[2], hp[2];                  /* the feedback's filters, a line each */
     float prev[2];                       /* the last output, for the upsampling */
     float mix;
 } dly;
 
-static inline float dl_get(uint32_t c, float age)
+static inline float dl_get(uint32_t c, float age)   /* (age < DL_N: no modulo, the FM-1's division is slow) */
 {
-    uint32_t k = (uint32_t)age, i = (dly.w + DL_N - k) % DL_N, j = (i + DL_N - 1u) % DL_N;
+    uint32_t k = (uint32_t)age, i = dly.w + DL_N - k, j;
     float f = age - (float)k;
+    i -= i >= DL_N ? DL_N : 0u;
+    j = i ? i - 1u : DL_N - 1u;
     return ((float)dl[c][i] + ((float)dl[c][j] - (float)dl[c][i]) * f) * (1.0f / DL_Q);
 }
 
-static inline void dl_put(uint32_t c, float x)
+static inline int dl_put(uint32_t c, float x)   /* 1: it wrote 0 */
 {
     x = br_clampf(x * DL_Q, -32767.0f, 32767.0f);
     dl[c][dly.w] = (int16_t)x;
+    return dl[c][dly.w] == 0;
 }
 
 void glint_delay(float *l, float *r, float *send_l, float *send_r, uint32_t n, const glint_params_t *p)
@@ -274,6 +293,16 @@ void glint_delay(float *l, float *r, float *send_l, float *send_r, uint32_t n, c
         return;
     if (dly.d < 1.0f)
         dly.d = target;
+    if (p->delay_pp != dly.pp) {         /* (the right line, unwritten in mono, may hold echoes: count again) */
+        dly.pp = p->delay_pp;
+        dly.zrun = 0;
+    }
+    if (!sounding && dly.zrun >= DL_N && dly.lp[0] == 0.0f && dly.lp[1] == 0.0f && dly.hp[0] == 0.0f &&
+        dly.hp[1] == 0.0f && dly.prev[0] == 0.0f && dly.prev[1] == 0.0f) {
+        for (i = 0; i + 1u < n; i += 2u) /* (nothing in, nothing in the lines: nothing out, the time gliding on) */
+            dly.d += (target - dly.d) * 0.0015f;
+        return;
+    }
     for (i = 0; i + 1u < n; i += 2u) {
         float x = (l[i] + l[i + 1u] + r[i] + r[i + 1u]) * 0.25f, y[2];
         dly.d += (target - dly.d) * 0.0015f;
@@ -285,12 +314,13 @@ void glint_delay(float *l, float *r, float *send_l, float *send_r, uint32_t n, c
             dly.hp[c] += 0.034f * (dly.lp[c] - dly.hp[c]);
         }
         if (p->delay_pp) {               /* left: the input and the right coming back; right: the left */
-            dl_put(0, x + fb * (dly.lp[0] - dly.hp[0]));
-            dl_put(1, fb * (dly.lp[1] - dly.hp[1]));
+            int z = dl_put(0, x + fb * (dly.lp[0] - dly.hp[0]));
+            z &= dl_put(1, fb * (dly.lp[1] - dly.hp[1]));
+            dly.zrun = z ? dly.zrun + (dly.zrun < DL_N) : 0u;
         } else {
-            dl_put(0, x + fb * (dly.lp[0] - dly.hp[0]));
+            dly.zrun = dl_put(0, x + fb * (dly.lp[0] - dly.hp[0])) ? dly.zrun + (dly.zrun < DL_N) : 0u;
         }
-        dly.w = (dly.w + 1u) % DL_N;
+        dly.w = dly.w + 1u < DL_N ? dly.w + 1u : 0u;
         for (c = 0; c < 2u; c++) {       /* back to the full rate: a step between, then the sample */
             float a = (dly.prev[c] + y[c]) * 0.5f * dly.mix, b = y[c] * dly.mix;
             float *o = c ? r : l, *sd = c ? send_r : send_l;

@@ -6,7 +6,7 @@
 //   the rows' columns (KEY, GLINT, BASS: SEQ for AURORA's sequence), the toolbar only once a list is long, the
 //   filters, the search, the sorts (one's own in the page; the Community River's NEWEST, MOST PLAYED, FAVORITES from
 //   the service), paging by 24; the selection (Download, Share, Delete, Clear); an opened card's one action zone, one's
-//   own (Send, Edit, Share/Shared, Copy link, Delete; "No description. Add one") and someone else's (Send, Favorite,
+//   own (Send, Rename, Share/Shared, Copy link, Delete; "No description. Add one") and someone else's (Send, Favorite,
 //   Copy link, Report); favorites (added, removed, the list, no longer shared); the backups; the profile's rows; a
 //   disabled button in a dialog looks disabled (G6); phones with no horizontal scroll; no console errors. And phase A's
 //   review: the tablet's column labels (M1), the 25th favorite (M2), the focus kept (M4), HIDDEN and "no longer shared"
@@ -147,12 +147,12 @@ await shot(s, "01-private-2-1440.png");
 
 // ---------------------------------------------------------------- one's own card: its one action zone
 await s.click(`#m-${abyssId} .sr-open`);
-await s.waitForSelector(`#m-${abyssId}.open .oc-body .kb`);
+await s.waitForSelector(`#m-${abyssId}.open .oc-keys .k-board`);
 const ownActs = async (id) => words(s, `#m-${id} .acts > *`);
-check((await ownActs(abyssId)).join(",") === "SEND TO FM-1,EDIT,SHARE,DELETE", "one's own, opened: Send to FM-1, Edit, Share, Delete: " + (await ownActs(abyssId)).join(","));
+check((await ownActs(abyssId)).join(",") === "SEND TO FM-1,RENAME,SHARE,DELETE", "one's own, opened: Send to FM-1, Rename, Share, Delete: " + (await ownActs(abyssId)).join(","));
 check(/^Added \d+ \w+ \d{4} from slot \d\d of your FM-1 · FRASIL /.test(await s.textContent(`#m-${abyssId} .oc-meta`)), "... one quiet line: " + await s.textContent(`#m-${abyssId} .oc-meta`));
 check(await s.$$eval(`#m-${abyssId} .sec .dh-map rect.on`, (e) => e.length) >= 10 && !(await s.$(`#m-${abyssId} .sec-key`)), "the device hints: a map of the panel, lit (no button-like keys)");
-check((await s.$$eval(`#m-${abyssId} .acts > button`, (e) => e.map((x) => x.getAttribute("aria-label")))).join(" | ") === "Send to FM-1: ABYSS | Edit: ABYSS | Share: ABYSS | Delete: ABYSS",
+check((await s.$$eval(`#m-${abyssId} .acts > button`, (e) => e.map((x) => x.getAttribute("aria-label")))).join(" | ") === "Send to FM-1: ABYSS | Rename: ABYSS | Share: ABYSS | Delete: ABYSS",
       "each action named with its visible word first (Send to FM-1: ABYSS)");
 await s.click(`#m-${abyssId} [aria-label="Share: ABYSS"]`);
 await s.waitForSelector("dialog[open] .sheet-foot .btn-ice");
@@ -167,7 +167,7 @@ await s.click("dialog[open] .sheet-foot .btn-ice");
 await s.waitForFunction((id) => document.querySelector(`#m-${id} [data-act="share"]`)?.getAttribute("aria-pressed") === "true", abyssId);
 check(await s.getAttribute(`#m-${abyssId} [data-act="share"]`, "aria-label") === "Shared: ABYSS" && await s.getAttribute(`#m-${abyssId} [data-act="link"]`, "aria-label") === "Copy link: ABYSS" &&
       await s.evaluate((id) => document.activeElement === document.querySelector(`#m-${id} [data-act="share"]`), abyssId), "pressed: Shared: ABYSS, Copy link: ABYSS; the focus stays on it (M4)");
-check((await ownActs(abyssId)).join(",") === "SEND TO FM-1,EDIT,SHARED,COPY LINK,DELETE" && await s.isVisible(`#m-${abyssId}.open`),
+check((await ownActs(abyssId)).join(",") === "SEND TO FM-1,RENAME,SHARED,COPY LINK,DELETE" && await s.isVisible(`#m-${abyssId}.open`),
       "shared: SHARED (a toggle, pressed), Copy link once shared, still opened");
 check(/SHARED/.test(await s.textContent(`#m-${abyssId} .st`)) && /shared in the Community River on .* under CC BY 4\.0/.test(await s.textContent(`#m-${abyssId} .oc-meta`)),
       "... SHARED in its row, the licence in its line");
@@ -228,7 +228,7 @@ await allRows(s);
 // someone else's card: Send, Favorite, Copy link, Report
 const other = sharedIds[3];
 await s.click(`#s-${other} .sr-open`);
-await s.waitForSelector(`#s-${other}.open .oc-body .kb`);
+await s.waitForSelector(`#s-${other}.open .oc-keys .k-board`);
 check((await words(s, `#s-${other} .acts > *`)).join(",") === "SEND TO FM-1,FAVORITE,COPY LINK,REPORT", "someone else's, opened: Send to FM-1, Favorite, Copy link, Report");
 check(/^by Mira K\. · shared .* under CC BY 4\.0 · FRASIL /.test(await s.textContent(`#s-${other} .oc-meta`)) && !/0 plays|0 favorites/.test(await s.textContent(`#s-${other} .oc-meta`)),
       "... by, shared, licence, firmware; no zero counts: " + await s.textContent(`#s-${other} .oc-meta`));
@@ -512,7 +512,7 @@ await s.selectOption('#tb select[aria-label="Order"]', "old");
 await s.waitForSelector(`#m-${abyssId}`);
 await s.evaluate((id) => document.getElementById(id).scrollIntoView({ block: "start" }), `m-${abyssId}`);
 await s.click(`#m-${abyssId} .sr-open`);
-await s.waitForSelector(`#m-${abyssId}.open .oc-body .kb`);
+await s.waitForSelector(`#m-${abyssId}.open .oc-keys .k-board`);
 await s.click(`#m-${abyssId} .sec summary >> nth=0`);
 await s.evaluate((id) => scrollTo(0, document.getElementById(id).getBoundingClientRect().top + scrollY - 120), `m-${abyssId}`);
 await shot(s, "04-card-own-1440.png");
@@ -521,11 +521,11 @@ const aurora = hundred.find((x) => x.name === "AURORA");
 await s.fill("#tb input[type=search]", "aurora");
 await s.waitForSelector(`#m-${aurora.id}`);
 await s.click(`#m-${aurora.id} .sr-open`);
-await s.waitForSelector(`#m-${aurora.id}.open .oc-body .kb`);
+await s.waitForSelector(`#m-${aurora.id}.open .oc-keys .k-board`);
 const bassSec = s.locator(`#m-${aurora.id} .sec`).filter({ has: s.locator(".sec-name", { hasText: /^BASS$/ }) });
 await bassSec.locator("summary").click();
-check(/^BASS's sequence: \d+ steps/.test(await bassSec.locator(".sec-body .scr svg").getAttribute("aria-label")) && (await bassSec.locator(".pg-k").first().textContent()).includes("SEQ"),
-      "AURORA opened: BASS, its sequence's line of time; each page names its button");
+check(/^BASS's sequence: \d+ steps/.test(await s.getAttribute(`#m-${aurora.id} .sh-bass .scr svg`, "aria-label")) && (await bassSec.locator(".pg-k").first().textContent()).includes("SEQ"),
+      "AURORA opened: BASS at the left, its sequence's line of time; each page names its button");
 await s.evaluate((id) => scrollTo(0, document.getElementById(id).getBoundingClientRect().top + scrollY - 120), `m-${aurora.id}`);
 await shot(s, "04b-card-bass-1440.png");
 await fresh(sp, BASE + "/yours/");
@@ -533,7 +533,7 @@ await sp.waitForSelector("#tb .tb");
 await sp.selectOption('#tb select[aria-label="Order"]', "old");
 await sp.waitForSelector(`#m-${abyssId}`);
 await sp.click(`#m-${abyssId} .sr-open`);
-await sp.waitForSelector(`#m-${abyssId}.open .oc-body .kb`);
+await sp.waitForSelector(`#m-${abyssId}.open .oc-keys .k-board`);
 await sp.click(`#m-${abyssId} .sec summary >> nth=0`);
 await sp.evaluate((id) => scrollTo(0, document.getElementById(id).getBoundingClientRect().top + scrollY - 60), `m-${abyssId}`);
 await noScroll(sp, "one's own card");

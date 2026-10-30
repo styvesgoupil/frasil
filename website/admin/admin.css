@@ -1,0 +1,121 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 Styves Goupil
+ * FRASIL's admin page: the sites' night (base.css: its colours and faces), the instrument's voice only (tracked
+ * condensed caps), numbers in mono. Dense, plain, quick to read. */
+
+.adm { font: 400 15px/1.45 var(--f-ui); letter-spacing: .02em; }
+.adm .mono { font-family: var(--f-mono); font-size: 13px; letter-spacing: 0; }
+.adm .dim { color: var(--dim); }
+
+.adm-head {
+  position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 18px;
+  min-height: 64px; padding: 0 var(--gutter); background: rgba(10, 13, 18, .95);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--rule);
+}
+.adm-mark { display: inline-flex; border-radius: 3px; }
+.adm-mark img { width: 150px; height: auto; }
+.adm-name { margin-right: auto; padding: 6px 10px 5px; border: 1px solid var(--steel); border-radius: 6px;
+  font: 700 12px/1 var(--f-ui); letter-spacing: .24em; color: var(--ice); }
+
+.adm-btn {
+  display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px; border: 1px solid var(--steel); border-radius: 7px;
+  background: none; cursor: pointer; white-space: nowrap;
+  font: 600 11.5px/1 var(--f-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--fog);
+  transition: border-color .2s, color .2s, background-color .2s;
+}
+.adm-btn:hover { border-color: var(--mist); color: var(--white); background: rgba(220, 227, 234, .04); }
+.adm-btn:disabled { opacity: .4; cursor: default; }
+
+.adm-main { width: min(100%, 1320px); margin: 0 auto; padding: 26px var(--gutter) 80px; }
+.adm-state { margin: 12px 0 24px; font: 600 13px/1.4 var(--f-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--mist); }
+.adm-state[hidden], .adm-totals[hidden], .adm-sec[hidden] { display: none; }
+
+.adm-totals { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin: 0 0 34px; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; }
+.adm-totals div { padding: 14px 16px 13px; border-left: 1px solid var(--rule); }
+.adm-totals div:first-child { border-left: 0; }
+.adm-totals dt { font: 600 10.5px/1 var(--f-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--mist); }
+.adm-totals dd { margin: 8px 0 0; font: 500 26px/1 var(--f-ui); font-variant-numeric: tabular-nums; color: var(--white); }
+.adm-totals div:nth-child(n+6) dd { color: var(--lamp); }
+@media (max-width: 900px) {
+  .adm-totals { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .adm-totals div { border-top: 1px solid var(--rule); }
+  .adm-totals div:nth-child(-n+4) { border-top: 0; }
+  .adm-totals div:nth-child(4n+1) { border-left: 0; }
+}
+
+.adm-sec + .adm-sec { margin-top: 48px; }
+.adm-sec-h { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 12px; margin-bottom: 4px; }
+.adm-sec-h::after {                     /* the waterline, as the River's dialogs' */
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: linear-gradient(90deg, rgba(220, 227, 234, .6) 0, rgba(139, 149, 164, .5) 22%, var(--steel) 55%, rgba(38, 48, 60, .35) 100%);
+}
+.adm-h { font: 700 20px/1.1 var(--f-ui); letter-spacing: .15em; color: var(--white); }
+.adm-h span { margin-left: .5em; font-weight: 400; letter-spacing: .06em; color: var(--text-2); }
+.adm-find input {
+  width: 220px; min-height: 34px; padding: 6px 11px; background: #090c11; border: 1px solid var(--steel); border-radius: 7px;
+  font: 400 14px/1.2 var(--f-ui); letter-spacing: .03em; color: var(--fog);
+}
+.adm-find input:focus-visible { outline: 2px solid var(--lamp); outline-offset: 1px; }
+.adm-find input::placeholder { color: var(--slate); }
+
+.adm-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.adm-t { width: 100%; border-collapse: collapse; }
+.adm-t th, .adm-t td { padding: 10px 12px; text-align: left; vertical-align: baseline; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.adm-t thead th { padding-top: 12px; font: 600 10.5px/1 var(--f-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--mist); }
+.adm-t .n { text-align: right; font-variant-numeric: tabular-nums; }
+.adm-t td.n { font: 500 15px/1.45 var(--f-ui); color: var(--fog); }
+.adm-t th:first-child, .adm-t td:first-child { padding-left: 0; }
+.adm-t th:last-child, .adm-t td:last-child { padding-right: 0; }
+.adm-users tbody th { font-weight: 400; }
+.adm-u { cursor: pointer; transition: background-color .15s; }
+.adm-u:hover, .adm-u.on { background: rgba(220, 227, 234, .035); }
+.adm-u.on > * { border-bottom-color: transparent; }
+.adm-open { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: 600 15px/1.45 var(--f-ui); letter-spacing: .03em; color: var(--white); text-align: left; }
+.adm-open::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid var(--mist); border-bottom: 1.5px solid var(--mist);
+  transform: rotate(-45deg); transition: transform .2s var(--ease); }
+.adm-open[aria-expanded="true"]::before { transform: rotate(45deg); border-color: var(--ice); }
+.adm-u:hover .adm-open span { color: var(--ice); }
+
+.tag { display: inline-block; margin-left: 8px; padding: 3px 6px 2px; border: 1px solid var(--steel); border-radius: 4px; vertical-align: 1px;
+  font: 600 9.5px/1 var(--f-ui); font-style: normal; letter-spacing: .14em; text-transform: uppercase; color: var(--mist); }
+.tag.ice { color: var(--ice); border-color: rgba(110, 208, 255, .4); }
+.tag.warn { color: #ffb3a4; border-color: rgba(255, 138, 115, .45); }
+.tag.dim { color: var(--dim); border-style: dashed; }
+.adm-sub .tag { margin-left: 0; }
+
+.adm-d > td { padding: 0 0 22px 18px; background: rgba(220, 227, 234, .035); white-space: normal; }
+.adm-detail { padding: 4px 18px 0 0; border-left: 1px solid var(--steel); padding-left: 18px; }
+.adm-detail h4 { margin: 20px 0 6px; font: 600 11.5px/1 var(--f-ui); letter-spacing: .18em; color: var(--mist); }
+.adm-meta { margin-top: 2px; color: var(--dim); }
+.adm-sub th, .adm-sub td { padding-top: 8px; padding-bottom: 8px; border-bottom-color: #151b23; }
+.adm-sub tbody th { white-space: normal; min-width: 220px; font-weight: 400; }
+.adm-sub tbody th b { display: block; font: 700 14px/1.3 var(--f-ui); letter-spacing: .16em; color: var(--white); }
+.adm-sub tbody th small { display: block; max-width: 56ch; margin-top: 2px; font: 400 14px/1.4 var(--f-text); color: var(--text-2); }
+.adm-sub tbody th small.dim { font: 500 12px/1.4 var(--f-ui); letter-spacing: .04em; color: var(--dim); }
+.adm-backups { display: grid; gap: 0; margin: 0; padding: 0; }
+.adm-backups li { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 16px; padding: 8px 0; border-bottom: 1px solid #151b23; }
+.adm-note { padding: 10px 0; color: var(--dim); }
+.adm-note.warn { color: #ffb3a4; }
+
+.adm-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 18px; }
+.adm-list { min-width: 0; border: 1px solid var(--rule); border-radius: 12px; padding: 16px 18px 10px; background: rgba(14, 19, 25, .5); }
+.adm-list-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+.adm-list-h h3 { font: 700 15px/1 var(--f-ui); letter-spacing: .2em; color: var(--white); }
+.adm-list-h h3 span { margin-left: .5em; font-weight: 500; letter-spacing: .04em; color: var(--lamp); font-variant-numeric: tabular-nums; }
+.adm-mails { max-height: 520px; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+.adm-mails li { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid #151b23; }
+.adm-mails li:last-child { border-bottom: 0; }
+.adm-mails li span { min-width: 0; overflow-wrap: anywhere; color: var(--fog); }
+.adm-mails time { flex: none; }
+
+@media (max-width: 760px) {
+  .adm-lists { grid-template-columns: 1fr; }
+  .adm-sec-h { flex-wrap: wrap; }
+  .adm-find input { width: 160px; }
+  .adm-backups li { grid-template-columns: 1fr; gap: 2px; }
+}
+@media (max-width: 480px) {
+  .adm-mark img { width: 120px; }
+  .adm-head { gap: 12px; }
+}

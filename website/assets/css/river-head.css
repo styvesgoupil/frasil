@@ -63,3 +63,6 @@
   .rvh-tag { font-size: 10px; letter-spacing: .12em; }
 }
 @media (max-width: 380px) { .rvh-nav a { font-size: 14px; letter-spacing: .06em; } }
+/* the main site's menu, here too (site.js): back to frasilsynth.com, the ways to play, Perform, in a tap */
+.rvh .menu-btn { margin-left: -6px; }
+@media (max-width: 1080px) { .rvh-nav { order: 2; } }

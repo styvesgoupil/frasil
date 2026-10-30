@@ -1,41 +1,77 @@
 <!--
 title: Mixer · Pump · Mastering
-lede: A fader and a live meter for each track, a duck on the beat as a sidechain would make it, and a light compressor on the output.
-description: FRASIL's MIXER (DRONE, BASS, GLINT and CLOUD faders with live meters), PUMP (a sidechain-style duck on the beat for each track) and MASTERING (a compressor on the output).
+lede: A fader per track, a filter and tape on the tracks you choose, a sidechain-style pump, and an EQ and compressor on the output.
+description: FRASIL's MIXER, MASTER FILTER, LOFI TAPE, PUMP, ROUTING, MASTER EQ and MASTERING pages.
 buttons: HOME > HOME
-hint: Pump: FX · Mastering: GLO
+hint: Filter, tape, pump: FX · EQ, mastering: GLO
 -->
 <h2 id="the-mixer">The mixer</h2>
 <div class="g-split">
   <div>
-    <p>Press HOME on the play page: a fader for each track, DRONE, BASS, GLINT, and CLOUD, the reverb’s return, each in
-      its colour, with the track’s meter beside it, live. K1–K4 move them. 100 is the level as it is (a mark on the
-      track), up to 127.</p>
-    <p>The faders are the tracks’ levels in the mix, after their own sound: DRONE and GLINT take what they send into the
-      cloud down with them. HOME again opens the logo screen.</p>
+    <p>Press HOME on the play page: a fader and a live meter for each track, DRONE, BASS, GLINT and CLOUD (the reverb).
+      K1–K4 move them. 100 is unity.</p>
+    <p>HOME again opens the logo screen.</p>
+    <p>Hold OCT− and turn K1–K4 to pan each track. A scene keeps the pans. An LFO can move them (see
+      <a href="{{root}}guide/lfo/#targets-mix">The LFOs</a>).</p>
   </div>
   <div class="g-figure">{{shot_mixer}}</div>
 </div>
 
+<h2 id="master-filter">Master filter</h2>
+<p>MASTER FILTER (FX, fifth page) is a low-pass or high-pass on the tracks you pick with TRACKS. An LFO can move CUTOFF
+  and RESO (see <a href="{{root}}guide/lfo/#targets-mix">The LFOs</a>).</p>
+
+<h2 id="lofi-tape">Lofi tape</h2>
+<p>LOFI TAPE (FX, sixth page) puts the tracks you pick on worn tape. SATURATION warms and dulls them without making
+  them louder. WOBBLE adds wow, flutter and the odd drag.</p>
+
 <h2 id="pump">Pump</h2>
-<p>PUMP (FX, fifth page) ducks the tracks on the beat, as a sidechain from a kick would, without a kick: at RATE, on
-  the arpeggiator’s grid (MIDI clock, else TEMPO), each track dips and comes back up. DRONE, BASS and GLINT set how deep
-  each one goes; the cloud pumps with the drones. The river breathes with it.</p>
-<p>PUMP II shapes it: RELEASE, how much of the period it takes to come back (short: a tight pump; all of it: a slow
-  breath); ATTACK, how fast it goes down (1 ms: a kick’s; 300 ms: a soft wave); OFFSET, where in the period it goes down
-  (50 %: on the off-beat).</p>
+<p>PUMP (FX, seventh page) ducks the tracks on the beat, like a sidechain from a kick. RATE sets how often. DRONE, BASS
+  and GLINT set how deep each one ducks.</p>
+<p>PUMP II shapes it: RELEASE (how long it takes to come back), ATTACK (how fast it drops), OFFSET (where in the beat
+  it drops; 50 % is the off-beat).</p>
+
+<h2 id="routing">Routing</h2>
+<p>ROUTING (GLO, sixth page). FILTER and TAPE: POST CLOUD puts them after the reverb, PRE CLOUD before it, leaving the
+  reverb clean. CLOUD PUMP: ON, PUMP ducks the reverb with the drone. A scene keeps these three.</p>
+<p>SPK/JACK OFF mutes the speaker and headphone jack while USB audio goes on: record with the room quiet. The FM-1
+  keeps it through power-off.</p>
+
+<h2 id="screen-animations">Screen</h2>
+<p>SCREEN (GLO, seventh page): ANIMATIONS LOW stills the decorative animations. Meters and playheads still move.</p>
 
 <h2 id="mastering">Mastering</h2>
-<p>MASTERING (GLO, third page) is a compressor on the whole output, before the soft limit: THRESHOLD, RATIO (OFF by
-  default), RELEASE (its attack is 10 ms) and GAIN, the make-up. The page shows the gain reduction, live.</p>
+<p>MASTERING (GLO, third page) is a compressor on the whole output. RATIO is OFF by default. GAIN is make-up gain.
+  The page shows the gain reduction live.</p>
+
+<h2 id="master-eq">Master EQ</h2>
+<p>MASTER EQ (GLO, fourth page) is a three-band EQ on the output. PRESET picks a starting curve; turn a band and it
+  says CUSTOM. Turn PRESET between OFF and CUSTOM to compare with and without.</p>
+<p>MASTER EQ II (GLO, fifth page) sets each band’s frequency, and the MID band’s width, <span class="k">Q</span>.</p>
+<dl class="model-list">
+  <div><dt>FLAT</dt><dd>no change</dd></div>
+  <div><dt>WARM</dt><dd>more lows, softer highs</dd></div>
+  <div><dt>AIR</dt><dd>more highs</dd></div>
+  <div><dt>MUD CUT</dt><dd>less low-mid</dd></div>
+  <div><dt>BOX CUT</dt><dd>less boxiness</dd></div>
+  <div><dt>LOUD</dt><dd>lows and highs up</dd></div>
+  <div><dt>SMALL SPEAKER</dt><dd>lows cut, presence up</dd></div>
+</dl>
+<p>A scene keeps MASTER FILTER, LOFI TAPE, MASTER EQ and MASTERING.</p>
 
 <h2 id="the-pages">The pages</h2>
 <table class="params pages-table">
   <thead><tr><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead>
   <tbody>
-    <tr><td>MIXER <small>HOME, twice</small></td><td>DRONE</td><td>BASS</td><td>GLINT</td><td>CLOUD <small>each 0 to 127, 100 as it is</small></td></tr>
-    <tr><td>PUMP <small>FX, 5th</small></td><td>RATE <small>OFF, 4 BARS, 2 BARS, 1 BAR, 1/2, 1/4, 1/8</small></td><td>DRONE <small>its depth</small></td><td>BASS</td><td>GLINT</td></tr>
-    <tr><td>PUMP II <small>FX, 6th</small></td><td>RELEASE <small>10 to 100 % of the period</small></td><td>ATTACK <small>1 to 300 ms</small></td><td>OFFSET <small>0 to 100 % of the period</small></td><td></td></tr>
-    <tr><td>MASTERING <small>GLO, 3rd</small></td><td>THRESHOLD <small>−40 to 0 dB</small></td><td>RATIO <small>OFF, 1.5:1 to 20:1</small></td><td>RELEASE <small>30 ms to 1.5 s</small></td><td>GAIN <small>0 to +18 dB</small></td></tr>
+    <tr><td>MIXER <small>HOME, twice</small></td><td>DRONE</td><td>BASS</td><td>GLINT</td><td>CLOUD <small>OCT− held: PAN</small></td></tr>
+    <tr><td>MASTER FILTER <small>FX, 5th</small></td><td>TYPE <small>OFF, LOW PASS, HIGH PASS</small></td><td>CUTOFF</td><td>RESONANCE</td><td>TRACKS</td></tr>
+    <tr><td>LOFI TAPE <small>FX, 6th</small></td><td>TAPE <small>OFF, ON</small></td><td>SATURATION</td><td>WOBBLE</td><td>TRACKS</td></tr>
+    <tr><td>PUMP <small>FX, 7th</small></td><td>RATE <small>OFF, 4 BARS to 1/8</small></td><td>DRONE <small>depth</small></td><td>BASS</td><td>GLINT</td></tr>
+    <tr><td>PUMP II <small>FX, 8th</small></td><td>RELEASE</td><td>ATTACK</td><td>OFFSET</td><td></td></tr>
+    <tr><td>MASTERING <small>GLO, 3rd</small></td><td>THRESHOLD</td><td>RATIO</td><td>RELEASE</td><td>GAIN</td></tr>
+    <tr><td>MASTER EQ <small>GLO, 4th</small></td><td>PRESET</td><td>LOW</td><td>MID</td><td>HIGH</td></tr>
+    <tr><td>MASTER EQ II <small>GLO, 5th</small></td><td>LOW FREQ</td><td>MID FREQ</td><td><span class="k">Q</span></td><td>HIGH FREQ</td></tr>
+    <tr><td>ROUTING <small>GLO, 6th</small></td><td>FILTER <small>POST CLOUD, PRE CLOUD</small></td><td>TAPE <small>POST CLOUD, PRE CLOUD</small></td><td>CLOUD PUMP <small>ON, OFF</small></td><td>SPK/JACK <small>ON, OFF</small></td></tr>
+    <tr><td>SCREEN <small>GLO, 7th</small></td><td>ANIMATIONS <small>NORMAL, LOW</small></td><td></td><td></td><td></td></tr>
   </tbody>
 </table>

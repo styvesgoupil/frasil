@@ -112,20 +112,30 @@ class ShardIn(BaseModel):                         # (a field not here is ignored
     data: str                                     # the scene_t, base64
     from_slot: int | None = None                  # the FM-1's slot it came from, 0-15 (the page's scene.slot)
     description: str = ""
+    origin: str | None = None                     # the shard it was made from (the editor's SAVE AS): someone else's
+                                                  # public one is credited (CC BY 4.0), one's own passes its credit on
 
 
 class ShardEdit(BaseModel):
     name: str | None = None
     description: str | None = None
+    data: str | None = None                       # the editor's SAVE: its sound changed (the scene_t, base64, in the
+    layout: str | None = None                     # current layout; its name stays the shard's, or the edit's)
+    firmware: str | None = None
 
 
 def edited(request, x, e):
     """a shard's fields with an edit's applied -> (data, name, description, bseq)"""
     sch = request.app.state.schema
-    data = checked(sch.renamed, x["data"], e.name.strip().upper()) if e.name is not None else x["data"]
+    data = x["data"]
+    if e.data is not None:                        # (its sound: as checked as a new shard's, under its own name)
+        if e.layout != sch.layout:
+            raise HTTPException(422, f"layout: {sch.layout} only (update the page).")
+        data = checked(sch.renamed, checked(sch.shard, unb64(e.data, "data"), sch.layout), sch.name_of(x["data"]))
+    data = checked(sch.renamed, data, e.name.strip().upper()) if e.name is not None else data
     return (data, sch.name_of(data),
             x["description"] if e.description is None else clean(e.description, 1000, "A description", lines=True),
-            sch.derived(data)["bseq"] if x["layout"] == sch.layout else x["bseq"])
+            sch.derived(data)["bseq"] if e.data is not None or x["layout"] == sch.layout else x["bseq"])
 
 
 def rewrite(db, sid, data, name, description, bseq, *more):
@@ -142,6 +152,16 @@ def shards(u=Depends(user), db=DB):
 @r.post("/shards", status_code=201)
 def shard_add(body: ShardIn, request: Request, u=Depends(user), db=DB):
     sch = request.app.state.schema
+    origin = credit = None
+    if body.origin:                               # (made from another: its first author credited, as a copy's)
+        o = db.execute("SELECT origin_id, origin_author_id FROM shards WHERE id = ? AND owner_id = ?",
+                       (body.origin, u["id"])).fetchone()
+        if o:                                     # one's own: its credit passed on, if it had one
+            origin, credit = (o["origin_id"], o["origin_author_id"]) if o["origin_id"] else (None, None)
+        else:                                     # someone else's in the River, or among one's favorites (shared
+            x = db.execute(FAVORITES + " AND s.id = ?", (u["id"], body.origin)).fetchone()   # no longer, it still is)
+            x = x or public(db, body.origin)
+            origin, credit = body.origin, x["origin_author_id"] if x["origin_id"] else x["owner_id"]
     request.app.state.limiter.hit(f"upload:{u['id']}", 200, 3600)
     raw = unb64(body.data, "data")                # (a page still open from before: its layout made over, as at startup)
     up = sch.upgraded(raw, body.layout) if body.layout != sch.layout else None
@@ -158,20 +178,29 @@ def shard_add(body: ShardIn, request: Request, u=Depends(user), db=DB):
     with tx(db):
         sid = new_id(db, "shards")
         db.execute("INSERT INTO shards (id, owner_id, name, description, layout, firmware, data, from_slot, root, "
-                   "scale, type, drone, glint, bseq, created_at, updated_at) "
-                   "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                   "scale, type, drone, glint, bseq, origin_id, origin_author_id, created_at, updated_at) "
+                   "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                    (sid, u["id"], sch.name_of(data), description, sch.layout, body.firmware, data, body.from_slot,
-                    d["root"], d["scale"], d["type"], d["drone"], d["glint"], d["bseq"], t, t))
+                    d["root"], d["scale"], d["type"], d["drone"], d["glint"], d["bseq"], origin, credit, t, t))
     return shard_json(mine(db, sid, u))
 
 
 @r.patch("/shards/{sid}")
 def shard_edit(sid: str, body: ShardEdit, request: Request, u=Depends(user), db=DB):
     x = mine(db, sid, u)
+    if body.data is not None and body.firmware is not None and not FIRMWARE.match(body.firmware):
+        raise HTTPException(422, "firmware: a version, such as 1.1.")
     f = edited(request, x, body)
     if x["visibility"] == "public":
         shown(request, *f[1:3])
-    rewrite(db, sid, *f)
+    with tx(db):
+        rewrite(db, sid, *f)
+        if body.data is not None:                 # (what the lists filter by, from its sound; its layout the current)
+            sch = request.app.state.schema
+            d = sch.derived(f[0])
+            db.execute("UPDATE shards SET layout = ?, root = ?, scale = ?, type = ?, drone = ?, glint = ?, firmware = ? "
+                       "WHERE id = ?", (sch.layout, d["root"], d["scale"], d["type"], d["drone"], d["glint"],
+                                        body.firmware or x["firmware"], sid))
     return shard_json(mine(db, sid, u))
 
 
@@ -186,6 +215,8 @@ def shard_delete(sid: str, u=Depends(user), db=DB):
 def share(sid: str, request: Request, body: ShardEdit | None = None, u=Depends(user), db=DB):
     """into the public River, under CC BY 4.0 (its author named); an edit may come with it (a name, a description)"""
     x = mine(db, sid, u)
+    if body and body.data is not None:
+        raise HTTPException(422, "data: not here (PATCH the shard first).")
     if not u["verified_at"]:
         raise HTTPException(403, "Confirm your email first: the River sent you a link (or ask for a new one).")
     if x["visibility"] == "hidden":

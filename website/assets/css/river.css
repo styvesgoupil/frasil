@@ -178,8 +178,6 @@ body.is-busy { cursor: progress; }
 .gl-meta { margin-left: auto; display: inline-flex; align-items: baseline; gap: 7px; white-space: nowrap; }
 .gl-v { font: 600 12.5px/1 var(--f-ui); letter-spacing: .12em; color: var(--fog); }
 .gl-v + .sig-l { margin-left: 10px; }
-.cells4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 14px; row-gap: 14px; margin-top: 16px; }
-.gl-sub + .cells4 { margin-top: 8px; }
 
 .cell { min-width: 0; }
 .cell-n { display: flex; align-items: center; gap: 5px; font: 600 10px/12px var(--f-ui); letter-spacing: .14em; color: var(--mist); white-space: nowrap; }
@@ -266,7 +264,6 @@ body.is-busy { cursor: progress; }
   .sh-plays { padding: 0 16px 18px; }
   .sh-glint { padding: 16px 16px 18px; }
   .scr { padding: 8px 8px 4px; }
-  .cells4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .gl-meta { margin-left: 0; width: 100%; }
   .sec-row { grid-template-columns: 12px minmax(0, 1fr) auto; row-gap: 6px; padding: 12px 16px; }
   .sec-mid { grid-column: 2 / -1; grid-row: 2; }
@@ -897,7 +894,7 @@ a.pt-t:focus-visible, .pt-t:focus-visible { outline: 2px solid var(--lamp); outl
 .sr-item.open .sr-open:hover { color: var(--white); background: #111821; }
 .oc-more { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows .55s var(--ease), visibility 0s linear .55s; }
 .sr-item.open > .oc-more { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows .55s var(--ease), visibility 0s; }
-.oc-in { min-height: 0; overflow: hidden; }
+.oc-in { min-height: 0; overflow: hidden; overflow: clip; }    /* (clip, not hidden: no scroller of its own, THE KEYS stick to the window) */
 /* what was written about it, one quiet line of facts */
 .oc-intro { display: grid; gap: 10px; padding: 0 24px 24px 141px; }
 .list.pub .oc-intro { padding-left: 97px; }
@@ -914,19 +911,206 @@ a.pt-t:focus-visible, .pt-t:focus-visible { outline: 2px solid var(--lamp); outl
 .oc-meta a:hover { color: var(--white); }
 .oc-meta .dot { padding: 0 .2em; color: var(--slate); }
 .oc-meta .gone { font-style: italic; color: var(--text-2); }
-/* what plays and GLINT at the left; every page at the right, each with its map of the FM-1 */
-.oc-body { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); border-top: 1px solid var(--rule); }
-.oc-left { min-width: 0; padding: 22px 24px 26px; }
+/* what moves at the left (GLINT, the bass, the LFOs abreast); every page at the right, each with its map of the FM-1;
+ * THE KEYS the whole width under them */
+.oc-body { border-top: 1px solid var(--rule); }
+.oc-cols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+.oc-left { min-width: 0; padding: 22px 24px 24px; }
 .oc-left .sh-plays { padding: 0; }
-.oc-left .sh-glint { padding: 22px 0 0; margin-top: 22px; border-top: 1px solid var(--rule); }
+.oc-left .sh-glint { padding: 0; margin: 0; border: 0; }
+.sh-bass { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--rule); }
+.gl-type.is-bq { background: var(--lamp); color: var(--night); }
+.bq-none { font: 600 10.5px/1 var(--f-ui); letter-spacing: .16em; color: var(--dim); padding: 6px 0 2px; }
 .oc-right { min-width: 0; border-left: 1px solid var(--rule); }
 .oc-right .secs { border-top: 0; }
-.oc-body.is-old { grid-template-columns: minmax(0, 1fr); }
+.oc-body.is-old { display: grid; grid-template-columns: minmax(0, 1fr); }
 .oc-body.is-old .sh-note { padding: 0 24px 24px; }
 .sx-h { display: flex; justify-content: space-between; align-items: center; height: 42px; padding: 0 24px; border-bottom: 1px solid var(--rule); font: 600 10.5px/1 var(--f-ui); letter-spacing: .18em; color: var(--dim); }
 /* while it plays, the keyboard's waterline moves too */
 .kb-in { position: relative; }
 .kb-in .ms-wave { left: 0; width: 100%; top: calc(32.5 / 106 * 100% - 9px); height: 18px; }
+/* while it plays, the card follows it (river-cards' live parts): what is latched dims under what sounds; GLINT's
+ * arpeggio shows the walk it takes, not the one its MODE would take */
+.kb .kb-st { transition: opacity .4s; }
+.kb.is-live .kb-st { opacity: .26; }
+.strip .lv-walk, .strip.is-live .st-walk { display: none; }
+.strip.is-empty { opacity: .55; }          /* (GLINT's arpeggio with no notes: silent) */
+.strip.is-live .lv-walk { display: inline; }
+/* a setting an LFO moves: its value now, a tick in the LFO's target's colour along its gauge */
+.gauge b { position: absolute; top: 0; left: 0; width: 1.5px; height: 7px; opacity: 0; }
+/* the editor (river-edit.js): a setting turns as a knob does. Hovered, a panel under it and its gauge brighter; turned,
+ * a lamp frame (the hand); changed, its value lamp, a dot before its name, a slate tick where it was */
+.sr-item.is-editable.open .oc-body .cell { position: relative; border-radius: 6px; margin: -6px -8px; padding: 6px 8px; cursor: ew-resize;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none; transition: background-color .15s, box-shadow .15s; }
+.sr-item.is-editable.open .oc-body .cell.is-choice { cursor: pointer; }
+@media (hover: hover) {
+  .sr-item.is-editable.open .oc-body .cell:hover { background: #111821; }
+  .sr-item.is-editable.open .oc-body .cell:hover .gauge::before { background: var(--slate); }
+  .sr-item.is-editable.open .oc-body .cell:hover .cell-v .v { color: var(--white); }
+  .sr-item.is-editable.open .oc-body .cell.is-choice:hover::after { content: ""; position: absolute; right: 10px; top: 12px; width: 5px; height: 5px;
+    border-right: 1.3px solid var(--mist); border-bottom: 1.3px solid var(--mist); transform: rotate(45deg); }
+}
+.sr-item.is-editable.open .oc-body .cell:focus-visible { outline: 2px solid var(--lamp); outline-offset: 0; }
+.sr-item.is-editable.open .oc-body .cell.is-open { background: #111821; }
+.sr-item .cell.is-edited .cell-v .v, .sr-item .cell.is-edited .cell-v .u { color: var(--lamp); }
+.sr-item .cell.is-edited .cell-n::before { content: ""; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--lamp); margin-right: 6px; vertical-align: 1px; }
+.sr-item .cell.is-edited .gauge i, .sr-item .cell.is-edited .gauge i::after, .sr-item .cell.is-edited .dots i.on { background: var(--lamp); }
+.gauge .was { position: absolute; top: 1px; width: 1px; height: 5px; background: var(--slate); }
+.sr-item.is-editable.open .oc-body .cell.is-active { background: rgba(242, 166, 90, .07); box-shadow: inset 0 0 0 1px rgba(242, 166, 90, .55); }
+.sr-item .cell.is-active .cell-n { color: var(--lamp); }
+.ed-dragging, .ed-dragging * { cursor: ew-resize !important; }
+.sec-name .ed-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--lamp); margin-left: 8px; vertical-align: 2px; }
+/* edited: one line under its description; closed, a mark under its name */
+.ed-band { display: flex; align-items: baseline; gap: 16px; padding: 12px 24px 12px 141px; border-top: 1px solid var(--rule);
+  background: linear-gradient(90deg, rgba(242, 166, 90, .07), rgba(242, 166, 90, 0) 60%); }
+.list.pub .ed-band { padding-left: 97px; }
+.ed-band b { font: 600 11px/1 var(--f-ui); letter-spacing: .2em; color: var(--lamp); white-space: nowrap; }
+.ed-band span { font: 400 15.5px/1.45 var(--f-text); color: var(--text-2); }
+.ed-band em { font-style: normal; color: var(--fog); }
+.nm-ed { display: block; margin-top: 3px; font: 600 9.5px/1 var(--f-ui); letter-spacing: .16em; color: var(--lamp); }
+.sr-item.open .nm-ed { display: none; }
+/* a choice's list, over the page under its setting */
+.ed-pop { position: absolute; z-index: 40; min-width: 172px; max-height: 340px; overflow: auto; padding: 6px; border-radius: 9px;
+  background: #0f151c; border: 1px solid #243040; box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .9), 0 0 0 1px rgba(0, 0, 0, .4); }
+.ed-pop h5 { margin: 8px 10px 4px; font: 600 9.5px/1 var(--f-ui); letter-spacing: .18em; color: var(--dim); }
+.ed-pop button { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px;
+  background: none; text-align: left; font: 600 12.5px/1 var(--f-ui); letter-spacing: .12em; color: var(--fog); cursor: pointer; }
+.ed-pop button:hover, .ed-pop button:focus-visible { background: #18212c; color: var(--white); outline: none; }
+.ed-pop button.is-on { color: var(--ice); }
+.ed-pop button.is-on::after { content: ""; width: 8px; height: 4.5px; border-left: 1.5px solid var(--ice); border-bottom: 1.5px solid var(--ice); transform: rotate(-45deg) translate(1px, -1px); }
+.ed-pop button .w { font: 600 9px/1 var(--f-ui); letter-spacing: .14em; color: var(--dim); }
+/* SAVE AS: someone else's, credited */
+.ed-from { display: flex; gap: 12px; align-items: flex-start; margin-top: 18px; padding: 14px 16px; border-radius: 8px; background: #0c1117; border: 1px solid var(--rule); }
+.ed-from p { margin: 0; font: 400 15px/1.5 var(--f-text); color: var(--text-2); }
+.ed-from p b { display: inline-block; margin-bottom: 4px; font-weight: 500; color: var(--fog); }
+.ed-from .cc { flex: none; margin-top: 2px; font: 600 9.5px/1 var(--f-ui); letter-spacing: .14em; color: var(--mist); border: 1px solid var(--steel); border-radius: 4px; padding: 4px 6px; }
+.ed-sign { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.ed-sheet .sheet-lede + .field { margin-top: 22px; }
+@media (max-width: 1100px) { .ed-band { padding-left: 24px; } }
+@media (max-width: 760px) {
+  .ed-band, .list.pub .ed-band { padding: 12px var(--gutter); flex-direction: column; gap: 6px; }
+  .sr-item.is-editable.open .oc-body .cell { margin: -4px -6px; padding: 4px 6px; }
+}
+/* the LFOs, three abreast under the bass: each its shape, where it is now, what it moves */
+.oc-lfo { min-width: 0; margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--rule); display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)); align-content: start; column-gap: 18px; }
+.oc-lfo .sh-sub { grid-column: 1 / -1; margin-bottom: 4px; }
+.lf { min-width: 0; padding: 6px 0 0; }
+.lf-h { display: grid; gap: 5px; margin-bottom: 8px; }
+.lf-n { font: 600 11px/1 var(--f-ui); letter-spacing: .18em; color: var(--fog); }
+.lf-r { display: flex; flex-wrap: wrap; gap: 4px 7px; font: 600 10px/1 var(--f-ui); letter-spacing: .12em; color: var(--fog); white-space: nowrap; }
+.lf-r .lf-rt { color: var(--text-2); }
+.lf.is-off .lf-n, .lf.is-off .lf-r { color: var(--dim); }
+.lf-sc { display: block; width: 100%; height: auto; overflow: visible; }
+.lf-ts { list-style: none; margin: 9px 0 0; padding: 0; display: grid; gap: 7px; }
+.lf-ts li { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 3px; }
+.lf-t { font: 600 10px/1.2 var(--f-ui); letter-spacing: .12em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lf.is-off .lf-t { opacity: .55; }
+.lf-g { display: block; position: relative; height: 7px; max-width: 88px; }
+.lf-g::before { content: ""; position: absolute; left: 0; right: 0; top: 3px; height: 1px; background: var(--steel); }
+.lf-g i { position: absolute; left: 0; top: 3px; height: 1px; width: calc(var(--f) * 100%); background: var(--mist); }
+.lf-g b { position: absolute; left: calc(var(--f) * 100% - .75px); top: 0; width: 1.5px; height: 7px; background: var(--fog); }
+.lf-none { margin: 9px 0 0; font: 600 10px/1 var(--f-ui); letter-spacing: .14em; color: var(--dim); }
+/* an LFO's section, opened: its picture first, wide, moving as it plays */
+.sec-body > .lf-wide { padding: 12px 16px 8px; }
+.lf-wide .lf-sc { width: 100%; }
+
+/* ================================================================ THE KEYS (river-keys.js): the whole width under the
+ * card's columns: what the keys play and how, the keyboard (or GLINT's grid, the bass's steps over it), the track's
+ * own settings under it, the legend */
+.sr-item.open { overflow-anchor: none; }     /* (an opened card keeps its place itself as it is drawn again: river-edit.js show) */
+.oc-keys { min-width: 0; border-top: 1px solid var(--rule); padding: 18px 24px 16px; display: grid; align-content: start; gap: 14px;
+  background: linear-gradient(180deg, rgba(110, 208, 255, .025), rgba(110, 208, 255, 0) 140px), var(--panel); }
+.oc-kset { padding: 4px 24px 22px; }
+.oc-kset:empty { display: none; }
+/* a screen wide and tall enough: the keyboard at the window's bottom while the card is on it (river-keys.js: is-stuck;
+ * GLINT's grid stays in its place) */
+@media (min-width: 761px) and (min-height: 560px) {
+  .oc-keys:not(.is-grid):not(.no-dock) { position: sticky; bottom: 0; z-index: 3; transition: box-shadow .25s; }
+  .oc-keys.is-stuck { border-top-color: #243040; box-shadow: 0 -28px 44px -24px rgba(0, 0, 0, .9); }
+}
+.k-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; }
+.k-top .k-legend { margin: 0; }
+.k-title { font: 600 11px/1.3 var(--f-ui); letter-spacing: .18em; color: var(--mist); margin: 0 6px 0 0; }
+.k-title .ed-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--lamp); margin-left: 8px; vertical-align: 2px; }
+.k-ctl { display: flex; align-items: center; gap: 10px; }
+.k-l { font: 600 9.5px/1 var(--f-ui); letter-spacing: .16em; color: var(--mist); margin: 0; white-space: nowrap; }
+.k-seg { display: flex; border: 1px solid var(--steel); border-radius: 7px; overflow: hidden; }
+.k-seg button { min-width: 78px; height: 32px; padding: 0 12px; border: 0; background: none; font: 600 11px/1 var(--f-ui); letter-spacing: .16em;
+  color: var(--mist); cursor: pointer; position: relative; transition: color .2s, background-color .2s; }
+.k-seg button + button { border-left: 1px solid var(--steel); }
+.k-seg button:hover { color: var(--white); }
+.k-seg button:focus-visible { outline: 2px solid var(--lamp); outline-offset: -2px; }
+.k-seg button.on { color: var(--white); background: #121a23; cursor: default; }
+.k-seg button.on::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 5px; height: 2px; border-radius: 1px; background: var(--c, var(--ice)); }
+.k-seg .t-overview { --c: var(--white); }
+.k-seg .t-drone { --c: var(--fog); }
+.k-seg .t-glint { --c: var(--ice); }
+.k-seg .t-bass { --c: var(--lamp); }
+.k-board { position: relative; background: #090c11; border-radius: 8px; box-shadow: inset 0 0 0 1px #151b23, inset 0 0 24px rgba(0, 0, 0, .55);
+  padding: 10px 12px 6px; touch-action: pan-x pan-y; user-select: none; -webkit-user-select: none; }
+.k-board:not(.is-grid) { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }   /* (its strip shows where) */
+.k-board:not(.is-grid)::-webkit-scrollbar { display: none; }
+.k-board:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
+.k-board svg { display: block; width: 100%; height: auto; }
+.k-board > svg.k-kb { width: calc(var(--kz, 1) * 100%); max-width: none; }
+/* under the keys: where they are (the window on C1..C8, dragged), the track's notes, ZOOM */
+.k-strip { display: flex; align-items: center; gap: 18px; margin-top: -6px; }
+.k-scroll { position: relative; flex: 1; min-width: 0; height: 18px; cursor: pointer; touch-action: none; visibility: hidden; }
+.k-strip.can .k-scroll { visibility: visible; }
+.k-rail { position: absolute; left: 0; right: 0; top: 8px; height: 2px; border-radius: 1px; background: var(--steel); }
+.k-scroll b { position: absolute; top: 6px; width: 2px; height: 6px; margin-left: -1px; border-radius: 1px; background: var(--c, var(--fog)); opacity: .8; }
+.k-strip.t-glint { --c: var(--ice); }
+.k-strip.t-bass { --c: var(--lamp); }
+.k-strip.t-overview { --c: var(--white); }
+.k-thumb { position: absolute; top: 3px; height: 12px; border-radius: 6px; background: rgba(139, 149, 164, .22);
+  box-shadow: inset 0 0 0 1px rgba(139, 149, 164, .55); transition: background-color .2s; }
+.k-scroll:hover .k-thumb, .k-strip.drag .k-thumb { background: rgba(220, 227, 234, .3); box-shadow: inset 0 0 0 1px var(--fog); }
+.k-zoom { margin-left: auto; }
+.k-zoom .k-seg button { min-width: 38px; height: 28px; padding: 0; font-size: 16px; letter-spacing: 0; }
+.k-zoom .k-seg button[aria-disabled="true"] { color: var(--slate); cursor: default; }
+.k-board.is-grid { max-height: 470px; overflow-y: auto; padding: 8px 10px 6px; }
+.k-kb * { pointer-events: none; }
+.k-kb .k-key { pointer-events: all; }
+.k-kb.is-ed .k-key { cursor: pointer; }
+.k-kb.is-dim { opacity: .45; }
+.k-kb.is-dim .k-key { cursor: not-allowed; }
+.k-tagt { font-size: 11px; }
+.k-grid * { pointer-events: none; }
+.k-gw { position: relative; }
+.k-hits { position: absolute; inset: 0; pointer-events: none; }
+.k-hits i { position: absolute; pointer-events: auto; touch-action: none; }   /* (a finger drags a note's end, LENGTH; elsewhere it scrolls) */
+.k-hits i.k-body { touch-action: pan-x; }      /* (a note's body: up or down, another note; sideways, the grid scrolls) */
+.k-how { margin: -4px 0 0; font: 600 9.5px/1.5 var(--f-ui); letter-spacing: .14em; color: var(--dim); }
+.k-bottom { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; }
+.k-set { display: grid; gap: 10px; min-width: 0; }
+.k-cells { display: flex; flex-wrap: wrap; gap: 12px 30px; }
+.k-cells .cell { width: 112px; margin: 0; }
+.k-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.k-tools .k-next { margin-right: 14px; }
+.k-tools .k-seg button { min-width: 52px; height: 30px; }
+.k-tools .a { height: 30px; padding: 0 12px; font-size: 10.5px; }
+/* the bass's steps, over the keys: one selected (lamp), the one playing ringed (ice) */
+.k-steps { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 4px; }
+.k-step { position: relative; min-width: 0; height: 50px; margin: 0; border: 0; border-radius: 5px; background: #0c1117; box-shadow: inset 0 0 0 1px #1a222c;
+  display: grid; align-content: space-between; justify-items: start; padding: 5px 6px 11px; font: inherit; color: inherit; text-align: left; }
+button.k-step { cursor: pointer; }
+button.k-step:hover { background: #111821; }
+button.k-step:focus-visible { outline: 2px solid var(--lamp); outline-offset: 1px; }
+.k-step .n { font: 600 9px/1 var(--f-ui); letter-spacing: .1em; color: var(--dim); }
+.k-step .v { font: 600 11px/1 var(--f-ui); letter-spacing: .08em; color: var(--lamp); white-space: nowrap; overflow: hidden; max-width: 100%; }
+.k-step.rest .v, .k-step.tie .v { color: var(--mist); }
+.k-step.out { opacity: .35; }
+.k-step.sel { box-shadow: inset 0 0 0 1.5px var(--lamp); background: rgba(242, 166, 90, .07); }
+.k-step.sel .n { color: var(--lamp); }
+.k-step.now { box-shadow: inset 0 0 0 1px rgba(110, 208, 255, .7); }
+.k-step.now.sel { box-shadow: inset 0 0 0 1.5px var(--lamp), 0 0 0 1px rgba(110, 208, 255, .6); }
+.k-step .len { position: absolute; left: 6px; right: 6px; bottom: 4px; height: 2px; border-radius: 1px; background: var(--steel); }
+.k-step .len i { display: block; height: 100%; width: var(--w); background: var(--lamp); border-radius: 1px; }
+.k-legend { margin-top: 0; }
+/* HOLD with nothing playing: ▶ nudged (a key pressed asks for the sound first) */
+.play.nudge { animation: nudge .9s var(--ease); }
+@keyframes nudge { 0%, 100% { box-shadow: 0 0 0 0 rgba(242, 166, 90, 0); } 30% { box-shadow: 0 0 0 6px rgba(242, 166, 90, .45); } }
 @media (max-width: 1100px) {                  /* the head's actions under the name */
   .sr-item.open > .sr { --cols: 28px 36px minmax(0, 1fr) 32px; padding-top: 12px; }
   .list.pub .sr-item.open > .sr { --cols: 36px minmax(0, 1fr) 32px; }
@@ -946,7 +1130,7 @@ a.pt-t:focus-visible, .pt-t:focus-visible { outline: 2px solid var(--lamp); outl
   .list.pub .lh > :nth-child(4), .list.pub .lh > :nth-child(7) { display: none; }
   .sr-item:not(.open) .nm-mk { display: block; } /* (HIDDEN, no longer shared: their column is gone, under the name) */
   .sr > span:empty.cx:not(.bq-no) { display: none; }
-  .oc-body { grid-template-columns: minmax(0, 1fr); }
+  .oc-cols { grid-template-columns: minmax(0, 1fr); }
   .oc-right { border-left: 0; border-top: 1px solid var(--rule); }
 }
 
@@ -1005,6 +1189,8 @@ a.pt-t:focus-visible, .pt-t:focus-visible { outline: 2px solid var(--lamp); outl
 .set-gl { flex: none; width: 26px; display: grid; place-items: center; }
 .set-gl svg { width: 22px; height: auto; }
 .sr-item.is-set.open > .sr { --cols: 94px minmax(0, 1fr) 32px; }
+.qb-list .sr-item.open:not(.is-set) > .sr { --cols: 28px 30px 36px minmax(0, 1fr) auto 32px; }
+@media (max-width: 1100px) { .qb-list .sr-item.open:not(.is-set) > .sr { --cols: 28px 30px 36px minmax(0, 1fr) 32px; } }
 .qb-end { padding-top: 26px; }
 .qb-end code { font-size: .86em; }
 /* HIDDEN, no longer shared: their own column; under the name on a tablet, beside it on a phone */
@@ -1062,8 +1248,18 @@ a.pt-t:focus-visible, .pt-t:focus-visible { outline: 2px solid var(--lamp); outl
   .sr-item.open .nm-n { font-size: 18px; letter-spacing: .12em; }
   .oc-intro, .list.pub .oc-intro { padding: 10px var(--gutter) 20px; }
   .oc-desc { font-size: 17.5px; }
-  .oc-body { grid-template-columns: minmax(0, 1fr); }
+  .oc-cols { grid-template-columns: minmax(0, 1fr); }
+  .oc-lfo { column-gap: 12px; }
   .oc-left { padding: 18px var(--gutter) 20px; }
+  .oc-keys { padding: 16px 0 12px var(--gutter); }
+  .oc-kset { padding: 4px var(--gutter) 18px; }
+  .k-top, .k-how, .k-strip { padding-right: var(--gutter); }
+  .k-top .k-seg button { min-width: 0; padding: 0 10px; letter-spacing: .12em; }
+  .k-board { overflow-x: auto; border-radius: 8px 0 0 8px; }
+  .k-board > .k-gw { width: 1000px; max-width: none; }
+  .k-board > svg.k-kb { width: calc(var(--kz, 1) * 1000px); }
+  .k-steps { overflow-x: auto; grid-template-columns: repeat(16, 56px); padding-right: var(--gutter); }
+  .k-cells .cell { width: 128px; }
   .oc-right { border-left: 0; border-top: 1px solid var(--rule); }
   .sx-h { padding: 0 var(--gutter); }
   .selbar { flex-wrap: wrap; gap: 4px 14px; padding: 10px var(--gutter); }
@@ -1082,6 +1278,8 @@ a.pt-t:focus-visible, .pt-t:focus-visible { outline: 2px solid var(--lamp); outl
   .list.qb-list .sr-item.is-empty > .sr { --cols: 22px 36px minmax(0, 1fr) 24px; padding-block: 8px; }
   .sr-item.is-empty .ck { grid-column: 4; grid-row: 1; }
   .list.qb-list .sr-item.is-set > .sr { --cols: 0 minmax(0, 1fr) 32px; column-gap: 0; }
+  .list.qb-list .sr-item.open:not(.is-set) > .sr { --cols: 22px 36px minmax(0, 1fr) 32px; }
+  .list.qb-list .sr-item.open:not(.is-set) .sr-open { grid-column: 4; }
   .src { padding: 14px 0; }
   .src-acts { width: 100%; }
   .src .a { flex: 1 1 0; height: 44px; }

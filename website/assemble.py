@@ -9,6 +9,7 @@
                              river-library (/river/: what the River is, and the way there)
                              (FRASIL on one A4 page), guide/*, river/* (the River: river.frasilsynth.com, its own site
                              in OUT_PARENT/river: navigate, yours, tools, backup, profile, privacy)
+  website/admin/             the admin page (admin.frasilsynth.com, OUT_PARENT/admin): accounts, uploads, waitlists
   website/assets/            CSS, JS, the favicon's SVG and the cheat sheet's PDF and PNG (tools/cheatsheet.sh makes
                              them from the assembled page), copied as they are
 
@@ -20,7 +21,7 @@ untouched; the River: fm1-base's protocol (base/web/backup) as it is, and the sc
 (app/build/host's simulator, made by ./build.sh --host: "schema FILE"). Every page's links are checked at the end: a link to nothing stops the build.
 
 Python 3.11+ with Pillow (.venv/bin/python). Usage: assemble.py [OUT_PARENT] [--no-emu] (default build/website;
-only OUT_PARENT/frasil and OUT_PARENT/river are replaced)."""
+only OUT_PARENT/frasil, river, perform and admin are replaced)."""
 import functools
 import hashlib
 import html
@@ -48,7 +49,9 @@ ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
 NO_EMU = "--no-emu" in sys.argv[1:]
 OUT_PARENT = Path(ARGS[0]).resolve() if ARGS else REPO / "build" / "website"
 OUT = OUT_PARENT / SITE
+PERFORM = OUT_PARENT / "perform"          # Perform: its own site (perform.frasilsynth.com), the FM-1's play full screen
 RIVER = OUT_PARENT / "river"              # the River: its own site (CONF["river_url"]), the main site's look
+ADMIN = OUT_PARENT / "admin"              # the admin page (admin.frasilsynth.com): the River's accounts, the waitlists
 
 FOG, WHITE, MIST, NIGHT = (220, 227, 234), (243, 246, 249), (139, 149, 164), (10, 13, 18)
 SEA_HI, SEA, SEA_LO = (86, 160, 240), (52, 128, 236), (24, 70, 150)
@@ -154,6 +157,60 @@ def draw_f(size):
     return im.reduce(4)
 
 
+# The R (the River's), measured on the logo as the F is: stem x 713..803; above the blade, the bowl's outer curve from
+# (921, 556) to (1045, 700) and down to (1038, 746), its counter x 803..955 from y 634; below, the bowl's foot to y 845
+# (its right edge curving in from 1021 to 967) and the leg, a slant from x 875..971 at y 845 to 960..1056 at y 987.
+def r_polys(s, ox, oy):
+    """the R as polygons at scale s, origin (ox, oy) = its top left: (above, its counter, below)"""
+    P = lambda pts: [(ox + (x - 713) * s, oy + (y - 555) * s) for x, y in pts]
+    arc = lambda cx, cy, rx, ry, a0, a1, n=18: [(cx + rx * math.cos(math.radians(a0 + (a1 - a0) * k / n)),
+                                                cy + ry * math.sin(math.radians(a0 + (a1 - a0) * k / n))) for k in range(n + 1)]
+    outer = P([(713, 555), (921, 555), *arc(921, 700, 124, 145, -90, 0)[1:], (1043, 724), (1038, 746), (713, 746)])
+    counter = P([(803, 634), (921, 634), *arc(921, 694, 34, 60, -90, 60)[1:], (803, 746)])
+    below = [P([(713, 779), (803, 779), (803, 987), (713, 987)]),
+             P([(713, 779), (1021, 779), (1013, 790), (1003, 802), (988, 814), (968, 826), (967, 845), (713, 845)]),
+             P([(875, 845), (971, 845), (1056, 987), (960, 987)])]
+    return outer, counter, below
+
+
+# The P (Perform's): the R without its leg, its bowl closing on the same foot (x 713..1045)
+def draw_r(size, leg=True):
+    """the River's favicon: its R, as the F is drawn (4x, then reduced); leg False: Perform's P"""
+    S = size * 4
+    im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((0, 0, S - 1, S - 1), radius=round(S * .22), fill=NIGHT + (255,))
+    s = S * .70 / 432
+    ox, oy = (S - (343 if leg else 332) * s) / 2, S * .15
+    outer, counter, below = r_polys(s, ox, oy)
+    below = below if leg else below[:2]
+    d.polygon(outer, fill=FOG + (255,))
+    d.polygon(counter, fill=NIGHT + (255,))
+    for p in below:
+        d.polygon(p, fill=SEA + (255,))
+    _, _, (b0, b1) = f_shapes(s, ox, oy)
+    mid, half = (b0 + b1) / 2, max(S * .018, (b1 - b0) / 2)
+    d.polygon([(S * .08, mid), (S * .5, mid - half), (S * .92, mid), (S * .5, mid + half)], fill=WHITE + (255,))
+    return im.reduce(4)
+
+
+def river_favicon_svg(leg=True):
+    """the same R as a vector: 64 x 64 (leg False: Perform's P)"""
+    S = 64
+    s = S * .70 / 432
+    ox, oy = (S - (343 if leg else 332) * s) / 2, S * .15
+    outer, counter, below = r_polys(s, ox, oy)
+    below = below if leg else below[:2]
+    path = lambda pts: "M" + "L".join(f"{x:.2f} {y:.2f}" for x, y in pts) + "Z"
+    _, _, (b0, b1) = f_shapes(s, ox, oy)
+    mid, half = (b0 + b1) / 2, max(S * .018, (b1 - b0) / 2)
+    return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+            '<rect width="64" height="64" rx="14" fill="#0a0d12"/>'
+            f'<path fill-rule="evenodd" d="{path(outer)}{path(counter)}" fill="#dce3ea"/>'
+            + "".join(f'<path d="{path(p)}" fill="#3480ec"/>' for p in below)
+            + f'<path d="M{S * .08:.2f} {mid:.2f}L32 {mid - half:.2f}L{S * .92:.2f} {mid:.2f}L32 {mid + half:.2f}Z" fill="#f3f6f9"/></svg>\n')
+
+
 def favicon_svg():
     """the same F as a vector: 64 x 64"""
     S = 64
@@ -174,6 +231,14 @@ def make_favicons(img):
     draw_f(192).save(img / "icon-192.png", optimize=True)
     draw_f(512).save(img / "icon-512.png", optimize=True)
     draw_f(48).save(img / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
+    (img / "river-favicon.svg").write_text(river_favicon_svg(), encoding="utf-8")   # (the River's: its R)
+    draw_r(32).save(img / "river-favicon-32.png", optimize=True)
+    draw_r(180).save(img / "river-apple-touch-icon.png", optimize=True)
+    draw_r(48).save(img / "river-favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
+    (img / "perform-favicon.svg").write_text(river_favicon_svg(leg=False), encoding="utf-8")   # (Perform's: its P)
+    draw_r(32, leg=False).save(img / "perform-favicon-32.png", optimize=True)
+    draw_r(180, leg=False).save(img / "perform-apple-touch-icon.png", optimize=True)
+    draw_r(48, leg=False).save(img / "perform-favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
 
 
 def tracked(d, xy, text, font, fill, track, anchor="center"):
@@ -404,6 +469,67 @@ def harmony_widget():
 
 
 # ================================================================ pages
+def changelog_html():
+    """the repo's CHANGELOG.md as the site's changelog page: each version a section (#v2-5), its paragraphs, its lists,
+    its bold leads. Only the Markdown it uses: ## a version, **a heading** alone on its line, - a list (continued by
+    lines indented two spaces), **bold**, `code`, [links](...)"""
+    def inline(s):
+        s = html.escape(s, quote=False)
+        s = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", lambda m: f'<a class="link" href="{m[2]}">{m[1]}</a>', s)
+        s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
+        return re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    out, vers, para, item, in_list, in_ver = [], [], [], [], False, False
+    def flush_para():
+        if para:
+            out.append(f"<p>{inline(' '.join(para))}</p>")
+            para.clear()
+    def flush_item():
+        if item:
+            out.append(f"<li>{inline(' '.join(item))}</li>")
+            item.clear()
+    def close_list():
+        nonlocal in_list
+        flush_item()
+        if in_list:
+            out.append("</ul>")
+            in_list = False
+    for line in (REPO / "CHANGELOG.md").read_text(encoding="utf-8").splitlines():
+        s = line.strip()
+        if line.startswith("# "):
+            continue
+        m = re.match(r"## (\S+)(?: \((.*)\))?\s*$", line)
+        if m:
+            flush_para(); close_list()
+            if in_ver:
+                out.append("</section>")
+            vid = "v" + m[1].replace(".", "-")
+            vers.append((m[1], vid))
+            when = f' <span class="cl-when">{html.escape(m[2])}</span>' if m[2] else ""
+            out.append(f'<section class="cl-ver" id="{vid}" aria-labelledby="{vid}-h"><h2 id="{vid}-h">{html.escape(m[1])}{when}</h2>')
+            in_ver = True
+        elif re.fullmatch(r"\*\*[^*]+\*\*", s):
+            flush_para(); close_list()
+            out.append(f'<h3 class="label">{html.escape(s[2:-2])}</h3>')
+        elif line.startswith("- "):
+            flush_para(); flush_item()
+            if not in_list:
+                out.append('<ul role="list">')
+                in_list = True
+            item.append(line[2:].strip())
+        elif line.startswith("  ") and item:
+            item.append(s)
+        elif not s:
+            flush_para(); flush_item()
+        else:
+            close_list()
+            para.append(s)
+    flush_para(); close_list()
+    if in_ver:
+        out.append("</section>")
+    jump = " ".join(f'<a href="#{vid}">{html.escape(v)}</a>' for v, vid in vers)
+    return jump, "\n".join(out)
+
+
 def read_page(path):
     """a page's metadata (its first comment: key: value lines) and its HTML"""
     text = path.read_text(encoding="utf-8")
@@ -603,6 +729,82 @@ PRELOAD_FONTS = ("barlow-semi-condensed-normal-500", "barlow-semi-condensed-norm
                  "newsreader-normal-300-600", "newsreader-italic-300-500")   # (assets/fonts/, their latin)
 
 
+# Discord's mark (Simple Icons, CC0), drawn in the text's colour
+DISCORD_SVG = ('<svg class="dc-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.317 4.3698a19.7913 '
+               '19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-'
+               '.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 '
+               '1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 '
+               '1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 '
+               '0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718'
+               '-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246'
+               '.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698'
+               '.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-'
+               '.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-'
+               '2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-'
+               '2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 '
+               '2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg>')
+
+
+# The ways to FRASIL, the same in the landing's fold and in the menu (every page's, the River's too): (title, what,
+# where on the site or a site.toml key for another site, None while it is to come, its icon)
+WAYS = (("Play in browser", "Nothing to install", "play/", "browser"),
+        ("Play on FM-1", "Install the firmware", "guide/install/", "fm1"),
+        ("Play on iPad", "Coming soon", None, "ipad"),
+        ("FRASIL VST", "Coming soon", None, "vst"))
+WAITLISTS = {"ipad": "FRASIL for iPad", "vst": "FRASIL VST"}   # (what is to come: its dialog's title; server/waitlist.py LISTS)
+APPS = (("FRASIL River", "Scenes management & sharing", "river_url", "river-favicon.svg"),
+        ("FRASIL Perform", "Second screen for your FM-1", "perform_url", "perform-favicon.svg"))
+WAY_ICONS = {   # 24 x 24, drawn in the current colour
+    "browser": '<rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M2.5 8.5h19"/><path d="M10.2 11.4v5.2l4.3-2.6z" fill="currentColor" stroke="none"/>',
+    "fm1": '<rect x="2" y="5.5" width="20" height="13" rx="2.2"/><circle cx="6.2" cy="9.4" r="1.1"/><circle cx="10" cy="9.4" r="1.1"/><path d="M2 13h20M7 13v5.5M12 13v5.5M17 13v5.5"/>',
+    "ipad": '<rect x="2.5" y="5" width="19" height="14" rx="2.6"/><path d="M19.2 12h.01" stroke-width="2.2" stroke-linecap="round"/>',
+    "vst": '<rect x="2.5" y="5" width="19" height="14" rx="2"/><circle cx="8.5" cy="12.3" r="2.6"/><circle cx="15.5" cy="12.3" r="2.6"/><path d="M8.5 12.3V9.7M15.5 12.3l1.8-1.8"/>',
+}
+
+
+def ways_html(site, img, cls="way"):
+    """the ways, as links (or what is to come, dashed: a button to its waitlist), then the apps: site the main site's root (a relative root, or its
+    URL from the River), img where the favicons are"""
+    out = []
+    for title, what, href, ico in WAYS:
+        svg = (f'<svg class="way-ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" '
+               f'stroke-width="1.5" stroke-linejoin="round">{WAY_ICONS[ico]}</svg>')
+        inner = f'{svg}<span><b>{title}</b><small>{what}</small></span>'
+        out.append(f'<li><a class="{cls}" href="{site}{href}">{inner}</a></li>' if href else   # (to come: its waitlist,
+                   f'<li><button class="{cls} soon" type="button" data-waitlist="{ico}" '          # js/site.js's dialog)
+                   f'data-title="{html.escape(WAITLISTS[ico])}" aria-haspopup="dialog">{inner}</button></li>')
+    apps = [f'<li><a class="{cls} app" href="{html.escape(CONF.get(key, ""))}"><img class="way-ico" src="{img}{icon}" width="24" '
+            f'height="24" alt=""><span><b>{title}</b><small>{what}</small></span></a></li>' for title, what, key, icon in APPS]
+    return "".join(out), "".join(apps)
+
+
+def menu_html(site, img, cur=""):
+    """the menu (its button and its panel), every page's: the site's three, the ways, the apps, Discord, the status"""
+    pages = (("Overview", "", "home"), ("Guide", "guide/", "guide"), ("Cheat sheet", "cheatsheet/", "cheat"))   # (installing:
+                                                                                                    # Play on FM-1)
+    ways, apps = ways_html(site, img, "mway")
+    lit = ' aria-current="true"'
+    main = "".join(f'<li><a href="{site}{h}"{lit if k == cur else ""}>{n}</a></li>' for n, h, k in pages)
+    return ('<button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu"><span class="sr-only">Menu'
+            '</span><i></i><i></i><i></i></button>\n'
+            f'<nav class="site-menu" id="site-menu" aria-label="Everything FRASIL" hidden><ul class="menu-main" role="list">{main}</ul>'
+            f'<ul class="menu-ways" role="list">{ways}</ul><ul class="menu-ways" role="list">{apps}</ul>'
+            f'<div class="menu-foot">{discord_links()["discord_menu"]}<span class="status">{html.escape(CONF["status"])}</span></div></nav>')
+
+
+def discord_links():
+    """the Discord server (site.toml discord): in the main site's header and the River's (its mark, the word when there
+    is room), in the footer's Elsewhere; in a tab of its own. Nothing while there is no invite"""
+    url = html.escape(CONF.get("discord", ""))
+    if not url:
+        return {"discord_nav": "", "discord_foot": "", "discord_menu": "", "discord_head": ""}
+    a = f'<a class="nav-dc" href="{url}" target="_blank" rel="noopener" aria-label="Discord">'
+    return {"discord_nav": f'    {a}{DISCORD_SVG}<span class="nav-long">Discord</span></a>\n',
+            "discord_foot": f'          <li><a href="{url}" target="_blank" rel="noopener">Discord</a></li>\n',
+            "discord_menu": f'<a class="nav-dc" href="{url}" target="_blank" rel="noopener">{DISCORD_SVG}<span>Discord</span></a>',
+            "discord_head": f'<a class="head-dc" href="{url}" target="_blank" rel="noopener" aria-label="Discord">{DISCORD_SVG}<span>Discord</span></a>'}
+
+
 class Site:
     def __init__(self):
         t = SRC / "templates"
@@ -612,10 +814,13 @@ class Site:
     def common(self, root, section):
         cur = lambda s: ' aria-current="true"' if s == section else ""
         return {"root": root, "repo": CONF["repo"], "releases": CONF["releases"], "hub": CONF["hub"],
-                "river": CONF["river_url"], "status": html.escape(CONF["status"]), "beta_note": html.escape(CONF["beta_note"]),
+                "river": CONF["river_url"], "perform": CONF.get("perform_url", "https://perform.frasilsynth.com/"),
+                "changelog_link": f'          <li><a href="{root}changelog/">Changelog</a></li>\n', "status": html.escape(CONF["status"]), "beta_note": html.escape(CONF["beta_note"]),
                 # the header's five, the same on every page (only which one is lit changes): the guide's Install page
                 # lights Install, the River library page River library
                 "cur_home": cur("home"), "cur_guide": cur("guide"), "cur_river": cur("river"), "cur_play": cur("play"),
+                "cur_cheat": cur("cheat"), "menu": menu_html(root, root + "assets/img/", section),
+                "ways": "".join(ways_html(root, root + "assets/img/")),
                 "cur_install": cur("install"), "year": "2026",
                 # the footer's River library, cheat sheet and credits: the main site's, on FRASIL River's pages too
                 "river_lib": f'          <li><a href="{root}river/">River library</a></li>\n',
@@ -623,29 +828,32 @@ class Site:
                 "cheat_pdf": asset(root, "cheatsheet/frasil-cheatsheet.pdf"),
                 "cheat_png": asset(root, "cheatsheet/frasil-cheatsheet.png"),
                 "credits_link": f'          <li><a href="{root}credits/">Credits</a></li>\n',
+                **discord_links(),
                 "harmony": harmony_widget(), **shots(root)}
 
-    def head_html(self, root, rel, title, description, og_title=None, canonical=None, assets=None):
-        return self.head_fill(root, rel, title, description, og_title, canonical, assets) + engine_meta()
+    def head_html(self, root, rel, title, description, og_title=None, canonical=None, assets=None, icon=None):
+        return self.head_fill(root, rel, title, description, og_title, canonical, assets, icon) + engine_meta()
 
-    def head_fill(self, root, rel, title, description, og_title=None, canonical=None, assets=None):
+    def head_fill(self, root, rel, title, description, og_title=None, canonical=None, assets=None, icon=None):
         # the fonts every page sets its header and titles in, asked for at once (base.css declares them all)
         a = root if assets is None else assets
         preload = "\n".join(f'<link rel="preload" href="{a}assets/fonts/{f}-latin.woff2" as="font" type="font/woff2" crossorigin>'
                              for f in PRELOAD_FONTS)
-        return fill(self.head, {**self.common(root, ""), "title": html.escape(title), "preload": preload,
+        icons = {"icon_svg": f"{a}assets/img/{icon or ''}favicon.svg", "icon_png": f"{a}assets/img/{icon or ''}favicon-32.png",
+                 "icon_apple": f"{a}assets/img/{icon or ''}apple-touch-icon.png"}   # (icon: "river-", the River's own)
+        return fill(self.head, {**self.common(root, ""), **icons, "title": html.escape(title), "preload": preload,
                                 "description": html.escape(description), "canonical": canonical or CONF["site_url"] + rel,
                                 "og_title": html.escape(og_title or title), "site_url": CONF["site_url"]}, "head")
 
     def page(self, rel, title, description, body, root, section="", head_class="", body_class="", css=(), js=(),
-             base_tag="", og_title=None, inline="", assets=None, canonical=None, header=None):
+             base_tag="", og_title=None, inline="", assets=None, canonical=None, header=None, icon=None):
         """assets: where the page's CSS and scripts are, if not under root (the River's own); header: a header of its
         own, filled (the River's), instead of the site's"""
         v = self.common(root, section)
         a = root if assets is None else assets
         body = quiet_discs(nobreak(fill(body, v, rel or "index")))
         return fill(self.base, {
-            "base_tag": base_tag, "head": self.head_html(root, rel, title, description, og_title, canonical, assets),
+            "base_tag": base_tag, "head": self.head_html(root, rel, title, description, og_title, canonical, assets, icon),
             "css": "\n".join(f'<link rel="stylesheet" href="{asset(a, c)}">' for c in ("css/base.css", *css)),
             "scripts": inline + "\n".join(f'<script src="{asset(a, j)}" defer></script>' for j in ("js/site.js", *js)),
             "header": header if header is not None else fill(self.header, {**v, "head_class": head_class}, "header"),
@@ -827,14 +1035,15 @@ def backup_schema():
          (0, st["name_len"], st["name_len"] + n["NSOUND"], want - n["SC_SEQ"])),
         ("the earlier layouts' names", all(l.get("name", 0) > 0 for l in s["old_scenes"])),
         ("scenes_t's size", s["scenes_t"]["size"] == s["scenes_t"]["s"] + n["NSCENES"] * st["size"]),
-        ("the scenes' record and their basses' (OBJ_SCENES, OBJ_BSEQ)", st["bnote"] == st["rec"] and
+        ("the scenes' record and their sequences' (OBJ_SCENES up to GLINT's, OBJ_BSEQ from it)", st["seq"] == st["rec"] and
          s["scenes_t"]["rec"] == s["scenes_t"]["s"] + n["NSCENES"] * st["rec"] and st["rec"] + s["bseqs_t"]["scene"] == st["size"]
          and s["bseqs_t"]["size"] == s["bseqs_t"]["s"] + n["NSCENES"] * s["bseqs_t"]["scene"]),
-        ("settings_t's size", s["settings_t"]["size"] == 228),
-        ("the earlier shards (the rest of their record as this one's, their bass's sequence or some of it, or none)",
-         all(x["rec"] - x["nv"] == st["rec"] - n["NSOUND"] and 0 <= x["size"] - x["rec"] < s["bseqs_t"]["scene"]
+        ("settings_t's size", s["settings_t"]["size"] == s["settings_t"]["v"] + n["NSOUND"] + 95),   # (95 after the sound: ANIMATIONS, 2.5)
+        ("the earlier shards (the rest of their record as this one's to the bass's sequence, then it or some of it, or none)",
+         all(x["rec"] - x["nv"] == st["bnote"] - n["NSOUND"] and 0 <= x["size"] - x["rec"] <= st["size"] - st["bnote"]
              for x in s["old_shards"])),
-        ("the earlier basses' records", all(0 < x["scene"] < s["bseqs_t"]["scene"] for x in s["old_bseqs"])),
+        ("the earlier basses' records", all(0 < x["scene"] and x["at"] + x["scene"] <= s["bseqs_t"]["scene"]
+                                            for x in s["old_bseqs"])),
         ("the earlier settings made over (what follows their sound as this one's)",
          all(x["end"] - 4 - x["nv"] <= s["settings_t"]["size"] - s["settings_t"]["octave"] for x in s["old_settings_over"])),
         ("GLINT's RELEASE where SCATTER was (scatter_gone)", len(s["scatter_gone"]["of"]) == 128 and
@@ -869,6 +1078,90 @@ def engine_meta():
         return ""
     h = hashlib.sha1(b"".join(f.read_bytes() for f in files)).hexdigest()[:8]
     return f'\n<meta name="frasil-engine" content="{h}">'
+
+
+def perform_site():
+    """FRASIL Perform (perform.frasilsynth.com), its own site: design/perform/live as it is, its paths made its own
+    (assets/: its CSS and scripts, the schema, the fonts, the logo; emu/: the engine its DEMO plays), its head (its P,
+    its description, the engine's version), served at its domain's root. 0: the files it has"""
+    src = REPO / "design" / "perform"
+    shutil.rmtree(PERFORM, ignore_errors=True)
+    a = PERFORM / "assets"
+    files = {"css/perform.css": src / "proto" / "perform.css", "js/perform-schema.js": src / "data" / "perform-schema.js",
+             "js/river-player.js": SRC / "assets" / "js" / "river-player.js", "js/river.js": src / "proto" / "river.js",
+             "js/logo.js": src / "proto" / "logo.js", "js/show.js": src / "proto" / "show.js", "js/live.js": src / "live" / "live.js",
+             "img/logo-print.svg": SRC / "assets" / "img" / "logo-print.svg"}
+    for f in ("perform-favicon.svg", "perform-favicon-32.png", "perform-apple-touch-icon.png"):
+        files["img/" + f] = OUT / "assets" / "img" / f
+    for f in (OUT / "assets" / "fonts").glob("barlow-semi-condensed-*.woff2"):
+        files["fonts/" + f.name] = f
+    for rel, f in files.items():
+        (a / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(f, a / rel)
+    shutil.copy2(OUT / "assets" / "img" / "perform-favicon.ico", PERFORM / "favicon.ico")
+    css = (a / "css" / "perform.css").read_text(encoding="utf-8").replace("../../../website/assets/fonts/", "../fonts/")
+    (a / "css" / "perform.css").write_text(css, encoding="utf-8")
+    live = (a / "js" / "live.js").read_text(encoding="utf-8")
+    if 'pl.base = "../../../app/build/emu/";' not in live:
+        die("Perform's live.js no longer sets pl.base as it did: update website/assemble.py's perform_site")
+    (a / "js" / "live.js").write_text(live.replace('pl.base = "../../../app/build/emu/";', 'pl.base = "emu/";'), encoding="utf-8")
+    page = (src / "live" / "index.html").read_text(encoding="utf-8")
+    subs = {'href="../proto/perform.css"': 'href="assets/css/perform.css"',
+            "../../../website/assets/img/logo-print.svg": "assets/img/logo-print.svg",
+            'src="../data/perform-schema.js"': 'src="assets/js/perform-schema.js"',
+            'src="../../../website/assets/js/river-player.js"': 'src="assets/js/river-player.js"',
+            'src="../proto/river.js"': 'src="assets/js/river.js"', 'src="../proto/logo.js"': 'src="assets/js/logo.js"',
+            'src="../proto/show.js"': 'src="assets/js/show.js"', 'src="live.js"': 'src="assets/js/live.js"',
+            "<title>FRASIL Perform</title>": "<title>FRASIL Perform</title>\n" + (
+                '<meta name="description" content="Your FM-1 under FRASIL, full screen: the river very large, and under it '
+                'what your hands do as they do it. For a stage or a film. Chrome or Edge.">\n'
+                f'<link rel="canonical" href="{html.escape(CONF.get("perform_url", "https://perform.frasilsynth.com/"))}">\n'
+                '<link rel="icon" href="assets/img/perform-favicon.svg" type="image/svg+xml">\n'
+                '<link rel="icon" href="assets/img/perform-favicon-32.png" sizes="32x32" type="image/png">\n'
+                '<link rel="apple-touch-icon" href="assets/img/perform-apple-touch-icon.png">'
+                + engine_meta())}
+    for k, v in subs.items():
+        if k not in page:
+            die(f"Perform's page no longer has {k}: update website/assemble.py's perform_site")
+        page = page.replace(k, v)
+    if re.search(r'(?:src|href|data-src)="\.\./', page):
+        die("Perform's page has a path outside its folder: update website/assemble.py's perform_site")
+    (PERFORM / "index.html").write_text(page, encoding="utf-8")
+    emu = REPO / "app" / "build" / "emu"     # FRASIL's engine in the browser, for DEMO (./build.sh --web)
+    if all((emu / f).exists() for f in ("app.wasm", "worklet.js", "app_worklet.js")):
+        (PERFORM / "emu").mkdir()
+        for f in ("app.wasm", "worklet.js", "app_worklet.js"):
+            shutil.copy2(emu / f, PERFORM / "emu" / f)
+    elif not NO_EMU:
+        die("no emulator in app/build/emu for Perform's DEMO: run ./build.sh --web first (or --no-emu)")
+    return sum(1 for f in PERFORM.rglob("*") if f.is_file())
+
+
+def admin_site():
+    """the admin page (admin.frasilsynth.com), its own site: website/admin/ (index.html, admin.css, admin.js), the main
+    site's base.css, fonts, mark and favicons; its data from the River's service, /api/admin/ on its origin (Caddy adds
+    the key after its basic auth: server/admin.py). Never indexed. -> the files it has"""
+    src = SRC / "admin"
+    shutil.rmtree(ADMIN, ignore_errors=True)
+    a = ADMIN / "assets"
+    files = {"css/base.css": OUT / "assets" / "css" / "base.css", "css/admin.css": src / "admin.css",
+             "js/admin.js": src / "admin.js", "img/logo-print.svg": OUT / "assets" / "img" / "logo-print.svg"}
+    for f in ("favicon.svg", "favicon-32.png"):
+        files["img/" + f] = OUT / "assets" / "img" / f
+    for f in (OUT / "assets" / "fonts").glob("*.woff2"):
+        files["fonts/" + f.name] = f
+    for rel, f in files.items():
+        (a / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(f, a / rel)
+    shutil.copy2(OUT / "assets" / "img" / "favicon.ico", ADMIN / "favicon.ico")
+    v = lambda rel: f"assets/{rel}?v={hashlib.sha1((a / rel).read_bytes()).hexdigest()[:8]}"
+    page = fill((src / "index.html").read_text(encoding="utf-8"),
+                {"base_css": v("css/base.css"), "admin_css": v("css/admin.css"), "admin_js": v("js/admin.js")}, "admin")
+    if 'name="robots" content="noindex,nofollow"' not in page:
+        die("website/admin/index.html: its robots meta (noindex,nofollow) is gone")
+    (ADMIN / "index.html").write_text(page, encoding="utf-8")
+    (ADMIN / "robots.txt").write_text("User-agent: *\nDisallow: /\n", encoding="utf-8")
+    return len(files) + 3
 
 
 def factory_tunes(root):
@@ -923,8 +1216,8 @@ RIVER_PAGES = (   # the River's pages (website/pages/river/): where each is serv
     ("profile", "profile/", "js/river-profile.js", "profile"),   # the account, the header's name signed in
     ("privacy", "privacy/", None, ""),                       # (privacy and terms)
 )
-RIVER_JS = ("js/backup-model.js", "js/river-player.js", "js/river-cards.js", "js/river-api.js", "js/river-device.js",
-            "js/river-list.js", "js/river-head.js")
+RIVER_JS = ("js/backup-model.js", "js/river-player.js", "js/river-cards.js", "js/river-keys.js", "js/river-api.js", "js/river-device.js",
+            "js/river-list.js", "js/river-edit.js", "js/river-head.js")
 def river_page(site):
     """FRASIL River (river.frasilsynth.com), its own site: its own header (templates/river-header.html: its name,
     then Your Private River, the Community River (its front page), Tools, and who is signed in), its pages (RIVER_PAGES);
@@ -942,9 +1235,12 @@ def river_page(site):
     css = ("css/river.css", "css/river-head.css")
     head_tpl = (SRC / "templates" / "river-header.html").read_text(encoding="utf-8")
     fonts = [f"fonts/{f.name}" for f in sorted((OUT / "assets" / "fonts").glob("*.woff2"))]
-    for f in ("css/base.css", *css, "js/site.js", *RIVER_JS, *(p[2] for p in RIVER_PAGES if p[2]), "img/logo-duo.png", *fonts):   # (the logo's FRASIL; the fonts)
+    icons = ("img/river-favicon.svg", "img/river-favicon-32.png", "img/river-apple-touch-icon.png",   # (its R; Perform's
+             "img/perform-favicon.svg")                                                                 # P in the menu)
+    for f in ("css/base.css", *css, "js/site.js", *RIVER_JS, *(p[2] for p in RIVER_PAGES if p[2]), "img/logo-duo.png", *icons, *fonts):   # (the logo's FRASIL; the fonts)
         (RIVER / "assets" / f).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(OUT / "assets" / f, RIVER / "assets" / f)
+    shutil.copy2(OUT / "assets" / "img" / "river-favicon.ico", RIVER / "favicon.ico")
     river_example()
     emu = REPO / "app" / "build" / "emu"   # FRASIL's engine in the browser, to play a shard (app/web.c, ./build.sh --web)
     if all((emu / f).exists() for f in ("app.wasm", "worklet.js", "app_worklet.js")):
@@ -956,14 +1252,15 @@ def river_page(site):
     for name, rel, js, part in RIVER_PAGES:
         meta, body = read_page(SRC / "pages" / "river" / f"{name}.html")
         body = capsify(fill(body, {**site.common(root, "the-river"), "ext": values["EXT"], "site": root}, f"river/{name}"))
-        header = fill(head_tpl, {"root": root, **{f"cur_{k}": ' aria-current="page"' if k == part else ""
+        header = fill(head_tpl, {"root": root, **discord_links(), "menu": menu_html(CONF["site_url"], "/assets/img/"), **{f"cur_{k}": ' aria-current="page"' if k == part else ""
                                                   for k in ("yours", "community", "tools", "profile")}}, "river-header")
         out = RIVER / rel / "index.html"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(site.page(rel, meta["title"], meta["description"], body, root, section="the-river",
                                  body_class=f"river-page river-{name}", css=css, js=(*RIVER_JS, *([js] if js else [])),
                                  inline=inline,
-                                 assets="../" * rel.count("/") or "./", canonical=CONF["river_url"] + rel, header=header),
+                                 assets="../" * rel.count("/") or "./", canonical=CONF["river_url"] + rel, header=header,
+                                 icon="river-"),
                        encoding="utf-8")
     return len(schema)
 
@@ -1059,10 +1356,19 @@ def main():
     (OUT / "credits").mkdir()
     (OUT / "credits" / "index.html").write_text(site.page("credits/", meta["title"], meta["description"], capsify(body), "../",
                                                           css=("css/river-library.css",)), encoding="utf-8")
+    jump, notes = changelog_html()       # (CHANGELOG.md, as it is in the repo: every version, the newest first)
+    (OUT / "changelog").mkdir()
+    (OUT / "changelog" / "index.html").write_text(site.page(
+        "changelog/", "Changelog · FRASIL", "What each FRASIL release brought, newest first.", capsify(
+            '<main id="main"><section class="rl wrap cl" aria-labelledby="cl-title">'
+            '<div class="dhead"><p class="dhead-name">Changelog</p></div>'
+            '<h1 class="display sm" id="cl-title">Every release, <em>newest first.</em></h1>'
+            f'<nav class="cl-jump" aria-label="Versions">{jump}</nav><div data-caps>{notes}</div></section></main>'), "../",
+        css=("css/river-library.css", "css/changelog.css")), encoding="utf-8")
     meta, body = read_page(SRC / "pages" / "cheatsheet.html")
     (OUT / "cheatsheet").mkdir()
     (OUT / "cheatsheet" / "index.html").write_text(site.page("cheatsheet/", meta["title"], meta["description"], capsify(body),
-                                                             "../", body_class="cheatsheet-page",
+                                                             "../", section="cheat", body_class="cheatsheet-page",
                                                              css=("css/cheatsheet.css",)), encoding="utf-8")
     meta, body = read_page(SRC / "pages" / "404.html")
     (OUT / "404.html").write_text(site.page("404.html", meta["title"], meta["description"], body, CONF["base_path"],
@@ -1082,9 +1388,18 @@ def main():
     if problems:
         die(f"{len(problems)} broken link(s)")
     size = sum(f.stat().st_size for f in OUT.rglob("*") if f.is_file())
-    print(f"website  {OUT}  {n} pages (landing, {n_guide} guide, play{'' if emu else ' without the emulator'}, River library, credits, cheat sheet, 404), "
+    print(f"website  {OUT}  {n} pages (landing, {n_guide} guide, play{'' if emu else ' without the emulator'}, River library, credits, changelog, cheat sheet, 404), "
           f"{n_screens} screenshots, {size / 1e6:.1f} MB; links ok")
+    n_perform = perform_site()
+    print(f"perform  {PERFORM}  Perform ({n_perform} files)")
     print(f"river    {RIVER}  the River ({n_river} page{'s' if n_river != 1 else ''}, its schema {schema_size / 1e3:.0f} kB); links ok")
+    n_admin = admin_site()
+    n_pages, admin_problems = check_links(ADMIN, "/", service=("/api/",))
+    for p in admin_problems:
+        print("  broken  " + p)
+    if admin_problems:
+        die(f"{len(admin_problems)} broken link(s) in the admin page")
+    print(f"admin    {ADMIN}  the admin page ({n_pages} page, {n_admin} files); links ok")
 
 
 if __name__ == "__main__":

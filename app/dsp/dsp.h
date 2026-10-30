@@ -18,11 +18,20 @@
 #define BR_POOL __attribute__((section(".pool")))
 #endif
 
-static inline float br_clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
+/* code run from RAM on the device (.ram_text, some 20 KB free: the flash's cache misses not paid there): a function
+ * that calls nothing (the flash's code is out of a call's reach from there), called through a pointer for the same
+ * reason (BR_HOT_CALL) */
+#ifdef PLAT_HOST
+#define BR_HOT
+#else
+#define BR_HOT __attribute__((section(".ram_text"), noinline))
+#endif
+
+static inline __attribute__((always_inline)) float br_clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
 static inline float br_lerp(float a, float b, float t) { return a + (b - a) * t; }
 
 /* soft clip: unity slope at 0, x - 4/27 x^3 up to |x| = 1.5, where it reaches +-1 with a flat slope */
-static inline float br_soft(float x)
+static inline __attribute__((always_inline)) float br_soft(float x)
 {
     x = br_clampf(x, -1.5f, 1.5f);
     return x - 0.148148148f * x * x * x;

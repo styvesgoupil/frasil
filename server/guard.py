@@ -19,6 +19,7 @@ WORDS = ["fuck", "motherfucker", "shit", "bullshit", "cunt", "nigger", "nigga", 
          "whore", "slut", "porn", "hentai", "nazi", "hitler", "rape", "rapist", "viagra", "casino", "onlyfans"]
 CHANGES = {"POST", "PUT", "PATCH", "DELETE"}
 BODY_MAX = 64 * 1024
+WAITLIST = {"/api/waitlist"}                     # (changes the main site may make too: waitlist.py)
 
 
 class Limiter:
@@ -82,7 +83,8 @@ async def same_origin(request: Request, call_next):
     """a request that changes something: from the site itself (Origin), as JSON (no form can send it from elsewhere
     without the browser asking first), not too big"""
     if request.method in CHANGES and request.url.path.startswith("/api/"):
-        if request.headers.get("origin", "") != request.app.state.origin:
+        o = request.headers.get("origin", "")    # (the waitlist: the main site's too, its /api/waitlist sent here)
+        if o != request.app.state.origin and not (request.url.path in WAITLIST and o == request.app.state.site_origin):
             return JSONResponse({"detail": "This request didn't come from the River."}, 403)
         ct = request.headers.get("content-type", "").split(";")[0].strip().lower()
         if request.method != "DELETE" and ct != "application/json":

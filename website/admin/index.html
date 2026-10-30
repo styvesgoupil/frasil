@@ -1,0 +1,63 @@
+<!doctype html>
+<!-- FRASIL's admin page (admin.frasilsynth.com): the River's accounts and their uploads, the waitlists. Assembled by
+     website/assemble.py (admin_site) into build/website/admin/; its data from the River's service, /api/admin/ on this
+     origin (server/admin.py: Caddy adds X-Frasil-Admin after its basic auth). Read-only. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0a0d12">
+<meta name="color-scheme" content="dark">
+<title>ADMIN · FRASIL</title>
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="preload" href="assets/fonts/barlow-semi-condensed-normal-600-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/barlow-semi-condensed-normal-500-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{base_css}}">
+<link rel="stylesheet" href="{{admin_css}}">
+<script src="{{admin_js}}" defer></script>
+</head>
+<body class="adm">
+<header class="adm-head">
+  <a class="adm-mark" href="./"><img src="assets/img/logo-print.svg" width="150" height="31" alt="FRASIL"></a>
+  <span class="adm-name">ADMIN</span>
+  <button class="adm-btn adm-reload" type="button" data-reload>Reload</button>
+</header>
+<main class="adm-main" id="main">
+  <p class="adm-state" data-state role="status">Loading…</p>
+  <dl class="adm-totals" data-totals hidden></dl>
+
+  <section class="adm-sec" aria-labelledby="acc-h" data-accounts hidden>
+    <div class="adm-sec-h">
+      <h1 class="adm-h" id="acc-h">RIVER ACCOUNTS <span data-n-users></span></h1>
+      <label class="adm-find"><span class="sr-only">Filter accounts</span>
+        <input type="search" placeholder="Filter" autocomplete="off" spellcheck="false" data-find></label>
+    </div>
+    <div class="adm-scroll">
+      <table class="adm-t adm-users">
+        <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Joined</th><th scope="col">Sign-in</th>
+          <th scope="col" class="n">Public</th><th scope="col" class="n">Private</th><th scope="col" class="n">Backups</th>
+          <th scope="col" class="n">Favs</th></tr></thead>
+        <tbody data-users></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="adm-sec" aria-labelledby="ml-h" data-lists hidden>
+    <div class="adm-sec-h"><h2 class="adm-h" id="ml-h">MAILING LISTS</h2></div>
+    <div class="adm-lists">
+      <div class="adm-list" data-list="ipad">
+        <div class="adm-list-h"><h3>IPAD <span data-count></span></h3><button class="adm-btn" type="button" data-copy>Copy emails</button></div>
+        <ol class="adm-mails" data-mails role="list"></ol>
+      </div>
+      <div class="adm-list" data-list="vst">
+        <div class="adm-list-h"><h3>VST <span data-count></span></h3><button class="adm-btn" type="button" data-copy>Copy emails</button></div>
+        <ol class="adm-mails" data-mails role="list"></ol>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

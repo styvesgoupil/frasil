@@ -7,8 +7,11 @@
  *   build/bench/bench render OUTDIR       every scenario into OUTDIR (WAV files)
  *   build/bench/bench cost WHAT SECONDS   WHAT: reverb, shimmer, voices1, voices4, voices8 (the whole engine, every
  *                                         layer on; voices8b: and the bass, voices8b4 its MODEL 4; voices8x: the
- *                                         layers' second pages' costly settings on); render SECONDS
- *                                         without writing anything */
+ *                                         layers' second pages' costly settings on); rust8 ...: the same with the
+ *                                         drone preset RUST's settings (the heaviest); render SECONDS
+ *                                         without writing anything
+ *   build/bench/bench fx WHICH OUT.wav    8 s through the master effects (base, eq, lp, hp, tape ...), RUST's
+ *                                         (rust, rusttape: eight voices, glints, the bass), a release (rel, 16 s) */
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -298,6 +301,7 @@ static frasil_params_t eng_default(void)
     p.comp_ratio = p.comp_gain = 1.0f;
     p.comp_rel = 0.2f;
     p.pump_rel = 1.0f;
+    p.pump_cloud = 1;
     p.pump_att = 0.005f;
     p.ch_interval = p.br_pitch = p.fullness = 1.0f;   /* the layers' second pages as they were, FULLNESS full */
     p.choir = 0.6f;
@@ -325,6 +329,33 @@ static frasil_params_t eng_default(void)
     p.rev = rv_default();
     p.rev.decay = 0.62f;
     p.rev.diffusion = 0.75f;
+    return p;
+}
+
+/* the drone preset RUST (app/params.c DRONE_PRESET, its settings / 127 as params_to_engine takes them): the heaviest,
+ * CHOIR's SHAPE and RESONANCE (band), BEAT, GRAIN, AIR, driven */
+static frasil_params_t eng_rust(void)
+{
+    frasil_params_t p = eng_default();
+    static const struct {
+        size_t off;
+        float v;
+    } R[] = {
+#define S(x, v) {offsetof(frasil_params_t, x), (float)(v) / 127.0f}
+        S(choir, 80), S(partials, 50), S(souffle, 40), S(drive, 100), S(detune, 50), S(cutoff, 45), S(tilt, 65),
+        S(odd, 60), S(stretch, 20), S(resonance, 80), S(color, 40), S(spread, 80), S(attack, 60), S(release, 80),
+        S(motion, 40), S(motion_rate, 55), S(tide, 25), S(tide_rate, 40), S(timbre, 55), S(mix, 55), S(ch_shape, 70),
+        S(ch_reso, 80), S(pa_evolve, 20), S(pa_beat, 15), S(pa_peak, 0), S(br_grain, 60), S(br_air, 20),
+#undef S
+    };
+    uint32_t k;
+    for (k = 0; k < sizeof R / sizeof R[0]; k++)
+        *(float *)((char *)&p + R[k].off) = R[k].v;
+    p.ch_interval = 1.0f;
+    p.ch_type = 1;
+    p.pa_formant = 3.0f * 75.0f / 127.0f;
+    p.br_pitch = 1.0f;
+    p.br_tone = (45.0f - 64.0f) / 63.0f;
     return p;
 }
 
@@ -571,22 +602,26 @@ int main(int argc, char **argv)
         render_engine(argv[2]);
         return 0;
     }
-    if (argc >= 4 && !strcmp(argv[1], "cost") && !strncmp(argv[2], "voices", 6)) {
-        uint32_t n = (uint32_t)atoi(argv[3]) * 44100u, i0, nv = (uint32_t)atoi(argv[2] + 6), k;
-        frasil_params_t p = eng_default();
+    if (argc >= 4 && !strcmp(argv[1], "cost") && (!strncmp(argv[2], "voices", 6) || !strncmp(argv[2], "rust", 4))) {
+        int rust = argv[2][0] == 'r';    /* rustN...: RUST's settings (eng_rust), else every layer at 0.8 */
+        const char *a = argv[2] + (rust ? 4 : 6);
+        uint32_t n = (uint32_t)atoi(argv[3]) * 44100u, i0, nv = (uint32_t)atoi(a), k;
+        frasil_params_t p = rust ? eng_rust() : eng_default();
         int32_t lr[2 * BLK];
         const char *only = strchr(argv[2], ':');
-        p.choir = p.partials = p.souffle = 0.8f;
-        p.rev.shimmer = 0.4f;
+        if (!rust) {
+            p.choir = p.partials = p.souffle = 0.8f;
+            p.rev.shimmer = 0.4f;
+        }
         if (only) {                     /* voicesN:cps, the layers to keep */
             p.choir = strchr(only, 'c') ? 0.8f : 0.0f;
             p.partials = strchr(only, 'p') ? 0.8f : 0.0f;
             p.souffle = strchr(only, 's') ? 0.8f : 0.0f;
         }
-        if (strchr(argv[2] + 6, 'x')) {  /* voicesNx: and what costs on the layers' second pages, all, or those named
+        if (strchr(a, 'x')) {            /* voicesNx: and what costs on the layers' second pages, all, or those named
                                          * after it: s SHAPE, r RESONANCE, g GRAIN, t TONE, a AIR, p PEAK,
                                          * q BEAT, y TYPE */
-            const char *o = strchr(argv[2] + 6, 'x') + 1;
+            const char *o = strchr(a, 'x') + 1;
             int all = !*o || *o == ':';
             p.ch_shape = all || strchr(o, 's') ? 1.0f : 0.0f;
             p.ch_reso = all || strchr(o, 'r') ? 0.6f : 0.0f;
@@ -601,8 +636,35 @@ int main(int argc, char **argv)
         frasil_set(&p);
         for (k = 0; k < nv; k++)
             frasil_note_on(40 + 5 * (int)k, 0.8f);
-        if (strchr(argv[2] + 6, 'b')) {  /* voicesNbM: and the bass, MODEL M (0 the sine) */
-            p.bass = (bass_params_t){.model = atoi(strchr(argv[2] + 6, 'b') + 1) % BASS_NMODEL, .drive = 0.2f,
+        if (strchr(a, 'f')) {            /* voicesNf: and the master effects, all on: MASTER EQ (its three bands
+                                         * moved), MASTER FILTER (a low pass on the drones and GLINT), LOFI TAPE (on
+                                         * everything): the most they cost together; voicesNfe, fl, ft: one alone */
+            const char *o = strchr(a, 'f') + 1;
+            p.eq_on = 1;
+            p.eq_low = 3.0f;
+            p.eq_mid = -4.0f;
+            p.eq_high = 2.0f;
+            p.eq_lowf = 120.0f;
+            p.eq_midf = 400.0f;
+            p.eq_q = 1.0f;
+            p.eq_highf = 8000.0f;
+            p.fl_type = 1;
+            p.fl_cut = 1500.0f;
+            p.fl_q = 2.0f;
+            p.fl_tracks = 3;
+            p.tp_on = 1;
+            p.tp_sat = 0.6f;
+            p.tp_wobble = 0.6f;
+            p.tp_tracks = 7;
+            if (*o) {
+                p.eq_on = *o == 'e';
+                p.fl_type = *o == 'l';
+                p.tp_on = *o == 't';
+            }
+            frasil_set(&p);
+        }
+        if (strchr(a, 'b')) {            /* voicesNbM: and the bass, MODEL M (0 the sine) */
+            p.bass = (bass_params_t){.model = atoi(strchr(a, 'b') + 1) % BASS_NMODEL, .drive = 0.2f,
                                      .filter = 0.6f, .resonance = 0.3f, .glide = 0.15f, .level = 0.7f,
                                      .attack = 0.2f, .release = 0.4f};
             frasil_set(&p);
@@ -611,6 +673,156 @@ int main(int argc, char **argv)
         for (i0 = 0; i0 + BLK <= n; i0 += BLK)
             frasil_render(lr, BLK, 1.0f);
         printf("%d\n", lr[0]);
+        return 0;
+    }
+    if (argc >= 4 && !strcmp(argv[1], "fx")) {   /* fx WHICH OUT.wav: 8 s of a chord (every layer), the same notes and
+                                                  * noise each run, through nothing (base), MASTER EQ (eq: MID -12 DB
+                                                  * at 1 KHZ, Q 1), the filter on everything (lp, hp: 500 HZ, Q 0.71)
+                                                  * or the tape (tape: SATURATION and WOBBLE at half, or as
+                                                  * TP_SAT and TP_WOB have them, 0..1); eqknob: LOW turned as a
+                                                  * knob is, half a dB a step every 12 ms, 0 to +12 to -12 */
+        const char *w = argv[2];
+        int mix = !strncmp(w, "mix", 3);   /* mixall: RUST's (below) with PUMP, MASTERING, the pans, SINK, the
+                                            * metronome and the EQ; mixfx: and the filter and the tape on some tracks */
+        int rust = !strncmp(w, "rust", 4) || mix, rel = !strcmp(w, "rel");   /* rust, rusttape: RUST on eight voices,
+                                                                               * glints and the bass; rel: the chord
+                                                                               * let go at 2 s, its tails (16 s) */
+        uint32_t n = (rel ? 16u : 8u) * 44100u, i0, i;
+        frasil_params_t p = rust ? eng_rust() : eng_default();
+        int32_t lr[2 * BLK];
+        p.eq_lowf = 120.0f;
+        p.eq_midf = 1000.0f;
+        p.eq_q = 1.0f;
+        p.eq_highf = 8000.0f;
+        p.fl_cut = 500.0f;
+        p.fl_q = 0.7071f;
+        p.fl_tracks = p.tp_tracks = 7;
+        p.tp_sat = p.tp_wobble = 0.5f;
+        p.eq_on = !strcmp(w, "eq");
+        p.eq_mid = p.eq_on ? -12.0f : 0.0f;
+        p.fl_type = !strcmp(w, "lp") ? 1 : !strcmp(w, "hp") ? 2 : 0;
+        p.tp_on = !strcmp(w, "tape") || !strcmp(w, "rusttape");
+        if (rust) {
+            p.glint = (glint_params_t){.ratio = 3.5f, .bright = 0.55f, .decay = 0.55f, .level = 0.7f, .space = 0.7f,
+                                       .release = 0.6f, .delay_s = 0.3f, .delay_fb = 0.4f, .delay_mix = 0.3f,
+                                       .delay_pp = 1};
+            p.bass = (bass_params_t){.model = 1, .drive = 0.2f, .filter = 0.6f, .resonance = 0.3f, .glide = 0.15f,
+                                     .level = 0.7f, .attack = 0.2f, .release = 0.4f, .sustain = 1.0f};
+        }
+        if (mix) {
+            p.pump_drone = 0.6f;
+            p.pump_bass = 0.5f;
+            p.pump_glint = 0.4f;
+            p.pump_att = 0.01f;
+            p.pump_rel = 0.6f;
+            p.pump_off = 0.1f;
+            p.comp_ratio = 4.0f;
+            p.comp_thr = -18.0f;
+            p.comp_gain = 1.5f;
+            p.comp_rel = 0.2f;
+            p.pan[0] = 0.3f;
+            p.pan[1] = -0.5f;
+            p.pan[2] = 0.7f;
+            p.pan[3] = -0.2f;
+            p.sink = 0.3f;
+            p.eq_on = 1;
+            p.eq_low = 3.0f;
+            p.eq_mid = -4.0f;
+            p.eq_high = 2.0f;
+            if (!strcmp(w, "mixfx")) {
+                p.fl_type = 1;
+                p.fl_cut = 1200.0f;
+                p.fl_q = 1.5f;
+                p.fl_tracks = 3;
+                p.tp_on = 1;
+                p.tp_tracks = 5;
+            }
+        }
+        if (getenv("DRY"))               /* (DRY=1: no cloud in what comes out: its int16 lines round a change upstream
+                                          * into a noise of their LSB, some -80 dB, which hides the change's own) */
+            p.mix = 0.0f;
+        if (getenv("TP_SAT"))
+            p.tp_sat = (float)atof(getenv("TP_SAT"));
+        if (getenv("TP_WOB"))
+            p.tp_wobble = (float)atof(getenv("TP_WOB"));
+        if (!strcmp(w, "eqknob"))
+            p.eq_on = 1;
+        if (!strncmp(w, "tp", 2u))     /* (tptracks, tpon, tpsat, tpwob: the tape on, its settings stepped) */
+            p.tp_on = 1;
+        if (!strcmp(w, "chtype"))      /* (CHOIR's TYPE stepped, some RESONANCE) */
+            p.ch_reso = 0.3f;
+        if (!strcmp(w, "fltracks") || !strcmp(w, "fltype")) {   /* the filter's TRACKS or TYPE stepped every 200 ms */
+            p.fl_type = 1;
+            p.fl_cut = 800.0f;
+            p.fl_q = 2.0f;
+        }
+        frasil_init();
+        frasil_set(&p);
+        frasil_note_on(38, 0.8f);
+        frasil_note_on(45, 0.8f);
+        frasil_note_on(52, 0.8f);
+        frasil_note_on(57, 0.8f);
+        if (rust) {
+            static const int MORE[4] = {62, 64, 69, 74};
+            for (i = 0; i < 4u; i++)
+                frasil_note_on(MORE[i], 0.7f);
+            frasil_bass_on(26, 0.8f);
+        }
+        for (i0 = 0; i0 + BLK <= n; i0 += BLK) {
+            if (rel && i0 >= 2u * 44100u && i0 < 2u * 44100u + BLK)
+                frasil_all_off();
+            if (mix) {                   /* the beat at 120 BPM, a tick on each */
+                frasil_pump((float)i0 / 22050.0f - (float)(i0 / 22050u), 2.0f / 44100.0f);
+                if (i0 % 22050u < BLK)
+                    frasil_click(i0 % 88200u < BLK);
+            }
+            if (rust) {                  /* a glint every half second, held 0.3 s */
+                static const int PH[5] = {81, 84, 88, 86, 93};
+                if (i0 % 22050u < BLK)
+                    frasil_glint_on(PH[i0 / 22050u % 5u], 0.7f);
+                if (i0 >= 13230u && (i0 - 13230u) % 22050u < BLK)
+                    frasil_glint_off(PH[(i0 - 13230u) / 22050u % 5u]);
+            }
+            if (i0 >= 44100u && (i0 - 44100u) % 8820u < BLK) {   /* from 1 s, every 200 ms: the setting changed */
+                static const int TRK[7] = {7, 1, 2, 4, 3, 5, 6};
+                uint32_t k = (i0 - 44100u) / 8820u;
+                int hit = 1;
+                if (!strcmp(w, "fltracks"))
+                    p.fl_tracks = TRK[k % 7u];
+                else if (!strcmp(w, "fltype"))
+                    p.fl_type = (int)(k % 3u);
+                else if (!strcmp(w, "tptracks"))
+                    p.tp_tracks = TRK[k % 7u];
+                else if (!strcmp(w, "tpon"))
+                    p.tp_on = (int)(k & 1u);
+                else if (!strcmp(w, "tpsat"))
+                    p.tp_sat = (float)(k % 8u) / 7.0f;
+                else if (!strcmp(w, "tpwob"))
+                    p.tp_wobble = (float)(k % 8u) / 7.0f;
+                else if (!strcmp(w, "chtype"))
+                    p.ch_type = (int)(k % 3u);
+                else if (!strcmp(w, "shed")) {   /* the engine lightened, a step every 200 ms, up then down */
+                    static const int LV[8] = {1, 2, 3, 2, 1, 0, 2, 0};
+                    frasil_shed(LV[k % 8u]);
+                    hit = 0;
+                }
+                else
+                    hit = 0;
+                if (hit)
+                    frasil_set(&p);
+            }
+            if (!strcmp(w, "eqknob") && i0 >= 44100u) {   /* from 1 s: a step every 12 ms (two blocks) */
+                uint32_t k = (i0 - 44100u) / (2u * BLK);
+                p.eq_low = k <= 24u ? 0.5f * (float)k : k <= 72u ? 12.0f - 0.5f * (float)(k - 24u) : -12.0f;
+                frasil_set(&p);
+            }
+            frasil_render(lr, BLK, 1.0f);
+            for (i = 0; i < BLK; i++) {
+                wl[i0 + i] = (float)lr[2 * i] / 8388607.0f;
+                wr[i0 + i] = (float)lr[2 * i + 1] / 8388607.0f;
+            }
+        }
+        wav_write(argv[3], n);
         return 0;
     }
     if (argc >= 4 && !strcmp(argv[1], "cost")) {

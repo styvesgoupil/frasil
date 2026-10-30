@@ -1,0 +1,21 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 Styves Goupil
+ * The changelog (assemble.py changelog_html: the repo's CHANGELOG.md): each version a section, a row to jump between
+ * them, its lists read as the guide's are. */
+.cl-jump { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+.cl-jump a { padding: 8px 14px; border: 1px solid var(--steel); border-radius: 999px; text-decoration: none;
+  font: 600 13px/1 var(--f-ui); letter-spacing: .14em; color: var(--fog); transition: border-color .2s, color .2s; }
+.cl-jump a:hover { border-color: var(--mist); color: var(--white); }
+.cl-ver { max-width: 78ch; padding-top: 44px; margin-top: 44px; border-top: 1px solid var(--rule); }
+.cl-ver h2 { margin: 0 0 18px; font: 700 clamp(30px, 3.4vw, 42px)/1 var(--f-ui); letter-spacing: .06em; color: var(--white); }
+.cl-when { margin-left: 12px; font-size: 14px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--mist); vertical-align: middle; }
+.cl-ver h3.label { margin: 30px 0 12px; color: var(--ice); }
+.cl-ver p, .cl-ver li { font: 18px/1.6 var(--f-text); color: var(--text-2); }
+.cl-ver p { margin: 0 0 14px; }
+.cl-ver p:first-of-type { color: var(--fog); }
+.cl-ver ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.cl-ver li { position: relative; padding-left: 22px; }
+.cl-ver li::before { content: ""; position: absolute; left: 2px; top: .72em; width: 6px; height: 6px; border-radius: 50%; background: var(--slate); }
+.cl-ver strong { font-weight: 600; color: var(--fog); }
+.cl-ver code { font: .86em var(--f-mono); color: var(--fog); }
+@media (max-width: 600px) { .cl-ver p, .cl-ver li { font-size: 17px; } }

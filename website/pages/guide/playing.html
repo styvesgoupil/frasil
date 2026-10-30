@@ -1,7 +1,7 @@
 <!--
 title: Playing drones
-lede: A tap lights a drone and it stays. Press into it and it swells. Everything else is how long it takes, and where it goes.
-description: Playing FRASIL's drones on the FM-1: tap to latch, tap again to release, press to swell, SWELL, the three left encoders (KEYS, PRESET, BODY), a single note over a chord, the octave, PLAY, REC and FREEZE, and what every button does tapped and held.
+lede: Tap a key: the drone lights and stays. Press into it: it swells.
+description: Playing FRASIL's drones on the FM-1: tap, release, press, SWELL, the octave, PLAY, CUT, REC and FREEZE, and what every button does tapped and held.
 buttons: PRESS IN
 hint: Hold the key, press harder
 -->
@@ -11,80 +11,56 @@ hint: Hold the key, press harder
   <tbody>
     <tr><td>Tap a key</td><td>Lights the note, or a chord (see <a href="{{root}}guide/harmony/">Harmony</a>). It rises over ATTACK and stays</td></tr>
     <tr><td>Tap a lit key</td><td>It fades over RELEASE</td></tr>
-    <tr><td>Hold a key and press</td><td>The voice swells and opens (PRESSURE sets how much). Let go: it stays lit</td></tr>
-    <tr><td>Hold ENV</td><td>SWELL: after 0.4 s, every drone voice swells together (1.5 s up, 1.5 s down once let go); ENV is lit while it lasts</td></tr>
-    <tr><td>SWELL (FX, K1)</td><td>Held where you leave it: every voice swells as far as it is turned, and stays there. With ENV held or CC 11 too, the most of them wins. Scenes don’t keep it</td></tr>
-    <tr><td>Turn SELECT</td><td>KEYS, what the keys play: DRONE, GLINT or BASS (the badge at the top right says which, in its colour). They stay until you come to a page from another section, which sets them too (see the buttons, below). Scenes don’t keep it. On SCENES it picks the slot, as K1 does, and leaves KEYS as they are</td></tr>
-    <tr><td>Hold a page button, turn SELECT</td><td>That button’s pages, one a detent, both ways, round (FX, SEL, ENV, LFO, EDIT, GLO, HOME, ARP, SEQ; not SAVE); from another section’s page, the first detent sets KEYS as a tap would (see the buttons, below)</td></tr>
-    <tr><td>Turn PRESETS</td><td>The drone’s preset: CUSTOM, then the 24 (see <a href="{{root}}guide/how-it-works/#presets">the drone’s presets</a>)</td></tr>
-    <tr><td>Turn ALGORITHM</td><td>BODY: at 100 % the drone as its settings make it; down, thinner (see <a href="{{root}}guide/how-it-works/#the-whole-drone">the whole drone</a>)</td></tr>
-    <tr><td>Hold SEL, tap a key</td><td>A single note, even when CHORD makes chords: a note over a chord</td></tr>
-    <tr><td>OCT− · OCT+</td><td>Octave −3 to +2. Both together: back to −1, where the keys run F2 to G4</td></tr>
-    <tr><td>Hold PLAY</td><td>After 0.6 s, RELEASE ALL: the drones, the bass, the glints, the arpeggio and the sequences; the beat begins there (below). From 0.2 s the header says RELEASE ALL, a line counting down under it: let go then, before 0.6 s, and nothing happens</td></tr>
-    <tr><td>Hold PLAY again</td><td>With nothing playing: RESTORE, the scene again (RESTORED): what the last RELEASE ALL let go, else the scene’s own notes as saved (at power-on, say): its latched drones, the arpeggio’s notes, the bass; and every sequence that is on, from its first step; the beat begins there</td></tr>
-    <tr><td>Tap PLAY</td><td>The transport: GLINT’s sequence and the bass’s stop together, or start together from their first steps, at once, the beat beginning there; the arpeggio waits, or goes on from the top. A stop leaves the beat going. With GLINT’s SEQ and the bass’s SEQUENCE OFF it only says HOLD PLAY · RELEASE ALL</td></tr>
-    <tr><td>REC</td><td>Into GLINT’s sequencer, recording LIVE (see <a href="{{root}}guide/glint/#the-sequencer">the sequencer</a>); with the keys on BASS, into <a href="{{root}}guide/bass/#the-sequencer">the bass’s</a>. Again: RECORD off, the keys back to what they played before REC. It flashes on the beat while recording, with a metronome; hold it to turn the metronome off or on</td></tr>
-    <tr><td>Hold FX (or CLOUD’s K4)</td><td>FREEZE: the cloud holds what is in it, without end and without darkening. Nothing more goes in: what you play next sounds dry over it. Off: it thaws, and fades over DECAY. The page stays; FX stays bright while it is on</td></tr>
+    <tr><td>Hold a key and press</td><td>It swells (PRESSURE sets how much). Let go: it stays lit</td></tr>
+    <tr><td>Hold ENV</td><td>SWELL: every drone swells while held</td></tr>
+    <tr><td>SWELL (FX, K1)</td><td>Every drone swells as far as you turn it, and stays there</td></tr>
+    <tr><td>Turn SELECT</td><td>KEYS: DRONE, GLINT or BASS. On SCENES: the slot</td></tr>
+    <tr><td>Hold a page button, turn SELECT</td><td>Steps through that button’s pages</td></tr>
+    <tr><td>Turn PRESETS</td><td>The drone’s preset (see <a href="{{root}}guide/how-it-works/#presets">presets</a>)</td></tr>
+    <tr><td>Turn ALGORITHM</td><td>BODY (see <a href="{{root}}guide/how-it-works/#the-whole-drone">the whole drone</a>)</td></tr>
+    <tr><td>Hold SEL, tap a key</td><td>A single note over a chord</td></tr>
+    <tr><td>OCT− · OCT+</td><td>Octave −3 to +2. Both: back to −1</td></tr>
+    <tr><td>Hold OCT−, turn a preset</td><td>GLINT’s PRESET, BASS’s MODEL or PRESETS, picked unheard. Let OCT− go to take it</td></tr>
+    <tr><td>Hold PLAY</td><td>RELEASE ALL: every note and sequence lets go. Let go early to cancel</td></tr>
+    <tr><td>Hold PLAY again</td><td>With nothing playing: RESTORE, the scene back as it was</td></tr>
+    <tr><td>Tap PLAY</td><td>Starts or stops GLINT’s and the bass’s sequences together. With nothing playing: RESTORE</td></tr>
+    <tr><td>Tap PLAY twice</td><td>RELEASE ALL</td></tr>
+    <tr><td>Hold OCT−, press PLAY</td><td>CUT: silence at once, reverb and echoes too. PLAY then: RESTORE</td></tr>
+    <tr><td>REC</td><td>Records LIVE into GLINT’s <a href="{{root}}guide/glint/#the-sequencer">sequencer</a> (with the keys on BASS, <a href="{{root}}guide/bass/#the-sequencer">the bass’s</a>). Again: off. Hold: metronome on or off</td></tr>
+    <tr><td>Hold FX (or CLOUD’s K4)</td><td>FREEZE: the reverb holds what is in it. New notes play dry over it</td></tr>
   </tbody>
 </table>
-<p>With GLOBAL › KEY MODE on HOLD, notes sound only while their key is held.</p>
+<p>With GLOBAL › KEY MODE on HOLD, notes sound only while held.</p>
 
 <h2 id="the-buttons">The buttons</h2>
-<p>A press shows, a hold acts. Every button does its job when you let it go, but OCT− and OCT+, which act at once.
-  Held 0.4 s (PLAY 0.6 s), it does its other thing instead. A button used with something else (SEL with a key, SAVE
-  with a key or REC, LFO with an encoder, GLO with a CC, a page button with SELECT) does nothing more when you let it
-  go.</p>
-<p><b class="k">PLAY restarts the beat:</b> when PLAY starts the transport (a tap), and when it is held (RELEASE ALL,
-  and again, RESTORE), the grid starts again from its top at that moment, as a MIDI Start does: a beat and a bar begin
-  there. Everything on the grid starts with it: OCT’s blink, REC’s flash and the metronome, the LFOs on the grid (from
-  the top of their turn), PUMP, the arpeggio (from the top of its pattern), GLINT’s sequence and the bass’s (from their
-  first steps, at once) and PULSE’s divisions. While a MIDI clock comes in, the beat is the clock’s: PLAY leaves it
-  where it is, and the sequences start on its next step (MIDI Start resets it). A tap that stops the transport
-  changes nothing. A scene loaded with its notes (LOAD on SND+NOTES) starts the beat there too, as PLAY does (see
-  <a href="{{root}}guide/scenes/#morph-and-load">Scenes</a>).</p>
-<p><b class="k">A page button and SELECT:</b> hold a page button and turn SELECT: its pages, one a
-  detent, in the order its taps go (the pages GLINT’s SEQ hides skipped), round; from another button’s page, its first
-  (turned back, its last). The page shows at once; that first detent, come from another section, sets KEYS as a tap
-  would, the next ones leave them. Let go: nothing more, no next page, no hold.
-  If the hold acted before SELECT moved (held past 0.4 s), the first detent undoes it: FREEZE and the arpeggio’s LATCH
-  back as they were (its notes too, and GLINT’s SEQ if LATCH on turned it to ARP), COMPARE and SWELL over. HOME is the exception: once its help is up, SELECT turns
-  the help’s pages.</p>
-<p><b class="k">KEYS follow the section:</b> when you come to a page from another section (another button’s pages),
-  the keys go to its track, however you come (its button, a page button held and SELECT, HOME). ARP’s pages: GLINT.
-  SEQ’s (BASS to BASS SEQ II): BASS. EDIT’s, ENV’s DRONE SHAPE and HOME’s (the play page, MIXER, the logo): DRONE. The
-  other sections leave them as they are: FX’s, GLO’s, SEL’s HARMONY, LFO’s (DRONE MOTION, the three LFOs and their
-  targets), SAVE’s SCENES. Within a section they never change (ARP again for GLINT II, SELECT with ARP held, HOME to
-  MIXER and the logo): KEYS you set by hand with SELECT stay until you come from another section. SAVE back from
-  SCENES is a return: you come back as you left. When they change, the keys' badge at the top right
-  shows it, with no words over the page's name. While a recording has the keys (REC, or RECORD on STEP or LIVE), pages leave
-  them alone: RECORD OFF gives them back. What plays goes on: a latched drone or bass stays latched, and a key held down
-  while the keys change ends as it began.</p>
-<table class="params ctl-table">
+<p>A button acts when you let it go (OCT− and OCT+ at once). Hold it for its other action. Used in a combo, it does
+  nothing more on release.</p>
+<p><b class="k">PLAY restarts the beat</b> when it starts, releases, restores or cuts: the LFOs, PUMP, the arpeggio
+  and the sequences start from the top. With a MIDI clock in, the clock keeps the beat.</p>
+<p><b class="k">KEYS follow the section.</b> ARP’s pages turn the keys to GLINT, SEQ’s to BASS, EDIT’s, ENV’s and
+  HOME’s to DRONE. Other pages leave them. While recording, pages leave the keys alone. What plays goes on playing.</p><table class="params ctl-table">
   <thead><tr><th>Button</th><th>Tapped · held</th></tr></thead>
   <tbody>
-    <tr><td>FX</td><td>GENERATIVE FX; again: CLOUD, CLOUD II, CLOUD III, PUMP, PUMP II. Hold: FREEZE on or off</td></tr>
-    <tr><td>SEL</td><td>HARMONY. Hold it and tap a key: a single note</td></tr>
-    <tr><td>ENV</td><td>DRONE SHAPE. Hold: SWELL, while held</td></tr>
-    <tr><td>LFO</td><td>DRONE MOTION; again: the three LFOs and their targets. Hold it and turn K1–K4: that setting onto an LFO (see <a href="{{root}}guide/lfo/#routing">The LFOs</a>)</td></tr>
-    <tr><td>EDIT</td><td>DRONE PARAMS; again: the layers’ pages. Hold: COMPARE, the scene as saved, while held (see <a href="{{root}}guide/scenes/#compare">Scenes</a>)</td></tr>
-    <tr><td>GLO</td><td>GLOBAL; again: MIDI, MASTERING. Hold it and move a CC on a controller: MIDI learn (see <a href="{{root}}guide/midi/#midi-learn">MIDI</a>)</td></tr>
-    <tr><td>HOME</td><td>The play page; again: MIXER, the logo. Hold: help, on the page with this page’s button</td></tr>
-    <tr><td>SAVE</td><td>SCENES; again: back to the page you came from. Hold it and press a white key: that scene; and REC: STORE (see <a href="{{root}}guide/scenes/">Scenes</a>)</td></tr>
-    <tr><td>ARP</td><td>GLINT’s pages. Hold: the arpeggio’s LATCH (turned on, SEQ on ARP too)</td></tr>
+    <tr><td>FX</td><td>GENERATIVE FX, CLOUD, MASTER FILTER, LOFI TAPE, PUMP. Hold: FREEZE</td></tr>
+    <tr><td>SEL</td><td>HARMONY. Hold + key: a single note</td></tr>
+    <tr><td>ENV</td><td>DRONE SHAPE. Hold: SWELL</td></tr>
+    <tr><td>LFO</td><td>DRONE MOTION, then the three LFOs. Hold + turn K1–K4: send that setting to an LFO (see <a href="{{root}}guide/lfo/#routing">The LFOs</a>)</td></tr>
+    <tr><td>EDIT</td><td>DRONE TONE, then the layers. OCT− + EDIT: COMPARE with the saved scene (see <a href="{{root}}guide/scenes/#compare">Scenes</a>)</td></tr>
+    <tr><td>GLO</td><td>GLOBAL, MIDI, MASTERING, MASTER EQ, ROUTING, SCREEN. Hold + move a CC: MIDI learn (see <a href="{{root}}guide/midi/#midi-learn">MIDI</a>)</td></tr>
+    <tr><td>HOME</td><td>The play page, MIXER, the logo. Hold: help</td></tr>
+    <tr><td>SAVE</td><td>SCENES; again: back. Hold + white key: load that scene. Hold + REC: STORE (see <a href="{{root}}guide/scenes/">Scenes</a>)</td></tr>
+    <tr><td>ARP</td><td>GLINT’s pages. Hold: arpeggio LATCH</td></tr>
     <tr><td>SEQ</td><td>BASS’s pages</td></tr>
-    <tr><td>PLAY</td><td>Start (the beat from there), stop the sequences (GLINT’s, the bass’s) or the arpeggio; on SCENES: load. Hold: RELEASE ALL; with nothing playing: RESTORE, the scene again (the beat from there)</td></tr>
-    <tr><td>REC</td><td>Record LIVE; again: RECORD off. Hold: the metronome on or off</td></tr>
+    <tr><td>PLAY</td><td>Start or stop. Twice: RELEASE ALL. On SCENES: load. OCT− + PLAY: CUT. Hold: RELEASE ALL, or RESTORE when nothing plays</td></tr>
+    <tr><td>REC</td><td>Record LIVE; again: off. Hold: metronome</td></tr>
   </tbody>
 </table>
 
 <h2 id="the-shape">The shape of a drone</h2>
-<p>ENV opens DRONE SHAPE: ATTACK (5 ms to 30 s), RELEASE (50 ms to 60 s), PRESSURE (its effect) and VELOCITY; held,
-  it swells every drone voice (SWELL).
-  LFO opens DRONE MOTION: MOTION (the drift’s depth), RATE (20 s to 0.5 s), TIDE (a swell of the timbre) and PERIOD
-  (5 min to 10 s). Press LFO again for LFO 1, LFO 2 and LFO 3, three LFOs you set on the sound yourself: see
-  <a href="{{root}}guide/lfo/">The LFOs</a>.</p>
-<p>The three encoders on the left do the same on every page: <span class="disc abc">A</span> KEYS,
-  <span class="disc abc">B</span> the drone’s PRESET, <span class="disc abc">C</span> its BODY. The drone’s TIMBRE,
-  SPACE and MOTION are on the first page of EDIT, DRONE PARAMS, with BODY again. TEMPO is on GLOBAL, K1.</p>
+<p>ENV opens DRONE SHAPE: ATTACK (up to 30 s), RELEASE (up to 60 s), PRESSURE and VELOCITY.</p>
+<p>LFO opens DRONE MOTION: MOTION and RATE (the drift), TIDE and PERIOD (the slow swell). Press LFO again for the
+  three <a href="{{root}}guide/lfo/">LFOs</a>.</p>
+<p>On every page: <span class="disc abc">A</span> KEYS, <span class="disc abc">B</span> PRESET,
+  <span class="disc abc">C</span> BODY. TEMPO is on GLOBAL, K1.</p>
 
 <div class="g-row2">{{shot_play}}{{shot_pressure}}</div>

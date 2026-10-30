@@ -42,6 +42,8 @@
   function own(art) {
     if (!ownIds || !art._shard || !ownIds.has(art._shard.id)) return;
     art.querySelectorAll('.acts [data-act="fav"], .acts [data-act="report"]').forEach((b) => b.remove());
+    if (art._edit && art._edit.acts)              // (set aside while it is edited: river-edit.js)
+      art._edit.acts = art._edit.acts.filter((b) => !(b.dataset && /^(fav|report)$/.test(b.dataset.act)));
   }
 
   // ---------------------------------------------------------------- the title, the toolbar
@@ -81,12 +83,20 @@
         if (line) line.replaceWith(RL.meta(y));
       }), link, RL.act(null, "Report", () => RL.report(x), { txt: true, of: x.name, act: "report" })],
       intro: () => RL.intro(x),
+      edit: { saveAs: (o) => saveAs(o, x), canSave: () => !!A.signedIn,
+              get from() { return ownIds && ownIds.has(x.id) ? null : { name: x.name, author: x.author || "someone", first: x.origin_author || null }; } },
       onPlay: () => A.post(`/api/public/shards/${x.id}/played`).catch(() => {}),
       onOpen: featured ? null : (open) => address(x, open),
     });
     art._shard = x;
     own(art);
     return art;
+  }
+  /* the editor's SAVE AS (river-edit.js): a new shard in one's River, its first author credited (CC BY 4.0) */
+  async function saveAs({ bytes, name, description }, x) {
+    const y = await A.post("/api/shards", { name, description, layout: FB.S.magic.shard, firmware: FRASIL_VERSION, data: A.b64(bytes), origin: x.id });
+    if (ownIds) ownIds.add(y.id);
+    RiverCards.toast(h("b", null, y.name), " is saved in Your Private River. ", h("a", { class: "link", href: "/yours/" }, "See it there"));
   }
   /* the address names the shard opened: opened, its #s=; closed, another one still open (or none) */
   function address(x, open) {

@@ -2,15 +2,19 @@
  * Copyright (C) 2026 Styves Goupil
  * The River's row (the Community River, Your Private River, Quick Backup's slots): a shard drawn from its bytes with
  * the schema the firmware's code writes (FB.S), closed (▶, its name, a line of what plays, its key, GLINT's type, the
- * bass's sequence and the page's own cells) and opened in place (what plays on the keyboard, GLINT, every page as the
- * screen writes it); ▶ with FRASIL's engine (river-player.js), one shard at a time.
+ * bass's sequence and the page's own cells) and opened in place: at the left what moves (GLINT's walk or sequence, the
+ * bass's sequence, the LFOs), at the right every page as the screen writes it, at its foot THE KEYS (river-keys.js);
+ * ▶ with FRASIL's engine (river-player.js), one shard at a time, its card following what sounds (follow(): the keys lit
+ * by the voices, the LFOs moving, the sequences' playheads, the MIXER's meters).
  * What users typed (names, descriptions, authors) is only ever text: no HTML is built from strings here.
  *   RiverCards.row(scene, o)       a shard as a row on the river, opened in place into its card, its head the one
  *                                  action zone (see row())
  *   RiverCards.settingsRow(settings, scenes) · openRow(art, open) · ticked(art, on) · say(art, ...) (a line on a row)
  *   RiverCards.line(scene) (what plays, in one line) · I (the River's line icons)
  *   RiverCards.toast(...parts) · confirm({title, text, ok, danger, check}) -> Promise<boolean>
- *   RiverCards.stopSound() · onSound(fn(key, state, scene)) · h, s, two, nn, word, key, k, fill, look, shard */
+ *   RiverCards.stopSound() · onSound(fn(key, state, scene)) · h, s, two, nn, word, key, k, fill, look, shard
+ *   RiverCards.relive(art) (its live parts found again, what is heard put on them) · parts (the drawing's own, for
+ *   river-keys.js) */
 "use strict";
 window.RiverCards = (() => {
   const S = FB.S, P = S.params, ID = S.ids, N = S.sizes;
@@ -103,12 +107,6 @@ window.RiverCards = (() => {
   const ARP_PAGES = new Set([ID.PG_ARP]), SEQ_PAGES = new Set([ID.PG_SEQ, ID.PG_SEQ2, ID.PG_SEQ3]);
   const shownFor = (pg, L) => (ARP_PAGES.has(pg.i) ? L.arpOn : SEQ_PAGES.has(pg.i) ? L.seqOn : true);
   const SOUND = (S.pages.find((pg) => pg.name === "SOUND") || { p: [0, 1, 2, 3] }).p;   // CHOIR PARTIALS BREATH WARMTH
-  const GL_CELLS = {
-    off: [pp(["GLINT I", "GLINT PARAMS"], "LEVEL", "P_GL_LEVEL"), pp(["GLINT I", "GLINT PARAMS"], "BRIGHT", "P_GL_BRIGHT"),
-          pp("GLINT II", "DECAY", "P_GL_DECAY"), pp("GLINT II", "ATTACK", "P_GL_ATTACK")],
-    arp: S.pages[ID.PG_ARP] ? S.pages[ID.PG_ARP].p : [],
-    seq: [ID.P_ARP_RATE, ID.P_SQ_GATE, ID.P_ARP_CHANCE, ID.P_SQ_TRANS],
-  };
 
   /* a sound as the screen shows it (v: the drone's preset applied) */
   function look(v) {
@@ -129,7 +127,8 @@ window.RiverCards = (() => {
 
   // ---------------------------------------------------------------- a setting, as ui.c's cell draws it
   /* its name, its value (a unit after a number set small), a gauge, dots for a choice among a few, or (a TARGET)
-   * its name in its track's colour */
+   * its name in its track's colour. One an LFO moves, while it plays: its value now, a tick along its gauge in the
+   * colour of the LFO's TARGET's track */
   function cell(p, L) {
     const d = P[p], x = Math.min(L.raw(p), d.max), t = word(p, x);
     let val = t, unit = "";
@@ -144,79 +143,183 @@ window.RiverCards = (() => {
       const f = Math.max(1, Math.min(88, Math.round(x / Math.max(1, d.max) * 88))) / 88;
       meter = h("span", { class: "gauge", "aria-hidden": "true", style: `--f:${r2(f)}` }, h("i"));
     }
-    return h("div", { class: "cell" },
+    const el = h("div", { class: "cell", "data-p": p },
       h("div", { class: "cell-n" }, d.name, tag && h("span", { class: "lfo-tag" }, tag)),
       h("div", { class: "cell-v" }, h("span", { class: "v", style: col ? `color:${col}` : null }, val), unit && h("span", { class: "u" }, unit)),
       h("div", { class: "cell-m" }, meter));
+    if (!tag || !meter || !meter.classList.contains("gauge")) return el;
+    const tg = S.lfo.targets.find((t) => t && t.p === p), now = h("b", { style: `background:${TRACK[tg && tg.track] || C.ice}` });
+    meter.append(now);
+    return live(el, (f, ctx) => {
+      if (!f || ctx.mod[p] === undefined) { now.style.opacity = 0; return; }
+      const v = Math.max(0, Math.min(d.max, x + ctx.mod[p]));
+      now.style.left = `calc(${r2(v / Math.max(1, d.max) * 100)}% - .75px)`;
+      now.style.opacity = 1;
+    });
   }
 
-  // ---------------------------------------------------------------- WHAT PLAYS: C1 .. C7 under the waterline
+  // ---------------------------------------------------------------- what sounds: a ▶ playing (river-player.js live())
+  /* app/web.c web_live's floats, read: the voices sounding, each its note and its level (the envelope; GLINT's as
+   * heard), the LFOs (on, where in its turn, SHAPE's value, the turns gone by), GLINT's sequence's step and the note it
+   * or the arpeggio struck last (and how many they have struck), the bass's step and its time in it (MIDI clocks), the
+   * meters (drones, bass, glints, the cloud), the tide; struck: GLINT's voices, the last struck first ({n, t: seconds
+   * since}) */
+  function heardOf(v) {
+    const f = { drone: [], glint: [], bass: null, lfo: [], seq: v[38], note: v[39], bq: v[40], bqT: v[41], m: [v[42], v[43], v[44], v[45]], tide: v[46], strikes: v[47] };
+    for (let i = 0; i < 8; i++) if (v[i] >= 0 && v[8 + i] > 0.003) f.drone.push({ n: Math.round(v[i]), l: v[8 + i] });
+    for (let i = 0; i < 4; i++) if (v[16 + i] >= 0 && v[20 + i] > 0.003) f.glint.push({ n: Math.round(v[16 + i]), l: v[20 + i] });
+    if (v[24] >= 0 && v[25] > 0.003) f.bass = { n: Math.round(v[24]), l: v[25] };
+    for (let i = 0; i < 3; i++) f.lfo.push({ on: v[26 + i] > 0, ph: v[29 + i], out: v[32 + i], cyc: Math.round(v[35 + i]) });
+    f.struck = [0, 1, 2, 3].filter((i) => v[16 + i] >= 0).map((i) => ({ n: Math.round(v[16 + i]), t: v.length > 48 ? v[48 + i] : 0 })).sort((a, b) => a.t - b.t);
+    return f;
+  }
+  /* what the LFOs add to the settings now, as app.c's lfo_run does: DEPTH's share of SHAPE's value (as POLARITY has
+   * it) times each TARGET's whole range -> {mod: {p: amount}, offs: each LFO's share} */
+  function moved(L, f) {
+    const mod = {}, offs = [0, 0, 0];
+    if (!f || !L) return { mod, offs };
+    S.lfo.base.forEach((b, i) => {
+      const q = f.lfo[i];
+      if (!q || !q.on) return;
+      const pol = L.raw(b + 3) % 3, w = q.out;
+      const off = offs[i] = L.raw(b + 2) / 127 * (pol === 1 ? 0.5 * (w + 1) : pol === 2 ? -0.5 * (w + 1) : w);
+      for (let t = 4; t < 8; t++) {
+        const tg = S.lfo.targets[L.raw(b + t)];
+        if (L.raw(b + t) && tg && tg.p >= 0) mod[tg.p] = (mod[tg.p] || 0) + off * P[tg.p].max;
+      }
+    });
+    return { mod, offs };
+  }
+  /* a part of a card that follows the sound: its element marked (.lv) and given fn(f, ctx) (f: heardOf's, or null at
+   * rest; ctx: {t (seconds), mod, offs}) */
+  const live = (el, fn) => { el.classList.add("lv"); el._live = fn; return el; };
+  const at = (el, a) => { for (const [k, v] of Object.entries(a)) el.setAttribute(k, typeof v === "number" ? r2(v) : v); };
+  const dB = (m) => Math.max(0, Math.min(1, 1 + 20 * Math.log10(Math.max(m, 1e-6)) / 48));   // a meter, 48 dB to the top
+
+  // ---------------------------------------------------------------- WHAT PLAYS: C1 to the C over its highest note
+  /* the keyboard's top: the C at or over the highest note the scene plays (its drones, GLINT's held notes up their
+   * RANGE at its OCTAVE, its sequence's notes as it plays them: TRANSPOSE along the scale, then its OCTAVE), C7 at
+   * least, C9 at most */
+  function kbTop(sc, L) {
+    let hi = 0;
+    sc.chords.forEach((ch) => ch.notes.forEach((n) => { hi = Math.max(hi, n); }));
+    if (L && L.arpOn) sc.arp.forEach((a) => { hi = Math.max(hi, a + 12 * (L.oct + L.range - 1)); });
+    if (L && L.seqOn) {
+      const d = L.raw(ID.P_SQ_TRANS) - P[ID.P_SQ_TRANS].def;
+      sc.seq.forEach((b) => { const n = b & 127; if (n !== S.seq.rest && n !== S.seq.tie) hi = Math.max(hi, Math.min(127, scaleShift(L, n, d)) + 12 * L.oct); });
+    }
+    return Math.min(120, Math.max(96, Math.ceil(hi / 12) * 12));
+  }
   /* the drones' lights stand on it (a chord's root white, its notes glowing), GLINT's held notes ice (their RANGE's
-   * octaves ringed), the bass lamp light in the bed */
+   * octaves ringed), the bass lamp light in the bed. While it plays, what is latched dims and what sounds lights over
+   * it, each voice as bright as its envelope: a drone fog on its key, a column of light over it (breathing with the
+   * drones' meter), a glint ice in the sky above its key (rising a little as it fades, as on the FM-1's play page),
+   * the bass lamp in the bed under its key. svg._top: its top note */
   function keyboard(sc, L, id) {
-    const kw = 12, bw = 7.4, wy = 33, kh = 47, bh = 29, WH = [0, 2, 4, 5, 7, 9, 11];
-    const st = litNotes(sc, L), arp = L && L.arpOn ? sc.arp : [], bq = bqNotes(sc, L);
+    const kw = 12, bw = 7.4, wy = 33, kh = 47, bh = 29, WH = [0, 2, 4, 5, 7, 9, 11], top = kbTop(sc, L);
+    let whites = 0;
+    for (let n = 24; n <= top; n++) if (WH.includes(n % 12)) whites++;
+    const W = whites * kw;
+    const st = litNotes(sc, L, top), arp = L && L.arpOn ? sc.arp : [], bq = bqNotes(sc, L);
     const g = (x) => `url(#${id}-${x})`;
     const lin = (x, col, op) => s("linearGradient", { id: `${id}-${x}`, x1: 0, y1: 1, x2: 0, y2: 0 },
       s("stop", { offset: 0, "stop-color": col, "stop-opacity": op }), s("stop", { offset: 1, "stop-color": col, "stop-opacity": 0 }));
     const rad = (x, col, op) => s("radialGradient", { id: `${id}-${x}` },
       s("stop", { offset: 0, "stop-color": col, "stop-opacity": op }), s("stop", { offset: 1, "stop-color": col, "stop-opacity": 0 }));
-    const svg = s("svg", { class: "kb", viewBox: "0 0 516 106", role: "img" },
+    const svg = s("svg", { class: "kb", viewBox: `0 0 ${W} 106`, role: "img" },
       s("defs", null, lin("cw", C.white, 0.85), lin("cf", C.fog, 0.55), lin("ci", C.ice, 0.9),
-        rad("hw", C.white, 0.42), rad("hf", C.fog, 0.24), rad("hi", C.ice, 0.48), rad("hl", C.lamp, 0.55),
+        rad("hw", C.white, 0.42), rad("hf", C.fog, 0.24), rad("hi", C.ice, 0.48), rad("hl", C.lamp, 0.55), rad("hI", C.ice, 0.7),
         s("linearGradient", { id: `${id}-wl`, x1: 0, y1: 0, x2: 1, y2: 0 },
           [[0, C.slate, 0], [0.18, C.slate, 0.75], [0.5, C.fog, 0.5], [0.82, C.slate, 0.75], [1, C.slate, 0]]
             .map(([o, c, a]) => s("stop", { offset: o, "stop-color": c, "stop-opacity": a })))),
-      s("rect", { x: 0, y: 32.5, width: 516, height: 1, fill: g("wl") }));
+      s("rect", { x: 0, y: 32.5, width: W, height: 1, fill: g("wl") }));
     const LIGHT = { root: ["w", 24, 11, 1], note: ["f", 14, 8, 1], arp: ["i", 20, 10, 1], arpr: ["i", 8, 6, 0.5] };
-    const halos = [], cols = [], wk = [], bk = [], bed = [], octs = [];
+    const halos = [], cols = [], wk = [], bk = [], wl = [], bl = [], bed = [], octs = [], keys = new Map();
     let wi = 0;
-    for (let n = 24; n <= 96; n++) {
+    for (let n = 24; n <= top; n++) {
       const white = WH.includes(n % 12), lit = st[n];
       const cx = white ? wi * kw + 6 : wi * kw, base = white ? C.keyW : C.keyB;
-      let fill = base, stroke = white ? "none" : C.keyEdge, sw = white ? 0 : 0.8;
-      if (lit === "root") fill = C.white;
-      else if (lit === "note") fill = mix(base, C.fog, 0.5);
-      else if (lit === "arp") fill = C.ice;
-      else if (lit === "arpr") { fill = mix(base, C.ice, 0.14); stroke = C.ice; sw = 0.9; }
       const r = white ? { x: wi * kw + 0.5, y: wy + 1, width: kw - 1, height: kh, rx: 1.5 }
                       : { x: r2(cx - bw / 2), y: wy + 1, width: bw, height: bh, rx: 1 };
-      (white ? wk : bk).push(s("rect", { ...r, fill, stroke, "stroke-width": sw }));
+      (white ? wk : bk).push(s("rect", { ...r, fill: base, stroke: white ? "none" : C.keyEdge, "stroke-width": white ? 0 : 0.8 }));
+      const latched = lit === "root" ? C.white : lit === "note" ? mix(base, C.fog, 0.5) : lit === "arp" ? C.ice : lit === "arpr" ? mix(base, C.ice, 0.14) : null;
+      if (latched) (white ? wk : bk).push(s("rect", { ...r, class: "kb-st", fill: latched, stroke: lit === "arpr" ? C.ice : "none", "stroke-width": 0.9 }));
+      const over = s("rect", { ...r, opacity: 0 });
+      (white ? wl : bl).push(over);
+      keys.set(n, { x: cx, white, over });
       if (lit) {
         const lg = LIGHT[lit];
-        halos.push(s("circle", { cx: r2(cx), cy: wy, r: lg[2], fill: g("h" + lg[0]), opacity: lg[3] }));
-        cols.push(s("rect", { x: r2(cx - 0.75), y: wy - lg[1], width: 1.5, height: lg[1], fill: g("c" + lg[0]), opacity: lg[3] }));
+        halos.push(s("circle", { class: "kb-st", cx: r2(cx), cy: wy, r: lg[2], fill: g("h" + lg[0]), opacity: lg[3] }));
+        cols.push(s("rect", { class: "kb-st", x: r2(cx - 0.75), y: wy - lg[1], width: 1.5, height: lg[1], fill: g("c" + lg[0]), opacity: lg[3] }));
       }
       if (n === sc.bass) {
-        bed.push(s("ellipse", { cx: r2(cx), cy: wy + kh + 5, rx: 18, ry: 6, fill: g("hl") }),
-                 s("rect", { x: r2(cx - 5), y: wy + kh + 3.5, width: 10, height: 2, rx: 1, fill: C.lamp }));
-      } else if (bq.includes(n)) bed.push(s("rect", { x: r2(cx - 3), y: wy + kh + 3.5, width: 6, height: 2, rx: 1, fill: C.lamp, opacity: 0.75 }));
-      if (n % 12 === 0) octs.push(s("text", { x: r2(cx), y: 101, "text-anchor": "middle", fill: C.dim, class: "svgt" }, nn(n)));
+        bed.push(s("ellipse", { class: "kb-st", cx: r2(cx), cy: wy + kh + 5, rx: 18, ry: 6, fill: g("hl") }),
+                 s("rect", { class: "kb-st", x: r2(cx - 5), y: wy + kh + 3.5, width: 10, height: 2, rx: 1, fill: C.lamp }));
+      } else if (bq.includes(n)) bed.push(s("rect", { class: "kb-st", x: r2(cx - 3), y: wy + kh + 3.5, width: 6, height: 2, rx: 1, fill: C.lamp, opacity: 0.75 }));
+      if (n % 12 === 0) octs.push(s("text", { x: r2(Math.max(6, Math.min(W - 6, cx))), y: 101, "text-anchor": "middle", fill: C.dim, class: "svgt" }, nn(n)));
       if (white) wi++;
     }
-    svg.append(...halos, ...cols, ...wk, ...bk, ...bed, ...octs);
+    /* what sounds: a light a voice, the drones' eight, GLINT's four, the bass */
+    const dr = Array.from({ length: 8 }, () => ({ halo: s("circle", { r: 11, fill: g("hw"), opacity: 0 }), col: s("rect", { width: 1.5, fill: g("cw"), opacity: 0 }) }));
+    const gl = Array.from({ length: 4 }, () => ({ halo: s("circle", { fill: g("hI"), opacity: 0 }), star: s("path", { fill: C.ice, opacity: 0 }), core: s("circle", { r: 1.2, fill: C.white, opacity: 0 }) }));
+    const bs = { glow: s("ellipse", { rx: 20, ry: 7, fill: g("hl"), opacity: 0 }), bar: s("rect", { width: 12, height: 2.4, rx: 1.2, fill: C.lamp, opacity: 0 }) };
+    svg.append(...halos, ...cols, ...dr.map((d) => [d.halo, d.col]).flat(), ...wk, ...wl, ...bk, ...bl, ...bed, bs.glow, bs.bar,
+               ...gl.map((x) => [x.halo, x.star, x.core]).flat(), ...octs);
     const notesOf = (ch) => ch.notes.filter((x) => x !== ch.root).map(nn);
-    const dr = sc.chords.map((ch) => nn(ch.root) + (notesOf(ch).length ? " (" + notesOf(ch).join(" ") + ")" : ""));
-    let a = "Keyboard, C1 to C7.";
-    if (dr.length) a += " Drones latched: " + dr.join(", ") + ".";
+    const drs = sc.chords.map((ch) => nn(ch.root) + (notesOf(ch).length ? " (" + notesOf(ch).join(" ") + ")" : ""));
+    let a = `Keyboard, C1 to ${nn(top)}.`;
+    if (drs.length) a += " Drones latched: " + drs.join(", ") + ".";
     if (arp.length) a += " GLINT's arpeggio: " + arp.map((x) => nn(x + 12 * L.oct)).join(" ") + ", over RANGE " + L.txt(ID.P_ARP_RANGE) + ".";
     if (sc.bass >= 0) a += " Bass: " + nn(sc.bass) + ".";
     if (bq.length) a += " The bass's sequence: " + bq.map(nn).join(" ") + ".";
-    if (!dr.length && !arp.length && sc.bass < 0 && !bq.length) a += " Sound only: nothing latched.";
+    if (!drs.length && !arp.length && sc.bass < 0 && !bq.length) a += " Sound only: nothing latched.";
     svg.setAttribute("aria-label", a);
-    return svg;
+    svg._top = top;
+    return live(svg, (f, ctx) => {
+      svg.classList.toggle("is-live", !!f);
+      for (const k of keys.values()) k.over.setAttribute("opacity", 0);
+      const lightKey = (k, col, op) => {
+        if (op <= +k.over.getAttribute("opacity")) return;
+        at(k.over, { fill: col, opacity: op });
+      };
+      const K = ctx.keep;                                           // (the drones' breath: their meter against its peak,
+      K.peak = f ? Math.max((K.peak || 0.05) * 0.995, f.m[0]) : 0.05;   // the card's, through a redraw)
+      const breath = f ? Math.max(0.55, Math.min(1, 0.55 + 0.45 * f.m[0] / K.peak)) : 0;
+      dr.forEach((d, i) => {
+        const v = f && f.drone[i], k = v && keys.get(v.n);
+        if (!k) { d.halo.setAttribute("opacity", 0); d.col.setAttribute("opacity", 0); return; }
+        const op = v.l * breath, ht = 6 + 18 * op;
+        at(d.halo, { cx: k.x, cy: wy, opacity: op });
+        at(d.col, { x: k.x - 0.75, y: wy - ht, height: ht, opacity: op });
+        lightKey(k, k.white ? C.fog : mix(C.keyB, C.fog, 0.62), (k.white ? 0.78 : 0.9) * op);
+      });
+      gl.forEach((x, i) => {
+        const v = f && f.glint[i], k = v && keys.get(v.n);
+        if (!k) { x.halo.setAttribute("opacity", 0); x.star.setAttribute("opacity", 0); x.core.setAttribute("opacity", 0); return; }
+        const y = wy - 9 - (1 - v.l) * 14;
+        at(x.halo, { cx: k.x, cy: y, r: 4 + 8 * v.l, opacity: v.l });
+        at(x.star, { d: star(k.x, y, 2.2 + 6 * v.l), opacity: 0.35 + 0.65 * v.l });
+        at(x.core, { cx: k.x, cy: y, opacity: v.l });
+        lightKey(k, C.ice, 0.25 + 0.75 * v.l);
+      });
+      const b = f && f.bass, k = b && keys.get(b.n);
+      if (!k) { bs.glow.setAttribute("opacity", 0); bs.bar.setAttribute("opacity", 0); return; }
+      at(bs.glow, { cx: k.x, cy: wy + kh + 5, opacity: b.l });
+      at(bs.bar, { x: k.x - 6, y: wy + kh + 3.3, opacity: 0.4 + 0.6 * b.l });
+      lightKey(k, mix(k.white ? C.keyW : C.keyB, C.lamp, 0.55), 0.85 * b.l);
+    });
   }
 
-  function legend(sc, L) {
+  function legend(sc, L, top = 96) {
     const items = [];
     const notesOf = (ch) => ch.notes.filter((x) => x !== ch.root).map(nn).join(" ");
     if (sc.chords.length) items.push([sc.chords.length > 1 ? "DRONES" : "DRONE", "w", sc.chords.map((ch) => [nn(ch.root), notesOf(ch)])]);
     if (L && L.arpOn && sc.arp.length) {
       items.push(["ARP", "i", [[sc.arp.map((x) => nn(x + 12 * L.oct)).join(" "), ""]]]);
       if (L.range > 1) {
-        const up = [];
-        for (let r = 1; r < L.range; r++) sc.arp.forEach((x) => { if (x + 12 * (L.oct + r) <= 96) up.push(nn(x + 12 * (L.oct + r))); });
-        items.push(["RANGE", "r", [["", up.join(" ")]]]);
+        const up = new Set(), held = new Set(sc.arp.map((x) => x + 12 * L.oct));
+        for (let r = 1; r < L.range; r++) sc.arp.forEach((x) => { const n = x + 12 * (L.oct + r); if (n <= top && !held.has(n)) up.add(n); });
+        items.push(["RANGE", "r", [["", [...up].sort((p, q) => p - q).map(nn).join(" ")]]]);
       }
     }
     if (sc.bass >= 0) items.push(["BASS", "l", [[nn(sc.bass), ""]]]);
@@ -243,7 +346,8 @@ window.RiverCards = (() => {
 
   /* GLINT on SEQ: seq_scope's constellation, all 32 steps (past LENGTH slate, in the shade): a star a note at its height
    * (the steps' lowest to highest, an octave at least), larger with ACCENT; a TIE a line on from the last note; a REST
-   * a dot on the line */
+   * a dot on the line. While it plays, its playhead: a line of light down through the step playing, the note it
+   * sounds white */
   function seqStrip(sc, L, id) {
     const x0 = 40, x1 = 504, top = 16, bot = 70, baseY = 84.5, len = L.raw(ID.P_SQ_LEN) + 1;
     const REST = S.seq.rest, TIE = S.seq.tie, ACC = S.seq.accent, n32 = sc.seq.length;
@@ -255,9 +359,10 @@ window.RiverCards = (() => {
     const bx = len < n32 ? r2((X(len - 1) + X(len)) / 2) : -10;
     const svg = s("svg", { class: "strip", viewBox: "0 0 516 112", role: "img" }, glowDef(id));
     if (len < n32) svg.append(s("rect", { x: bx, y: 0, width: r2(516 - bx), height: 96, fill: "#000", "fill-opacity": 0.26 }));
+    const head = s("rect", { x: -10, y: top - 8, width: 1.2, height: bot - top + 18, fill: C.ice, opacity: 0 });
     svg.append(s("line", { x1: 26, y1: top, x2: 512, y2: top, stroke: C.steel, "stroke-dasharray": "1 3" }),
                s("line", { x1: 26, y1: bot, x2: 512, y2: bot, stroke: C.steel, "stroke-dasharray": "1 3" }),
-               s("rect", { x: 26, y: 84, width: 486, height: 1, fill: C.steel }));
+               s("rect", { x: 26, y: 84, width: 486, height: 1, fill: C.steel }), head);
     const ticks = [], ties = [], rests = [], glows = [], stars = [], cores = [];
     let py = -1, px = 0;
     for (let i = 0; i < n32; i++) {
@@ -277,7 +382,8 @@ window.RiverCards = (() => {
     }
     svg.append(...ticks);
     if (len < n32) svg.append(s("line", { x1: bx, y1: 4, x2: bx, y2: 96, stroke: C.edge, "stroke-dasharray": "2 3" }));
-    svg.append(...ties, ...rests, ...glows, ...stars, ...cores);
+    const glow = s("circle", { r: 15, fill: `url(#${id}-sg)`, opacity: 0 }), core = s("circle", { r: 2.4, fill: C.white, opacity: 0 });
+    svg.append(...ties, ...rests, ...glows, ...stars, ...cores, glow, core);
     const sh = 12 * L.oct;
     svg.append(label(4, r2(top + 3.5), "start", nn(hi + sh), C.dim), label(4, r2(bot + 3.5), "start", nn(lo + sh), C.dim),
                label(r2(X(0)), 106, "middle", "1", C.dim), label(r2(X(n32 - 1)), 106, "middle", String(n32), C.dim));
@@ -287,19 +393,33 @@ window.RiverCards = (() => {
       return n === REST ? "REST" : n === TIE ? "TIE" : nn(n + sh) + (b & ACC ? " with ACCENT" : "");
     });
     svg.setAttribute("aria-label", `GLINT's sequence: ${len} of its ${n32} steps play, ${say.join(", ")}.`);
-    return svg;
+    return live(svg, (f) => {
+      const pos = f ? f.seq : -1;
+      if (pos < 0 || pos >= n32) { [head, glow, core].forEach((e) => e.setAttribute("opacity", 0)); return; }
+      const x = X(pos), n = sc.seq[pos] & 127;
+      at(head, { x: x - 0.6, opacity: 0.5 });
+      const v = n !== REST && n !== TIE && f.glint.find((g) => g.n === f.note + sh);
+      if (!v) { glow.setAttribute("opacity", 0); core.setAttribute("opacity", 0); return; }
+      const y = bot - (n - lo) * (bot - top) / (hi - lo);
+      at(glow, { cx: x, cy: y, opacity: 0.5 + 0.5 * v.l });
+      at(core, { cx: x, cy: y, opacity: 0.5 + 0.5 * v.l });
+    });
   }
 
   /* GLINT on ARP: its MODE drawn as the walk it takes over the held notes and their RANGE (UP, DOWN, UPDOWN as app.c
-   * steps them; RANDOM and DRIFT, a repeatable draw of their kind: DRIFT a step either way, or stay) */
+   * steps them; RANDOM and DRIFT, a repeatable draw of their kind: DRIFT a step either way, or stay). While it plays,
+   * the walk it really takes instead, each step it strikes flowing left from the right edge at RATE's pace (at the
+   * scene's TEMPO), a step CHANCE leaves out a gap; with reduced motion, the walk its MODE takes, still */
   function arpStrip(sc, L, id) {
     const x0 = 40, x1 = 504, top = 12, bot = 62, mode = L.raw(ID.P_ARP_MODE), notes = [];
     for (let r = 0; r < L.range; r++) sc.arp.forEach((a) => notes.push(a + 12 * (L.oct + r)));
     const svg = s("svg", { class: "strip", viewBox: "0 0 516 74", role: "img" }, glowDef(id));
-    if (!notes.length) {
+    if (!notes.length) {               /* (no notes kept for it: GLINT is silent, its strip dimmed; the drones are
+                                        * the keyboard's, not this) */
+      svg.classList.add("is-empty");
       svg.append(s("line", { x1: 26, y1: 37, x2: 512, y2: 37, stroke: C.steel, "stroke-dasharray": "1 3" }),
-                 label(258, 40.5, "middle", "NO NOTES HELD", C.dim));
-      svg.setAttribute("aria-label", `GLINT's arpeggio, MODE ${L.txt(ID.P_ARP_MODE)}: no notes held.`);
+                 label(258, 40.5, "middle", "NO ARP NOTES", C.dim));
+      svg.setAttribute("aria-label", `GLINT's arpeggio, MODE ${L.txt(ID.P_ARP_MODE)}: no notes to play, GLINT is silent.`);
       return svg;
     }
     const count = notes.length;
@@ -323,29 +443,64 @@ window.RiverCards = (() => {
       stars.push(s("path", { d: star(x, y, 3.8), fill: C.ice, "fill-opacity": 0.95 }));
       cores.push(s("circle", { cx: r2(x), cy: r2(y), r: 1.1, fill: C.fog }));
     }
-    svg.append(s("polyline", { points: pts.join(" "), fill: "none", stroke: C.ice, "stroke-opacity": 0.5, "stroke-width": 1.1, "stroke-linejoin": "round", "stroke-linecap": "round" }),
-               ...glows, ...stars, ...cores, label(4, r2(top + 3.5), "start", nn(hi), C.dim), label(4, r2(bot + 3.5), "start", nn(lo), C.dim));
+    const trail = s("polyline", { fill: "none", stroke: C.ice, "stroke-opacity": 0.42, "stroke-width": 1.1, "stroke-linejoin": "round", "stroke-linecap": "round" });
+    const walked = s("g");
+    svg.append(s("g", { class: "st-walk" }, s("polyline", { points: pts.join(" "), fill: "none", stroke: C.ice, "stroke-opacity": 0.5, "stroke-width": 1.1, "stroke-linejoin": "round", "stroke-linecap": "round" }),
+                 ...glows, ...stars, ...cores),
+               s("g", { class: "lv-walk" }, trail, walked),
+               label(4, r2(top + 3.5), "start", nn(hi), C.dim), label(4, r2(bot + 3.5), "start", nn(lo), C.dim));
     svg.setAttribute("aria-label", `GLINT's arpeggio, MODE ${L.txt(ID.P_ARP_MODE)}: its walk over ${sc.arp.map((x) => nn(x + 12 * L.oct)).join(" ")} and RANGE ${L.txt(ID.P_ARP_RANGE)}, ${nn(lo)} to ${nn(hi)}.`);
-    return svg;
+    const slot = (x1 - x0) / (steps - 1), N = 40;
+    const lights = Array.from({ length: N }, () => {
+      const l = { glow: s("circle", { fill: `url(#${id}-sg)`, opacity: 0 }), arm: s("path", { fill: C.ice, opacity: 0 }), core: s("circle", { opacity: 0 }) };
+      walked.append(l.glow, l.arm, l.core);
+      return l;
+    });
+    const m = /^1\/(\d+)(T?)$/.exec(L.txt(ID.P_ARP_RATE)), bpm = (sc.tempo ?? P[ID.P_TEMPO].def) + 30;
+    const step = (m ? 96 / +m[1] * (m[2] ? 2 / 3 : 1) : 6) * 60 / (24 * bpm);   // (seconds: RATE's MIDI clocks at TEMPO)
+    return live(svg, (f, ctx) => {
+      const on = !!f && !reduce.matches, K = ctx.keep.arp || (ctx.keep.arp = { hits: [], seen: -1 });   // (the steps struck:
+      svg.classList.toggle("is-live", on);                                    // {n (as it sounds), t}, the card's)
+      if (!on) { K.hits = []; K.seen = -1; return; }
+      const hits = K.hits;
+      if (K.seen >= 0 && f.strikes > K.seen)            // (those struck since the last frame: the voices struck last)
+        f.struck.slice(0, Math.min(4, f.strikes - K.seen)).reverse().forEach((v) => hits.push({ n: v.n, t: ctx.t - v.t }));
+      K.seen = f.strikes;
+      if (hits.length > N) hits.splice(0, hits.length - N);
+      const line = [];
+      lights.forEach((l, j) => {
+        const hit = hits[hits.length - 1 - j], x = hit ? x1 - (ctx.t - hit.t) / step * slot : 0;
+        if (!hit || x < 34) { l.glow.setAttribute("opacity", 0); l.arm.setAttribute("opacity", 0); l.core.setAttribute("opacity", 0); return; }
+        const y = Y(hit.n), fresh = Math.max(0, 1 - (x1 - x) / slot / 3), fade = Math.min(1, (x - 34) / 120);
+        line.unshift(r2(x) + "," + r2(y));
+        at(l.glow, { cx: x, cy: y, r: 6.5 + 6 * fresh, opacity: fade });
+        at(l.arm, { d: star(x, y, 3.8 + 3.4 * fresh), opacity: (0.7 + 0.3 * fresh) * fade });
+        at(l.core, { cx: x, cy: y, r: 1.1 + 0.9 * fresh, fill: fresh > 0.5 ? C.white : C.fog, opacity: fade });
+      });
+      trail.setAttribute("points", line.join(" "));
+    });
   }
 
+  /* a note moved d steps along the scene's scale (harmony.c scale_shift; a scale this page doesn't know: as it is) */
+  function scaleShift(L, note, d) {
+    const deg = DEGREES[L.txt(ID.P_SCALE)], r = L.raw(ID.P_ROOT) % 12;
+    if (!deg || !d) return note;
+    const inS = (n) => deg.includes(((n - r) % 12 + 12) % 12) ? 1 : 0;
+    let base = note;
+    while (!inS(base)) base--;
+    note -= base;
+    while (d > 0) { base++; d -= inS(base); }
+    while (d < 0) { base--; d += inS(base); }
+    return Math.max(1, Math.min(126, note + base));
+  }
   /* the bass's sequence as it plays (app.c bseq_note), its STEPS: a NOTE moved TRANSPOSE's steps along the scale, then
    * BASS's OCTAVE, C1 at the lowest (bass_fold); a CUT -1, a HOLD -2 */
   function bassPlays(bq, L) {
-    const deg = DEGREES[L.txt(ID.P_SCALE)], r = L.raw(ID.P_ROOT) % 12, oct = 12 * (L.raw(ID.P_BS_OCTAVE) - 2);
-    const inS = (n) => deg.includes(((n - r) % 12 + 12) % 12) ? 1 : 0;
-    const shift = (note, d) => {                     // (harmony.c scale_shift)
-      let base = note;
-      while (!inS(base)) base--;
-      note -= base;
-      while (d > 0) { base++; d -= inS(base); }
-      while (d < 0) { base--; d += inS(base); }
-      return Math.max(1, Math.min(126, note + base));
-    };
+    const oct = 12 * (L.raw(ID.P_BS_OCTAVE) - 2);
     return bq.notes.slice(0, bq.steps + 1).map((b) => {
       if (b === S.bseq.cut) return -1;
       if (b === S.bseq.hold) return -2;
-      let n = (deg ? shift(b, bq.trans - P[ID.P_BQ_TRANS].def) : b) + oct;
+      let n = scaleShift(L, b, bq.trans - P[ID.P_BQ_TRANS].def) + oct;
       while (n < 24) n += 12;
       return Math.min(n, 127);
     });
@@ -353,19 +508,21 @@ window.RiverCards = (() => {
   /* the notes its sequence plays (none while SEQUENCE is off) */
   const bqNotes = (sc, L) => (L && sc.bseq && sc.bseq.on ? bassPlays(sc.bseq, L).filter((n) => n >= 0) : []);
   /* BASS's sequence: a line of time, each step as wide as its LENGTH; a NOTE a lamp line at its height, on through the
-   * HOLDs after it (round from the end: the sequence loops), a CUT a gap */
+   * HOLDs after it (round from the end: the sequence loops), a CUT a gap. While it plays, its playhead along it, the
+   * note sounding lit where it is */
   function bassStrip(bq, L, id) {
     const x0 = 40, x1 = 504, top = 12, bot = 50, axis = 62, notes = bassPlays(bq, L);
     const len = notes.map((_, i) => S.bseq.ticks[bq.lens[i] % S.bseq.ticks.length]), total = len.reduce((a, t) => a + t, 0);
-    const words = BQ_LEN != null && P[BQ_LEN] ? P[BQ_LEN].texts : S.bseq.ticks.map(String), at = [0];
-    len.forEach((t) => at.push(at[at.length - 1] + t));
+    const words = BQ_LEN != null && P[BQ_LEN] ? P[BQ_LEN].texts : S.bseq.ticks.map(String), at0 = [0];
+    len.forEach((t) => at0.push(at0[at0.length - 1] + t));
     const X = (t) => x0 + t * (x1 - x0) / total;
+    const head = s("rect", { x: -10, y: 4, width: 1.2, height: 62, fill: C.lamp, opacity: 0 });
     const svg = s("svg", { class: "strip", viewBox: "0 0 516 82", role: "img" },
       s("defs", null, s("radialGradient", { id: `${id}-bg` },
         s("stop", { offset: 0, "stop-color": C.lamp, "stop-opacity": 0.45 }), s("stop", { offset: 1, "stop-color": C.lamp, "stop-opacity": 0 }))),
       s("line", { x1: 26, y1: top, x2: 512, y2: top, stroke: C.steel, "stroke-dasharray": "1 3" }),
       s("line", { x1: 26, y1: bot, x2: 512, y2: bot, stroke: C.steel, "stroke-dasharray": "1 3" }),
-      s("rect", { x: 26, y: axis, width: 486, height: 1, fill: C.steel }));
+      s("rect", { x: 26, y: axis, width: 486, height: 1, fill: C.steel }), head);
     const sound = notes.filter((n) => n >= 0);
     let lo = Math.min(...sound), hi = Math.max(...sound);
     if (!sound.length) { lo = 36; hi = 48; }
@@ -375,10 +532,10 @@ window.RiverCards = (() => {
     notes.forEach((n) => { if (n !== -2) cur = n; });
     const runs = [];
     notes.forEach((n, i) => {
-      if (n >= 0) runs.push({ n, a: at[i], b: at[i + 1], on: true });
+      if (n >= 0) runs.push({ n, a: at0[i], b: at0[i + 1], on: true });
       else if (n === -2 && cur >= 0) {
         const last = runs[runs.length - 1];
-        if (last && last.b === at[i]) last.b = at[i + 1]; else runs.push({ n: cur, a: at[i], b: at[i + 1], on: false });
+        if (last && last.b === at0[i]) last.b = at0[i + 1]; else runs.push({ n: cur, a: at0[i], b: at0[i + 1], on: false });
       }
       if (n !== -2) cur = n;
     });
@@ -390,38 +547,61 @@ window.RiverCards = (() => {
       if (r.on) heads.push(s("circle", { cx: xa, cy: y, r: 7, fill: `url(#${id}-bg)` }), s("circle", { cx: xa, cy: y, r: 2.4, fill: C.lamp }),
                           s("circle", { cx: xa, cy: y, r: 1, fill: C.fog }));
     }
-    svg.append(...at.map((t, i) => s("rect", { x: r2(X(t) - 0.5), y: axis + 2, width: 1, height: i % 4 ? 2 : 4, fill: i % 4 ? C.steel : C.slate })),
-               ...glows, ...lines, ...heads);
+    const glow = s("circle", { r: 9, fill: `url(#${id}-bg)`, opacity: 0 }), core = s("circle", { r: 2.2, fill: C.white, opacity: 0 });
+    svg.append(...at0.map((t, i) => s("rect", { x: r2(X(t) - 0.5), y: axis + 2, width: 1, height: i % 4 ? 2 : 4, fill: i % 4 ? C.steel : C.slate })),
+               ...glows, ...lines, ...heads, glow, core);
     const tr = bq.trans !== P[ID.P_BQ_TRANS].def ? "TRANSPOSE " + word(ID.P_BQ_TRANS, bq.trans) : "";
     svg.append(label(4, r2(top + 3.5), "start", nn(hi), C.dim), label(4, r2(bot + 3.5), "start", nn(lo), C.dim),
                label(r2(X(0)), 77, "middle", "1", C.dim), label(r2(x1), 77, "end", (tr ? tr + " · " : "") + "STEPS " + notes.length, C.fog));
     const say = notes.map((n, i) => (n === -1 ? "CUT" : n === -2 ? "HOLD" : nn(n)) + " " + words[bq.lens[i] % words.length]);
     svg.setAttribute("aria-label", `BASS's sequence: ${notes.length} steps${tr ? ", " + tr : ""}: ${say.join(", ")}.`);
-    return svg;
+    return live(svg, (f) => {
+      if (!f || f.bq < 0 || f.bq >= notes.length || !total) { [head, glow, core].forEach((e) => e.setAttribute("opacity", 0)); return; }
+      const x = X(at0[f.bq] + Math.min(Math.max(f.bqT, 0), len[f.bq]));
+      at(head, { x: x - 0.6, opacity: 0.55 });
+      if (!f.bass) { glow.setAttribute("opacity", 0); core.setAttribute("opacity", 0); return; }
+      const y = Math.max(4, Math.min(58, Y(f.bass.n)));
+      at(glow, { cx: x, cy: y, opacity: f.bass.l });
+      at(core, { cx: x, cy: y, opacity: f.bass.l });
+    });
   }
 
   // ---------------------------------------------------------------- the sections' small pictures
   const glyphSvg = (w, ht) => s("svg", { class: "sec-gl", width: w, height: ht, viewBox: `0 0 ${w} ${ht}`, "aria-hidden": "true" });
-  /* the play page's strata: CHOIR the current, PARTIALS the crystals, BREATH the haze, WARMTH embers */
+  /* the play page's strata: CHOIR the current, PARTIALS the crystals, BREATH the haze, WARMTH embers. While it plays,
+   * each as long as the LFOs make it now, breathing with the tide, the dotted ones drifting along as a current does */
+  const STRATA = [[C.mist, 1.2, "none", 1, "butt"], [C.ice, 1.2, "2.2 1.8", 1, "butt"], [C.mist, 3, "none", 0.42, "round"], [C.ember, 1.3, "1 2.4", 1, "butt"]];
   function strata(L) {
-    const g = glyphSvg(52, 15);
-    [[C.mist, 1.2, "none", 1, "butt"], [C.ice, 1.2, "2.2 1.8", 1, "butt"], [C.mist, 3, "none", 0.42, "round"], [C.ember, 1.3, "1 2.4", 1, "butt"]].forEach((st, i) => {
+    const g = glyphSvg(52, 15), lines = [];
+    STRATA.forEach((st, i) => {
       const y = r2(1.75 + i * 3.85), n = L.raw(SOUND[i]) / 127 * 48;
-      g.append(s("line", { x1: 2, x2: 50, y1: y, y2: y, stroke: C.steel, "stroke-width": 1, "stroke-dasharray": "1 2" }));
-      if (n > 0.5) g.append(s("line", { x1: 2, x2: r2(2 + n), y1: y, y2: y, stroke: st[0], "stroke-width": st[1], "stroke-dasharray": st[2], "stroke-opacity": st[3], "stroke-linecap": st[4] }));
+      const ln = s("line", { x1: 2, x2: r2(2 + n), y1: y, y2: y, stroke: st[0], "stroke-width": st[1], "stroke-dasharray": st[2], "stroke-opacity": n > 0.5 ? st[3] : 0, "stroke-linecap": st[4] });
+      g.append(s("line", { x1: 2, x2: 50, y1: y, y2: y, stroke: C.steel, "stroke-width": 1, "stroke-dasharray": "1 2" }), ln);
+      lines.push(ln);
     });
-    return g;
+    return live(g, (f, ctx) => lines.forEach((ln, i) => {
+      const p = SOUND[i], n = Math.max(0, Math.min(127, L.raw(p) + (f ? ctx.mod[p] || 0 : 0))) / 127 * 48;
+      at(ln, { x2: 2 + n, "stroke-opacity": n > 0.5 ? STRATA[i][3] * (f ? 0.6 + 0.2 * (f.tide + 1) : 1) : 0,
+               "stroke-dashoffset": f && STRATA[i][2] !== "none" && !reduce.matches ? -((ctx.t * (2 + i)) % 8) : 0 });
+    }));
   }
-  /* app.c's lfo_shape: SHAPE at x (0..1) of turn c, -1..1 (RANDOM and DRIFT from a repeatable hash) */
-  function lfoShape(sh, x, c, seed) {
-    const rv = (q) => { let v = (q * 374761393 + seed * 668265263) >>> 0; v = Math.imul(v ^ (v >>> 13), 1274126177) >>> 0; return ((v ^ (v >>> 16)) & 65535) / 32767.5 - 1; };
+  /* app.c's lfo_rnd: RANDOM's value for turn c of LFO i (0..2), -1..1, the engine's own */
+  function lfoRnd(i, c) {
+    let x = (Math.imul((c + 1) >>> 0, 2654435761) ^ Math.imul(i + 1, 0x9E3779B9)) >>> 0;
+    x ^= x >>> 15;
+    x = Math.imul(x, 0x85EBCA77) >>> 0;
+    x ^= x >>> 13;
+    return (x >>> 8) * (2 / 16777216) - 1;
+  }
+  /* app.c's lfo_shape: SHAPE at x (0..1) of turn c of LFO i, -1..1 */
+  function lfoShape(sh, x, c, i) {
     if (sh === 0) return Math.sin(2 * Math.PI * x);
     if (sh === 1) return x < 0.25 ? 4 * x : x < 0.75 ? 2 - 4 * x : 4 * x - 4;
     if (sh === 2) return 2 * x - 1;
     if (sh === 3) return 1 - 2 * x;
     if (sh === 4) return x < 0.5 ? 1 : -1;
-    if (sh === 5) return rv(c);
-    const a = rv(c), b = rv(c + 1);
+    if (sh === 5) return lfoRnd(i, c);
+    const a = lfoRnd(i, c), b = lfoRnd(i, c + 1);
     return a + (b - a) * x * x * (3 - 2 * x);
   }
   /* lfo_scope's: the shape over a turn (four for RANDOM, DRIFT), as deep as DEPTH, from POLARITY's side */
@@ -433,7 +613,7 @@ window.RiverCards = (() => {
     const base = pol === 1 ? bot : pol === 2 ? top : (top + bot) / 2;
     let path = "";
     for (let x = 0; x <= W; x++) {
-      const u = x / W * turns, c = Math.floor(u), f = rnd ? u - c : Math.min(u, 0.9999), v = lfoShape(sh, f, c, i + 1);
+      const u = x / W * turns, c = Math.floor(u), f = rnd ? u - c : Math.min(u, 0.9999), v = lfoShape(sh, f, c, i - 1);
       const y = pol === 1 ? bot - 0.5 * (v + 1) * (bot - top) * d : pol === 2 ? top + 0.5 * (v + 1) * (bot - top) * d : base - v * 0.5 * (bot - top) * d;
       path += (x ? "L" : "M") + (x + 1) + " " + r2(y);
     }
@@ -452,16 +632,102 @@ window.RiverCards = (() => {
     }
     return g;
   }
-  /* MIXER: each track's level in its colour (DRONE fog, BASS lamp, GLINT ice, CLOUD haze lit), 100 marked */
+  /* MIXER: each track's level in its colour (DRONE fog, BASS lamp, GLINT ice, CLOUD haze lit), 100 marked; while it
+   * plays, the track's meter beside it */
+  const MIX = [[ID.P_MX_DRONE, C.fog, "DRONE"], [ID.P_MX_BASS, C.lamp, "BASS"], [ID.P_MX_GLINT, C.ice, "GLINT"], [ID.P_MX_CLOUD, C.cloud, "CLOUD"]];
   function faders(L) {
-    const g = glyphSvg(32, 15);
-    [[ID.P_MX_DRONE, C.fog], [ID.P_MX_BASS, C.lamp], [ID.P_MX_GLINT, C.ice], [ID.P_MX_CLOUD, C.cloud]].forEach(([p, col], i) => {
-      const x = 2 + i * 8, ht = L.raw(p) / 127 * 14;
+    const g = glyphSvg(32, 15), meters = [];
+    MIX.forEach(([p, col], i) => {
+      const x = 2 + i * 8, ht = L.raw(p) / 127 * 14, m = s("rect", { x: x + 4.3, y: 14.5, width: 1.2, height: 0, fill: col });
       g.append(s("rect", { x: x + 1, y: 0.5, width: 1, height: 14, fill: C.steel }),
                s("rect", { x, y: r2(14.5 - ht), width: 3, height: r2(ht), fill: col }),
-               s("rect", { x: x - 1.5, y: r2(14.5 - 100 / 127 * 14), width: 6, height: 0.8, fill: C.mist }));
+               s("rect", { x: x - 1.5, y: r2(14.5 - 100 / 127 * 14), width: 6, height: 0.8, fill: C.mist }), m);
+      meters.push(m);
     });
-    return g;
+    return live(g, (f) => meters.forEach((m, i) => { const ht = f ? dB(f.m[i]) * 14 : 0; at(m, { y: 14.5 - ht, height: ht }); }));
+  }
+  /* MIXER, opened: the FM-1's MIXER page, a fader a track (its level, 100 marked, 127 at the top), and beside it the
+   * track's meter while it plays (48 dB) */
+  function mixerStrip(L) {
+    const top = 8, bot = 66, H = bot - top, meters = [];
+    const svg = s("svg", { class: "strip", viewBox: "0 0 516 84", role: "img" });
+    MIX.forEach(([p, col, name], i) => {
+      const cx = 74 + i * 122, v = Math.min(L.raw(p), 127), y = bot - v / 127 * H, y100 = bot - 100 / 127 * H;
+      const m = s("rect", { class: "mx-m", x: cx + 11, y: bot, width: 3, height: 0, fill: col, opacity: 0.9 });
+      svg.append(s("rect", { x: cx - 0.5, y: top, width: 1, height: H, fill: C.steel }),
+        s("rect", { x: cx - 1.5, y: r2(y), width: 3, height: r2(bot - y), fill: col, opacity: 0.8 }),
+        s("rect", { x: cx - 8, y: r2(y100 - 0.5), width: 4, height: 1, fill: C.mist }),
+        s("rect", { x: cx - 6, y: r2(y - 1.2), width: 12, height: 2.4, rx: 1.2, fill: C.fog }),
+        s("rect", { x: cx + 11, y: top, width: 3, height: H, fill: C.rule }), m,
+        label(cx + 4, 80, "middle", name, C.dim));
+      meters.push(m);
+    });
+    svg.setAttribute("aria-label", "MIXER: " + MIX.map(([p, , name]) => `${name} ${L.txt(p)}`).join(", ") + ", each track's meter beside it while it plays.");
+    return live(svg, (f) => meters.forEach((m, i) => { const ht = f ? dB(f.m[i]) * H : 0; at(m, { y: bot - ht, height: ht }); }));
+  }
+  /* the LFOs, a column at the card's left: each as lfo_scope draws it, its shape over a turn (four for RANDOM and
+   * DRIFT: the three before and this one) as deep as DEPTH from POLARITY's side, its name, SHAPE and RATE over it and
+   * what it moves under it, each in its track's colour with a gauge of its value. While it plays, a glint where it is
+   * now (its turns' own values), and the gauges at the values the LFOs make. Off (no DEPTH, no TARGET): slate, OFF */
+  function lfoColumn(L) {
+    return h("aside", { class: "oc-lfo", "aria-label": "The LFOs" }, h("div", { class: "sh-sub" }, h("h4", null, "LFOS")), [0, 1, 2].map((i) => lfoBlock(L, i)));
+  }
+  /* lfo_scope's picture of LFO i (0..2), Wd × Ht: its shape over a turn (four for RANDOM and DRIFT: the three before
+   * and this one) as deep as DEPTH from POLARITY's side. While it plays, a glint where it is now (its turns' own
+   * values); off (no DEPTH, no TARGET), slate */
+  function lfoScope(L, i, Wd, Ht) {
+    const b = S.lfo.base[i], V = (k2) => L.raw(b + k2), z = Math.min(1.3, Ht / 56);
+    const sh = V(0) % 7, depth = V(2), pol = V(3) % 3, rnd = sh >= 5, turns = rnd ? 4 : 1;
+    const on = lfoOn(L, b), col = on ? C.ice : C.slate, id = "lf" + (++uid);
+    const top = Ht * 9 / 56, bot = Ht * 47 / 56, d = 0.2 + 0.8 * depth / 127, base = pol === 1 ? bot : pol === 2 ? top : (top + bot) / 2;
+    const Y = (v) => (pol === 1 ? bot - 0.5 * (v + 1) * (bot - top) * d : pol === 2 ? top + 0.5 * (v + 1) * (bot - top) * d : base - v * 0.5 * (bot - top) * d);
+    const path = s("path", { fill: "none", stroke: col, "stroke-width": r2(1.4 * Math.sqrt(z)), "stroke-linejoin": "round", "stroke-opacity": on ? 0.9 : 0.8 });
+    const soft = s("path", { fill: "none", stroke: col, "stroke-width": r2(4 * z), "stroke-opacity": on ? 0.1 : 0, "stroke-linejoin": "round" });
+    const head = s("rect", { y: r2(Ht * 3 / 56), width: 1, height: r2(Ht * 50 / 56), fill: col, opacity: 0 });
+    const glow = s("circle", { r: r2(7 * z), fill: `url(#${id}-g)`, opacity: 0 }), arms = s("path", { fill: C.ice, opacity: 0 }), core = s("circle", { r: r2(1.5 * z), fill: C.white, opacity: 0 });
+    const svg = s("svg", { class: "lf-sc", viewBox: `0 0 ${Wd} ${Ht}`, "aria-hidden": "true" },
+      s("defs", null, s("radialGradient", { id: `${id}-g` }, s("stop", { offset: 0, "stop-color": C.ice, "stop-opacity": 0.55 }), s("stop", { offset: 1, "stop-color": C.ice, "stop-opacity": 0 }))),
+      s("line", { x1: 0, x2: Wd, y1: r2(base), y2: r2(base), stroke: C.steel }), head, soft, path, glow, arms, core);
+    let drawn = null;
+    const draw = (cyc) => {                          // (its turns: cyc the one it is in, the three before it)
+      if (drawn === cyc) return;
+      drawn = cyc;
+      let d2 = "";
+      for (let x = 0; x <= Wd; x += Wd > 300 ? 2 : 1) {
+        const u = Math.min(x / Wd * turns, turns - 1e-4), c = rnd ? cyc + Math.floor(u) - 3 : 0;
+        d2 += (x ? "L" : "M") + x + " " + r2(Y(lfoShape(sh, u - Math.floor(u), c, i)));
+      }
+      path.setAttribute("d", d2);
+      soft.setAttribute("d", d2);
+    };
+    draw(3);
+    return live(svg, (f) => {
+      const q = f && on && f.lfo[i];
+      if (!q || !q.on) { [head, glow, arms, core].forEach((e) => e.setAttribute("opacity", 0)); draw(3); return; }
+      if (rnd) draw(q.cyc);
+      const x = (rnd ? (3 + q.ph) / 4 : q.ph) * Wd, y = Y(q.out);
+      at(head, { x, opacity: 0.22 });
+      at(glow, { cx: x, cy: y, opacity: 1 });
+      at(arms, { d: star(x, y, 6.5 * z), opacity: 0.85 });
+      at(core, { cx: x, cy: y, opacity: 1 });
+    });
+  }
+  function lfoBlock(L, i) {
+    const b = S.lfo.base[i], V = (k2) => L.raw(b + k2);
+    const tg = [4, 5, 6, 7].map((t) => V(t)).filter((t) => t > 0).map((t) => S.lfo.targets[t] || { name: word(b + 4, t), track: "drone", p: -1 });
+    const on = V(2) > 0 && tg.length > 0;
+    const gauges = tg.map((t) => {
+      const mx = t.p >= 0 ? P[t.p].max : 127, g = h("span", { class: "lf-g", "aria-hidden": "true" }, h("i"), h("b"));
+      const put2 = (v) => g.style.setProperty("--f", r2(Math.max(0, Math.min(1, v / Math.max(1, mx)))));
+      put2(t.p >= 0 ? L.raw(t.p) : 0);
+      return { li: h("li", null, h("span", { class: "lf-t", style: `color:${TRACK[t.track] || C.fog}` }, t.name), g),
+               set: (m) => put2((t.p >= 0 ? L.raw(t.p) : 0) + (m || 0)), p: t.p };
+    });
+    const el = h("div", { class: "lf" + (on ? "" : " is-off") },
+      h("div", { class: "lf-h" }, h("span", { class: "lf-n" }, "LFO " + (i + 1)),
+        h("span", { class: "lf-r" }, on ? [h("span", null, L.txt(b)), h("span", { class: "lf-rt" }, L.txt(b + 1))] : h("span", null, "OFF"))),
+      lfoScope(L, i, 176, 56), tg.length ? h("ul", { class: "lf-ts", role: "list" }, gauges.map((x) => x.li)) : h("p", { class: "lf-none" }, "NO TARGET"));
+    return live(el, (f, ctx) => gauges.forEach((x) => x.set(f ? ctx.mod[x.p] : 0)));
   }
   const sv = (t, col) => h("span", { class: "sig-v", style: col ? `color:${col}` : null }, t);
   const sl = (t) => h("span", { class: "sig-l" }, t);
@@ -503,24 +769,33 @@ window.RiverCards = (() => {
     h("span", { class: "dh-k" }, h("span", { class: "sr-only" }, "On the FM-1: "), keys.map((t, i) => [i ? h("span", { class: "dh-sep", "aria-hidden": "true" }, " · ") : null, h("b", null, t)])));
 
   /* the sections, each a disclosure; a page's settings as its K1 .. K4 have them, its own button under its name
-   * (built when first opened); BASS's sequence (bq), drawn first in it while on */
-  function sections(L, bq) {
+   * (built when first opened); MIXER's faders first in it. A card's (o.card): no HARMONY (THE KEYS have it), an LFO's
+   * picture first in its own, wide (as it moves: one turned is seen moving here); else BASS's sequence (bq), drawn
+   * first in it while on */
+  function sections(L, bq, o = {}) {
     const box = h("div", { class: "secs" });
     for (const sec of SECTIONS) {
-      const pages = sec.pages.filter((pg) => shownFor(pg, L));
+      if (o.card && sec.name === "HARMONY") continue;
+      const pages = sec.pages.filter((pg) => shownFor(pg, L)), lfo = o.card && sec.name.match(/^LFO (\d+)$/);
       if (!pages.length) continue;
       const { gl, sig } = signature(sec, L, bq);
       const d = h("details", { class: "sec" },
         h("summary", null, h("span", { class: "sec-row" }, chev(), h("span", { class: "sec-name" }, sec.name),
           h("span", { class: "sec-mid" }, gl, sig), hints(sec.keys))));
       let built = false;
-      d.addEventListener("toggle", () => {
-        if (!d.open || built) return;
+      d._build = () => {                         // (on its first opening; redraw: at once, its cells there for the focus)
+        if (built) return;
         built = true;
-        d.append(h("div", { class: "sec-body" }, sec.name === "BASS" && bq && bq.on && h("div", { class: "scr" }, bassStrip(bq, L, "c" + (++uid))),
+        const art = d.closest("article");
+        if (art) art._lv = null;
+        d.append(h("div", { class: "sec-body" }, !o.card && sec.name === "BASS" && bq && bq.on && h("div", { class: "scr" }, bassStrip(bq, L, "c" + (++uid))),
+          lfo && S.lfo.base[lfo[1] - 1] !== undefined && h("div", { class: "scr lf-wide" }, lfoScope(L, lfo[1] - 1, 516, 90)),
+          sec.name === "MIXER" && h("div", { class: "scr" }, mixerStrip(L)),
           pages.map((pg) => h("div", { class: "pg" }, h("div", { class: "pg-name" }, pg.name, h("span", { class: "pg-k" }, h("span", { class: "sr-only" }, ", on "), pg.button)),
             pg.keep.map((p) => cell(p, L))))));
-      });
+        if (art) hooks.built(art);
+      };
+      d.addEventListener("toggle", () => { if (d.open) d._build(); });
       box.append(d);
     }
     return box;
@@ -570,9 +845,9 @@ window.RiverCards = (() => {
   const WORD = { saved: "SAVED", factory: "FACTORY", empty: "EMPTY" };
   /* the notes a scene lights, each once, the strongest light kept: a chord's root, its notes, GLINT's held notes
    * (at its OCTAVE), their RANGE's octaves above */
-  function litNotes(sc, L) {
+  function litNotes(sc, L, top = 96) {
     const PRI = { arpr: 1, arp: 2, note: 3, root: 4 }, st = {};
-    const set = (n, what) => { if (n >= 24 && n <= 96 && (!st[n] || PRI[what] > PRI[st[n]])) st[n] = what; };
+    const set = (n, what) => { if (n >= 24 && n <= top && (!st[n] || PRI[what] > PRI[st[n]])) st[n] = what; };
     sc.chords.forEach((ch) => { set(ch.root, "root"); ch.notes.forEach((n) => { if (n !== ch.root) set(n, "note"); }); });
     if (L && L.arpOn) sc.arp.forEach((a) => { set(a + 12 * L.oct, "arp"); for (let r = 1; r < L.range; r++) set(a + 12 * (L.oct + r), "arpr"); });
     return st;
@@ -619,19 +894,31 @@ window.RiverCards = (() => {
   }
   const playIcon = () => s("svg", { class: "play-i", viewBox: "0 0 16 16", width: 14, height: 14, "aria-hidden": "true" },
     s("path", { class: "i-play", d: "M5.2 3.1v9.8l7.6-4.9z" }), s("rect", { class: "i-stop", x: 4.3, y: 4.3, width: 7.4, height: 7.4, rx: 1.2 }));
+  /* WHAT PLAYS: the keyboard (in kb-in, the waterline that ripples while it sounds) and its legend */
   function plays(sc, L, id) {
+    const kb = keyboard(sc, L, id);
     return h("section", { class: "sh-plays", "aria-labelledby": `${id}-wp` },
-      h("div", { class: "sh-sub" }, h("h4", { id: `${id}-wp` }, "WHAT PLAYS"), h("span", { class: "sh-range", "aria-hidden": "true" }, "C1 – C7")),
-      h("div", { class: "scr" }, keyboard(sc, L, id)), legend(sc, L));
+      h("div", { class: "sh-sub" }, h("h4", { id: `${id}-wp` }, "WHAT PLAYS"), h("span", { class: "sh-range", "aria-hidden": "true" }, "C1 – " + nn(kb._top))),
+      h("div", { class: "scr" }, L ? h("div", { class: "kb-in" }, kb, waveSvg()) : kb), legend(sc, L, kb._top));
   }
+  /* GLINT at the card's left: its type (ARP, SEQ, OFF), PRESET and OCTAVE, then its walk or its sequence (live) */
   function glint(sc, L, id) {
-    const cells = L.seqOn ? GL_CELLS.seq : L.arpOn ? GL_CELLS.arp : GL_CELLS.off;
     return h("section", { class: "sh-glint", "aria-labelledby": `${id}-gl` },
       h("div", { class: "sh-sub gl-sub" }, h("h4", { id: `${id}-gl` }, "GLINT"), h("span", { class: "gl-type" + (L.type ? "" : " is-off") }, L.txt(ID.P_SQ_TYPE)),
         h("span", { class: "gl-meta" }, h("span", { class: "sig-l" }, "PRESET"), h("span", { class: "gl-v" }, L.txt(ID.P_GL_PRESET)),
           h("span", { class: "sig-l" }, "OCTAVE"), h("span", { class: "gl-v" }, L.txt(ID.P_GL_OCTAVE)))),
-      L.seqOn && h("div", { class: "scr" }, seqStrip(sc, L, id)), L.arpOn && h("div", { class: "scr" }, arpStrip(sc, L, id)),
-      h("div", { class: "cells4" }, cells.filter((p) => p >= 0 && p < N.NSOUND).map((p) => cell(p, L))));
+      L.seqOn && h("div", { class: "scr" }, seqStrip(sc, L, id)), L.arpOn && h("div", { class: "scr" }, arpStrip(sc, L, id)));
+  }
+  /* BASS under it: SEQ (lamp: its sequence on) or NOTE, MODEL and OCTAVE, then its sequence (live) or one quiet line:
+   * the note it holds */
+  function bassBlock(sc, L, id) {
+    const bq = sc.bseq, on = !!(bq && bq.on);
+    return h("section", { class: "sh-bass", "aria-labelledby": `${id}-bs` },
+      h("div", { class: "sh-sub gl-sub" }, h("h4", { id: `${id}-bs` }, "BASS"), h("span", { class: "gl-type" + (on ? " is-bq" : " is-off") }, on ? "SEQ" : "NOTE"),
+        h("span", { class: "gl-meta" }, h("span", { class: "sig-l" }, "MODEL"), h("span", { class: "gl-v" }, L.txt(ID.P_BS_MODEL)),
+          h("span", { class: "sig-l" }, "OCTAVE"), h("span", { class: "gl-v" }, L.txt(ID.P_BS_OCTAVE)))),
+      on ? h("div", { class: "scr" }, bassStrip(bq, L, id + "b"))
+         : h("p", { class: "bq-none" }, "NO SEQUENCE · " + (sc.bass >= 0 ? nn(sc.bass) + " HELD" : "NOTHING HELD")));
   }
   function metaOf(L) {
     return h("dl", { class: "sh-meta" }, [["DRONE PRESET", L.txt(ID.P_DR_PRESET)], ["KEY", L.txt(ID.P_ROOT) + " " + L.txt(ID.P_SCALE)],
@@ -659,7 +946,8 @@ window.RiverCards = (() => {
       ["METRONOME", st.metro ? "ON" : "OFF"], [P[ID.P_KEYS].name, word(ID.P_KEYS, st.keys)],
       ["OCTAVE", (st.octave > 0 ? "+" : "") + st.octave], [P[ID.P_CANAL].name, word(ID.P_CANAL, st.channel)],
       [P[ID.P_CH_GLINT].name, word(ID.P_CH_GLINT, st.ch_glint)], [P[ID.P_CH_BASS].name, word(ID.P_CH_BASS, st.ch_bass)],
-      [P[ID.P_MORPH].name, word(ID.P_MORPH, st.morph)], [P[ID.P_LOAD].name, word(ID.P_LOAD, st.load)],
+      [P[ID.P_LOAD].name, word(ID.P_LOAD, st.load)], [P[ID.P_SPEAKER].name, st.speaker ? "ON" : "OFF"],
+      ...(ID.P_ANIM != null ? [[P[ID.P_ANIM].name, st.anim ? "LOW" : "NORMAL"]] : []),
       ["MIDI LEARN", st.learned.length ? String(st.learned.length) : "NONE", st.learned.length ? (st.learned.length > 1 ? "CCS" : "CC") : ""],
     ];
     art._build = () => {
@@ -732,13 +1020,41 @@ window.RiverCards = (() => {
    * written about it, one quiet line of facts), what plays and GLINT at the left and every page at the right.
    * o: {id, key (▶'s), i, class, tick {checked, disabled, aria, onChange}, no, desc, sub, mark, cells, side, actions, intro(),
    *     onOpen(open), onPlay()} */
-  function row(sc, o = {}) {
-    const id = "c" + (++uid), L = sc.current ? look(sc.v) : null, k2 = o.key != null ? String(o.key) : id;
+  function row(sc0, o = {}) {
+    const id = "c" + (++uid), k2 = o.key != null ? String(o.key) : id;
+    const sc = hooks.scene(k2, sc0, o), L = sc.current ? look(sc.v) : null;   // (a draft of the editor's: shown edited)
     const art = h("article", { class: "sr-item" + (o.class ? " " + o.class : ""), id: o.id || null, "aria-labelledby": `${id}-n`, style: `--i:${Math.min(o.i || 0, 24)}` });
     const play = h("button", { type: "button", class: "play", disabled: !sc.bytes, "aria-label": `Play ${sc.name}`, "aria-pressed": "false",
                                title: sc.bytes ? null : "Restore it to the FM-1 to hear it", onclick: () => toggleSound(k2) }, playIcon());
     const tick = o.tick && h("label", { class: "ck" }, h("input", { type: "checkbox", checked: !!o.tick.checked, disabled: !!o.tick.disabled,
       "aria-label": o.tick.aria || `Select ${sc.name}`, onchange: (e) => { if (o.tick.onChange) o.tick.onChange(e.target.checked); } }));
+    const open = h("button", { type: "button", class: "sr-open", "aria-expanded": "false", "aria-controls": `${id}-more`, "aria-label": `Open ${sc.name}`,
+                               onclick: () => openRow(art) }, I.up(15));
+    art.append(h("div", { class: "sr" }, tick, o.no != null ? h("span", { class: "no" }, h("span", { class: "sr-only" }, "Slot "), o.no) : null, play,
+      h("span", { class: "nm" }, shard(sc, 26, true), h("span", { class: "nm-t" },
+        h("h3", { class: "nm-n", id: `${id}-n`, tabindex: "-1" }, sc.name), o.desc ? h("span", { class: "nm-d" }, o.desc) : null,
+        o.sub ? h("span", { class: "nm-s" }, o.sub) : null, o.mark ? h("span", { class: "nm-mk" }, o.mark) : null)),
+      headCells(sc, L), (o.cells || []).map((c) => { if (c && c.classList) c.classList.add("cx"); return c; }),
+      o.side ? h("span", { class: "side cx" }, o.side) : null,
+      h("span", { class: "acts" }, o.actions || null), open),
+      h("p", { class: "sh-say", role: "status" }),
+      h("div", { class: "oc-more", id: `${id}-more`, inert: true }, h("div", { class: "oc-in" })));
+    art._sc = sc;
+    art._build = () => {
+      const sc = art._sc, L = sc.current ? look(sc.v) : null;
+      const intro = o.intro ? h("div", { class: "oc-intro" }, o.intro()) : null;
+      if (!L) return [intro, h("div", { class: "oc-body is-old" }, h("div", { class: "oc-left" }, plays(sc, null, id)),
+        h("p", { class: "sh-note" }, "Made by an earlier FRASIL: its sound is brought up to date when the backup is restored. To make it a shard on its own, restore the whole backup, then back up again."))];
+      return [intro, body(sc, L, id, art)];
+    };
+    art._open = o.onOpen || null;
+    art._key = k2;
+    REG.set(k2, { art, sc, o, sc0 });
+    hooks.row(art, sc0, o);
+    return art;
+  }
+  /* a row's own columns in its head: what plays, its key, GLINT's type, the bass's sequence */
+  function headCells(sc, L) {
     const kv = L ? h("span", { class: "kv cx" }, h("span", { class: "sr-only" }, "Key "), `${L.txt(ID.P_ROOT)} ${L.txt(ID.P_SCALE)} `, h("i", null, `· ${L.txt(ID.P_CHORD)}`))
                  : h("span", { class: "kv cx" }, h("span", { class: "badge is-old" }, "EARLIER FRASIL"));
     const gt = L && L.type ? h("span", { class: "gt cx" }, h("span", { class: "sr-only" }, "GLINT "), L.txt(ID.P_SQ_TYPE))
@@ -747,39 +1063,67 @@ window.RiverCards = (() => {
                                      : h("span", { class: "bq-no cx" });
     const ms = mini(sc, L);
     ms.classList.add("cx");
-    const open = h("button", { type: "button", class: "sr-open", "aria-expanded": "false", "aria-controls": `${id}-more`, "aria-label": `Open ${sc.name}`,
-                               onclick: () => openRow(art) }, I.up(15));
-    art.append(h("div", { class: "sr" }, tick, o.no != null ? h("span", { class: "no" }, h("span", { class: "sr-only" }, "Slot "), o.no) : null, play,
-      h("span", { class: "nm" }, shard(sc, 26, true), h("span", { class: "nm-t" },
-        h("h3", { class: "nm-n", id: `${id}-n`, tabindex: "-1" }, sc.name), o.desc ? h("span", { class: "nm-d" }, o.desc) : null,
-        o.sub ? h("span", { class: "nm-s" }, o.sub) : null, o.mark ? h("span", { class: "nm-mk" }, o.mark) : null)),
-      ms, kv, gt, bq, (o.cells || []).map((c) => { if (c && c.classList) c.classList.add("cx"); return c; }),
-      o.side ? h("span", { class: "side cx" }, o.side) : null,
-      h("span", { class: "acts" }, o.actions || null), open),
-      h("p", { class: "sh-say", role: "status" }),
-      h("div", { class: "oc-more", id: `${id}-more`, inert: true }, h("div", { class: "oc-in" })));
-    art._build = () => {
-      const intro = o.intro ? h("div", { class: "oc-intro" }, o.intro()) : null;
-      if (!L) return [intro, h("div", { class: "oc-body is-old" }, h("div", { class: "oc-left" }, plays(sc, null, id)),
-        h("p", { class: "sh-note" }, "Made by an earlier FRASIL: its sound is brought up to date when the backup is restored. To make it a shard on its own, restore the whole backup, then back up again."))];
-      const left = h("div", { class: "oc-left" },
-        h("section", { class: "sh-plays", "aria-labelledby": `${id}-wp` },
-          h("div", { class: "sh-sub" }, h("h4", { id: `${id}-wp` }, "WHAT PLAYS"), h("span", { class: "sh-range", "aria-hidden": "true" }, "C1 – C7")),
-          h("div", { class: "scr" }, h("div", { class: "kb-in" }, keyboard(sc, L, id), waveSvg())), legend(sc, L)),
-        glint(sc, L, id));
-      const right = h("div", { class: "oc-right" }, h("div", { class: "sx-h", "aria-hidden": "true" }, h("span", null, "EVERY PAGE"), h("span", null, "ON THE FM-1")), sections(L, sc.bseq));
-      return [intro, h("div", { class: "oc-body" }, left, right)];
-    };
-    art._open = o.onOpen || null;
-    art._key = k2;
-    REG.set(k2, { art, sc, o });
-    return art;
+    return [ms, kv, gt, bq];
   }
+  /* an opened card's body: what moves at the left (GLINT, the bass, the LFOs), every page at the right, THE KEYS the
+   * whole width under them (river-keys.js: the keys, then the track's settings; the keys held at the window's bottom
+   * while the card is on it, so the body holds them, not a grid of its own) */
+  function body(sc, L, id, art) {
+    const left = h("div", { class: "oc-left" }, glint(sc, L, id), bassBlock(sc, L, id), lfoColumn(L));
+    const right = h("div", { class: "oc-right" }, h("div", { class: "sx-h", "aria-hidden": "true" }, h("span", null, "EVERY PAGE"), h("span", null, "ON THE FM-1")),
+      sections(L, sc.bseq, { card: true }));
+    return h("div", { class: "oc-body" }, h("div", { class: "oc-cols" }, left, right), window.RiverKeys ? RiverKeys.panel(sc, L, art, id) : null);
+  }
+  /* a row drawn again with another scene (the editor's: the same shard, its sound changed): its head's columns, its
+   * card's body if built (its sections opened as they were), what ▶ plays */
+  function redraw(art, sc) {
+    const c = REG.get(art._key), L = sc.current ? look(sc.v) : null;
+    art._sc = sc;
+    if (c) { c.sc = sc; c.L = undefined; }
+    const waves = (root) => [...root.querySelectorAll(".ms-wave polyline")];
+    const was0 = waves(art).map((w) => w.getAttribute("points"));
+    const old = art.querySelectorAll(":scope > .sr > .ms, :scope > .sr > .kv, :scope > .sr > .gt, :scope > .sr > .bq, :scope > .sr > .bq-no");
+    const fresh = headCells(sc, L);
+    if (old.length === 4) old.forEach((e, i) => e.replaceWith(fresh[i]));
+    const was = art.querySelector(".oc-body");
+    if (was && L) {
+      const opened = [...was.querySelectorAll("details.sec[open] .sec-name")].map((e) => e.firstChild.textContent);
+      const now = body(sc, L, "c" + (++uid), art);
+      const k0 = was.querySelector(":scope > .oc-keys"), k1 = now.querySelector(":scope > .oc-keys");   // (THE KEYS held at the
+      if (k0 && k1 && !k1.classList.contains("is-grid")) {                                            // bottom: still, from the
+        for (const c of ["is-stuck", "no-dock"]) k1.classList.toggle(c, k0.classList.contains(c));     // start, no shadow fading in)
+        k1.style.minHeight = k0.style.minHeight;
+      }
+      was.replaceWith(now);
+      now.querySelectorAll("details.sec").forEach((d) => { if (opened.includes(d.querySelector(".sec-name").firstChild.textContent)) { d.open = true; d._build(); } });
+    }
+    art._lv = null;
+    if (soundKey === art._key && c) {           // (playing: what is heard on the new card at once, before it is drawn)
+      waves(art).forEach((w, i) => { if (was0[i]) w.setAttribute("points", was0[i]); });
+      heard(c, c.last ? c.last.f : null, c.last ? c.last.t : 0);
+    }
+  }
+  /* a card's live parts found again (THE KEYS drawn again in place), what is heard put on them at once */
+  function relive(art) {
+    art._lv = null;
+    const c = REG.get(art._key);
+    if (c && soundKey === art._key) heard(c, c.last ? c.last.f : null, c.last ? c.last.t : 0);
+  }
+  /* a cell drawn again in place (the editor, while a setting turns: the element kept, its pointer held) */
+  function refreshCell(el, p, v) {
+    const fresh = cell(p, look(v));
+    el.replaceChildren(...fresh.childNodes);
+    if (fresh._live) live(el, fresh._live);
+  }
+  /* the editor's hooks (river-edit.js): the scene a row shows (its draft), a row made, a card's body or a section
+   * built */
+  const hooks = { scene: (k, sc) => sc, row: () => {}, built: () => {} };
+
   /* a row opened (or closed) in place: its head the card's, the rows below glide down */
   function openRow(art, open = !art.classList.contains("open"), quiet = false) {
     if (open === art.classList.contains("open")) return;
     const inner = art.querySelector(".oc-in"), btn = art.querySelector(".sr-open"), name = art.querySelector(".nm-n").textContent;
-    if (open && art._build && !inner.firstChild) inner.append(...art._build().filter(Boolean));
+    if (open && art._build && !inner.firstChild) { inner.append(...art._build().filter(Boolean)); hooks.built(art); }
     const after = glide(art.parentElement, () => {
       art.classList.toggle("open", open);
       btn.setAttribute("aria-expanded", String(open));
@@ -811,10 +1155,11 @@ window.RiverCards = (() => {
     if (pl._river) return pl;
     pl._river = true;
     pl.base = "/emu/";                 // (the engine at the River's root, whichever page plays)
+    pl.follow = true;                  // (what sounds, for the card playing: follow())
     pl.addEventListener("loading", (e) => sound(e.detail.id, "loading"));
     pl.addEventListener("playing", (e) => {
       sound(e.detail.id, "playing");
-      ripple();
+      follow();
       const c = REG.get(e.detail.id);
       if (c && c.o.onPlay) c.o.onPlay();
     });
@@ -846,33 +1191,57 @@ window.RiverCards = (() => {
     const b = c.art.querySelector(".play");
     b.setAttribute("aria-label", (state === "playing" ? "Stop " : state === "loading" ? "Starting the sound of " : "Play ") + c.sc.name);
     b.setAttribute("aria-pressed", String(state === "playing"));
-    if (!state) c.art.querySelectorAll(".ms-wave polyline").forEach((w) => w.setAttribute("points", "0,10 100,10"));
+    if (!state) {
+      c.art.querySelectorAll(".ms-wave polyline").forEach((w) => w.setAttribute("points", "0,10 100,10"));
+      heard(c, null, 0);
+      c.keep = null;
+    }
     soundFns.forEach((f) => f(k2, state, c.sc));
   }
-  /* while it sounds, its line ripples: two slow swells along it, as tall as the sound is loud (in a row, its line of
-   * what plays; opened, the keyboard's waterline too) */
-  function ripple() {
+  /* while it sounds, its card follows it. Its line ripples: two slow swells along it, as tall as the sound is loud (in
+   * a row, its line of what plays; opened, the keyboard's waterline too). Opened, its live parts (.lv: the keyboard's
+   * lights, the LFOs, GLINT's and the bass's playheads, the strata, the MIXER's meters, the settings an LFO moves)
+   * take what is heard now (river-player.js live()), each frame. With reduced motion: no ripple, and the rest four
+   * times a second */
+  function follow() {
     cancelAnimationFrame(rippleRaf);
-    if (reduce.matches) return;
-    let amp = 0;
+    let amp = 0, last = -1e9;
     const frame = (t) => {
       const pl = window.RiverPlayer, c = REG.get(soundKey);
       if (!pl || pl.state !== "playing" || !c) return;
-      const lv = Math.min(1, pl.level() * 9);
-      amp += (lv - amp) * 0.08;
-      const pts = [];
-      for (let i = 0; i <= 48; i++) {
-        const x = i / 48, edge = Math.sin(Math.PI * x);
-        const y = 10 - amp * 8 * edge * (0.62 * Math.sin(x * 9.4 - t / 900) + 0.38 * Math.sin(x * 23 + t / 640));
-        pts.push(`${r2(x * 100)},${r2(y)}`);
+      if (!reduce.matches) {
+        const lv = Math.min(1, pl.level() * 9);
+        amp += (lv - amp) * 0.08;
+        const pts = [];
+        for (let i = 0; i <= 48; i++) {
+          const x = i / 48, edge = Math.sin(Math.PI * x);
+          const y = 10 - amp * 8 * edge * (0.62 * Math.sin(x * 9.4 - t / 900) + 0.38 * Math.sin(x * 23 + t / 640));
+          pts.push(`${r2(x * 100)},${r2(y)}`);
+        }
+        const p = pts.join(" ");
+        c.art.querySelectorAll(".ms-wave polyline").forEach((w) => w.setAttribute("points", p));
       }
-      const p = pts.join(" ");
-      c.art.querySelectorAll(".ms-wave polyline").forEach((w) => w.setAttribute("points", p));
+      if (c.art.classList.contains("open") && (!reduce.matches || t - last >= 250)) {
+        last = t;
+        const v = pl.live ? pl.live() : null;
+        heard(c, v ? heardOf(v) : null, t / 1000);
+      }
       rippleRaf = requestAnimationFrame(frame);
     };
     rippleRaf = requestAnimationFrame(frame);
   }
-  addEventListener("keydown", (e) => { if (e.key === "Escape" && soundKey != null && !document.querySelector("dialog[open]")) stopSound(); });
+  /* a card given what is heard (f: heardOf's), or put at rest (null): each of its live parts */
+  function heard(c, f, t) {
+    const art = c.art;
+    if (!art._build || !art.querySelector(".oc-body")) return;
+    if (c.L === undefined) c.L = c.sc.current ? look(c.sc.v) : null;
+    if (!c.L) return;
+    if (!art._lv) art._lv = [...art.querySelectorAll(".lv")];
+    c.last = f ? { f, t } : null;
+    const ctx = { t, keep: c.keep || (c.keep = {}), ...moved(c.L, f) };
+    for (const el of art._lv) el._live(f, ctx);
+  }
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && !e.defaultPrevented && soundKey != null && !document.querySelector("dialog[open]")) stopSound(); });
 
   // ================================================================ a word for a moment; a question before something lasting
   let toastEl = null, toastT = 0;
@@ -908,8 +1277,9 @@ window.RiverCards = (() => {
 
   return {
     h, s, fill, two, nn, word, listWords, key, k, look, shard, WORD, reduce, I, line,
-    settingsRow, ticked, say, glide, row, openRow,
+    settingsRow, ticked, say, glide, row, openRow, redraw, refreshCell, relive, hooks, card: (k) => REG.get(k),
     stopSound, onSound: (f) => soundFns.push(f), get soundKey() { return soundKey; },
     toast, confirm,
+    parts: { C, live, at, star, mix, r2, cell, legend, bassPlays, scaleShift, uid: () => ++uid },
   };
 })();

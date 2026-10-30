@@ -1,31 +1,30 @@
 <!--
 title: BASS
 caps: yes
-lede: One deep note at a time, held like a drone, under everything, or its own line of sixteen steps: eight models, a soft clip, a resonant low-pass.
-description: BASS on FRASIL: one deep held note under the drones, eight MODELs (SINE, TRIANGLE, SQUARE, SAW, REESE, SUB, ORGAN, FM), DRIVE, a resonant low-pass, glide, an ADSR envelope, PULSE on the grid, a 16-step sequencer, and its five pages on SEQ.
+lede: One deep held note under everything, or a 16-step bass line.
+description: BASS on FRASIL: one held note under the drones, eight MODELs, DRIVE, a resonant low-pass, GLIDE, an envelope, PULSE on the beat and a 16-step sequencer.
 buttons: SEQ
 hint: Again: ADSR, BASS SEQ · REC: record
 -->
 <h2 id="playing-bass">Playing BASS</h2>
 <div class="g-split">
   <div>
-    <p>Press SEQ (come from another section, its pages put the keys on BASS), or turn SELECT (KEYS) to BASS: the keys play BASS (the badge turns
-      orange). One note at a time, deep and
-      steady: one of eight MODELs, DRIVE into a soft clip, through a resonant low-pass. None of it goes into the reverb.</p>
+    <p>Press SEQ, or turn SELECT (KEYS) to BASS. The keys play BASS and the badge turns orange. One note at a time,
+      deep and steady. The bass stays out of the reverb.</p>
   </div>
   <div class="g-figure">{{shot_bass}}</div>
 </div>
 <table class="params gestures-table">
   <thead><tr><th>Gesture</th><th>What happens</th></tr></thead>
   <tbody>
-    <tr><td>Tap a key</td><td>The bass holds that note: the key’s note in the scale, OCTAVE octaves down. It rises over ATTACK, then settles over DECAY to SUSTAIN</td></tr>
-    <tr><td>Tap another key</td><td>The bass glides to its note (GLIDE), without a gap: it rises to the top again from where it is (with SUSTAIN at 100 %, it simply goes on); with PULSE on, PULSE strikes it on its next division</td></tr>
-    <tr><td>Tap the bass’s key</td><td>It lets go, over RELEASE</td></tr>
-    <tr><td>Hold its key and press</td><td>Louder, and its filter opens. Let go: it stays</td></tr>
+    <tr><td>Tap a key</td><td>The bass holds that note</td></tr>
+    <tr><td>Tap another key</td><td>It glides to the new note (GLIDE)</td></tr>
+    <tr><td>Tap the bass’s key</td><td>It stops, over RELEASE</td></tr>
+    <tr><td>Hold its key and press</td><td>Louder and brighter. It stays when you let go</td></tr>
   </tbody>
 </table>
-<p>With GLOBAL › KEY MODE on HOLD, the bass sounds while its key is down. Holding PLAY lets it go with everything else. It stays
-  when you turn the keys back to drones or GLINT: SEQ, or SELECT on BASS again, comes back to it.</p>
+<p>With GLOBAL › KEY MODE on HOLD, the bass sounds only while its key is down. Hold PLAY to stop it with everything
+  else. It keeps playing when you switch the keys to drones or GLINT.</p>
 
 <h2 id="models">The models</h2>
 <dl class="model-list">
@@ -33,127 +32,74 @@ hint: Again: ADSR, BASS SEQ · REC: record
   <div><dt>TRIANGLE</dt><dd>soft, a little hollow</dd></div>
   <div><dt>SQUARE</dt><dd>hollow, woody</dd></div>
   <div><dt>SAW</dt><dd>bright, buzzing</dd></div>
-  <div><dt>REESE</dt><dd>two saws ten cents apart, beating slowly</dd></div>
-  <div><dt>SUB</dt><dd>the sine and its octave below</dd></div>
-  <div><dt>ORGAN</dt><dd>three drawbars: the note, its octave and its twelfth</dd></div>
-  <div><dt>FM</dt><dd>a sine modulating itself: round, growling</dd></div>
+  <div><dt>REESE</dt><dd>two saws, beating slowly</dd></div>
+  <div><dt>SUB</dt><dd>sine plus the octave below</dd></div>
+  <div><dt>ORGAN</dt><dd>three drawbars</dd></div>
+  <div><dt>FM</dt><dd>round, growling</dd></div>
 </dl>
-<p>Turning MODEL while the bass sounds crosses over in a few milliseconds, without a click.</p>
+<p>Hold OCT− and turn MODEL to browse without hearing it (the value turns amber). Let OCT− go to load it.</p>
 
 <h2 id="its-pages">Its pages</h2>
 <div class="g-split">
   <div>
-    <p>Tap SEQ, then SEQ again for the next: BASS, BASS II, BASS ADSR, then its sequencer’s two, BASS SEQ and BASS SEQ
-      II.</p>
+    <p>Tap SEQ again for the next page: BASS, BASS II, BASS ADSR, BASS SEQ, BASS SEQ II.</p>
   </div>
   <div class="g-figure">{{shot_bass_page}}</div>
 </div>
 <table class="params pages-table">
   <thead><tr><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead>
   <tbody>
-    <tr><td>BASS</td><td>MODEL <small>SINE, TRIANGLE, SQUARE, SAW, REESE, SUB, ORGAN, FM</small></td><td>DRIVE <small>clean to soft-clipped</small></td><td>FILTER <small>40 Hz to 5 kHz</small></td><td>RESONANCE <small>Q 0.5 to 6</small></td></tr>
-    <tr><td>BASS II</td><td>LEVEL</td><td>OCTAVE <small>−2, −1, 0: every note the bass plays</small></td><td>GLIDE <small>OFF to 2 s</small></td><td>PULSE <small>OFF, 1/8 BEAT to 4 BEATS</small></td></tr>
-    <tr><td>BASS ADSR</td><td>ATTACK <small>5 ms to 5 s</small></td><td>DECAY <small>10 ms to 10 s</small></td><td>SUSTAIN <small>0 to 100 %</small></td><td>RELEASE <small>30 ms to 15 s</small></td></tr>
-    <tr><td>BASS SEQ</td><td>STEP <small>1 to 16</small></td><td>NOTE <small>CUT, a note, HOLD</small></td><td>STEP LENGTH <small>1/16 to 16 BARS</small></td><td>RECORD <small>OFF, STEP, LIVE</small></td></tr>
-    <tr><td>BASS SEQ II</td><td>SEQ STEPS <small>1 to 16</small></td><td>SEQUENCE <small>OFF, ON</small></td><td>CLEAR <small>turn twice</small></td><td>TRANSPOSE <small>−14 to +14 steps of the scale</small></td></tr>
+    <tr><td>BASS</td><td>MODEL</td><td>DRIVE</td><td>FILTER</td><td>RESONANCE</td></tr>
+    <tr><td>BASS II</td><td>LEVEL</td><td>OCTAVE <small>−2, −1, 0</small></td><td>GLIDE</td><td>PULSE <small>retrigger on the beat</small></td></tr>
+    <tr><td>BASS ADSR</td><td>ATTACK</td><td>DECAY</td><td>SUSTAIN</td><td>RELEASE</td></tr>
+    <tr><td>BASS SEQ</td><td>STEP</td><td>NOTE <small>CUT, a note, HOLD</small></td><td>STEP LENGTH</td><td>RECORD <small>OFF, STEP, LIVE</small></td></tr>
+    <tr><td>BASS SEQ II</td><td>SEQ STEPS <small>1 to 16</small></td><td>SEQUENCE <small>OFF, ON</small></td><td>CLEAR <small>turn twice</small></td><td>TRANSPOSE</td></tr>
   </tbody>
 </table>
 
 <h2 id="envelope">The envelope and PULSE</h2>
 <div class="g-split">
   <div>
-    <p>BASS ADSR is the envelope, in its usual order: ATTACK, how long a note takes to rise to the top; DECAY, how long
-      it then takes, while the note is held, to come down to SUSTAIN’s level; SUSTAIN, the level it holds while the note
-      is held; RELEASE, how long it fades once let go. Each note played rises from where the bass is, over ATTACK, then
-      decays again. At SUSTAIN 100 %, as it starts, DECAY does nothing: there is nothing to come down to, and the bass
-      holds, as it always has. Lower SUSTAIN to hear DECAY; at 0 % a held note fades to silence over DECAY.</p>
-    <p>On BASS ADSR the river strip draws the envelope: ATTACK up to the top, DECAY down to SUSTAIN’s level, SUSTAIN’s
-      plateau, RELEASE down to nothing, each part as wide as its knob is turned (the plateau takes what is left), its
-      time across it, A D S R under it. The part whose knob you turn is lit. The bass’s note is a little glint of lamp
-      light riding the curve: it waits at the end of the plateau while the note is held, then goes down RELEASE once let
-      go.</p>
+    <p>BASS ADSR shapes each note: ATTACK (rise), DECAY (fall to SUSTAIN), SUSTAIN (level held), RELEASE (fade after
+      you let go). At SUSTAIN 100 %, DECAY does nothing. Lower SUSTAIN to hear it.</p>
+    <p>The strip draws the curve. The part you turn lights up.</p>
   </div>
   <div class="g-figure">{{shot_bass_adsr}}</div>
 </div>
-<p>PULSE (BASS II, K4) makes the held note pulse on the grid (MIDI clock, else TEMPO, from the beat): OFF, 1/8 BEAT,
-  1/4 BEAT, 1/2 BEAT, 1 BEAT, 2 BEATS or 4 BEATS. On each, the note is let go for a moment and played again: it fades
-  over RELEASE through a short gap, then rises over ATTACK and settles over DECAY to SUSTAIN once more, the same note
-  at the same velocity, without gliding; pressing into it carries on. The gap is a quarter of the division, 8 ms at
-  least and 60 ms at most: at 120 BPM, 16 ms on 1/8 BEAT, 31 ms on 1/4 BEAT, 60 ms from 1/2 BEAT on. A short RELEASE
-  and a low SUSTAIN make a hard, gated pulse; a long RELEASE, a gentle swell on each beat. It pulses whatever plays the
-  bass: a key, a latched note, MIDI or the sequencer, inside its NOTEs only: never in a CUT, and a step that begins
-  with a NOTE is that division’s attack itself.</p>
-<p>PULSE keeps the beat. While the bass sounds, a note changed by hand (a key, a MIDI note) is not struck off the grid:
-  the bass goes to it (gliding, as GLIDE says) and PULSE strikes it on its next division. From silence, a key strikes
-  at once.</p>
-<p>OCTAVE (BASS II, K2) is the bass’s own: it moves every note the bass plays, a key’s, a MIDI note’s, the
-  sequence’s (C1 the lowest). Turned, it moves the note sounding at once, gliding as GLIDE says.</p>
+<p>PULSE (BASS II, K4) retriggers the held note on the beat, from 1/8 BEAT to 4 BEATS. Short RELEASE and low SUSTAIN:
+  a hard, gated pulse. Long RELEASE: a soft swell on each beat.</p>
+<p>With PULSE on, a new note waits for the next pulse.</p>
+<p>OCTAVE (BASS II, K2) moves everything the bass plays: keys, MIDI and sequence.</p>
 
 <h2 id="the-sequencer">The sequencer</h2>
-<p>Turn SEQUENCE (BASS SEQ II, K2) <span class="k">ON</span>, or tap REC with the keys on BASS. Sixteen steps play the
-  bass one after the other, on GLINT’s grid: MIDI clock when one comes in, else TEMPO. Each step is a NOTE, a CUT or a
-  HOLD, and has its own STEP LENGTH: 1/16, 1/8, 1/4 (a beat), 1/4D, 1/2, 1/2D, 1 BAR, 1.5 BARS, 2 BARS, 3 BARS, 4 BARS,
-  8 BARS or 16 BARS. As a step begins, a NOTE plays its note (gliding from the last, as GLIDE says), a CUT stops the
-  bass (it fades over RELEASE), a HOLD changes nothing: a note lasts until the next NOTE or CUT. SEQ STEPS (K1) is how
-  many of the sixteen play; a turn lasts as long as their lengths together.</p>
-<p>The steps keep their notes as the keys play them, without OCTAVE: turning OCTAVE moves the whole sequence. Two NOTEs
-  of the same pitch in a row are one note held on (with SUSTAIN under 100 %, the second rises to the top again): a
-  CUT between them makes two.</p>
-<p>PLAY is both sequencers’ transport: it stops GLINT’s sequence and the bass’s together, and starts them again together
-  from their first steps, at once, the beat beginning there (following a MIDI clock: on GLINT’s next step, else the
-  next sixteenth, the clock’s beats kept). MIDI Start starts it from its first step. Holding PLAY (RELEASE ALL) stops it
-  with everything else; holding it again (RESTORE) starts it again from its first step. Both start the beat there
-  too.</p>
+<p>Turn SEQUENCE (BASS SEQ II, K2) <span class="k">ON</span>, or tap REC with the keys on BASS. Up to sixteen steps
+  play in turn, synced to MIDI clock or TEMPO. Each step is a NOTE, a CUT (silence) or a HOLD (the note goes on), with
+  its own STEP LENGTH, from 1/16 to 16 BARS. SEQ STEPS (K1) sets how many steps play.</p>
+<p>PLAY stops and restarts both sequencers, GLINT’s and the bass’s, together. Hold PLAY to stop everything; hold it
+  again to bring it back.</p>
 <table class="params gestures-table">
   <thead><tr><th>RECORD</th><th>What a BASS key does</th></tr></thead>
   <tbody>
-    <tr><td>OFF</td><td>Transposes the sequence, from its first NOTE to the key’s, along the scale. TRANSPOSE (BASS SEQ II, K4) shows how far, and turns it back. The key sounds nothing itself. A sequence with no NOTE in its SEQ STEPS has nothing to transpose: the key plays the bass, as with SEQUENCE OFF, and the CUTs leave it sounding</td></tr>
-    <tr><td>STEP</td><td>Writes its note on STEP, with the STEP LENGTH set last, then STEP moves on, round SEQ STEPS. The note sounds while the key is down. BASS’s MIDI notes do the same</td></tr>
-    <tr><td>LIVE</td><td>Play while it runs: a take. The note sounds as you play it and goes in as you played it, its start and its length to the nearest sixteenth, over the time it covers and nothing else; the steps are written again around it, as few as the STEP LENGTHs make it (a 5/16 note, a NOTE of 1/4 and a HOLD of 1/16)</td></tr>
+    <tr><td>OFF</td><td>Transposes the sequence to that key, in the scale. TRANSPOSE (BASS SEQ II, K4) shows how far</td></tr>
+    <tr><td>STEP</td><td>Writes its note on the current step, with the last STEP LENGTH, then moves on</td></tr>
+    <tr><td>LIVE</td><td>Plays, and records the note as you played it, rounded to the nearest sixteenth</td></tr>
   </tbody>
 </table>
-<p>K2 and K3 on BASS SEQ change the step on STEP: its NOTE (as the bass plays it; CUT all the way down, HOLD all the
-  way up) and its STEP LENGTH. CLEAR, turned twice, makes every step a CUT, a sixteenth long (recording LIVE, the next
-  note starts a new take, as on an empty sequence).</p>
-<p>On STEP, the length carries on: each key writes its step with the STEP LENGTH you set last, so a run of notes all
-  take the same length until you turn it again. Meanwhile STEP LENGTH (K3) shows the length the next key will write,
-  starting as the length of the step STEP was on: turned, it sets that step at once, and the steps after it. NOTE (K2)
-  changes the step’s note alone. With RECORD off, K3 is the step on STEP’s own length again.</p>
-<p>On LIVE, a key pressed while another is down ends that one where it begins (legato); let go, the one still down
-  takes over. While a key is down the sequence’s own steps under it are silent, the bass playing one note at a time:
-  what you hear is what the loop will hold.</p>
+<p>On BASS SEQ, K2 sets the current step’s NOTE (CUT fully left, HOLD fully right) and K3 its STEP LENGTH. CLEAR (turn
+  twice) empties every step.</p>
+<p>Tap REC with the keys on BASS to record LIVE: SEQUENCE turns on and BASS SEQ opens. Tap REC again to stop. On LIVE, a
+  metronome ticks and REC flashes on the beat.</p>
 <ul>
-  <li><b>Over a sequence</b>, the take records within its loop, round and round, and the loop keeps its length (SEQ
-    STEPS follows the steps it takes). A note replaces the time it covers and nothing else; a note it cuts short does not
-    sound on after it from its middle, a CUT up to that note’s next NOTE or CUT.</li>
-  <li><b>On an empty sequence</b> (no NOTE in the steps it plays), the take makes the loop. It starts at the bar of
-    the first note you play (bars counted from the sequence’s first step, as the metronome counts them; a note just
-    before a bar line belongs to the next bar), a CUT before the note in its bar, and grows a bar at a time, the
-    metronome’s higher tick on each bar line. REC again (or RECORD off, or PLAY) ends it: the loop runs to the bar line
-    nearest the moment you stopped, never before the start of the last note, with a CUT to its end, and SEQ STEPS is set.
-    A note still down then holds on to that line.</li>
-  <li><b>Sixteen steps at most.</b> A note that needs more goes in legato if that makes it fit: the silence after it
-    held by it, else the one before it held by the note before, else both (BASS SEQ FULL · JOINED LEGATO). If it
-    still does not fit, it is not recorded (BASS SEQ FULL · NOT RECORDED): the notes already in stay, later ones still
-    go in where they fit. A take on an empty sequence with no room for another bar ends its loop there (BASS SEQ FULL
-    · LOOP CLOSED) and goes on round it.</li>
+  <li><b>Over a sequence</b>, the take loops round it. Each note replaces only the time it covers.</li>
+  <li><b>On an empty sequence</b>, the take builds the loop a bar at a time. REC again ends it at the nearest bar
+    line.</li>
+  <li><b>Sixteen steps at most.</b> When full, the header says <span class="k">BASS SEQ FULL</span> and the note
+    joins its neighbour or is not recorded.</li>
 </ul>
-<p>REC, with the keys on BASS, goes straight in: SEQUENCE on, RECORD on LIVE, BASS SEQ on screen, the sequence
-  started; REC again, on LIVE or STEP, turns RECORD off. While RECORD is on, STEP or LIVE, the keys play BASS; RECORD
-  off gives them back. On LIVE the metronome counts the bass sequence’s own beats from its first step, the higher tick
-  as it comes round to it (its beats again from the top each time round, if it is not a whole number of beats long; a
-  take on an empty sequence, on each bar line too), and REC flashes on them; on STEP the metronome is silent and REC
-  stays lit.</p>
-<p>The screen draws the sequence as a line of time: each step as wide as it is long; a NOTE a line at its note’s
-  height, on through its HOLDs, the water under it down to the bed; a CUT, nothing. The note playing is bright, the
-  playhead a line of lamp light going along. While RECORD is on, the strip is ruled, faintly: a line each whole tone
-  (fewer when the notes span more), a column each step, as wide as it is long; the column being recorded into is lit
-  in lamp: on STEP, the one the next key writes; on LIVE, the one playing. On LIVE, the note you hold is drawn bright
-  as you hold it, from where you pressed it to the playhead; let go, it is written in.</p>
-<p>Each scene keeps its own bass sequence, with its SEQUENCE, SEQ STEPS and TRANSPOSE, as GLINT’s its SEQ setting, SEQ
-  LENGTH and TRANSPOSE: a scene loaded plays its own, or none, from its first step. While
-  SEQUENCE is on, notes on BASS’s MIDI channel go into the sequencer as the keys do.</p>
+<p>The strip draws the sequence as a line in time, each step as wide as it is long. The playing note is bright.</p>
+<p>Each scene keeps its own bass sequence. While SEQUENCE is on, notes on BASS’s MIDI channel go into it like the
+  keys.</p>
 
 <h2 id="the-small-speaker">On the small speaker</h2>
-<p>A pure sine this low barely reaches the FM-1’s small speaker: DRIVE, or a richer MODEL, gives it the harmonics that
-  let you hear it there. In headphones or a mixer, SINE with DRIVE at 0 is a clean sub.</p>
+<p>A low sine barely reaches the FM-1’s small speaker. Add DRIVE or pick a richer MODEL to hear it there. In headphones,
+  SINE with DRIVE at 0 is a clean sub.</p>

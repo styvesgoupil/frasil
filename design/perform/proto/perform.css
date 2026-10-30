@@ -1,0 +1,192 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 Styves Goupil
+ * Perform: the stage, the HUD, the gestures (A overlay, B caption), the connect screen. */
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 400; src: url("../../../website/assets/fonts/barlow-semi-condensed-normal-400-latin.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 500; src: url("../../../website/assets/fonts/barlow-semi-condensed-normal-500-latin.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 600; src: url("../../../website/assets/fonts/barlow-semi-condensed-normal-600-latin.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 700; src: url("../../../website/assets/fonts/barlow-semi-condensed-normal-700-latin.woff2") format("woff2"); }
+:root {
+  --bg: #0a0d12; --steel: #26303c; --slate: #4a5563; --mist: #8b95a4; --fog: #dce3ea; --white: #f3f6f9;
+  --lamp: #f2a65a; --ice: #6ed0ff; --haze: #33414f; --f: "Barlow Semi Condensed", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #000; color: var(--fog); font-family: var(--f); overflow: hidden; }
+button { font: inherit; color: inherit; }
+
+#wrap { position: relative; margin: 0 auto; overflow: hidden; }
+#stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; background: var(--bg); overflow: hidden; }
+#river { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* ------------------------------------------------ the HUD: the FM-1's header, quiet */
+.hud { position: absolute; left: 96px; right: 96px; top: 52px; display: flex; align-items: center; justify-content: space-between;
+  opacity: .78; transition: opacity .6s; }
+#stage[data-frame="connect"] .hud { opacity: 0; }
+.hud-l { display: flex; align-items: center; gap: 30px; }
+.brand { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
+.brand .logo { width: 265.9px; height: 54px; display: block; }
+/* the address under the letters, F to L exactly (the logo's waterline runs past them: its letters span 147.3 .. 2171.3
+ * of 2324, at 54 px tall 16.85 .. 248.4) */
+.brand .url { margin-left: 16.85px; overflow: visible; }
+.brand .url text { font: 600 16px var(--f); fill: var(--mist); }
+.hud-l .sep { width: 2px; height: 58px; background: var(--steel); }
+#hud-scene { font-size: 38px; font-weight: 700; letter-spacing: .2em; color: var(--white); }
+.hud-title { display: flex; flex-direction: column; gap: 6px; }
+#hud-artist { font-size: 20px; font-weight: 600; letter-spacing: .3em; color: var(--mist); text-transform: uppercase; }
+#hud-artist:empty { display: none; }
+#hud-scene.changed::after { content: ""; display: inline-block; width: 7px; height: 7px; margin: 0 0 22px 10px; background: var(--lamp); }
+.hud-r { display: flex; align-items: center; gap: 34px; }
+#hud-status { display: flex; gap: 26px; font-size: 24px; font-weight: 600; letter-spacing: .16em; color: var(--mist); }
+#hud-status .ice { color: var(--ice); }
+#hud-status .auto { color: var(--lamp); }
+/* H: the header bare. Its words fade; the logo slides to the middle, the transport to the right (Sh.hud measures how
+ * far: --to-mid, --to-right) */
+#hud-scene, #hud-artist, .hud-l .sep, #hud-status, #hud-keys { transition: opacity .6s; }
+#stage.nohud #hud-status, #stage.nohud #hud-keys, #stage.nohud #hud-scene, #stage.nohud #hud-artist,
+#stage.nohud .hud-l .sep { opacity: 0; }
+.brand, #transport { transition: transform 1.6s cubic-bezier(.45, 0, .25, 1); }
+#stage.nohud .brand { transform: translateX(var(--to-mid, 0)); }
+#stage.nohud #transport { transform: translateX(var(--to-right, 0)); }
+/* the transport, the iPad app's (FrasilScreen.swift Transport) at the header's size: everything, then each track. Its
+ * marks inverted: the iPad's are buttons (what a tap does), Perform's say what is happening now. Playing, a play
+ * triangle in its colour, glowing; stopped, a dim square. Shown, not touched: PLAY on the FM-1 is the hand */
+#transport { display: flex; align-items: center; height: 64px; padding: 0 12px; border-radius: 18px; background: #111821; }
+#transport span { display: flex; align-items: center; gap: 12px; padding: 0 15px; font-size: 22px; font-weight: 600;
+  letter-spacing: .2em; color: var(--fog); }
+#transport span.stop { color: var(--slate); }
+#transport b { display: flex; flex-direction: column; gap: 6px; font-weight: 600; line-height: 1; }
+/* under each, where its notes come from: ARP, SEQ, else the keys' KEY MODE (LATCH, HOLD) */
+#transport small { font-size: 12px; letter-spacing: .26em; color: var(--mist); }
+#transport span.stop small { color: var(--slate); }
+#transport span:not(.all) { align-items: flex-start; }
+#transport span:not(.all) i { margin-top: 4px; }
+#transport span:not(.all).stop i { margin-top: 5px; }
+#transport .all { width: 60px; justify-content: center; padding: 0; }
+#transport .rule { width: 2px; height: 30px; margin: 0 6px 0 3px; background: #2a3440; }
+#transport i { width: 0; height: 0; border-style: solid; border-width: 7px 0 7px 12px;
+  border-color: transparent transparent transparent var(--c, var(--fog)); filter: drop-shadow(0 0 7px var(--c, var(--fog))); }
+#transport .all i { border-width: 13px 0 13px 21px; filter: drop-shadow(0 0 11px var(--fog)); }
+#transport .stop i { width: 12px; height: 12px; border: 0; background: var(--slate); filter: none; }
+#transport .all.stop i { width: 20px; height: 20px; }
+#hud-status i { display: inline-block; width: 6px; height: 6px; margin-left: 7px; vertical-align: 4px; background: var(--slate); }
+#hud-status i.on { background: var(--ice); width: 8px; height: 8px; vertical-align: 3px; }
+.keys { display: flex; align-items: center; gap: 12px; padding: 6px 16px; border: 2px solid var(--fog); border-radius: 10px;
+  font-size: 26px; font-weight: 600; letter-spacing: .14em; color: var(--fog); }
+.keys.ice { border-color: var(--ice); color: var(--ice); border-style: dashed; }
+.keys span { padding-left: 12px; border-left: 2px solid currentColor; opacity: .85; }
+.kb { width: 30px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.4; }
+.kb .fill { fill: currentColor; stroke: none; }
+
+/* ------------------------------------------------ the dock under the waterline: LIVE, the LFOs, the effects */
+.bd { display: inline-block; box-sizing: content-box; width: 1.44em; padding: .37em 0; margin-right: .5em; border-radius: 50%;
+  background: var(--ice); color: var(--bg); font-style: normal; font-weight: 700; font-size: .6em; line-height: 1; letter-spacing: 0;
+  text-align: center; text-indent: 0; text-box: trim-both cap alphabetic; vertical-align: .22em; }
+.bd.abc { background: var(--lamp); }
+.gauge { position: relative; height: 3px; background: repeating-linear-gradient(90deg, var(--steel) 0 3px, transparent 3px 8px); }
+.gauge i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--fog); }
+.gauge b { position: absolute; top: -8px; width: 3px; height: 19px; margin-left: -1.5px; background: var(--lamp); }
+.steps { display: flex; justify-content: space-between; align-items: center; height: 10px; }
+.steps i { width: 3px; height: 3px; background: var(--slate); }
+.steps i.sel { width: 9px; height: 9px; background: var(--ice); }
+
+#dock { position: absolute; left: 96px; right: 96px; top: 840px; height: 200px; display: grid;
+  grid-template-columns: 508px repeat(3, 200px) repeat(3, 1fr); gap: 14px; }
+#dock .lfo:nth-of-type(2), #dock .fx:nth-of-type(5) { margin-left: 14px; }
+.box { position: relative; border: 1.5px solid var(--steel); border-radius: 14px; background: rgba(10, 13, 18, .8);
+  padding: 14px 16px; overflow: hidden; transition: opacity .4s; }
+.box header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; white-space: nowrap; }
+.box header b { font-size: 18px; font-weight: 700; letter-spacing: .2em; color: var(--fog); }
+.box header span { font-size: 15px; font-weight: 600; letter-spacing: .12em; color: var(--mist); overflow: hidden; text-overflow: ellipsis; }
+.box header span.ice { color: var(--ice); }
+.box.off { opacity: .45; }
+.lfo canvas { display: block; width: 100%; height: auto; margin: 10px 0 6px; }
+.lfo .tg { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 14px; font-weight: 600; letter-spacing: .1em; color: var(--slate); }
+.lfo .tg li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fx { padding: 0; }
+.fx header { position: absolute; left: 16px; right: 16px; top: 14px; z-index: 2; }
+.fx::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 58px; z-index: 1;
+  background: linear-gradient(180deg, rgba(10,13,18,.85), rgba(10,13,18,0)); pointer-events: none; }
+.fx canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.box.hot { border-color: var(--lamp); box-shadow: 0 0 24px rgba(242,166,90,.18); }
+.now small { font-size: .55em; font-weight: 600; letter-spacing: .06em; color: var(--mist); margin-left: .15em; }
+
+/* LIVE: what the hand does, small, then gone */
+/* (opacity alone: a gesture never moves, in, while it changes, or going) */
+.now .ev { position: absolute; inset: 14px 16px; display: flex; gap: 16px; opacity: 0; transition: opacity .08s linear; }
+.now .ev.in { opacity: 1; }
+.now .ev.swap { opacity: 0; transition: opacity .08s linear; }
+.now .ev.out { opacity: 0; transition: opacity .6s ease-in; }
+.now .col { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
+.kick { display: flex; align-items: center; gap: 12px; font-size: 17px; font-weight: 600; letter-spacing: .2em; color: var(--mist); white-space: nowrap; }
+.kick .cap { padding: 2px 9px; border: 1.5px solid var(--slate); border-radius: 7px; font-size: 15px; letter-spacing: .14em; color: var(--ice); }
+.now .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: auto 0 12px; }
+.now .name { font-size: 28px; font-weight: 600; letter-spacing: .14em; color: var(--white); white-space: nowrap; }
+.now .val { font-size: 84px; font-weight: 600; line-height: .9; color: var(--white); white-space: nowrap; }
+.now .gauge, .now .steps { margin-bottom: 8px; }
+.now .cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: auto 0 4px; }
+.now .cell span { display: block; font-size: 13px; font-weight: 600; letter-spacing: .1em; color: var(--mist); white-space: nowrap; overflow: hidden; }
+.now .cell b { display: block; margin-top: 6px; font-size: 30px; font-weight: 600; color: var(--fog); white-space: nowrap; }
+.now .scn { margin: auto 0 6px; font-size: 52px; font-weight: 700; letter-spacing: .18em; line-height: 1;
+  background: linear-gradient(180deg, #f3f6f9 0%, #dce3ea 46%, #8b95a4 54%, #4a5563 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.now .notes { display: flex; gap: 24px; margin: auto 0 6px; font-size: 52px; font-weight: 600; color: var(--white); }
+.now .words { font-size: 16px; font-weight: 600; letter-spacing: .2em; color: var(--mist); margin-bottom: 4px; }
+.now .walk { display: block; width: 100%; height: auto; margin-top: 6px; }
+.now .bval { margin: auto 0 4px; font-size: 76px; font-weight: 600; line-height: 1; color: var(--white); }
+.now .bval.ice { color: var(--ice); text-shadow: 0 0 40px rgba(110,208,255,.35); }
+.mini { flex: none; width: 112px; height: 75px; align-self: flex-end; }
+.mini .body { fill: #0e141b; stroke: #242e3a; stroke-width: 4; }
+.mini [data-k] { fill: #161d26; stroke: #3a4654; stroke-width: 4; }
+.mini [data-b], .mini [data-w] { fill: #141a22; stroke: #313c49; stroke-width: 4; }
+.mini .screen { fill: #05070a; stroke: #2a3440; stroke-width: 4; }
+.mini .on { fill: var(--lamp) !important; stroke: var(--lamp) !important; filter: drop-shadow(0 0 18px rgba(242,166,90,.9)); animation: pulse 1.2s ease-in-out infinite; }
+.mini .pg { stroke: var(--ice) !important; stroke-width: 8 !important; }
+@keyframes pulse { 50% { opacity: .55; } }
+#stage[data-frame="connect"] #dock { opacity: 0; }
+#dock { transition: opacity .6s; }
+
+/* ------------------------------------------------ connect */
+#connect { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+#connect[hidden] { display: none; }
+.cn-logo { width: 560px; opacity: .96; }
+.cn-word { margin-top: 26px; font-size: 30px; font-weight: 600; letter-spacing: .9em; padding-left: .9em; color: var(--ice); }
+.cn-draw { width: 980px; height: 210px; margin-top: 70px; }
+.cn-draw .ln { fill: none; stroke: var(--mist); stroke-width: 2.4; stroke-linejoin: round; }
+.cn-draw .dim { stroke: var(--slate); }
+.cn-draw .cable { fill: none; stroke: var(--ice); stroke-width: 2.4; stroke-dasharray: 2 9; stroke-linecap: round; animation: flow 1.6s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -22; } }
+.cn-draw .scr { fill: #05070a; stroke: var(--slate); stroke-width: 2; }
+.cn-title { margin-top: 56px; font-size: 54px; font-weight: 700; letter-spacing: .24em; padding-left: .24em; color: var(--white); }
+.cn-name { margin-top: 40px; width: 560px; padding: 10px 0; background: none; border: 0; border-bottom: 2px solid var(--steel);
+  font: 600 30px var(--f); letter-spacing: .24em; text-align: center; text-transform: uppercase; color: var(--white); outline: none; }
+.cn-name { caret-color: var(--ice); }
+.cn-name::placeholder { color: var(--slate); }
+.cn-name:focus { border-bottom-color: var(--mist); }
+/* where the sound comes out: the FM-1's own output, or its USB audio through this computer (live.js) */
+.cn-audio { display: flex; margin-top: 34px; padding: 5px; border-radius: 14px; background: #111821; }
+.cn-audio button { background: none; border: 0; cursor: pointer; padding: 10px 22px; border-radius: 10px; font: 600 18px var(--f);
+  letter-spacing: .2em; color: var(--slate); }
+.cn-audio button:hover, .cn-audio button:focus-visible { color: var(--mist); outline: none; }
+.cn-audio button.on { background: var(--steel); color: var(--fog); }
+.cn-btns { display: flex; gap: 22px; margin-top: 40px; }
+.cn-btns button { background: none; cursor: pointer; font-family: var(--f); }
+.cn-btns button:hover, .cn-btns button:focus-visible { border-color: var(--fog); color: var(--white); outline: none; }
+.cn-btns span, .cn-btns button { display: inline-flex; align-items: center; gap: 14px; padding: 16px 34px; border: 2px solid var(--slate); border-radius: 14px;
+  font-size: 30px; font-weight: 600; letter-spacing: .2em; color: var(--mist); }
+.cn-btns .go { border-color: var(--fog); color: var(--white); box-shadow: 0 0 40px rgba(220,227,234,.12); }
+.cn-btns i { font-style: normal; padding: 2px 8px; border-radius: 6px; font-size: 20px; letter-spacing: .1em; background: var(--fog); color: var(--bg); }
+.cn-foot { position: absolute; bottom: 52px; left: 96px; right: 96px; display: grid; grid-template-columns: 1fr auto 1fr;
+  font-size: 22px; font-weight: 600; letter-spacing: .24em; color: var(--slate); }
+.cn-foot > :last-child { justify-self: end; }
+.cn-ver { padding-left: .24em; }   /* (its tracking after the last letter, given back before the first: centred by eye) */
+.cn-foot kbd { font: inherit; padding: 1px 9px; border: 1.5px solid var(--slate); border-radius: 6px; margin-right: 10px; color: var(--mist); }
+
+/* the live page: what the keys do, terse, fading; a line under the buttons */
+.help { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; font-size: 17px; font-weight: 600;
+  letter-spacing: .22em; color: var(--slate); transition: opacity 1.2s; }
+.help kbd { font: inherit; color: var(--mist); }
+.help.gone { opacity: 0; }
+/* under the dock, in the stage's last 40 px (nothing over the river or the dock): the keys' help in the middle, Perform's
+ * version at the right, quiet */
+.pf-ver { position: absolute; right: 96px; bottom: 12px; font-size: 15px; font-weight: 600; letter-spacing: .24em; color: var(--slate);
+  transition: opacity .6s; }
+#stage[data-frame="connect"] .pf-ver { opacity: 0; }
+.cn-say { margin-top: 26px; min-height: 30px; font-size: 24px; font-weight: 600; letter-spacing: .22em; color: var(--lamp); }

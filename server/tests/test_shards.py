@@ -11,11 +11,11 @@ from conftest import PASSWORD, SERVER, db, image, link, other, signup
 
 S = json.loads((SERVER / "schema.json").read_text())
 ST, IDS, LAYOUT = S["scene_t"], S["ids"], S["magic"]["shard"]
-NL, REC = ST["name_len"], ST["rec"]
-EMPTY = bytearray(ST["size"] - REC)                   # an empty bass (app.c bseq_empty)
-EMPTY[ST["bq"] - REC + 1], EMPTY[ST["bq"] - REC + 2] = (S["params"][IDS[p]]["def"] for p in ("P_BQ_STEPS", "P_BQ_TRANS"))
+NL, BN = ST["name_len"], ST["bnote"]                # (the bass's sequence: from bnote on, after GLINT's)
+EMPTY = bytearray(ST["size"] - BN)                    # an empty bass (app.c bseq_empty)
+EMPTY[ST["bq"] - BN + 1], EMPTY[ST["bq"] - BN + 2] = (S["params"][IDS[p]]["def"] for p in ("P_BQ_STEPS", "P_BQ_TRANS"))
 TEMPO_DEF = S["params"][IDS["P_TEMPO"]]["def"]
-EMPTY[ST["tempo"] - REC] = TEMPO_DEF                 # (at the default TEMPO)
+EMPTY[ST["tempo"] - BN] = TEMPO_DEF                  # (at the default TEMPO)
 EMPTY = bytes(EMPTY)
 V, NS, OLD = ST["v"], S["sizes"]["NSOUND"], {x["magic"]: x for x in S["old_shards"]}
 ONV = OLD["FRSi"]["nv"]                               # (the sound before DECAY, SUSTAIN and PULSE)
@@ -40,9 +40,17 @@ def frsh(sc):
     return frsi(sc)[:OLD["FRSh"]["rec"]]
 
 
-def made_over(sc, bass=True):
-    """sc as an earlier layout's comes in: the new settings at their defaults; its bass, or an empty one"""
-    return gone(sc[:V + ONV] + DEFS + sc[V + NS:REC] + (sc[REC:-1] + bytes([TEMPO_DEF]) if bass else EMPTY))
+def as_old(sc, old):
+    """a scene_t as an earlier shard kept it: its nv sounds, then the rest to its size"""
+    return sc[:V + old["nv"]] + sc[V + NS:V + NS + old["size"] - V - old["nv"]]
+
+
+def made_over(sc, bass=True, nv=ONV, scatter=True, tempo=TEMPO_DEF):
+    """sc as an earlier layout's (nv sounds) comes in: the new settings at their defaults; its bass (its TEMPO tempo), or
+    an empty one; GLINT's RELEASE where SCATTER was (scatter)"""
+    b = sc[:V + nv] + bytes(p["def"] for p in S["params"][nv:NS]) + sc[V + NS:BN] + \
+        (sc[BN:-1] + bytes([tempo]) if bass else EMPTY)
+    return gone(b) if scatter else b
 
 
 def b64(b):
@@ -88,7 +96,7 @@ def test_bad_shards(client, scenes):
     for data, layout, why in ((sc[:-1], LAYOUT, size), (sc + b"\0", LAYOUT, size),
                               (bytes(over), LAYOUT, "out of range"), (named(b"bad name"), LAYOUT, "name"),
                               (named(b"A/B"), LAYOUT, "name"), (named(b""), LAYOUT, "name"),
-                              (sc, "FRSf", "another FRASIL"), (sc[:REC], LAYOUT, size)):
+                              (sc, "FRSf", "another FRASIL"), (sc[:BN], LAYOUT, size)):
         r = add(client, data, layout=layout)
         assert r.status_code == 422 and why in r.json()["detail"], (why, r.text)
     assert client.post("/api/shards", json={"layout": LAYOUT, "data": "not base64!"}).status_code == 422
@@ -107,12 +115,12 @@ def test_a_shard_keeps_its_bass(client, make, scenes):
     rename, in the export's scene package"""
     signup(client)
     sc = scenes[3]
-    assert sc[ST["bq"]] == 1 and any(sc[ST["bnote"]:ST["blen"]]) and sc[REC:] != EMPTY
+    assert sc[ST["bq"]] == 1 and any(sc[ST["bnote"]:ST["blen"]]) and sc[BN:] != EMPTY
     j = add(client, sc).json()
     assert j["layout"] == LAYOUT and j["name"] == "AURORA" and base64.b64decode(j["data"]) == sc and j["bseq"] == 1
     e = client.patch(f"/api/shards/{j['id']}", json={"name": "Dawn"}).json()
     assert base64.b64decode(e["data"])[NL:] == sc[NL:]
-    assert base64.b64decode(client.get("/api/shards").json()["items"][0]["data"])[REC:] == sc[REC:]
+    assert base64.b64decode(client.get("/api/shards").json()["items"][0]["data"])[BN:] == sc[BN:]
 
 
 def test_a_page_from_before(client, scenes):
@@ -278,8 +286,8 @@ def test_frsi_made_over(client, make, scenes):
     """FRSi (before BASS's DECAY, SUSTAIN and PULSE: the River's shards till then) at startup: this layout, the three
     inserted after the sound at their defaults (SUSTAIN 100 %, PULSE OFF), the rest and the bass's sequence as they
     were; a shard of this layout left alone; once"""
-    assert OLD["FRSi"]["size"] == ST["size"] - (NS - ONV) - 1 and OLD["FRSi"]["rec"] == REC - (NS - ONV)
-    assert DEFS == bytes((S["params"][ONV]["def"], 127, 0)) and S["params"][ONV + 1]["name"] == "SUSTAIN"
+    assert OLD["FRSi"]["size"] == ST["size"] - (NS - ONV) - 1 and OLD["FRSi"]["rec"] == BN - (NS - ONV)
+    assert DEFS[:3] == bytes((S["params"][ONV]["def"], 127, 0)) and S["params"][ONV + 1]["name"] == "SUSTAIN"
     signup(client)
     ids = [add(client, sc).json()["id"] for sc in scenes]
     for i, sc in zip(ids[:3], scenes):
@@ -289,7 +297,7 @@ def test_frsi_made_over(client, make, scenes):
     by = {x["id"]: x for x in after.get("/api/shards").json()["items"]}
     for i, sc in zip(ids, scenes):
         new = base64.b64decode(by[i]["data"])
-        assert by[i]["layout"] == LAYOUT and new == made_over(sc) and new[REC:-1] == sc[REC:-1]
+        assert by[i]["layout"] == LAYOUT and new == made_over(sc) and new[BN:-1] == sc[BN:-1]
         assert by[i]["bseq"] == sc[ST["bq"]]
     assert base64.b64decode(by[ids[3]]["data"]) == scenes[3]
     rows = db(client).execute("SELECT id, layout, data, updated_at FROM shards ORDER BY id").fetchall()
@@ -300,39 +308,84 @@ def test_frsi_made_over(client, make, scenes):
 def test_frsk_made_over(client, make, scenes):
     """FRSk (SCATTER where GLINT's RELEASE is: the River's shards till then), sent by a page from before and at
     startup: this layout, RELEASE as the scene's DECAY let a glint go then (DECAY 127: 112), the rest as it was"""
-    assert OLD["FRSk"]["size"] == ST["size"] - 1 and OLD["FRSk"]["nv"] == NS and GONE["of"][127] == 112
+    k = OLD["FRSk"]
+    assert k["size"] == ST["size"] - (NS - k["nv"]) - 1 and k["rec"] == BN - (NS - k["nv"]) and GONE["of"][127] == 112
     assert S["params"][GONE["p"]]["name"] == "RELEASE" and GONE["p"] == IDS["P_GL_RELEASE"]
     signup(client)
-    old = bytearray(scenes[2][:-1])
-    old[V + GONE["p"]], old[V + GONE["decay"]] = 99, 127
-    old = bytes(old)
+    sc = bytearray(scenes[2])
+    sc[V + GONE["p"]], sc[V + GONE["decay"]] = 99, 127
+    sc = bytes(sc)
+    old, want = as_old(sc, k), made_over(sc, True, k["nv"])
     j = add(client, old, layout="FRSk").json()
-    assert j["layout"] == LAYOUT and base64.b64decode(j["data"]) == gone(old + bytes([TEMPO_DEF]))
+    assert j["layout"] == LAYOUT and base64.b64decode(j["data"]) == want
     assert base64.b64decode(j["data"])[V + GONE["p"]] == 112
     i = add(client, scenes[1]).json()["id"]
     db(client).execute("UPDATE shards SET layout = 'FRSk', data = ? WHERE id = ?", (old, i))
     after = make()
     after.post("/api/auth/login", json={"email": "ana@river.test", "password": PASSWORD})
     by = {x["id"]: x for x in after.get("/api/shards").json()["items"]}
-    assert by[i]["layout"] == LAYOUT and base64.b64decode(by[i]["data"]) == gone(old + bytes([TEMPO_DEF]))
+    assert by[i]["layout"] == LAYOUT and base64.b64decode(by[i]["data"]) == want
 
 
 def test_frsm_made_over(client, make, scenes):
     """FRSm (before the scene's TEMPO: the River's shards till then), sent by a page from before and at startup: this
     layout, its TEMPO at the default, its RELEASE as it was (no SCATTER to make over), the rest as it was; once"""
-    assert OLD["FRSm"]["size"] == ST["size"] - 1 and not OLD["FRSm"]["scatter"] and ST["tempo"] == ST["size"] - 1
+    m = OLD["FRSm"]
+    assert m["size"] == ST["size"] - (NS - m["nv"]) - 1 and not m["scatter"] and ST["tempo"] == ST["size"] - 1
     signup(client)
-    old = bytearray(scenes[1][:-1])
-    old[V + GONE["p"]] = 33
-    old = bytes(old)
+    sc = bytearray(scenes[1])
+    sc[V + GONE["p"]] = 33
+    sc = bytes(sc)
+    old, want = as_old(sc, m), made_over(sc, True, m["nv"], False)
     j = add(client, old, layout="FRSm").json()
-    assert j["layout"] == LAYOUT and base64.b64decode(j["data"]) == old + bytes([TEMPO_DEF])
+    assert j["layout"] == LAYOUT and base64.b64decode(j["data"]) == want
     i = add(client, scenes[3]).json()["id"]
     db(client).execute("UPDATE shards SET layout = 'FRSm', data = ? WHERE id = ?", (old, i))
     after = make()
     after.post("/api/auth/login", json={"email": "ana@river.test", "password": PASSWORD})
     by = {x["id"]: x for x in after.get("/api/shards").json()["items"]}
-    assert by[i]["layout"] == LAYOUT and base64.b64decode(by[i]["data"]) == old + bytes([TEMPO_DEF])
+    assert by[i]["layout"] == LAYOUT and base64.b64decode(by[i]["data"]) == want
+
+
+def test_frsn_made_over(client, make, scenes):
+    """FRSn (before MASTER EQ, MASTER FILTER and LOFI TAPE: the River's shards till then), sent by a page from before and
+    at startup: this layout, the sixteen at their defaults (off), its TEMPO and the rest as they were"""
+    n = OLD["FRSn"]
+    assert n["size"] == ST["size"] - (NS - n["nv"]) and not n["scatter"] and n["nv"] == IDS["P_EQ_PRESET"]
+    signup(client)
+    sc = scenes[3]
+    old, want = as_old(sc, n), made_over(sc, True, n["nv"], False, sc[-1])
+    j = add(client, old, layout="FRSn").json()
+    assert j["layout"] == LAYOUT and base64.b64decode(j["data"]) == want and j["bseq"] == sc[ST["bq"]]
+    i = add(client, scenes[0]).json()["id"]
+    db(client).execute("UPDATE shards SET layout = 'FRSn', data = ? WHERE id = ?", (old, i))
+    after = make()
+    after.post("/api/auth/login", json={"email": "ana@river.test", "password": PASSWORD})
+    by = {x["id"]: x for x in after.get("/api/shards").json()["items"]}
+    assert by[i]["layout"] == LAYOUT and base64.b64decode(by[i]["data"]) == want
+
+
+def test_frsp_made_over(client, make, scenes):
+    """FRSp (2.5's betas', before ROUTING and the pans), sent by a page from then and at startup: this layout, the seven
+    at their defaults, its TEMPO and the rest as they were; GLINT DELAY's TIME of then's ping-pong half (19, 1/8D)
+    within its twelve now (7)"""
+    n, gd = OLD["FRSp"], IDS["P_GD_TIME"]
+    assert n["size"] == ST["size"] - (NS - n["nv"]) and not n["scatter"] and n["nv"] == IDS["P_FL_PRE"]
+    signup(client)
+    sc = bytearray(scenes[3])
+    sc[V + gd] = 7
+    sc = bytes(sc)
+    old, want = bytearray(as_old(sc, n)), made_over(sc, True, n["nv"], False, sc[-1])
+    old[V + gd] = 19
+    old = bytes(old)
+    j = add(client, old, layout="FRSp").json()
+    assert j["layout"] == LAYOUT and base64.b64decode(j["data"]) == want
+    i = add(client, scenes[0]).json()["id"]
+    db(client).execute("UPDATE shards SET layout = 'FRSp', data = ? WHERE id = ?", (old, i))
+    after = make()
+    after.post("/api/auth/login", json={"email": "ana@river.test", "password": PASSWORD})
+    by = {x["id"]: x for x in after.get("/api/shards").json()["items"]}
+    assert by[i]["layout"] == LAYOUT and base64.b64decode(by[i]["data"]) == want
 
 
 def test_titles_and_tags_folded_at_startup(client, make, scenes):

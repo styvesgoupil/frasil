@@ -440,6 +440,318 @@
     }));
   }
 
+  // ============================================================ MASTER FILTER, LOFI TAPE, MASTER EQ: their pages' pictures
+  // (app/ui.c filter_scope, tape_scope, eq_scope), each over the spectrum's grid or as the cassette; under each its page:
+  // K1 a choice (chips), K2..K4 the screen's gauges, following what the picture does
+  const FS = 44100, NIGHT = [10, 13, 18];
+  const fmtDb = (db) => { const r = Math.round(db * 2) / 2; return (r > 0 ? "+" : r < 0 ? "−" : "") + String(Math.abs(r)); };
+  const hzText = (hz) => hz < 1000 ? [String(Math.round(hz)), "HZ"] : [(hz < 9950 ? (Math.round(hz / 100) / 10).toFixed(1) : String(Math.round(hz / 1000))), "KHZ"];
+  /* a gauge of the page: its value (and unit) and where its line is lit; written only when it changes */
+  function gauge(card, key) {
+    const b = card.querySelector(`[data-g="${key}"]`), g = b && b.closest(".gauge");
+    let was = "";
+    return (txt, unit, v) => {
+      if (!b) return;
+      const k = txt + "|" + unit + "|" + v.toFixed(3);
+      if (k === was) return;
+      was = k;
+      b.textContent = txt;
+      if (unit) { const sm = document.createElement("small"); sm.textContent = unit; b.appendChild(sm); }
+      g.style.setProperty("--v", clamp(v, 0, 1).toFixed(3));
+    };
+  }
+  /* K1's chips: the one pressed, the card grey when it is OFF */
+  function chips(card, val, pick) {
+    const bs = Array.from(card.querySelectorAll(".fx-k1 .chip"));
+    const show = (v) => {
+      bs.forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.v === v)));
+      card.classList.toggle("off", v === 0);
+    };
+    bs.forEach((b) => b.addEventListener("click", () => { pick(+b.dataset.v); show(+b.dataset.v); }));
+    show(val);
+    return show;
+  }
+  /* the screen's fills are dithered, a pixel in two: a mask of it, a CSS pixel a dot */
+  function ditherer(s) {
+    const n = Math.max(1, Math.round(s.dpr)), tile = document.createElement("canvas");
+    tile.width = tile.height = 2 * n;
+    const tg = tile.getContext("2d");
+    tg.fillStyle = "#fff"; tg.fillRect(n, 0, n, n); tg.fillRect(0, n, n, n);
+    const layer = document.createElement("canvas"), lg = layer.getContext("2d");
+    layer.width = s.canvas.width; layer.height = s.canvas.height;
+    const pat = lg.createPattern(tile, "repeat");
+    /* fill(lg) draws on the layer (CSS pixels); then the layer, dithered, onto the picture */
+    return (fill) => {
+      lg.setTransform(1, 0, 0, 1, 0, 0); lg.globalCompositeOperation = "source-over"; lg.clearRect(0, 0, layer.width, layer.height);
+      lg.setTransform(s.dpr, 0, 0, s.dpr, 0, 0);
+      fill(lg);
+      lg.setTransform(1, 0, 0, 1, 0, 0); lg.globalCompositeOperation = "destination-in";
+      lg.fillStyle = pat; lg.fillRect(0, 0, layer.width, layer.height);
+      s.ctx.save(); s.ctx.setTransform(1, 0, 0, 1, 0, 0); s.ctx.drawImage(layer, 0, 0); s.ctx.restore();
+    };
+  }
+  /* the spectrum's grid (ui.c rs_grid): 20 Hz .. 20 kHz across, 100, 1K, 10K dotted, the 0 dB line */
+  function rsGrid(ctx, W, top, bed, zero, xOf) {
+    ctx.fillStyle = rgba(SLATE, .55); ctx.fillRect(0, Math.round(zero), W, 1);
+    ctx.font = '600 10.5px "Barlow Semi Condensed", "Arial Narrow", sans-serif';
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "1px";
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    [[100, "100"], [1000, "1K"], [10000, "10K"]].forEach(([hz, nm]) => {
+      const x = Math.round(xOf(hz));
+      ctx.fillStyle = rgba(SLATE, .7);
+      for (let y = top; y <= bed; y += 3) ctx.fillRect(x, y, 1, 1);
+      ctx.fillStyle = rgba(MIST, .8); ctx.fillText(nm, x, bed + 7);
+    });
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+    ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+  }
+  /* a knob's badge on the curve: the blue disc and its figure, haloed while it turns */
+  function badgeAt(ctx, x, y, ch, lit, off) {
+    const r = lit ? 8.5 : 7.5, c = off ? SLATE : ICE;
+    if (lit) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.6);
+      g.addColorStop(0, rgba(ICE, .45)); g.addColorStop(1, rgba(ICE, 0));
+      ctx.fillStyle = g; ctx.fillRect(x - r * 2.6, y - r * 2.6, r * 5.2, r * 5.2);
+    }
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI); ctx.fillStyle = rgba(c, 1); ctx.fill();
+    ctx.fillStyle = rgba(NIGHT, 1); ctx.font = '700 11px "Barlow Semi Condensed", "Arial Narrow", sans-serif';
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(ch, x, y + .5);
+    ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+  }
+  const curveGlow = (ctx, col, a) => { ctx.lineJoin = "round"; ctx.strokeStyle = rgba(col, .09 * a); ctx.lineWidth = 7; ctx.stroke(); ctx.strokeStyle = rgba(col, .95 * a); ctx.lineWidth = 1.6; ctx.stroke(); };
+  const spectrum = (W) => { const pad = 4; return { xOf: (hz) => pad + Math.log(hz / 20) / Math.log(1000) * (W - 2 * pad), hzOf: (x) => 20 * Math.pow(1000, (x - pad) / (W - 2 * pad)) }; };
+
+  // ------------------------------------------------------------ MASTER FILTER: its response, CUTOFF swept as an LFO would
+  const flCard = document.querySelector('.fx-card[data-fx="filter"]');
+  if (flCard) {
+    let type = 1, dith = null;
+    const gCut = gauge(flCard, "cut"), gRes = gauge(flCard, "reso");
+    const s = stage(flCard.querySelector(".fx-pic"), (s) => {
+      const { ctx, W, H } = s, t = reduce ? 3.2 : s.t + 3.2;
+      const top = 8, bed = H - 24, zero = top + (bed - top) / 3, pxDb = (bed - top) / 60;
+      const { xOf, hzOf } = spectrum(W);
+      const uc = (type === 2 ? .4 : .66) + .15 * Math.sin(2 * Math.PI * t / 13);   /* CUTOFF, its knob 0..1 */
+      const ur = .5 + .14 * Math.sin(2 * Math.PI * t / 23 + 1);                    /* RESONANCE */
+      const fc = 20 * Math.pow(1000, uc), q = .7071 * Math.pow(17, ur);
+      const yOf = (hz) => {
+        if (!type) return zero;
+        const r = hz / fc, re = 1 - r * r, im = r / q;
+        const db = clamp(-10 * Math.log10(re * re + im * im + 1e-12) + (type === 2 ? 40 * Math.log10(r) : 0), -40, 20);
+        return zero - db * pxDb;
+      };
+      if (!dith) dith = ditherer(s);
+      const pts = [];
+      for (let x = 0; x <= W + 1; x += 1.5) pts.push([x, yOf(hzOf(x))]);
+      if (type) dith((g) => {                          /* what passes: water under the curve, fading to the bed */
+        g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y + 2) : g.moveTo(x, y + 2)));
+        g.lineTo(W, bed); g.lineTo(0, bed); g.closePath();
+        const gr = g.createLinearGradient(0, top, 0, bed);
+        gr.addColorStop(0, rgba(ICE, .55)); gr.addColorStop(.45, rgba(ICE, .3)); gr.addColorStop(1, rgba(ICE, 0));
+        g.fillStyle = gr; g.fill();
+      });
+      rsGrid(ctx, W, top, bed, zero, xOf);
+      ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      if (type) { curveGlow(ctx, ICE, 1); badgeAt(ctx, xOf(fc), clamp(yOf(fc), top + 2, bed - 2), "2", !reduce, false); }
+      else { ctx.strokeStyle = rgba(SLATE, .9); ctx.lineWidth = 1.4; ctx.stroke(); }
+      const [ht, hu] = hzText(fc);
+      gCut(ht, hu, uc);
+      gRes(String(Math.round(ur * 100)), "", ur);
+    });
+    s.onsize = () => { dith = null; };
+    chips(flCard, type, (v) => { type = v; s.wake(); });
+  }
+
+  // ------------------------------------------------------------ LOFI TAPE: the cassette (ui.c tape_scope)
+  const tpCard = document.querySelector('.fx-card[data-fx="tape"]');
+  if (tpCard) {
+    let on = true;
+    const gSat = gauge(tpCard, "sat"), gWob = gauge(tpCard, "wob");
+    /* the reels' angles, how much tape is on the right one, rewinding; the speed shown; the wow's phases and its rate
+     * wandering; a drag under way (time left, its length, its depth) and the lag it left, caught up after */
+    const tp = { rot: [0, 0], u: .3, rew: false, vs: 1, ph: [0, 0, 0], rate: .55, rateTo: .55, drag: 0, dragN: 0, dragS: 0, lag: 0, next: 2.5 };
+    const TAPE0 = [120, 72, 40];
+    const s = stage(tpCard.querySelector(".fx-pic"), (s, dt) => {
+      const { ctx, W, H } = s, t = reduce ? 6 : s.t + 6;
+      const sat = reduce ? .62 : .5 + .32 * Math.sin(2 * Math.PI * (t - 6) / 17 - .4);     /* SATURATION, breathing */
+      const wob = reduce ? .7 : .66 + .18 * Math.sin(2 * Math.PI * (t - 6) / 29 + 1.2);    /* WOBBLE */
+      const k = Math.min(W / 182, H / 76), ox = W / 2 - 120 * k, oy = H * .5 - 62 * k;
+      const X = (x) => ox + x * k, Y = (y) => oy + y * k;
+      const gr = 4, hy = 83 + gr, a0 = 100, a1 = 529;
+      let v = 0;
+      if (on && !reduce && dt > 0) {
+        if (Math.random() < dt / .7 * .1) tp.rateTo = .3 + .5 * Math.random();   /* the wow's rate wanders, .3 .. .8 Hz */
+        tp.rate += (tp.rateTo - tp.rate) * Math.min(1, dt * .2);
+        tp.ph[0] += tp.rate * dt; tp.ph[1] += .23 * dt; tp.ph[2] += 1.7 * dt;
+        if (tp.drag > 0) {                                 /* a drag: slower, most at its middle */
+          const x = Math.sin(Math.PI * tp.drag / tp.dragN);
+          v = tp.dragS * x * x;
+          tp.lag += v * dt;
+          tp.drag -= dt;
+        } else {                                           /* on at speed, catching up; now and then a drag */
+          tp.lag -= tp.lag * Math.min(1, dt / 1.4);
+          if (s.t > tp.next && Math.random() < (.06 + .32 * wob * wob) * dt) {
+            const r1 = Math.random();
+            tp.dragN = tp.drag = .25 * Math.pow(2, 2.4 * r1 * r1);              /* a quarter of a second .. 1.3 s */
+            tp.dragS = Math.min(.96, wob * (.95 + .4 * Math.random()));
+            tp.next = s.t + tp.dragN + 2.5;
+          }
+        }
+      }
+      const wow = on ? wob * (.08 * Math.sin(2 * Math.PI * tp.ph[0]) + .025 * Math.sin(2 * Math.PI * tp.ph[1]) + .02 * Math.sin(2 * Math.PI * tp.ph[2])) : 0;
+      const spd = on ? Math.max(.03, 1 + wow - v + (tp.drag > 0 ? 0 : tp.lag / 1.4)) : 1;
+      tp.vs += (spd - tp.vs) * Math.min(1, dt * 6.7);
+      const pl = Math.sqrt(a0 + (1 - tp.u) * (a1 - a0)), pr = Math.sqrt(a0 + tp.u * (a1 - a0));
+      if (on && !reduce) {                                 /* 60 px a second past the head; at the end, rewound quickly */
+        const d = (tp.rew ? -400 : 60 * tp.vs) * dt;
+        tp.u += tp.rew ? -dt / 1.5 : d / 3000;
+        if (tp.u >= 1) tp.rew = true;
+        if (tp.u <= 0) { tp.u = 0; tp.rew = false; }
+        tp.u = Math.min(1, tp.u);
+        tp.rot[0] -= d / (2 * Math.PI * pl);               /* anticlockwise, each at its radius */
+        tp.rot[1] -= d / (2 * Math.PI * pr);
+      }
+      const tape = on ? mix(TAPE0, LAMP, sat) : [38, 48, 60], hub = on ? FOG : SLATE, rim = on ? SLATE : [38, 48, 60];
+      if (on && sat > 0) {                                 /* the head's glow: wider and whiter as SATURATION grows */
+        const rad = (10 + 22 * sat) * k, gl = (.35 + .65 * sat) * (reduce ? 1 : .85 + .15 * Math.sin(t * 2.3 * 2 * Math.PI) * Math.sin(t * .37 * 2 * Math.PI));
+        ctx.save(); ctx.translate(X(120), Y(hy)); ctx.scale(1.6, 1);
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rad);
+        g.addColorStop(0, rgba(mix(LAMP, [240, 236, 230], clamp((sat - .35) * 2, 0, 1)), .9 * gl));
+        g.addColorStop(.3, rgba(LAMP, .5 * gl)); g.addColorStop(1, rgba(LAMP, 0));
+        ctx.fillStyle = g; ctx.fillRect(-rad, -rad, 2 * rad, 2 * rad);
+        ctx.restore();
+      }
+      const reel = (cx, pack, rot) => {                    /* its flange, the tape wound on it, its hub and spokes */
+        const x = X(cx), y = Y(60);
+        ctx.lineWidth = 1.6 * k / 1.6; ctx.strokeStyle = rgba(rim, 1);
+        ctx.beginPath(); ctx.arc(x, y, 25.5 * k, 0, 2 * Math.PI); ctx.stroke();
+        ctx.fillStyle = rgba(tape, 1);
+        ctx.beginPath(); ctx.arc(x, y, pack * k, 0, 2 * Math.PI); ctx.arc(x, y, 9.5 * k, 0, 2 * Math.PI, true); ctx.fill();
+        ctx.strokeStyle = rgba(NIGHT, .35); ctx.lineWidth = .6 * k;
+        for (let r = 11; r < pack; r += 2) { ctx.beginPath(); ctx.arc(x, y, r * k, 0, 2 * Math.PI); ctx.stroke(); }
+        ctx.strokeStyle = rgba(hub, 1); ctx.lineWidth = 1.4 * k / 1.4;
+        ctx.beginPath(); ctx.arc(x, y, 7 * k, 0, 2 * Math.PI); ctx.stroke();
+        const ms = Math.sin(2 * Math.PI * (rot + .125)), mc = Math.sin(2 * Math.PI * (rot + .375));
+        ctx.lineWidth = 1.2 * k / 1.4;
+        ctx.beginPath(); ctx.moveTo(x + (pack - 5) * k * mc, y + (pack - 5) * k * ms); ctx.lineTo(x + (pack - .5) * k * mc, y + (pack - .5) * k * ms); ctx.stroke();
+        ctx.lineWidth = 2.2 * k / 1.4; ctx.lineCap = "round";
+        for (let j = 0; j < 3; j++) {
+          const a = rot + j / 3, sn = Math.sin(2 * Math.PI * a), cs = Math.cos(2 * Math.PI * a);
+          ctx.beginPath(); ctx.moveTo(x + 1.5 * k * cs, y + 1.5 * k * sn); ctx.lineTo(x + 6.5 * k * cs, y + 6.5 * k * sn); ctx.stroke();
+        }
+        ctx.lineCap = "butt";
+      };
+      reel(60, pl, tp.rot[0]);
+      reel(180, pr, tp.rot[1]);
+      const tangent = (ax, ay, ar, bx, by, br) => {      /* where the tape leaves circle a for circle b, under both */
+        const dx = bx - ax, dy = by - ay, l = Math.hypot(dx, dy) + 1e-6, ux = dx / l, uy = dy / l, c = (ar - br) / l, sn = Math.sqrt(Math.max(0, 1 - c * c));
+        let nx = c * ux - sn * uy, ny = c * uy + sn * ux;
+        if (ny < 0) { nx = c * ux + sn * uy; ny = c * uy - sn * ux; }
+        return [ax + ar * nx, ay + ar * ny, bx + br * nx, by + br * ny];
+      };
+      const span = (p, sag) => {                           /* a free span, hanging sag at its middle */
+        const dx = p[2] - p[0], dy = p[3] - p[1], l = Math.hypot(dx, dy) + 1e-6;
+        let nx = -dy / l, ny = dx / l;
+        if (ny < 0) { nx = -nx; ny = -ny; }
+        ctx.beginPath(); ctx.moveTo(X(p[0]), Y(p[1]));
+        ctx.quadraticCurveTo(X(.5 * (p[0] + p[2]) + 2 * sag * nx), Y(.5 * (p[1] + p[3]) + 2 * sag * ny), X(p[2]), Y(p[3]));
+        ctx.strokeStyle = rgba(tape, 1); ctx.lineWidth = 1.3 * k / 1.3; ctx.stroke();
+      };
+      const loose = on ? Math.min(10, wob * (4 + 3 * Math.sin(2 * Math.PI * t * .7)) + 14 * Math.max(0, 1 - tp.vs)) : 0;
+      span(tangent(60, 60, pl, 100, 83, gr), loose);
+      span(tangent(140, 83, gr, 180, 60, pr), on ? wob * (4 + 3 * Math.sin(2 * Math.PI * (t * .7 + .4))) : 0);
+      ctx.strokeStyle = rgba(on && sat > .3 ? mix(LAMP, FOG, sat) : tape, 1);   /* over the head: taut, hot as it saturates */
+      ctx.lineWidth = (1.2 + .8 * sat) * k / 1.3;
+      ctx.beginPath(); ctx.moveTo(X(100), Y(hy)); ctx.lineTo(X(140), Y(hy)); ctx.stroke();
+      ctx.strokeStyle = rgba(hub, 1); ctx.lineWidth = 1.1 * k / 1.2;              /* the rollers: rings, a pin */
+      [100, 140].forEach((x) => {
+        ctx.beginPath(); ctx.arc(X(x), Y(83), (gr - .5) * k, 0, 2 * Math.PI); ctx.stroke();
+        ctx.fillStyle = rgba(hub, 1); ctx.fillRect(X(x) - .9, Y(83) - .9, 1.8, 1.8);
+      });
+      ctx.fillStyle = rgba(on ? (sat > .5 ? mix(LAMP, FOG, (sat - .5) * 1.2) : LAMP) : SLATE, 1);   /* the head, its gap */
+      ctx.fillRect(X(113), Y(hy + 1), 15 * k, 4 * k);
+      ctx.fillStyle = rgba(NIGHT, 1); ctx.fillRect(X(120), Y(hy + 1), Math.max(1, k), 4 * k);
+      gSat(String(Math.round(sat * 100)), "", sat);
+      gWob(String(Math.round(wob * 100)), "", wob);
+    });
+    chips(tpCard, 1, (v) => { on = v === 1; s.wake(); });
+  }
+
+  // ------------------------------------------------------------ MASTER EQ: its curve, stepping through the presets
+  const eqCard = document.querySelector('.fx-card[data-fx="eq"]');
+  if (eqCard) {
+    /* each preset's LOW, MID, HIGH (half decibels, 24: 0 dB), LOW FREQ, MID FREQ, Q, HIGH FREQ (knobs, 0..127): app/params.c */
+    const PRESETS = { 2: [24, 24, 24, 59, 64, 39, 90], 3: [29, 24, 20, 68, 64, 39, 83], 4: [24, 24, 30, 59, 64, 39, 102], 5: [24, 17, 24, 59, 34, 39, 90],
+                      6: [24, 18, 24, 59, 51, 53, 90], 7: [30, 22, 29, 51, 64, 24, 96], 8: [12, 28, 24, 59, 87, 29, 90] };
+    const CYCLE = [3, 4, 5, 6, 7, 8];
+    const lowF = (u) => 30 * Math.pow(20, u), midF = (u) => 80 * Math.pow(150, u), highF = (u) => 1500 * Math.pow(10.6667, u), qOf = (u) => .4 * Math.pow(20, u);
+    function coefs(kind, hz, db, q) {                    /* app/dsp/frasil.c frasil_eq_coefs: a shelf, a bell, a shelf */
+      const A = Math.pow(10, db / 40), w = 2 * Math.PI * hz / FS, cw = Math.cos(w), sw = Math.sin(w);
+      let b0, b1, b2, a0, a1, a2;
+      if (kind === 1) {
+        const al = sw / (2 * q);
+        b0 = 1 + al * A; b1 = -2 * cw; b2 = 1 - al * A; a0 = 1 + al / A; a1 = -2 * cw; a2 = 1 - al / A;
+      } else {
+        const sq = 2 * Math.sqrt(A) * sw * .70710678, ap = A + 1, am = A - 1, sg = kind ? -1 : 1;
+        b0 = A * (ap - sg * am * cw + sq); b1 = sg * 2 * A * (am - sg * ap * cw); b2 = A * (ap - sg * am * cw - sq);
+        a0 = ap + sg * am * cw + sq; a1 = -sg * 2 * (am + sg * ap * cw); a2 = ap + sg * am * cw - sq;
+      }
+      return [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0];
+    }
+    function bqDb(c, hz) {
+      const w = 2 * Math.PI * hz / FS, c1 = Math.cos(w), s1 = Math.sin(w), c2 = Math.cos(2 * w), s2 = Math.sin(2 * w);
+      const nr = c[0] + c[1] * c1 + c[2] * c2, ni = c[1] * s1 + c[2] * s2, dr = 1 + c[3] * c1 + c[4] * c2, di = c[3] * s1 + c[4] * s2;
+      return 10 * Math.log10((nr * nr + ni * ni + 1e-12) / (dr * dr + di * di + 1e-12));
+    }
+    let preset = 3, auto = true, ci = 0, nextAt = 3.6, morph = 1, dith = null;
+    let from = PRESETS[3].slice(), to = PRESETS[3].slice(), cur = PRESETS[3].slice();
+    const gLow = gauge(eqCard, "low"), gMid = gauge(eqCard, "mid"), gHigh = gauge(eqCard, "high");
+    let showChips = null;
+    const go = (p) => {                                  /* a preset: its bands glide there (OFF: they stay, unheard) */
+      preset = p;
+      if (p) { from = cur.slice(); to = PRESETS[p].slice(); morph = reduce ? 1 : 0; if (reduce) cur = to.slice(); }
+    };
+    const s = stage(eqCard.querySelector(".fx-pic"), (s, dt) => {
+      const { ctx, W, H } = s;
+      if (auto && !reduce && s.t >= nextAt) {            /* the presets one after another, until a hand picks one */
+        ci = (ci + 1) % CYCLE.length; go(CYCLE[ci]); if (showChips) showChips(preset);
+        nextAt = s.t + 3.6;
+      }
+      if (morph < 1) {
+        morph = Math.min(1, morph + dt / .9);
+        const e = ease(morph);
+        cur = from.map((a, i) => a + (to[i] - a) * e);
+      }
+      const off = preset === 0;
+      const top = 10, bed = H - 24, zero = (top + bed) / 2, pxDb = (zero - top) / 12;
+      const { xOf, hzOf } = spectrum(W);
+      const fl = lowF(cur[3] / 127), fm = midF(cur[4] / 127), fh = highF(cur[6] / 127);
+      const bands = [coefs(0, fl, .5 * (cur[0] - 24), .707), coefs(1, fm, .5 * (cur[1] - 24), qOf(cur[5] / 127)), coefs(2, fh, .5 * (cur[2] - 24), .707)];
+      const yOf = (hz) => zero - clamp(bqDb(bands[0], hz) + bqDb(bands[1], hz) + bqDb(bands[2], hz), -13, 13) * pxDb;
+      const pts = [];
+      for (let x = 0; x <= W + 1; x += 2) pts.push([x, yOf(hzOf(x))]);
+      if (!dith) dith = ditherer(s);
+      if (!off) dith((g) => {                            /* what it raises, warm; what it cuts, ice */
+        g.beginPath(); g.moveTo(0, zero); pts.forEach(([x, y]) => g.lineTo(x, y)); g.lineTo(W, zero); g.closePath();
+        g.save(); g.beginPath(); g.rect(0, 0, W, zero); g.clip();
+        g.beginPath(); g.moveTo(0, zero); pts.forEach(([x, y]) => g.lineTo(x, y)); g.lineTo(W, zero); g.closePath();
+        g.fillStyle = rgba(LAMP, .62); g.fill(); g.restore();
+        g.save(); g.beginPath(); g.rect(0, zero + 1, W, bed); g.clip();
+        g.beginPath(); g.moveTo(0, zero); pts.forEach(([x, y]) => g.lineTo(x, y)); g.lineTo(W, zero); g.closePath();
+        g.fillStyle = rgba(ICE, .5); g.fill(); g.restore();
+      });
+      rsGrid(ctx, W, top, bed, zero, xOf);
+      ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      if (off) { ctx.strokeStyle = rgba(SLATE, .95); ctx.lineWidth = 1.4; ctx.stroke(); } else curveGlow(ctx, FOG, .95);
+      const moving = morph < 1;
+      [[fl, "2", 0], [fm, "3", 1], [fh, "4", 2]].forEach(([hz, ch, i]) => badgeAt(ctx, xOf(hz), clamp(yOf(hz), top + 2, bed - 2), ch, moving && Math.abs(to[i] - from[i]) > .5, off));
+      gLow(fmtDb(.5 * (cur[0] - 24)), "DB", cur[0] / 48);
+      gMid(fmtDb(.5 * (cur[1] - 24)), "DB", cur[1] / 48);
+      gHigh(fmtDb(.5 * (cur[2] - 24)), "DB", cur[2] / 48);
+    });
+    s.onsize = () => { dith = null; };
+    showChips = chips(eqCard, preset, (v) => { auto = false; go(v); s.wake(); });
+  }
+
   // ============================================================ the bass: its swell and its models' shapes
   const swell = document.querySelector(".swell");
   if (swell) {

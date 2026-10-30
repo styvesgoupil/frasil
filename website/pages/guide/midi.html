@@ -1,13 +1,12 @@
 <!--
 title: MIDI
-lede: FRASIL takes MIDI over USB and the TRS input. Each track has its own channel, whatever the keys play.
-description: FRASIL's MIDI over USB and TRS: a channel for each track (drones 1, GLINT 2, BASS 3 by default), notes through the harmony, sustain, polyphonic and channel pressure, CCs and MIDI learn, Program Change for the scenes, clock and start.
+lede: MIDI over USB and the TRS input, a channel for each track.
+description: FRASIL's MIDI over USB and TRS: a channel per track, notes, pressure, CCs, MIDI learn, Program Change for the scenes, and clock.
 buttons: GLO > GLO
 hint: The MIDI page · Hold GLO + a CC: learn
 -->
 <h2 id="channels">Channels</h2>
-<p>The drones on 1, GLINT on 2, BASS on 3 by default. Press GLO twice for the MIDI page: DRONE CH, GLINT CH and BASS CH,
-  each OFF, 1 to 16 or OMNI.</p>
+<p>Press GLO twice for the MIDI page. DRONE CH, GLINT CH and BASS CH: each OFF, 1 to 16 or OMNI.</p>
 <ul class="midi-ch midi-ch-guide" role="list" data-nocaps aria-label="The default channels">
   <li style="--c: var(--fog)"><span class="ch-n">CH 1</span><span class="ch-line"></span><span class="ch-t">DRONE</span></li>
   <li style="--c: var(--ice)"><span class="ch-n">CH 2</span><span class="ch-line"></span><span class="ch-t">GLINT</span></li>
@@ -16,20 +15,14 @@ hint: The MIDI page · Hold GLO + a CC: learn
 
 <h2 id="notes">Notes</h2>
 <ul>
-  <li><b class="k">The drones’ notes</b> go through the harmony, so a sequencer’s single note plays a chord. Sustain
-    (CC 64) holds them. Channel pressure swells them all (SWELL).</li>
-  <li><b class="k">GLINT’s notes</b> play as they come, no scale, with GLINT’s OCTAVE on them as on a key’s. While the
-    arpeggiator or the sequencer is on, they go into it, as held keys would.</li>
-  <li><b class="k">BASS’s notes</b> play as they come too, the bass’s OCTAVE on them, one at a time: the last one sounds,
-    and letting it go brings back the one still held under it. While the bass’s sequence is on, they go into it, as the
-    keys would.</li>
+  <li><b class="k">Drone notes</b> go through the harmony: one note plays a chord.</li>
+  <li><b class="k">GLINT notes</b> play as sent, no scale. With the arpeggio or sequencer on, they feed it.</li>
+  <li><b class="k">BASS notes</b> play one at a time, the last one wins. With its sequence on, they feed it.</li>
 </ul>
 <p>Notes sound only while held. Polyphonic aftertouch swells a note; channel pressure, the whole track.</p>
 
 <h2 id="ccs">CCs</h2>
-<p>The sound’s CCs, and sustain, come in on the drones’ channel (1 by default). 123 releases the notes of the track
-  whose channel it comes on; 120 (All Sound Off), on any channel, lets everything go and stops the sequences, as PLAY held (hold PLAY again:
-  RESTORE).</p>
+<p>CCs come in on the drones’ channel (1 by default). 120 works on any channel; hold PLAY afterwards to RESTORE.</p>
 <table class="params cc-table">
   <thead><tr><th>CC</th><th>What it moves</th></tr></thead>
   <tbody>
@@ -46,23 +39,23 @@ hint: The MIDI page · Hold GLO + a CC: learn
     <tr><td>14 · 15 · 16</td><td>SPARKLE · BLUR · SINK</td></tr>
     <tr><td>17 · 18 · 19</td><td>The MIXER’s DRONE · GLINT · BASS</td></tr>
     <tr><td>80</td><td>FREEZE (64 and up)</td></tr>
-    <tr><td>120</td><td>All sound off: everything let go, the sequences stopped, as PLAY held</td></tr>
-    <tr><td>123</td><td>Release the track’s notes (on the drones’ channel: everything)</td></tr>
+    <tr><td>120</td><td>All sound off: everything stops, as PLAY held</td></tr>
+    <tr><td>123</td><td>Release that track’s notes (drones’ channel: all)</td></tr>
   </tbody>
 </table>
 
 <h2 id="midi-learn">MIDI learn</h2>
-<p>Turn a setting, hold GLO, and move a knob on your controller (a CC on the drones’ channel): from then on that CC
-  turns that setting (<span class="k">CC 21 · SINK</span>). FRASIL learns 8 at most, the oldest replaced, and keeps
-  them with the settings. A learned CC comes before the table’s (SWELL’s 11 and FREEZE’s 80 too), but for 64, 120 and
-  123, which keep their jobs.</p>
+<p>Turn a setting, hold GLO, and move a knob on your controller: that CC now turns that setting
+  (<span class="k">CC 21 · SINK</span>). Up to 8, the oldest replaced. A learned CC overrides the table, except 64,
+  120 and 123.</p>
 
 <h2 id="program-change">Program Change</h2>
-<p>Program Change 0 to 15, on the drones’ channel, loads scenes 1 to 16, as SCENES’ MORPH and LOAD say (see
-  <a href="{{root}}guide/scenes/#morph-and-load">Scenes</a>).</p>
+<p>Program Change 0 to 15, on the drones’ channel, loads scenes 1 to 16, with SCENES’
+  <a href="{{root}}guide/scenes/#morph-and-load">MORPH and LOAD</a>.</p>
 
 <h2 id="clock">Clock</h2>
-<p>MIDI clock drives GLINT’s arpeggiator, its sequencer and its delay, the bass’s sequencer, and the LFOs set on the
-  grid. Start resets the grid, starts the sequences (GLINT’s, the bass’s) from their first step, and puts those LFOs
-  back to the top of their turn. With no clock coming in, PLAY does the same when it starts the transport, or is
-  held; while one comes in, PLAY leaves its beats as they are.</p>
+<p>MIDI clock drives the arpeggio, the sequencers, GLINT’s delay and the synced LFOs. Start restarts them from the
+  top. CLOCK (MIDI page, K4): AUTO follows an incoming clock; INTERNAL ignores it and keeps TEMPO.</p>
+
+<h2 id="sysex">SysEx</h2>
+<p>Only a <a href="{{root}}guide/perform/">PERFORM</a> page uses SysEx.</p>

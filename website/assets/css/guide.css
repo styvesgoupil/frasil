@@ -6,8 +6,8 @@
 
 /* ---------------------------------------------------------------- the chapters */
 .g-side {
-  position: sticky; top: 0; align-self: start;
-  max-height: 100vh; overflow-y: auto; overscroll-behavior: contain;
+  position: sticky; top: var(--head-h); align-self: start;   /* (under the site's header) */
+  max-height: calc(100vh - var(--head-h)); overflow-y: auto; overscroll-behavior: contain;
   padding: 36px 22px 56px var(--gutter);
   border-right: 1px solid var(--rule);
   scrollbar-width: thin; scrollbar-color: var(--steel) transparent;
@@ -50,7 +50,7 @@
   .g-ctl { grid-column: 1; grid-row: auto; justify-items: start; text-align: left; margin-top: 24px; }
 }
 
-.g-toc { grid-area: toc; align-self: start; position: sticky; top: 32px; padding-top: 4px; }
+.g-toc { grid-area: toc; align-self: start; position: sticky; top: calc(var(--head-h) + 32px); padding-top: 4px; }
 .g-toc .label { margin-bottom: 12px; }
 .g-toc ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; border-left: 1px solid var(--rule); }
 .g-toc a {
@@ -80,7 +80,7 @@
 /* ---------------------------------------------------------------- phones: the chapters in a menu */
 @media (max-width: 960px) {
   .guide { grid-template-columns: 1fr; }
-  .g-side { position: sticky; top: 0; z-index: 15; max-height: none; overflow: visible; padding: 0; border-right: 0; background: rgba(10, 13, 18, .92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); }
+  .g-side { position: sticky; top: var(--head-h); z-index: 15; max-height: none; overflow: visible; padding: 0; border-right: 0; background: rgba(10, 13, 18, .92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); }
   .g-menu {
     display: flex; align-items: center; gap: 14px; width: 100%; min-height: 54px;
     padding: 10px var(--gutter); background: none; border: 0; cursor: pointer; text-align: left;

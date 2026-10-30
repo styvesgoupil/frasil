@@ -136,7 +136,7 @@ tap SEQ
 wait 300
 shot screen-bass-page.png
 # its sequence (SEQ three times more: BASS SEQ): RECORD on STEP, eight keys (D D A C D F G A); then K1 to each step,
-# K2 a HOLD and a CUT, K3 the lengths; STEPS 8 (BASS SEQ II); PLAY, PLAY: from the top
+# K2 a HOLD and a CUT, K3 the lengths; STEPS 8 (BASS SEQ II); PLAY, PLAY: from the top (apart: twice quick lets all go)
 tap SEQ
 tap SEQ
 tap SEQ
@@ -172,6 +172,7 @@ spin K1 -3
 tap SEQ
 spin K1 -8
 tap PLAY
+wait 400
 tap PLAY
 tap SEQ
 tap SEQ
@@ -211,6 +212,50 @@ tap HOME
 tap HOME
 wait 600
 shot screen-mixer.png
+# MASTER FILTER (FX's fifth): a low pass on the drones and GLINT; LOFI TAPE (its sixth): on, saturated, wobbling;
+# MASTER EQ (GLO's fourth): LOUD. Off again after
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+wait 30
+expect page 32
+turn K1 1
+turn K2 -40
+turn K3 60
+turn K4 4
+wait 2500
+shot screen-filter.png
+tap FX
+wait 30
+expect page 33
+turn K1 1
+turn K2 30
+turn K3 40
+wait 2500
+shot screen-tape.png
+turn K1 -1
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+wait 30
+expect page 32
+turn K1 -1
+tap GLO
+tap GLO
+tap GLO
+tap GLO
+wait 30
+expect page 39
+turn K1 7
+wait 2500
+shot screen-eq.png
+turn K1 -7
 tap HOME
 tap HOME
 press HOME

@@ -1,126 +1,82 @@
 <!--
 title: Scenes
-lede: Sixteen slots. A scene holds the sound and its TEMPO, the latched drones, GLINT’s arpeggio and its sequence, and the bass’s note and its sequence.
-description: FRASIL's scenes on the FM-1: 16 slots, 7 factory scenes that play (NORTH RIVER, LUMIERE NOCTURNE, RESILIENCE, LONG NIGHT, OPEN WATER, WHITEOUT, THAW), NEW SHARD to start fresh, storing, naming and loading, each scene's TEMPO, MORPH, LOAD and COMPARE, and what comes back at power-on.
+lede: Sixteen slots. A scene holds the sound, its TEMPO and what plays.
+description: FRASIL's scenes on the FM-1: 16 slots, 7 factory scenes, NEW SHARD, storing, naming and loading, MORPH, LOAD, COMPARE and backing up.
 buttons: SAVE
 hint: Play: load · Save + REC: store
 -->
 <h2 id="save-and-load">Storing and loading</h2>
 <div class="g-split">
   <div>
-    <p>Press SAVE for SCENES; SAVE again goes back to the page you came from. The page lists five lines around the one
-      K1 picks (framed in ice; SELECT scrolls it the same way, both ways, and leaves KEYS as they are; a page button
-      held with it still turns that button’s pages): NEW SHARD first, then the sixteen slots, each its number, its name and what it holds
-      (what it plays, FACTORY, EMPTY; a long name takes its room), NOW by the one loaded. Under them, in a box of their
-      own, the page’s two actions: PLAY LOAD, SAVE + REC STORE. K2 and K3 are MORPH and LOAD.</p>
-    <p><b class="k">NEW SHARD</b>, above slot 01 (turn K1 below slot 1): not a slot, a sound to start a new shard from
-      (see <a href="#new-shard">below</a>). Its line has a plus for a number and says START FRESH; K1 on it, it is
-      framed in lamp, and the box says PLAY LOAD alone: nothing is stored into it. PLAY loads it as any scene; it is
-      then the current scene: the play page’s header says NEW SHARD, SAVE lights while the sound differs from it,
-      COMPARE plays it. A new FM-1, with nothing stored yet, starts on it.</p>
-    <p><b class="k">Load:</b> on SCENES, PLAY loads the slot K1 points at. On any page, hold SAVE and press a white
-      key: the 16 white keys are the 16 scenes, F2’s key the first. That key sounds nothing, and the page stays. While
-      SAVE is held, the white keys light: the current scene’s bright, the slots that hold a scene faintly. MIDI Program
-      Change loads them too (see <a href="{{root}}guide/midi/#program-change">MIDI</a>). Every load comes in as MORPH
-      and LOAD say.</p>
-    <p><b class="k">Store:</b> hold SAVE and press REC: the sound goes into the slot K1 points at on SCENES, into the
-      current scene anywhere else (<span class="k">STORED 09 ABYSS</span>), with the latched drones (up to 8 chords),
-      GLINT’s arpeggio notes and its sequence, the bass’s note and its sequence (with its SEQUENCE, SEQ STEPS and
-      TRANSPOSE), and TEMPO. Into a free slot (8 to 16) with a drone preset on,
-      the scene takes the preset’s name; else it is SCENE and its number. With K1 on NEW SHARD, nothing is stored
-      (<span class="k">STORE CHOOSE A SLOT</span>). NEW SHARD loaded, STORE from another page goes into the first EMPTY
-      slot (8 to 16; a factory scene stays), then NAME IT; with none empty, SCENES opens on slot 16 to choose one.</p>
-    <p><b class="k">Name:</b> right after STORE, its name takes the screen (NAME IT): OCT− and OCT+ move the cursor, K4
-      turns its letter (a space before A), K3 its digit (then - and .). Press SEL to store the name (the
-      button says STORE), changed or not; FX leaves it as it was stored. Sixteen characters at most.</p>
-    <p>The LFOs are part of the sound: a scene keeps their own settings, and each setting they move at the value you gave
-      it. Each scene keeps its own GLINT sequence too, and the settings keep the last one saved.</p>
-    <p>A scene keeps the drone’s CUSTOM, and the preset chosen over it, and GENERATIVE FX’s SPARKLE, BLUR and SINK.
-      SWELL and KEYS (what the keys play) are the hand’s: scenes don’t keep them.</p>
+    <p>Press SAVE for SCENES. SAVE again goes back. K1 picks a line: NEW SHARD first, then the 16 slots. NOW marks
+      the scene loaded.</p>
+    <p><b class="k">Load:</b> PLAY loads the slot K1 points at. If nothing is playing, it plays at once. From any page,
+      hold SAVE and press a white key: the 16 white keys are the 16 scenes, from F2. While SAVE is held, the current
+      scene’s key lights bright, the used slots faint. MIDI <a href="{{root}}guide/midi/#program-change">Program
+      Change</a> loads them too.</p>
+    <p><b class="k">Store:</b> hold SAVE and press REC. On SCENES, it goes into the slot K1 points at; elsewhere, into
+      the current scene (<span class="k">STORED 09 ABYSS</span>). The scene keeps the sound, TEMPO, the latched drones,
+      GLINT’s arpeggio and sequence, and the bass’s note and sequence.</p>
+    <p><b class="k">Name:</b> after STORE comes NAME IT. OCT− and OCT+ move the cursor, K4 turns the letter, K3 the
+      digit. SEL stores the name, FX skips. 16 characters at most.</p>
+    <p>The sound includes the LFOs, the effects, MASTER EQ, MASTERING, ROUTING and the MIXER’s pans. SWELL and KEYS
+      are not kept.</p>
   </div>
   <div class="g-figure">{{shot_scenes}}</div>
 </div>
 
 <h2 id="morph-and-load">MORPH and LOAD</h2>
-<p>MORPH (K2) is how the sound comes in: CUT, at once, or over 1&nbsp;S, 2&nbsp;S, 4&nbsp;S, 8&nbsp;S, 15&nbsp;S, 30&nbsp;S, 60&nbsp;S or 2:00. Over a
-  time, the settings that glide go from where they are to the scene’s; the choices (the presets, MODEL, ROOT, SCALE,
-  CHORD, RATIO, TYPE, GLINT’s SEQ, the TARGETs, INTERVAL, the rates, TIME, SEQ LENGTH, TRANSPOSE, TUNE) switch at once. A setting you
-  turn during the morph leaves it: your hand wins (a preset, all it sets). On the play page and SCENES, the header
-  shows an arrow, the scene’s name and a line for how far it has come; on the other pages, only the line, under the
-  page’s name. A new load starts from the values as they are.</p>
-<p>LOAD (K3) is what a load brings. SND+NOTES: the sound, its TEMPO and its notes: everything is let go, then the
-  scene’s notes play (its drones, the bass, GLINT’s arpeggio and sequence, the bass’s sequence), if it has any. Its
-  sequences start from their first steps, and the beat begins there, as PLAY starts it (following a MIDI clock: on its
-  next step, its beats kept); PULSE falls on the bass’s NOTEs, none of them doubled. SND ONLY: the sound alone; what
-  plays goes on (the drones, the bass, GLINT’s arpeggio and sequence, with its SEQ setting and the settings that play
-  it: MODE, RATE, RANGE, CHANCE, SEQ LENGTH, GATE, TRANSPOSE), and TEMPO stays as it is.</p>
-<p>MORPH is back on CUT at every power-on. LOAD is kept with the settings (ALL at first), not in the scenes.</p>
+<p>MORPH (K2) is how a load comes in: CUT, at once, or a glide from 1&nbsp;S to 2:00. Choices such as presets or
+  SCALE switch at once. A knob you turn during a morph leaves it. A line in the header shows how far it has come.</p>
+<p>LOAD (K3) is what a load brings. SND+NOTES: the sound, its TEMPO and its notes, the sequences from their first
+  step. SND ONLY: the sound alone; what plays goes on, at the same TEMPO.</p>
+<p>MORPH is back on CUT at power-on. LOAD is kept.</p>
 
 <h2 id="compare">COMPARE</h2>
-<p>Hold EDIT. While it is held, the scene sounds as it was saved or last loaded, whatever you have turned since; the
-  header says COMPARE · AS SAVED. Let go: the sound as it is now.</p>
+<p>Hold OCT−, then hold EDIT: you hear the scene as saved (COMPARE · AS SAVED). Let go of EDIT to hear your
+  changes.</p>
 
 <h2 id="factory-scenes">The factory scenes</h2>
-<p>Slots 1 to 7 hold the factory scenes. Each plays something once loaded with its notes (LOAD on SND+NOTES), at its
-  own TEMPO. The first four were made on the FM-1 by FRASIL’s author, and are kept whole.</p>
+<p>Slots 1 to 7. Each plays at its own TEMPO once loaded with SND+NOTES. The first four were made by FRASIL’s
+  author.</p>
 <table class="params scenes-table">
   <thead><tr><th>Scene</th><th>Key · TEMPO</th><th>What plays</th></tr></thead>
   <tbody>
-    <tr><td>01 NORTH RIVER</td><td>F# PENTA MIN · 90 BPM</td><td>Two sevenths latched wide, on B2 and F#3; FROST’s arpeggio at random, in sixteenths over three octaves; SUB’s line of five steps, struck on each beat (PULSE)</td></tr>
-    <tr><td>02 LUMIERE NOCTURNE</td><td>A MAJOR · 60 BPM</td><td>An ADD9 latched wide on D2, the drone all PARTIALS and BREATH, slow to come and to go, in a long, bright hall; GLINT’s arpeggio on one note; SAW’s A2 held, struck on each half beat (PULSE)</td></tr>
-    <tr><td>03 RESILIENCE</td><td>F# PENTA MIN · 90 BPM</td><td>Two sevenths latched wide, on B2 and A3, a full drone; HARP’s arpeggio at random, in sixteenths over three octaves, through a long ping-pong echo; REESE’s line of nine steps far under</td></tr>
-    <tr><td>04 LONG NIGHT</td><td>A PHRYGIAN · 60 BPM</td><td>NOCTURNE’s low drone on a wide FIFTH; REESE’s line gliding in bars; BOWED glass in long tied notes, far in an echo; a slow LFO drift</td></tr>
-    <tr><td>05 OPEN WATER</td><td>D DORIAN · 118 BPM</td><td>The PULSE preset’s drone on a SUS2, ducked on each beat (PUMP); MARIMBA’s sequence in syncopated sixteenths; a driven SAW, plucked, its line in eighths, its FILTER swept by LFO 1</td></tr>
-    <tr><td>06 WHITEOUT</td><td>C# MINOR · 72 BPM</td><td>WIND’s breath alone, on a wide SUS4; FROST’s flurries, an arpeggio at random in sixteenth triplets; a slow SUB far under; BLUR</td></tr>
-    <tr><td>07 THAW</td><td>D# MAJOR · 78 BPM</td><td>EMBER’s choir on an open ADD9, its WARMTH and BODY swaying (LFO 1); DROP’s arpeggio drifting in eighth triplets; FM’s bass held, struck on each half beat (PULSE)</td></tr>
+    <tr><td>01 NORTH RIVER</td><td>F# PENTA MIN · 90 BPM</td><td>Two wide sevenths; FROST’s random arpeggio; a SUB line pulsing on the beat</td></tr>
+    <tr><td>02 LUMIERE NOCTURNE</td><td>A MAJOR · 60 BPM</td><td>A slow ADD9 of PARTIALS and BREATH in a bright hall; a one-note arpeggio; a pulsing SAW bass</td></tr>
+    <tr><td>03 RESILIENCE</td><td>F# PENTA MIN · 90 BPM</td><td>A full drone; HARP’s random arpeggio in a long echo; a REESE line far under</td></tr>
+    <tr><td>04 LONG NIGHT</td><td>A PHRYGIAN · 60 BPM</td><td>A low drone on a FIFTH; a gliding REESE line; BOWED glass in long notes</td></tr>
+    <tr><td>05 OPEN WATER</td><td>D DORIAN · 118 BPM</td><td>A pumping SUS2 drone; a MARIMBA sequence; a plucked SAW bass, its FILTER swept</td></tr>
+    <tr><td>06 WHITEOUT</td><td>C# MINOR · 72 BPM</td><td>WIND’s breath alone; FROST’s flurries; a slow SUB; BLUR</td></tr>
+    <tr><td>07 THAW</td><td>D# MAJOR · 78 BPM</td><td>EMBER’s swaying choir; DROP’s drifting arpeggio; a pulsing FM bass</td></tr>
   </tbody>
 </table>
 
 <h2 id="new-shard">NEW SHARD</h2>
-<p>The line above slot 01: a sound to start a new shard from, the same every time, playing nothing until you tap a
-  key. A calm drone in A minor, SEVENTH open (A on the keys: Am7), at 90&nbsp;BPM: CUSTOM, BODY 50&nbsp;%, MOTION 50&nbsp;% with a slow
-  drift; the choir soft, a little PARTIALS and BREATH, some WARMTH; slow to come (3.6&nbsp;S) and to go (7.6&nbsp;S); a
-  lush cloud (DECAY 10&nbsp;S, SPACE 52), its low end cut (LOW CUT 83&nbsp;HZ).</p>
-<ul>
-  <li><b>The LFOs:</b> all three on, slow sines, each on two settings: LFO 1 on TIMBRE and BREATH (23&nbsp;S), LFO 2
-    on SPACE and SPREAD (37&nbsp;S), LFO 3 on GLINT’s BRIGHT and the bass’s FILTER (16&nbsp;S).</li>
-  <li><b>GLINT:</b> SINE, BRIGHT 25, SEQ on ARP.</li>
-  <li><b>BASS:</b> SUB, DRIVE and FILTER low, slow to come.</li>
-</ul>
-<p>Store it, changed or not, and it becomes a scene of your own: SAVE + REC on any other page puts it in the first
-  EMPTY slot (then NAME IT); on SCENES, in the slot K1 points at.</p>
+<p>The line above slot 01: a fresh start that plays nothing until you tap a key. A calm Am7 drone at 90&nbsp;BPM,
+  slow to come and go, in a lush cloud, the three LFOs moving it slowly. A new FM-1 starts on it.</p>
+<p>Store it, changed or not, to make it your own: SAVE + REC on any other page puts it in the first EMPTY slot, then
+  NAME IT. With K1 on NEW SHARD itself, nothing is stored.</p>
 
 <h2 id="your-scenes">Your scenes</h2>
-<p>Slots 8 to 16 are free: an empty one loads as NEW SHARD, named SCENE and its number. While the sound differs from
-  the one last loaded or saved (its TEMPO too), SAVE lights, the SCENES page says CHANGED and the play page’s header has
-  an amber dot beside the scene’s name (back to it, they go). Storing also keeps the settings: at power-on FRASIL comes
-  back with the sound you stored last, silent. Nothing plays until you play (PLAY held brings the scene’s notes). A new
-  FM-1, with nothing stored yet, starts on NEW SHARD.</p>
-<p>Your scenes live in the FM-1’s flash, where another firmware may overwrite them: back them up before you switch
-  firmwares (below), and see <a href="{{root}}guide/install/#what-it-keeps">where your scenes are kept</a>.</p>
-<p>Scenes saved by an earlier FRASIL come back as they were, the settings added since at their defaults, their TEMPO
-  the one the settings had; their drone
-  comes in as CUSTOM, with its sound, and GLINT’s arpeggio, sequence and delay move to their new pages as they
-  sounded.</p>
+<p>Slots 8 to 16 are yours. An empty slot loads as NEW SHARD. When the sound differs from the scene, SAVE lights,
+  SCENES says CHANGED and an amber dot shows by the scene’s name.</p>
+<p>At power-on FRASIL comes back with the sound you stored last, silent. Tap PLAY to play it.</p>
+<p>Scenes live in the FM-1’s flash, and another firmware may erase them: back them up before you switch (see
+  <a href="{{root}}guide/install/#what-it-keeps">where your scenes are kept</a>). Scenes from an earlier FRASIL load
+  as they sounded.</p>
 
 <h2 id="backing-up">Backing up</h2>
-<p>FRASIL 1.1 and later back up the scenes and the settings to a file over USB, and put them back.</p>
+<p>FRASIL 1.1 and later back up the scenes and the settings to a file over USB.</p>
 <ul>
-  <li><b>In the browser:</b> <a href="{{river}}">the River</a> (Chrome or Edge). <b>Back up</b> reads the FM-1 and
-    shows each slot as a card, a shard: its drone, what plays, GLINT’s sequence or arpeggio, every page’s settings as
-    the screen writes them. Keep everything (a <code>.frasil</code> file) or the shards you tick (a
-    <code>.frasilscenes</code> package). Open a file to see it without the FM-1. Put a backup back whole, or shards
-    into the slots you choose, several at once: the River reads the FM-1 first, and the other slots and the settings
-    stay as they are. Shards go into the slots of an FM-1 that runs FRASIL 2.0 (an earlier FRASIL is asked to update
-    first); a shard keeps its scene’s TEMPO.</li>
+  <li><b>In the browser:</b> <a href="{{river}}">the River</a> (Chrome or Edge). <b>Back up</b> shows each slot as a
+    card, a shard. Download everything (<code>.frasil</code>) or the shards you select (<code>.frasilscenes</code>).
+    Put a backup back whole, or shards into the slots you choose; the other slots stay. Shards need FRASIL 2.0 or
+    later.</li>
   <li><b>From a terminal:</b> <code>python3 base/tools/fm1_backup.py backup scenes.frasil --magic FRBK</code>, then
     <code>python3 base/tools/fm1_backup.py restore scenes.frasil</code>; <code>info</code> shows what a file
     holds.</li>
 </ul>
-<p>A backup can be taken while FRASIL plays (what you haven’t stored yet isn’t in it). A restore can’t: the River lets
-  everything go first (it sends MIDI’s All Sound Off); from a terminal, hold PLAY to release everything, or the
-  screen says STOP FIRST. A key held down still waits. The FM-1 receives the whole file and checks it before
-  anything changes, then asks: RESTORE FROM USB? SEL yes, FX no (a minute, then no). Restoring everything brings
-  back the settings too, the sound at power-on with them; never the panel’s calibration, which is your FM-1’s. A
-  backup from an earlier FRASIL restores: its scenes are brought up to date. While a backup is sent, STORE doesn’t
-  happen (NOT STORED, a pop-up).</p>
+<p>You can back up while playing; what you haven’t stored isn’t included. A restore needs silence: the River stops
+  the sound itself; from a terminal, hold PLAY first (else STOP FIRST). The FM-1 then asks RESTORE FROM USB?: SEL
+  yes, FX no. A full restore brings back the settings too, never the panel’s calibration.</p>

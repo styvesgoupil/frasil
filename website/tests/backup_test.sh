@@ -66,6 +66,10 @@ restore out:old13.frasil
 expect restore_rc 0
 expect storeold 1
 backup out:after13r.frasil
+restore out:old14.frasil
+expect restore_rc 0
+expect storeold 3
+backup out:after14r.frasil
 S
 "$HOST" "$T/make.txt" "$T" | grep -v "^  ok" || true
 node website/tests/backup_test.mjs make "$T"

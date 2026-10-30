@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MPL-2.0 · Copyright (C) 2026 Styves Goupil -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FRASIL Perform</title>
+<link rel="stylesheet" href="../proto/perform.css">
+<style>
+html, body { cursor: default; }
+body.idle, body.idle * { cursor: none !important; }
+#wrap { top: 50%; transform: translateY(-50%); }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage" data-frame="connect">
+    <canvas id="river"></canvas>
+    <div class="hud">
+      <div class="hud-l"><div class="brand"><canvas class="logo" width="798" height="162" data-src="../../../website/assets/img/logo-print.svg" role="img" aria-label="FRASIL"></canvas><svg class="url" viewBox="0 0 231.6 17" width="231.6" height="17" aria-label="frasilsynth.com"><text x="0" y="14" textLength="231.6" lengthAdjust="spacing">FRASILSYNTH.COM</text></svg></div><i class="sep"></i><div class="hud-title"><div id="hud-scene"></div><div id="hud-artist"></div></div></div>
+      <div class="hud-r"><div id="transport" aria-label="Transport"><span class="all stop"><i></i></span><b class="rule"></b><span class="stop" style="--c:var(--fog)"><i></i><b>DR<small></small></b></span><span class="stop" style="--c:var(--ice)"><i></i><b>GL<small></small></b></span><span class="stop" style="--c:var(--lamp)"><i></i><b>BS<small></small></b></span></div><div id="hud-status"></div><div id="hud-keys" class="keys"></div></div>
+    </div>
+    <div id="dock"></div>
+    <div id="connect">
+      <img class="cn-logo" src="../../../website/assets/img/logo-print.svg" alt="FRASIL">
+      <div class="cn-word">PERFORM</div>
+      <svg class="cn-draw" viewBox="0 0 980 210" aria-hidden="true">
+        <rect x="40" y="40" width="210" height="132" rx="8" class="ln"/>
+        <rect x="54" y="54" width="182" height="104" rx="2" class="scr"/>
+        <path d="M76 120 C 110 110, 140 128, 170 116 S 214 112, 222 118" class="ln dim"/>
+        <path d="M76 132 C 116 124, 150 140, 186 130 S 214 128, 222 132" class="ln dim"/>
+        <path d="M14 182 h262 l-14 -10 h-234 z" class="ln"/>
+        <path d="M276 150 C 360 150, 380 196, 470 190 S 600 130, 700 150" class="cable"/>
+        <rect x="700" y="62" width="264" height="132" rx="14" class="ln"/>
+        <circle cx="730" cy="90" r="9" class="ln dim"/><circle cx="756" cy="90" r="9" class="ln dim"/>
+        <circle cx="730" cy="116" r="9" class="ln dim"/><circle cx="756" cy="116" r="9" class="ln dim"/>
+        <rect x="778" y="74" width="54" height="54" rx="5" class="scr"/>
+        <circle cx="852" cy="86" r="8" class="ln dim"/><circle cx="878" cy="86" r="8" class="ln dim"/>
+        <circle cx="904" cy="86" r="8" class="ln dim"/><circle cx="930" cy="86" r="8" class="ln dim"/>
+        <path d="M716 146 h232 M716 146 v34 h232 v-34 M745 146 v34 M774 146 v34 M803 146 v34 M832 146 v34 M861 146 v34 M890 146 v34 M919 146 v34" class="ln dim"/>
+      </svg>
+      <div class="cn-title">PLUG IN YOUR FM-1</div>
+      <input id="artist" class="cn-name" type="text" maxlength="32" placeholder="ENTER YOUR ARTIST NAME" autocomplete="off" autofocus spellcheck="false" aria-label="Artist name (optional)">
+      <div class="cn-audio" role="radiogroup" aria-label="Sound"><button data-a="fm1" role="radio" type="button">FM-1 AUDIO</button><button data-a="pc" role="radio" type="button">COMPUTER AUDIO</button></div>
+      <div class="cn-btns"><button id="connect-btn" class="go">CONNECT</button><button id="demo-btn">DEMO</button></div>
+      <div class="cn-say" id="say"></div>
+      <div class="cn-foot"><span>CHROME · EDGE</span><span class="cn-ver" id="version"></span><span><kbd>F</kbd>FULL SCREEN</span></div>
+    </div>
+    <div class="pf-ver" id="pf-ver"></div>
+    <div class="help gone" id="help"><kbd>← →</kbd> SCENE · <kbd>TAB</kbd> PAGE · <kbd>1–4</kbd> KNOB · <kbd>↑ ↓</kbd> TURN · <kbd>K</kbd> KEYS · <kbd>SPACE</kbd> AUTO · <kbd>A B</kbd> · <kbd>H</kbd> · <kbd>F</kbd></div>
+  </div>
+</div>
+<script src="../data/perform-schema.js"></script>
+<script src="../../../website/assets/js/river-player.js"></script>
+<script src="../proto/river.js"></script>
+<script src="../proto/logo.js"></script>
+<script src="../proto/show.js"></script>
+<script src="live.js"></script>
+</body>
+</html>

@@ -38,6 +38,8 @@ class Settings:
     ip_header: str = "cf-connecting-ip"           # where the client's address is (Cloudflare's, through Caddy)
     cookie_secure: bool = True
     static: str = ""                              # a folder served at / (local runs only: Caddy does it on nimbus)
+    site_url: str = "https://frasilsynth.com"     # the main site: the other Origin a waitlist signup comes from
+    admin_key: str = field(default="", repr=False)   # /api/admin/ (admin.py): X-Frasil-Admin; empty: 404
 
     @classmethod
     def from_env(cls):
@@ -52,7 +54,8 @@ class Settings:
                    google_redirect=e("GOOGLE_REDIRECT_URI") or f"{url}/api/auth/google/callback",
                    admins=[a.lower() for a in env_list("ADMIN_EMAILS")], words=words or None,
                    ip_header=e("CLIENT_IP_HEADER", cls.ip_header).lower(),
-                   cookie_secure=e("COOKIE_SECURE", "1") != "0", static=e("RIVER_STATIC", ""))
+                   cookie_secure=e("COOKIE_SECURE", "1") != "0", static=e("RIVER_STATIC", ""),
+                   site_url=(e("SITE_URL") or cls.site_url).rstrip("/"), admin_key=e("FRASIL_ADMIN_KEY", "").strip())
 
 
 SQL = """
@@ -99,6 +102,9 @@ CREATE TABLE IF NOT EXISTS favorites (          -- a bookmark to someone else's 
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at INTEGER NOT NULL,
   PRIMARY KEY (shard_id, user_id));
 CREATE INDEX IF NOT EXISTS favorites_user ON favorites(user_id, created_at);
+CREATE TABLE IF NOT EXISTS waitlist (           -- who wants to hear when FRASIL for iPad or the VST is out (nothing sent)
+  id INTEGER PRIMARY KEY, list TEXT NOT NULL, email TEXT NOT NULL, created INTEGER NOT NULL, UNIQUE (list, email));
+CREATE INDEX IF NOT EXISTS waitlist_new ON waitlist(list, created);
 CREATE TABLE IF NOT EXISTS hits (               -- the counters' once a day per listener (a user, or a hashed IP)
   shard_id TEXT NOT NULL, kind TEXT NOT NULL, who TEXT NOT NULL, day INTEGER NOT NULL,
   PRIMARY KEY (shard_id, kind, who, day)) WITHOUT ROWID;

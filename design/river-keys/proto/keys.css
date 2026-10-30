@@ -1,0 +1,77 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 Styves Goupil
+ * The card, laid out again (the mockups' prototype, keys.js): two columns (what moves at the left: GLINT's walk or
+ * sequence, the bass's sequence, the LFOs; every page at the right, wider), and the keys at the bottom, the whole width */
+.oc-body.k-two { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+.oc-body.k-two .oc-left { padding: 22px 24px 24px; }
+.oc-body.k-two .sh-glint { padding: 0; margin: 0; border: 0; }
+.oc-body.k-two .sh-glint .cells4 { display: none; }
+.k-bass { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--rule); }
+.k-bass .bq-none { font: 600 10.5px/1 var(--f-ui); letter-spacing: .16em; color: var(--dim); padding: 6px 0 2px; }
+.oc-body.k-two .oc-lfo { margin-top: 22px; padding: 20px 0 0; border: 0; border-top: 1px solid var(--rule); display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 18px; align-content: start; }
+.oc-body.k-two .oc-lfo .sh-sub { grid-column: 1 / -1; }
+.oc-body.k-two .lf { border: 0; padding: 6px 0 0; }
+.oc-body.k-two .lf-h { display: grid; gap: 5px; }
+.oc-body.k-two .lf-ts li { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+.oc-body.k-two .lf-g { max-width: 88px; }
+/* an LFO's section, opened: its picture first, as BASS's sequence is */
+.sec-body .k-lfo { margin: 2px 0 12px; padding: 12px 16px 10px; }
+.sec-body .k-lfo .lf-sc { width: 100%; max-width: 460px; }
+
+/* THE KEYS: the whole width under the card's columns: what the keys play and how, over the keyboard; the track's
+ * own settings in a row under it */
+.oc-keys { border-top: 1px solid var(--rule); padding: 18px 24px 22px; display: grid; gap: 14px;
+  background: linear-gradient(180deg, rgba(110, 208, 255, .025), rgba(110, 208, 255, 0) 140px); }
+.k-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; }
+.k-title { font: 600 11px/1.3 var(--f-ui); letter-spacing: .18em; color: var(--mist); margin: 0 6px 0 0; }
+.k-ctl { display: flex; align-items: center; gap: 10px; }
+.k-l { font: 600 9.5px/1 var(--f-ui); letter-spacing: .16em; color: var(--mist); margin: 0; white-space: nowrap; }
+.k-seg { display: flex; border: 1px solid var(--steel); border-radius: 7px; overflow: hidden; }
+.k-seg button { min-width: 78px; height: 32px; padding: 0 12px; border: 0; background: none; font: 600 11px/1 var(--f-ui); letter-spacing: .16em; color: var(--mist);
+  cursor: pointer; position: relative; }
+.k-seg button + button { border-left: 1px solid var(--steel); }
+.k-seg button.on { color: var(--white); background: #121a23; }
+.k-seg button.on::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 5px; height: 2px; border-radius: 1px; background: var(--c, var(--ice)); }
+.k-seg .t-drone { --c: var(--fog); } .k-seg .t-glint { --c: var(--ice); } .k-seg .t-bass { --c: var(--lamp); }
+.k-say { flex: 1 1 280px; margin: 0; font: 400 15px/1.45 var(--f-text); color: var(--text-2); text-align: right; }
+.k-say b { font-weight: 500; color: var(--fog); }
+.k-board { background: #090c11; border-radius: 8px; box-shadow: inset 0 0 0 1px #151b23, inset 0 0 24px rgba(0, 0, 0, .55); padding: 10px 12px 6px; }
+.k-board svg { display: block; width: 100%; height: auto; }
+.k-bottom { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; }
+.k-set { display: grid; gap: 10px; }
+.k-cells { display: flex; flex-wrap: wrap; gap: 12px 30px; }
+.k-cells .cell { width: 112px; margin: 0; }
+.k-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.k-tools .k-ctl { margin-right: 14px; }
+.k-tools .k-seg button { min-width: 52px; height: 30px; }
+.k-tools .a { height: 30px; padding: 0 12px; font-size: 10.5px; }
+/* a sequence's steps, over the keys: click one, then a key writes it */
+.k-steps { display: grid; gap: 4px; }
+.k-step { position: relative; min-width: 0; height: 50px; border-radius: 5px; background: #0c1117; box-shadow: inset 0 0 0 1px #1a222c; display: grid;
+  align-content: space-between; padding: 5px 6px 11px; cursor: pointer; }
+.k-step .n { font: 600 9px/1 var(--f-ui); letter-spacing: .1em; color: var(--dim); }
+.k-step .v { font: 600 11px/1 var(--f-ui); letter-spacing: .08em; color: var(--fog); white-space: nowrap; overflow: hidden; }
+.k-step.rest .v, .k-step.tie .v { color: var(--slate); }
+.k-step.acc .v::after { content: ""; display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--ice); margin-left: 4px; vertical-align: 2px; }
+.k-step.out { opacity: .35; }
+.k-step.sel { box-shadow: inset 0 0 0 1.5px var(--lamp); background: rgba(242, 166, 90, .07); }
+.k-step.sel .n { color: var(--lamp); }
+.k-step.now { box-shadow: inset 0 0 0 1px rgba(110, 208, 255, .7); }
+.k-step.now.sel { box-shadow: inset 0 0 0 1.5px var(--lamp), 0 0 0 1px rgba(110, 208, 255, .6); }
+.k-step.bass .v { color: var(--lamp); }
+.k-step .len { position: absolute; left: 6px; right: 6px; bottom: 4px; height: 2px; border-radius: 1px; background: var(--steel); }
+.k-step .len i { display: block; height: 100%; width: var(--w); background: var(--lamp); border-radius: 1px; }
+.k-legend { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.k-how { margin: -4px 0 0; font: 600 9.5px/1.5 var(--f-ui); letter-spacing: .14em; color: var(--dim); }
+@media (max-width: 760px) {
+  .oc-body.k-two { grid-template-columns: minmax(0, 1fr); }
+  .oc-keys { padding: 16px 0 18px var(--gutter); }
+  .k-top, .k-bottom, .k-legend, .k-steps { padding-right: var(--gutter); }
+  .k-say { text-align: left; flex-basis: 100%; }
+  .k-board { overflow-x: auto; border-radius: 8px 0 0 8px; }
+  .k-board svg { width: 1000px; max-width: none; }
+  .k-steps { overflow-x: auto; grid-template-columns: repeat(var(--n), 56px) !important; }
+  .k-cells .cell { width: 128px; }
+}
+.gl-type.k-bq { background: var(--lamp); border-color: var(--lamp); color: var(--night); }

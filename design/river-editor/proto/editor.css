@@ -1,0 +1,77 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 Styves Goupil
+ * The River's editor, the mockups' prototype (editor.js): an opened card's settings turned like the FM-1's knobs */
+
+/* a setting you can turn: on hover a panel under it and its gauge brighter; turning it, lamp (the hand) */
+.oc-body .cell { position: relative; border-radius: 6px; margin: -6px -8px; padding: 6px 8px; cursor: ew-resize; touch-action: pan-y;
+  transition: background-color .15s, box-shadow .15s; }
+.oc-body .cell.is-hover { background: #111821; }
+.oc-body .cell.is-hover .gauge::before { background: var(--slate); }
+.oc-body .cell.is-hover .cell-v .v { color: var(--white); }
+.oc-body .cell.is-choice { cursor: pointer; }
+.oc-body .cell.is-choice.is-hover::after, .oc-body .cell.is-open::after { content: ""; position: absolute; right: 10px; top: 12px; width: 5px; height: 5px;
+  border-right: 1.3px solid var(--mist); border-bottom: 1.3px solid var(--mist); transform: rotate(45deg); }
+.oc-body .cell.is-open { background: #111821; }
+/* changed: its value lamp, a lamp dot before its name, the gauge lamp, where it was a slate tick */
+.cell.is-edited .cell-v .v, .cell.is-edited .cell-v .u { color: var(--lamp); }
+.cell.is-edited .cell-n::before { content: ""; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--lamp); margin-right: 6px; vertical-align: 1px; }
+.cell.is-edited .gauge i { background: var(--lamp); }
+.cell.is-edited .gauge i::after { background: var(--lamp); }
+.cell.is-edited .dots i.on { background: var(--lamp); }
+.gauge .was { position: absolute; top: 1px; width: 1px; height: 5px; background: var(--slate); }
+/* turning it now: a lamp frame, its value large, where it was named */
+.oc-body .cell.is-active { background: rgba(242, 166, 90, .07); box-shadow: inset 0 0 0 1px rgba(242, 166, 90, .55); }
+.cell.is-active .cell-n { color: var(--lamp); }
+.cell .was-t { margin-left: 9px; font: 600 9px/1 var(--f-ui); letter-spacing: .14em; color: var(--dim); vertical-align: 2px; }
+.cell.is-active .gauge::after { content: ""; position: absolute; left: calc(var(--f) * 100% - 5px); top: -3.5px; width: 10px; height: 10px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(242, 166, 90, .55), rgba(242, 166, 90, 0) 70%); }
+/* a section holding a change: a lamp dot after its name */
+.sec-name .ed-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--lamp); margin-left: 8px; vertical-align: 2px; }
+
+/* the card edited: one line under its intro, the head's actions the editor's */
+.ed-band { display: flex; align-items: baseline; gap: 16px; padding: 12px 24px 12px 141px; border-top: 1px solid var(--rule);
+  background: linear-gradient(90deg, rgba(242, 166, 90, .07), rgba(242, 166, 90, 0) 60%); }
+.list.pub .ed-band { padding-left: 97px; }
+.ed-band b { font: 600 11px/1 var(--f-ui); letter-spacing: .2em; color: var(--lamp); white-space: nowrap; }
+.ed-band span { font: 400 15.5px/1.45 var(--f-text); color: var(--text-2); }
+.ed-band span em { font-style: normal; color: var(--fog); }
+.sr-item.is-edited .nm-mk.ed { display: block; color: var(--lamp); }
+.a.a-undo svg { margin-right: 2px; }
+
+/* a choice's list, under its value */
+.ed-pop { position: absolute; z-index: 20; min-width: 172px; max-height: 340px; overflow: auto; padding: 6px; border-radius: 9px;
+  background: #0f151c; border: 1px solid #243040; box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .9), 0 0 0 1px rgba(0, 0, 0, .4); }
+.ed-pop h5 { margin: 8px 10px 4px; font: 600 9.5px/1 var(--f-ui); letter-spacing: .18em; color: var(--dim); }
+.ed-pop button { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px;
+  background: none; text-align: left; font: 600 12.5px/1 var(--f-ui); letter-spacing: .12em; color: var(--fog); cursor: pointer; }
+.ed-pop button:hover, .ed-pop button.is-hover { background: #18212c; color: var(--white); }
+.ed-pop button.is-on { color: var(--ice); }
+.ed-pop button.is-on::after { content: ""; width: 8px; height: 4.5px; border-left: 1.5px solid var(--ice); border-bottom: 1.5px solid var(--ice); transform: rotate(-45deg) translate(1px, -1px); }
+.ed-pop button.was { color: var(--text-2); }
+.ed-pop button .w { font: 600 9px/1 var(--f-ui); letter-spacing: .14em; color: var(--dim); }
+
+/* SAVE AS: a sheet */
+.ed-sheet .sheet-h { font: 600 22px/1.1 var(--f-ui); letter-spacing: .16em; color: var(--white); }
+.ed-sheet .sheet-lede { margin-top: 8px; }
+.ed-f { display: grid; gap: 8px; margin-top: 22px; }
+.ed-f label { font: 600 10px/1 var(--f-ui); letter-spacing: .18em; color: var(--mist); }
+.ed-name { position: relative; }
+.ed-name input { width: 100%; box-sizing: border-box; height: 50px; padding: 0 64px 0 16px; border-radius: 8px; border: 1px solid #2a3644; background: #090c11;
+  font: 600 20px/1 var(--f-ui); letter-spacing: .2em; color: var(--white); text-transform: uppercase; outline: none; }
+.ed-name input:focus { border-color: var(--ice); box-shadow: 0 0 0 3px rgba(110, 208, 255, .15); }
+.ed-name .n { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font: 600 10.5px/1 var(--f-ui); letter-spacing: .12em; color: var(--dim); }
+.ed-f textarea { width: 100%; box-sizing: border-box; min-height: 84px; padding: 12px 14px; border-radius: 8px; border: 1px solid #2a3644; background: #090c11;
+  font: 400 16px/1.5 var(--f-text); color: var(--fog); resize: vertical; outline: none; }
+.ed-f textarea::placeholder { color: var(--slate); font-style: italic; }
+.ed-hint { font: 400 13.5px/1.45 var(--f-text); color: var(--dim); }
+.ed-from { display: flex; gap: 12px; align-items: flex-start; margin-top: 22px; padding: 14px 16px; border-radius: 8px; background: #0c1117; border: 1px solid var(--rule); }
+.ed-from p { margin: 0; font: 400 15px/1.5 var(--f-text); color: var(--text-2); }
+.ed-from p b { display: inline-block; margin-bottom: 4px; font-weight: 500; color: var(--fog); }
+.ed-from .cc { flex: none; margin-top: 2px; font: 600 9.5px/1 var(--f-ui); letter-spacing: .14em; color: var(--mist); border: 1px solid var(--steel); border-radius: 4px; padding: 4px 6px; }
+.ed-sign { display: flex; gap: 10px; margin-top: 18px; }
+
+@media (max-width: 1100px) { .ed-band { padding-left: 24px; } }
+@media (max-width: 760px) {
+  .ed-band, .list.pub .ed-band { padding: 12px var(--gutter); flex-direction: column; gap: 6px; }
+  .oc-body .cell { margin: -4px -6px; padding: 4px 6px; }
+}

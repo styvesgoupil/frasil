@@ -33,6 +33,7 @@ typedef struct {
 } glint_params_t;
 
 void glint_init(void);
+void glint_cut(void);                       /* every glint silent, its echoes gone (the render's: CUT) */
 void glint_on(int note, float vel, const glint_params_t *p);      /* render side */
 void glint_off(int note, const glint_params_t *p);
 void glint_press(int note, float p);

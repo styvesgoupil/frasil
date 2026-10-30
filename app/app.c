@@ -15,7 +15,15 @@
 #include "frasil.h"
 #include "params.c"
 
-#define SET_MAGIC 0x4A535246u            /* "FRSJ": the settings record (a new one when its layout changes) */
+#define SET_MAGIC 0x4C535246u            /* "FRSL": the settings record (a new one when its layout changes) */
+#define SET_FRSK 0x4B535246u             /* "FRSK": 2.5's betas' (b6 .. b9): this one, its sound FRSO_NV long, without
+                                          * ANIMATIONS (FRSK_BYTES), the settings learned numbered so */
+#define FRSO_NV 146u                     /* the sound before ROUTING and the pans (FRSo, FRSK, FRSp) */
+#define FRSK_BYTES 244u
+#define SET_FRSJ 0x4A535246u             /* "FRSJ": the one before MASTER EQ and MASTER FILTER: this one, its sound
+                                          * FRSL_NV long (FRSJ_BYTES), the settings learned numbered so */
+#define FRSL_NV 130u                     /* the sound before MASTER EQ and MASTER FILTER (FRSl, FRSJ, FRSn) */
+#define FRSJ_BYTES 228u
 #define SET_FRSI 0x49535246u             /* "FRSI": the one before GLINT's RELEASE: this one, SCATTER where RELEASE is */
 #define SET_FRSH 0x48535246u             /* "FRSH": the one before BASS's DECAY, SUSTAIN and PULSE: this one, its sound
                                           * FRSH_NV long (FRSH_BYTES), the settings learned numbered so */
@@ -25,19 +33,28 @@
 #define FRSH_BYTES 224u
 #define FRSH_BSEQ (FRSH_BYTES - 2u * SC_BSEQ - 3u)
 #define FRSG_BYTES 192u
-#define SCN_MAGIC 0x6C535246u            /* "FRSl": the scenes record (with their notes, the bass and the sequence;
-                                          * names of sixteen), each scene but its bass's sequence (SC_REC) */
+#define SCN_MAGIC 0x71535246u            /* "FRSq": the scenes record (with their notes and the bass; names of
+                                          * sixteen), each scene up to GLINT's sequence (SC_REC): the sequences in
+                                          * OBJ_BSEQ (the sound outgrew the record) */
+#define SCN_FRSO 0x6F535246u             /* "FRSo": 2.5's betas' (OLD_SCN's last): this one, its sound FRSO_NV long */
+#define SCN_FRSL 0x6C535246u             /* "FRSl": the one before MASTER EQ and MASTER FILTER (OLD_SCN's last, the
+                                          * sequence in each scene's record), GLINT's RELEASE in it */
 #define SCN_FRSJ 0x6A535246u             /* "FRSj": the one before GLINT's RELEASE (OLD_SCN's last): this one, SCATTER
                                           * where RELEASE is */
 #define SCN_FRSH 0x68535246u             /* "FRSh": the one before BASS's DECAY, SUSTAIN and PULSE (OLD_SCN's last) */
-#define BSQ_MAGIC 0x54425246u            /* "FRBT": the scenes' bass sequences (OBJ_BSEQ), each its notes and lengths,
-                                          * SEQUENCE, SEQ STEPS, TRANSPOSE, and the scene's TEMPO */
-#define BSQ_FRBS 0x53425246u             /* "FRBS": the one before the scenes' TEMPO (BSQ_SCENE less one a scene) */
-#define SHARD_MAGIC 0x6E535246u          /* "FRSn": a scene whole (scene_t: its bass's sequence and its TEMPO after the
-                                          * rest), as the River keeps it, a shard; "FRSm": the same without its TEMPO;
+#define BSQ_MAGIC 0x55425246u            /* "FRBU": the scenes' sequences (OBJ_BSEQ), each GLINT's, then the bass's
+                                          * notes and lengths, SEQUENCE, SEQ STEPS, TRANSPOSE, and the scene's TEMPO */
+#define BSQ_FRBT 0x54425246u             /* "FRBT": the one before (with FRSl): from the bass's notes on */
+#define BSQ_FRBS 0x53425246u             /* "FRBS": the one before the scenes' TEMPO (FRBT's less one a scene) */
+#define SHARD_MAGIC 0x72535246u          /* "FRSr": a scene whole (scene_t: its sequences and its TEMPO after the
+                                          * rest), as the River keeps it, a shard; "FRSp": 2.5's betas' (FRSO_NV
+                                          * sounds); "FRSn": the one before MASTER EQ and
+                                          * MASTER FILTER (FRSL_NV sounds); "FRSm": that without its TEMPO;
                                           * "FRSk" shards: without it, SCATTER where GLINT's
                                           * RELEASE is; "FRSi": before BASS's DECAY, SUSTAIN and PULSE too (FRSH_NV
                                           * sounds); "FRSh": those without the bass's too */
+#define SHARD_FRSP 0x70535246u
+#define SHARD_FRSN 0x6E535246u
 #define SHARD_FRSM 0x6D535246u
 #define SHARD_FRSK 0x6B535246u
 #define SHARD_FRSI 0x69535246u
@@ -47,6 +64,7 @@
 #define HOLD_MS 400u                     /* a button held this long does its other thing (on release, a tap its own) */
 #define PLAY_HOLD_MS 600u                /* PLAY's, which lets everything go: longer, the screen counting it down */
 #define PLAY_SHOW_MS 200u                /* from here the screen counts it down, and letting go does nothing */
+#define PLAY_TWICE_MS 350u               /* PLAY tapped again within it, while anything played: RELEASE ALL */
 #define NLEARN 8u                        /* MIDI CCs learned (GLO held, a CC) */
 
 typedef struct {
@@ -59,10 +77,13 @@ typedef struct {
     uint8_t ch_glint, ch_bass;
     uint8_t seq[SC_SEQ];                 /* GLINT's sequence as last saved */
     uint8_t metro_off;                   /* REC's metronome off (0, as a record without it reads: on) */
-    uint8_t morph, load;                 /* SCENES' MORPH (read no more: it starts on CUT; written 0) and LOAD */
+    uint8_t speaker_off, load;           /* SPEAKER off (SCENES' MORPH once, written 0 since it starts on CUT) and
+                                          * SCENES' LOAD */
     uint8_t learn_cc[NLEARN], learn_p[NLEARN];   /* the CCs learned and their settings (cc 0: none) */
     uint8_t bnote[SC_BSEQ], blen[SC_BSEQ];   /* the bass's sequence as last saved */
     uint8_t bq_on, bq_steps, bq_trans;   /* and its SEQUENCE, SEQ STEPS, TRANSPOSE */
+    uint8_t anim;                        /* ANIMATIONS LOW (0, as FRSK's padding byte reads: NORMAL) */
+    uint8_t clock;                       /* CLOCK INTERNAL (0, as FRSL's padding byte reads till 2.5-b30: AUTO) */
 } settings_t;
 
 typedef struct {
@@ -99,8 +120,11 @@ static const layout_t OLD_SCN[] = {
     {0x66535246u, 123, 2},               /* "FRSf": with LFO 3 */
     {0x67535246u, 127, 2},               /* "FRSg": with GLINT's SEQ, GENERATIVE FX, its names of ten */
     {SCN_FRSH, FRSH_NV, 3},              /* "FRSh": with names of sixteen */
-    {SCN_FRSJ, NSOUND, 3},               /* "FRSj": with BASS's DECAY, SUSTAIN and PULSE (SCATTER where GLINT's
+    {SCN_FRSJ, FRSL_NV, 3},              /* "FRSj": with BASS's DECAY, SUSTAIN and PULSE (SCATTER where GLINT's
                                           * RELEASE is) */
+    {SCN_FRSL, FRSL_NV, 4},              /* "FRSl": with GLINT's RELEASE (extra 4: none to make over) */
+    {SCN_FRSO, FRSO_NV, 5},              /* "FRSo": with MASTER EQ, MASTER FILTER and LOFI TAPE (extra 5: GLINT's
+                                          * sequence in OBJ_BSEQ already, FRBU's) */
 };
 #define OLD_NAME 10u                     /* their names: ten characters (NUL-padded, none when all ten were used) */
 static const layout_t OLD_SET[] = {
@@ -116,38 +140,52 @@ static const layout_t OLD_SET[] = {
     {0x45535246u, 123, 2},               /* "FRSE": with LFO 3 */
     {0x46535246u, 127, 2},               /* "FRSF": with GLINT's SEQ and GENERATIVE FX (METRONOME after the sequence) */
 };
-/* the scenes in the store: OBJ_SCENES, the scenes' record as it has always been (magic, used, rsv, each scene's first
- * SC_REC bytes), and OBJ_BSEQ, their bass sequences (magic, each scene's bnote and blen) */
-#define SC_REC (SC_NAME + NSOUND + 2u + SC_CHORDS * 5u + SC_ARP + 1u + SC_SEQ)
-#define FRSH_REC (SC_REC - (NSOUND - FRSH_NV))   /* FRSh's (its sound FRSH_NV long) */
+/* the scenes in the store: OBJ_SCENES, the scenes' record (magic, used, rsv, each scene's first SC_REC bytes: up to
+ * GLINT's sequence), and OBJ_BSEQ, the rest of each (magic, each scene's sequence, bnote, blen ... TEMPO). A scene_t is
+ * the two records' bytes one after the other */
+#define SC_TAIL (2u + SC_CHORDS * 5u + SC_ARP + 1u + SC_SEQ)   /* after the sound, to the bass's sequence: nch .. seq */
+#define SC_REC (SC_NAME + NSOUND + SC_TAIL - SC_SEQ)
+#define FRSL_REC (SC_NAME + FRSL_NV + SC_TAIL)   /* FRSl's and FRSj's (the sequence in them) */
+#define FRSH_REC (SC_NAME + FRSH_NV + SC_TAIL)   /* FRSh's (its sound FRSH_NV long) */
 #define SCN_BYTES (8u + NSCENES * SC_REC)
-#define BSQ_SCENE (2u * SC_BSEQ + 4u)     /* a scene's in OBJ_BSEQ: its notes, its lengths, SEQUENCE, SEQ STEPS,
+#define FRBT_SCENE (2u * SC_BSEQ + 4u)   /* FRBT's: a scene's bass, its notes, its lengths, SEQUENCE, SEQ STEPS,
                                           * TRANSPOSE, TEMPO */
-#define FRBS_SCENE (BSQ_SCENE - 1u)      /* FRBS's: without TEMPO */
+#define BSQ_SCENE (SC_SEQ + FRBT_SCENE)  /* a scene's in OBJ_BSEQ: GLINT's sequence, then FRBT's */
+#define FRBS_SCENE (FRBT_SCENE - 1u)     /* FRBS's: without TEMPO */
 #define BSQ_BYTES (4u + NSCENES * BSQ_SCENE)
-static uint8_t raw[SCN_BYTES];           /* an old record as it was saved (the largest, FRSh's scenes: 3752), and the
-                                          * scenes' records as they are written and read (FRSl's: 3800) */
+static uint8_t raw[8u + NSCENES * FRSL_REC];   /* an old record as it was saved (the largest, FRSl's scenes: 3800),
+                                                * and the scenes' records as they are written and read (FRSo's:
+                                                * 3480) */
 static uint8_t store_old;                /* bit 0 the scenes, bit 1 the settings: made over from an earlier layout at
                                           * load, the store's still in it (a backup saves them first) */
-_Static_assert(sizeof(scene_t) == SC_REC + BSQ_SCENE && offsetof(scene_t, bnote) == SC_REC &&
-                   offsetof(scene_t, blen) == SC_REC + SC_BSEQ && offsetof(scene_t, bq_on) == SC_REC + 2u * SC_BSEQ &&
-                   offsetof(scene_t, tempo) == SC_REC + FRBS_SCENE,
-               "a scene: its bytes, no padding, the bass's sequence last");
+_Static_assert(sizeof(scene_t) == SC_REC + BSQ_SCENE && offsetof(scene_t, seq) == SC_REC &&
+                   offsetof(scene_t, bnote) == SC_REC + SC_SEQ && offsetof(scene_t, nch) == SC_NAME + NSOUND &&
+                   offsetof(scene_t, bq_on) == SC_REC + SC_SEQ + 2u * SC_BSEQ &&
+                   offsetof(scene_t, tempo) == SC_REC + SC_SEQ + FRBS_SCENE,
+               "a scene: its bytes, no padding, the sequences last");
 _Static_assert(P_BS_DRIVE == 55 && P_BS_RESO == 64 && P_PUMP_RATE == 65 && P_SH_TONE == 77 && P_PUMP_REL == 78 &&
                    P_CH_SHAPE == 81 && P_L1_SHAPE == 94 && P_SQ_LEN == 110 && P_DR_PRESET == 113 && P_L3_SHAPE == 115 &&
-                   P_SQ_TYPE == 123 && P_BS_DECAY == FRSH_NV,
+                   P_SQ_TYPE == 123 && P_BS_DECAY == FRSH_NV && P_EQ_PRESET == FRSL_NV && P_FL_PRE == FRSO_NV,
                "the parameters added come after the old");
+_Static_assert(FACTORY_NV == FRSL_NV, "the factory's whole sounds: FRSl's");
 _Static_assert(SCN_BYTES <= 3840u && BSQ_BYTES <= 3840u, "the scenes' records fit a store object each (4 KiB less "
                                                          "its 256-byte header)");
-_Static_assert(sizeof(settings_t) == 228u && offsetof(settings_t, bnote) == 192u && offsetof(settings_t, octave) ==
+_Static_assert(offsetof(settings_t, clock) == offsetof(settings_t, anim) + 1u &&
+                   offsetof(settings_t, anim) == offsetof(settings_t, bq_trans) + 1u &&
+                   sizeof(settings_t) == ((offsetof(settings_t, anim) + 4u) & ~3u) &&
+                   FRSK_BYTES == ((4u + FRSO_NV + offsetof(settings_t, anim) - offsetof(settings_t, octave) + 3u) & ~3u) &&
+                   FRSJ_BYTES == ((4u + FRSL_NV + offsetof(settings_t, anim) - offsetof(settings_t, octave) + 3u) & ~3u) &&
+                   offsetof(settings_t, bnote) == 192u + (NSOUND - FRSL_NV) &&
+                   offsetof(settings_t, octave) ==
                    4u + NSOUND && offsetof(settings_t, bq_trans) + 1u - offsetof(settings_t, octave) ==
                    FRSH_BYTES - 4u - FRSH_NV && FRSH_BSEQ == 189u,
                "the settings: FRSH's (FRSG's: FRSF's 172 bytes, MORPH, LOAD and the learned CCs; 192 with its padding; "
                "then the bass's sequence), the sound three settings longer");
 
-_Static_assert(sizeof raw >= 8u + NSCENES * (SC_NAME + FRSH_NV + 2u + SC_CHORDS * 5u + SC_ARP + 1u + SC_SEQ), "raw holds the largest");
+_Static_assert(sizeof raw >= SCN_BYTES && sizeof raw >= BSQ_BYTES && sizeof raw >= sizeof(settings_t) &&
+                   sizeof raw >= 8u + NSCENES * FRSH_REC, "raw holds the largest");
 static uint32_t name_bytes(const layout_t *l) { return l->extra >= 3u ? SC_NAME : OLD_NAME; }
-static uint32_t seq_bytes(const layout_t *l) { return l->extra >= 2u ? SC_SEQ : 0u; }
+static uint32_t seq_bytes(const layout_t *l) { return l->extra >= 2u && l->extra != 5u ? SC_SEQ : 0u; }
 static uint32_t scn_bytes(const layout_t *l)
 {
     return name_bytes(l) + l->nv + 2u + SC_CHORDS * 5u + SC_ARP + (l->extra ? 1u : 0u) + seq_bytes(l);
@@ -190,7 +228,7 @@ static struct {
     uint32_t enc_at[NE];                 /* the last detent of each encoder (acceleration) */
     uint8_t engine_dirty;
     uint8_t store_hold;                  /* a backup streaming to USB: nothing saved until it ends (app_backup_hold) */
-    uint8_t prefs_due;                   /* prefs_save asked meanwhile: done once it ends (input) */
+    uint8_t prefs_due;                   /* prefs_save asked: 1 once nothing sounds (prefs_quiet), 2 now (SPK/JACK) */
     uint8_t booting;                     /* app_init done, the UI not started yet (app_ui_init: the logo) */
 } st;
 
@@ -205,6 +243,8 @@ static uint32_t mgs[4];                  /* of them, those that sounded their gl
 static int8_t mgl_base[128];             /* each one's note without GLINT's OCTAVE, as the arpeggio has it */
 static int8_t mbass[8];                  /* BASS's notes held from MIDI, the last on top (it sounds) */
 static uint32_t mb_n;
+static uint8_t spk_page;                 /* a PERFORM page plays the FM-1's USB audio (COMPUTER AUDIO): its own output
+                                          * quiet meanwhile, SPK/JACK as it is (the page can only quiet it) */
 
 static int bit_get(const uint32_t *b, int n) { return n >= 0 && n < 128 && (b[n >> 5] >> (n & 31) & 1u); }
 static void bit_put(uint32_t *b, int n, int on)
@@ -1385,6 +1425,14 @@ static void param_set(int p, int32_t x)
     }
     if (p == P_FREEZE)
         st.engine_dirty = 1;
+    if (p == P_SPEAKER)                  /* at once (kept once nothing sounds, as the metronome is; ANIMATIONS too) */
+        plat_speaker(x && !spk_page);
+    if (p == P_SPEAKER)                  /* (SPK/JACK kept now, whatever plays: the room's quiet comes first) */
+        st.prefs_due = 2;
+    if ((p == P_ANIM || p == P_CLOCK) && !st.prefs_due)
+        st.prefs_due = 1;
+    if (p == P_CLOCK && x)               /* INTERNAL: TEMPO's grid at once, a clock coming in let go */
+        arp.clk_at = plat_ms() - 60000u;
     if (p == P_SQ_TYPE || (p >= P_SQ_STEP && p <= P_SQ_CLEAR) || p == P_SQ_NEW || p == P_SQ_UNDO)
         seq_set(p, x);
     if (p >= P_BQ_STEP && p <= P_BQ_TRANS)
@@ -1415,6 +1463,15 @@ static void param_set(int p, int32_t x)
         } else {
             custom[drone_of[p]] = (uint8_t)x;
         }
+    }
+    if (p == P_EQ_PRESET && x >= 2) {    /* MASTER EQ's preset: its bands (OFF and CUSTOM leave them as they are) */
+        uint32_t i;
+        for (i = 0; i < 7u; i++) {
+            st.v[P_EQ_LOW + i] = EQ_PRESETS[x - 2][i];
+            morph_off[P_EQ_LOW + i] = mo.d[P_EQ_LOW + i] = 0.0f;
+        }
+    } else if (p >= P_EQ_LOW && p <= P_EQ_HIGHF && st.v[P_EQ_PRESET] >= 2u) {
+        st.v[P_EQ_PRESET] = 1;           /* a band turned: CUSTOM, the bands as they are */
     }
     if (p < NSOUND) {
         st.dirty = (uint8_t)sound_changed();
@@ -1450,21 +1507,75 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 
 void app_panic(void) { frasil_panic(); }
 
-/* the render ran over 90 % of its time (audio interrupt): one step lighter at once; the main loop gives the steps
- * back as the load allows (load_watch) */
-void app_overload(void) { frasil_shed(frasil_shed_level() + 1); }
+/* the render ran over 90 % of its time (audio interrupt), or the load is over 82 % (load_watch, ahead of it): one step
+ * lighter at once, and the header's dot for 3 s. The
+ * main loop gives a step back after a calm (no overrun, the load at most 75 %): 4 s at first, twice as long each time
+ * a step given back ran over again within 15 s (up to 64 s), 4 s again after a minute without one. (2.5-b8, the user:
+ * a heavy scene glitched every few seconds, a step given back and taken again, the dot coming and going) */
+static volatile uint32_t over_at;        /* when it last ran over (plat_ms), 0: never */
+static volatile int shed_top;            /* the highest step since the last log (app_log_word) */
+static void shed_to(int level)
+{
+    frasil_shed(level);
+    if (frasil_shed_level() > shed_top)
+        shed_top = frasil_shed_level();
+}
+void app_overload(void)
+{
+    over_at = plat_ms() | 1u;
+    shed_to(frasil_shed_level() + 1);
+}
+static int holding_any(void);
+/* the log's word: the step now (bits 0-7), the highest since the last log (8-15), anything playing (16: held, latched,
+ * a sequence running: a test checks the FM-1 is at rest), and a part of the render (17-20, frasil.h FR_PROF_..., one
+ * more at each log) with its share of the render's time since that part's last log, per mille (21-31) */
+uint32_t app_log_word(void)
+{
+    static uint32_t last[FR_PROF_N], last_n[FR_PROF_N];
+    static int part;
+    uint32_t acc[FR_PROF_N], n, w, pm = 0, dn;
+    frasil_profile_read(acc, &n);
+    dn = n - last_n[part];
+    if (dn)
+        pm = (uint32_t)((float)(acc[part] - last[part]) / ((float)dn * ((float)PLAT_TICKS_US * 1e6f / 44100.0f)) *
+                        1000.0f + 0.5f);
+    last[part] = acc[part];
+    last_n[part] = n;
+    w = (uint32_t)(pm > 2047u ? 2047u : pm) << 21 | (uint32_t)part << 17 | (uint32_t)(holding_any() != 0) << 16 |
+        (uint32_t)shed_top << 8 | (uint32_t)frasil_shed_level();
+    part = part + 1 < FR_PROF_N ? part + 1 : 0;
+    shed_top = frasil_shed_level();
+    return w;
+}
+static int cpu_over(void) { return over_at && plat_ms() - over_at < 3000u; }
 
 static void load_watch(void)
 {
-    static uint32_t calm_since;
-    uint32_t now = plat_ms();
-    if (!frasil_shed_level() || plat_cpu_pct() > 60u) {
+    static uint32_t calm_since, seen, back_at, calm_ms = 4000u, ahead_at;
+    uint32_t now = plat_ms(), at = over_at;
+    if (plat_cpu_pct() > 82u && frasil_shed_level() < 5 && now - ahead_at > 1000u) {   /* the load near the top: a
+                                                                                       * step lighter before a render
+                                                                                       * runs over (the steps glide:
+                                                                                       * not heard), one a second */
+        shed_to(frasil_shed_level() + 1);
+        over_at = at = plat_ms() | 1u;   /* (as an overrun: no step back for the calm, the backoff the same) */
+        ahead_at = now;
+    }
+    if (at != seen) {                    /* a new overrun: soon after a step given back, the next calm twice as long */
+        seen = at;
+        if (back_at && at - back_at < 15000u)
+            calm_ms = calm_ms >= 32000u ? 64000u : calm_ms * 2u;
+        back_at = 0;
+    } else if (calm_ms > 4000u && now - at > 60000u) {
+        calm_ms = 4000u;
+    }
+    if (!frasil_shed_level() || plat_cpu_pct() > 75u || now - at < 4000u) {
         calm_since = now;
         return;
     }
-    if (now - calm_since > 4000u) {
+    if (now - calm_since > calm_ms) {
         frasil_shed(frasil_shed_level() - 1);
-        calm_since = now;
+        calm_since = back_at = now;
     }
 }
 
@@ -1550,9 +1661,10 @@ static void factory_get(uint32_t s, scene_t *out)
     }
     memset(out, 0, sizeof *out);
     memcpy(out->name, f->name, SC_NAME);
-    if (f->whole)
-        memcpy(out->v, f->sound, NSOUND);
-    else {
+    if (f->whole) {
+        memcpy(out->v, f->sound, FACTORY_NV);
+        later_defaults(out->v, FACTORY_NV);
+    } else {
         for (i = 0; i < NSOUND; i++)
             out->v[i] = PD[i].def;
         for (pass = 0; pass < 2u; pass++) {  /* its settings, over its GLINT preset's and the arpeggiator's defaults */
@@ -1699,14 +1811,19 @@ static void scene_load(uint32_t s)
 }
 
 #ifdef PLAT_WEB
-/* the River plays a shard (web.c): its scene as a load takes it, out of any MORPH; one that plays nothing holds a
- * chord on its ROOT, in the third octave, as a key would */
-static void scene_audition(const scene_t *sc)
+/* the River plays a shard (web.c): its scene as a load takes it, out of any MORPH; with `hold` (▶), one that plays
+ * nothing holds a chord on its ROOT, in the third octave, as a key would (aud_root: its root, -1 none; what the shard
+ * plays edited lets it go) */
+static int aud_root = -1;
+static void scene_audition(const scene_t *sc, int hold)
 {
     uint32_t i, notes = 0;
     mo.on = 0;
     memset(morph_off, 0, sizeof morph_off);
+    aud_root = -1;
     scene_take(sc);
+    if (!hold)
+        return;
     for (i = 0; i < SC_SEQ; i++)
         notes += (sc->seq[i] & 127u) != SQ_REST && (sc->seq[i] & 127u) != SQ_TIE;
     if (!sc->nch && !sc->narp && sc->bass < 0 && !(st.v[P_SQ_TYPE] == SQT_SEQ && notes)) {
@@ -1716,6 +1833,7 @@ static void scene_audition(const scene_t *sc)
         lat[root] = c;
         bit_put(lit, root, 1);
         chord_on(&c, 100);
+        aud_root = root;
     }
 }
 
@@ -1755,7 +1873,9 @@ static int store_all(void)
     for (i = 0; i < SC_SEQ; i++)
         set.seq[i] = seq[i];
     set.metro_off = !st.metro;
-    set.morph = 0;
+    set.speaker_off = !st.v[P_SPEAKER];
+    set.anim = st.v[P_ANIM];
+    set.clock = st.v[P_CLOCK];
     set.load = st.v[P_LOAD];
     memcpy(set.bnote, bnote, sizeof bnote);
     memcpy(set.blen, blen, sizeof blen);
@@ -1773,7 +1893,7 @@ static int scenes_save(void)
     for (s = 0; s < 4u; s++)
         raw[s] = (uint8_t)(BSQ_MAGIC >> (8u * s));
     for (s = 0; s < NSCENES; s++)
-        memcpy(raw + 4u + s * BSQ_SCENE, scn.s[s].bnote, BSQ_SCENE);
+        memcpy(raw + 4u + s * BSQ_SCENE, scn.s[s].seq, BSQ_SCENE);
     if (plat_store_save(OBJ_BSEQ, raw, BSQ_BYTES))
         return -1;
     memcpy(raw, &scn, 8u);               /* (magic, used, rsv) */
@@ -1785,8 +1905,19 @@ static int scenes_save(void)
 static scene_t rst;                      /* what PLAY held let go, for RESTORE (its notes alone) */
 static uint8_t rst_valid;
 
-/* LOAD, the metronome, the CCs learned: kept at once (the sound and the rest of the record as SAVE left them;
- * never saved yet: all of it); a backup streaming, once it ends (set holds them meanwhile) */
+/* LOAD, the metronome, the CCs learned, SPK/JACK, ANIMATIONS: kept (the sound and the rest of the record as SAVE left
+ * them; never saved yet: all of it); a backup streaming, once it ends (set holds them meanwhile). Asked through
+ * prefs_due, done once nothing sounds (prefs_quiet): writing the flash stops the render a moment, a click in what plays
+ * (the user, 2.5-b28: METRONOME turned on or off clicked) */
+static int prefs_quiet(void) { return !holding_any() && frasil_out_level() < 0.001f; }   /* (-60 dB: the tails gone) */
+static void prefs_save(void);
+static void prefs_later(void)            /* now if nothing sounds, else once nothing does */
+{
+    if (prefs_quiet() && !st.store_hold)
+        prefs_save();
+    else if (!st.prefs_due)
+        st.prefs_due = 1;
+}
 static void prefs_save(void)
 {
     if (st.store_hold) {
@@ -1799,7 +1930,9 @@ static void prefs_save(void)
         return;
     }
     set.metro_off = !st.metro;
-    set.morph = 0;
+    set.speaker_off = !st.v[P_SPEAKER];
+    set.anim = st.v[P_ANIM];
+    set.clock = st.v[P_CLOCK];
     set.load = st.v[P_LOAD];
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0)
         store_old &= ~2u;
@@ -2049,8 +2182,9 @@ static void morph_run(void)              /* a hundred times a second while a MOR
 
 /* an earlier layout's sound made over: its first nv parameters, the rest at their defaults (and MODEL, where FRSW
  * kept SPACE; before GLINT's SEQ, MODE's OFF, five and SEQ in SEQ and MODE, the delay's MODE in its TIME); GLINT's
- * RELEASE, where each kept SCATTER, as its DECAY let a glint go then (glint_release_of) */
-static void sound_over(uint8_t *d, const uint8_t *v, uint32_t nv)
+ * RELEASE, where it kept SCATTER (every layout before FRSl, FRSJ and FRSn: scatter), as its DECAY let a glint go then
+ * (glint_release_of) */
+static void sound_over(uint8_t *d, const uint8_t *v, uint32_t nv, int scatter)
 {
     uint32_t i;
     for (i = 0; i < nv; i++)
@@ -2070,9 +2204,10 @@ static void sound_over(uint8_t *d, const uint8_t *v, uint32_t nv)
         uint32_t m = v[P_ARP_MODE];
         d[P_SQ_TYPE] = (uint8_t)(m == 6u ? SQT_SEQ : m ? SQT_ARP : 0u);
         d[P_ARP_MODE] = (uint8_t)(m >= 1u && m <= 5u ? m - 1u : 0u);
-        d[P_GD_TIME] = (uint8_t)(v[P_GD_TIME] % 12u + (v[P_GD_MODE] ? 12u : 0u));
+        d[P_GD_TIME] = (uint8_t)(v[P_GD_TIME] % 12u);   /* (MODE gone: ping-pong always, since 2.5) */
     }
-    d[P_GL_RELEASE] = glint_release_of(d[P_GL_DECAY]);
+    if (scatter)
+        d[P_GL_RELEASE] = glint_release_of(d[P_GL_DECAY]);
 }
 
 static void learn_scatter_gone(void)     /* a CC an earlier layout learned on SCATTER: learned no more */
@@ -2113,7 +2248,7 @@ static int scenes_over(void)              /* the scenes in an earlier layout, if
             for (j = 0; j < SC_NAME; j++)
                 d->name[j] = j < nl ? (char)o[j] : 0;
             o += nl;                     /* (the rest from the sound on) */
-            sound_over(d->v, o, nv);
+            sound_over(d->v, o, nv, l->extra < 4u);
             d->nch = o[nv];
             d->narp = o[1u + nv];
             for (j = 0; j < SC_CHORDS * 5u; j++)
@@ -2129,7 +2264,7 @@ static int scenes_over(void)              /* the scenes in an earlier layout, if
         }
         scn.used = (uint16_t)(raw[4] | raw[5] << 8);
         scn.magic = SCN_MAGIC;
-        return 1;
+        return l->extra == 5u ? 2 : 1;   /* (2: its sequences in OBJ_BSEQ, FRBU's, as this one's) */
     }
     return 0;
 }
@@ -2140,19 +2275,43 @@ static int settings_over(void)            /* the settings in an earlier layout, 
     uint32_t k, j;
     set.bq_steps = PD[P_BQ_STEPS].def;
     set.bq_trans = PD[P_BQ_TRANS].def;
-    if (n == (int)sizeof set && rd32(raw) == SET_FRSI) {   /* FRSI: this layout, SCATTER where GLINT's RELEASE is */
-        memcpy(&set, raw, sizeof set);
-        sound_over(set.v, raw + 4, NSOUND);
-        learn_scatter_gone();
+    if (n == (int)FRSK_BYTES && rd32(raw) == SET_FRSK) {
+        /* FRSK, 2.5's betas': this layout, its sound FRSO_NV long, ANIMATIONS not yet (its padding byte there: NORMAL).
+         * A CC learned on a setting after the sound: on the same setting, its number moved on by the sounds added */
+        sound_over(set.v, raw + 4, FRSO_NV, 0);
+        memcpy((uint8_t *)&set + offsetof(settings_t, octave), raw + 4u + FRSO_NV, FRSK_BYTES - 4u - FRSO_NV);
+        set.anim = 0;
+        set.clock = 0;
+        for (j = 0; j < NLEARN; j++)
+            if (set.learn_p[j] >= FRSO_NV && set.learn_p[j] < NPARAM - (NSOUND - FRSO_NV))
+                set.learn_p[j] = (uint8_t)(set.learn_p[j] + (NSOUND - FRSO_NV));
+        set.magic = SET_MAGIC;
+        return 1;
+    }
+    if (n == (int)FRSJ_BYTES && (rd32(raw) == SET_FRSJ || rd32(raw) == SET_FRSI)) {
+        /* FRSJ: this layout, its sound FRSL_NV long; FRSI: that, SCATTER where GLINT's RELEASE is. A CC learned on a
+         * setting after the sound: on the same setting, its number moved on by the sounds added */
+        int sc = rd32(raw) == SET_FRSI;
+        sound_over(set.v, raw + 4, FRSL_NV, sc);
+        memcpy((uint8_t *)&set + offsetof(settings_t, octave), raw + 4u + FRSL_NV, FRSJ_BYTES - 4u - FRSL_NV);
+        set.speaker_off = 0;             /* (MORPH's byte there, SPEAKER's now: on) */
+        set.anim = 0;                    /* (its padding byte there) */
+        set.clock = 0;
+        for (j = 0; j < NLEARN; j++)
+            if (set.learn_p[j] >= FRSL_NV && set.learn_p[j] < NPARAM - (NSOUND - FRSL_NV))
+                set.learn_p[j] = (uint8_t)(set.learn_p[j] + (NSOUND - FRSL_NV));
+        if (sc)
+            learn_scatter_gone();
         set.magic = SET_MAGIC;
         return 1;
     }
     if ((n == (int)FRSH_BYTES && rd32(raw) == SET_FRSH) || (n == (int)FRSG_BYTES && rd32(raw) == SET_FRSG)) {
         /* FRSH: this layout, its sound FRSH_NV long; FRSG: FRSH's first bytes, the bass's sequence not yet after them.
          * A CC learned on a setting after the sound: on the same setting, its number moved on by the sounds added */
-        sound_over(set.v, raw + 4, FRSH_NV);
+        sound_over(set.v, raw + 4, FRSH_NV, 1);
         memcpy((uint8_t *)&set + offsetof(settings_t, octave), raw + 4u + FRSH_NV,
                (n == (int)FRSH_BYTES ? FRSH_BYTES : FRSH_BSEQ) - 4u - FRSH_NV);
+        set.speaker_off = 0;
         for (j = 0; j < NLEARN; j++)
             if (set.learn_p[j] >= FRSH_NV && set.learn_p[j] < NPARAM - (NSOUND - FRSH_NV))
                 set.learn_p[j] = (uint8_t)(set.learn_p[j] + (NSOUND - FRSH_NV));
@@ -2165,7 +2324,7 @@ static int settings_over(void)            /* the settings in an earlier layout, 
         const uint8_t *o = raw + 4u + l->nv;
         if (n != (int)set_bytes(l) || rd32(raw) != l->magic)
             continue;
-        sound_over(set.v, raw + 4, l->nv);
+        sound_over(set.v, raw + 4, l->nv, 1);
         set.octave = (int8_t)o[0];
         set.keys = o[1];
         set.channel = l->extra || o[2] ? o[2] : 1u;   /* one channel for all, OMNI by default: the drones' 1 now */
@@ -2188,9 +2347,11 @@ static int settings_over(void)            /* the settings in an earlier layout, 
     return 0;
 }
 
-/* the state as at power-on (nothing latched, held or to undo; the keys the drones'), from the store: the scenes and
- * the settings (an earlier layout's made over), the sound and the rest as the settings have them, else the first
- * scene. At boot, and after a restore from USB */
+/* the state as at power-on (nothing latched, held or to undo, nothing playing; the keys the drones'), from the store:
+ * the scenes and the settings (an earlier layout's made over), the sound and the rest as the settings have them, else
+ * the first scene. At boot, and after a restore from USB. The sequences that are on wait for PLAY (tapped: from their
+ * first steps, the beat beginning there; held: the scene's notes too): begun here, they started off the beat (a
+ * sixteenth into a grid no top had set: the bass's NOTEs off PULSE's strikes), and alone */
 static void state_load(void)
 {
     uint32_t i;
@@ -2206,32 +2367,43 @@ static void state_load(void)
     arp.latch = 1;                       /* the arpeggio latched from the start, empty */
     arp.n = 0;
     bass_note = -1;
+    sq.run = 0;
     bq.run = bq.open = bq.wrap = 0;
     bq.tn = bq.skip = -1;
     for (i = 0; i < NPARAM; i++)
         st.v[i] = PD[i].def;
-    if (plat_store_load(OBJ_SCENES, raw, sizeof raw) == (int)SCN_BYTES && rd32(raw) == SCN_MAGIC) {
+    int cur = plat_store_load(OBJ_SCENES, raw, sizeof raw) == (int)SCN_BYTES && rd32(raw) == SCN_MAGIC, over = 0;
+    if (cur) {
         memcpy(&scn, raw, 8u);
         for (i = 0; i < NSCENES; i++)
             memcpy(&scn.s[i], raw + 8u + i * SC_REC, SC_REC);
     } else {
         scn.used = 0;
-        store_old |= (uint8_t)scenes_over();
+        over = scenes_over();
+        store_old |= (uint8_t)(over != 0);
         scn.magic = SCN_MAGIC;
     }
-    {                                    /* their bass sequences and TEMPOs (none in the store: each empty; FRBS's
-                                          * without TEMPO: the settings', below) */
+    {                                    /* their sequences, basses and TEMPOs: FRBU's, GLINT's sequence first; FRBT's,
+                                          * the bass from its notes on (GLINT's sequence in an earlier scenes' record);
+                                          * FRBS's without TEMPO (the settings', below); none: each empty */
         int n = plat_store_load(OBJ_BSEQ, raw, sizeof raw), ok = n == (int)BSQ_BYTES && rd32(raw) == BSQ_MAGIC;
+        int frbt = n == (int)(4u + NSCENES * FRBT_SCENE) && rd32(raw) == BSQ_FRBT;
         int frbs = n == (int)(4u + NSCENES * FRBS_SCENE) && rd32(raw) == BSQ_FRBS;
         for (i = 0; i < NSCENES; i++) {
-            if (ok || frbs)
-                memcpy(scn.s[i].bnote, raw + 4u + i * (ok ? BSQ_SCENE : FRBS_SCENE), ok ? BSQ_SCENE : FRBS_SCENE);
+            if (ok && (cur || over == 2))   /* (FRSo's scenes: their sequences there too) */
+                memcpy(scn.s[i].seq, raw + 4u + i * BSQ_SCENE, BSQ_SCENE);
+            else if (ok)                 /* (an earlier scenes' record, restored alone: its own sequence kept) */
+                memcpy(scn.s[i].bnote, raw + 4u + i * BSQ_SCENE + SC_SEQ, FRBT_SCENE);
+            else if (frbt || frbs)
+                memcpy(scn.s[i].bnote, raw + 4u + i * (frbt ? FRBT_SCENE : FRBS_SCENE), frbt ? FRBT_SCENE : FRBS_SCENE);
             else
                 bseq_empty(&scn.s[i]);
-            if (!ok)
+            if (!ok && (cur || over == 2))   /* (this scenes' record without its sequences: none) */
+                memset(scn.s[i].seq, SQ_REST, SC_SEQ);
+            if (!ok && !frbt)
                 scn.s[i].tempo = 0xFFu;
         }
-        if (frbs && scn.used)            /* (the store's still in FRBS: a backup saves them first) */
+        if ((frbt || frbs) && scn.used)   /* (the store's still in an earlier layout: a backup saves them first) */
             store_old |= 1u;
     }
     if (plat_store_load(OBJ_SETTINGS, &set, sizeof set) != (int)sizeof set || set.magic != SET_MAGIC) {
@@ -2249,6 +2421,9 @@ static void state_load(void)
         st.metro = !set.metro_off;
         st.v[P_MORPH] = 0;               /* (CUT at every start, whatever it was left on) */
         st.v[P_LOAD] = set.load ? 1 : 0;
+        st.v[P_SPEAKER] = !set.speaker_off;
+        st.v[P_ANIM] = set.anim ? 1 : 0;
+        st.v[P_CLOCK] = set.clock == 1u;
         st.v[P_KEYS] = set.keys ? 1 : 0;
         st.v[P_CANAL] = set.channel > 17u ? PD[P_CANAL].def : set.channel;
         st.v[P_CH_GLINT] = set.ch_glint > 17u ? PD[P_CH_GLINT].def : set.ch_glint;
@@ -2258,19 +2433,16 @@ static void state_load(void)
         for (i = 0; i < SC_SEQ; i++)
             seq[i] = set.seq[i];
         seq_view();
-        if (st.v[P_SQ_TYPE] == SQT_SEQ)
-            seq_begin();
         memcpy(bnote, set.bnote, sizeof bnote);
         memcpy(blen, set.blen, sizeof blen);
         bseq_view();
         st.v[P_BQ_ON] = set.bq_on ? 1 : 0;
         st.v[P_BQ_STEPS] = set.bq_steps > PD[P_BQ_STEPS].max ? PD[P_BQ_STEPS].def : set.bq_steps;
         st.v[P_BQ_TRANS] = set.bq_trans > PD[P_BQ_TRANS].max ? PD[P_BQ_TRANS].def : set.bq_trans;
-        if (st.v[P_BQ_ON])
-            bseq_begin();
     } else {                             /* (never saved: NEW SHARD, to begin from) */
         scene_load(SC_NEW);
     }
+    plat_speaker(st.v[P_SPEAKER] && !spk_page);
     st.pick = st.scene;
     st.page = PG_SON;
     sound_mark();                        /* the sound saved last: nothing changed yet */
@@ -2282,6 +2454,7 @@ void app_init(void)
     arp.clk_at = plat_ms() - 60000u;     /* no MIDI clock yet (else the first half second would follow one: the grid
                                           * still, a scene loaded then not from its top) */
     frasil_init();
+    frasil_profile(plat_ticks);          /* (where the render's time goes: the log's word) */
     drone_init();
     state_load();
     st.booting = 1;
@@ -2943,7 +3116,7 @@ static void cc_learn(uint32_t cc)
     }
     set.learn_cc[at] = (uint8_t)cc;
     set.learn_p[at] = st.touched;
-    prefs_save();
+    prefs_later();
     t[0] = 0;
     text_cat(t, "CC ");
     int_text((int32_t)cc, t + 3);
@@ -3137,6 +3310,8 @@ static void midi_in(void)
     while (plat_midi_in(&pkt, &port)) {
         uint32_t st8 = (pkt >> 8) & 0xFFu, ch = st8 & 15u, d1 = (pkt >> 16) & 0x7Fu, d2 = (pkt >> 24) & 0x7Fu;
         uint32_t kind = st8 & 0xF0u;
+        if ((st8 == 0xF8u || st8 == 0xFAu) && st.v[P_CLOCK])   /* CLOCK INTERNAL: clocks and Start not taken */
+            continue;
         if (st8 == 0xF8u) {              /* clock: the arpeggiator follows it */
             uint32_t now = plat_ms(), dt = now - arp.clk_at;
             if (dt < 200u) {
@@ -3343,6 +3518,7 @@ static struct {
     uint8_t type, run, rec, page;
 } arp_was;
 static void say_clear(void);             /* (the screen, below) */
+static void say_red(void);
 
 static void hold_undo(uint32_t b)
 {
@@ -3414,6 +3590,7 @@ static void lfo_route(uint32_t p, int32_t d)
                 param_set((int)(LFO_BASE[i] + 4u + k), 0);
     if (!nx) {
         app_say(LFO_TGT_NAME[t], "> NO LFO");
+        say_red();                       /* (in bright red: the setting is its own again) */
         return;
     }
     param_set((int)(LFO_BASE[nx - 1u] + 4u + at), (int32_t)t);
@@ -3430,6 +3607,27 @@ static int32_t accel(uint32_t e, int32_t d)
     uint32_t now = plat_ms(), dt = now - st.enc_at[e];
     st.enc_at[e] = now;
     return dt < 25u ? d * 4 : dt < 60u ? d * 2 : d;
+}
+
+/* OCT- held, a sound's preset turned (GLINT I's PRESET, BASS's MODEL, the drone's PRESETS): picked unheard, what plays
+ * going on as it is, then taken when OCT- is let go; its press's octave step undone (OCT- was a hand then) */
+static struct {
+    uint8_t on, p, v;                    /* picking: the setting, the value picked */
+    int8_t oct;                          /* the octave before OCT- went down */
+} pv;
+static uint32_t pv_shown(int p) { return pv.on && pv.p == (uint8_t)p ? pv.v : st.v[p]; }
+
+/* PLAY's light: the transport's (a sequence on: lit while one runs, or the arpeggio plays), else lit while anything is
+ * held (the drones, the bass, the arpeggio's notes, a key, a MIDI note); never for a tail alone: a stop puts it out at
+ * once, the sound fading on as it does */
+static int play_lit(void)
+{
+    uint32_t k, midi = mb_n;
+    if (st.v[P_SQ_TYPE] == SQT_SEQ || st.v[P_BQ_ON])
+        return sq.run || bq.run || (st.v[P_SQ_TYPE] == SQT_ARP && !arp.paused && arp.n);
+    for (k = 0; k < 4u; k++)
+        midi |= mid_on[k] | mgl[k];
+    return holding_any() || keys_prev || midi;
 }
 
 static void encoders(void)
@@ -3468,6 +3666,39 @@ static void encoders(void)
             p = PAGES[st.page].p[e - EN_K1];
             if (p >= NPARAM)                 /* an empty slot */
                 continue;
+        }
+        if (st.page == PG_MIXER && b_held(B_OCTDN) && !b_held(B_OCTUP) && e >= EN_K1) {   /* MIXER, OCT- held: K1 .. K4
+                                                                                        * each track's PAN (OCT- a
+                                                                                        * hand, its step undone) */
+            if (!(st.hold_done >> B_OCTDN & 1u)) {
+                st.octave = pv.oct;
+                b_used(B_OCTDN);
+            }
+            p = P_PN_DRONE + (int)(e - EN_K1);
+            param_set(p, (int32_t)st.v[p] + accel(e, d));
+            st.touched = (uint8_t)p;
+            st.touched_enc = (uint8_t)e;
+            st.touched_at = plat_ms();
+            continue;
+        }
+        if (b_held(B_OCTDN) && !b_held(B_OCTUP) && (p == P_GL_PRESET || p == P_BS_MODEL || p == P_DR_PRESET)) {
+            if (!pv.on) {                /* the first detent: OCT- a hand, its step undone; picking from what plays */
+                st.octave = pv.oct;
+                b_used(B_OCTDN);
+                pv.on = 1;
+                app_say("PICKING", "LET GO OCT-");
+            } else if (pv.p != (uint8_t)p) {   /* (another one: the first taken as it was picked) */
+                param_set(pv.p, pv.v);
+            }
+            if (pv.p != (uint8_t)p || pv.v > PD[p].max) {
+                pv.p = (uint8_t)p;
+                pv.v = st.v[p];
+            }
+            pv.v = (uint8_t)clamp((int32_t)pv.v + d, 0, PD[p].max);
+            st.touched = (uint8_t)p;
+            st.touched_enc = (uint8_t)e;
+            st.touched_at = plat_ms();
+            continue;
         }
         if (p == P_KEYS) {               /* KEYS lets the notes go: a second detent the same way, within 2 s */
             int8_t s = d > 0 ? 1 : -1;
@@ -3520,17 +3751,69 @@ static void rec_tap(void)
     app_say("RECORD", "LIVE");
 }
 
+/* with nothing playing, the scene again, its three tracks (RESTORE): what RELEASE ALL let go, else the scene's own notes
+ * as saved (at power-on, say), and its sequences that are on from their first steps (GLINT's, the bass's; the
+ * arpeggio from its notes), the beat beginning there. 0: something plays, or there is nothing to play */
+static int scene_again(void)
+{
+    scene_t sc;
+    const scene_t *n = &rst;
+    int gs = st.v[P_SQ_TYPE] == SQT_SEQ, bs = st.v[P_BQ_ON];
+    if (!rst_valid) {
+        scene_get(st.scene, &sc);
+        n = &sc;
+    }
+    if (holding_any() || !(rst_valid || n->nch || n->narp || n->bass >= 0 || gs || bs))
+        return 0;
+    rst_valid = 0;
+    if (grid_top(0)) {
+        scene_notes_play(n);             /* (after grid_top: the bass's note played on the top) */
+        seqs_top(gs, bs);
+    } else {
+        scene_notes_play(n);
+        if (gs)
+            seq_begin();
+        if (bs)
+            bseq_begin();
+    }
+    return 1;
+}
+
 /* PLAY tapped: the transport (GLINT's sequence and the bass's stop together, or start together from their first step;
  * the arpeggio waits, or goes on from the top: with the bass's sequence, as it does); on SCENES, the scene K1 points
- * at (MORPH, LOAD). Started, the beat begins there (grid_top), the sequences' first steps at once; following a MIDI
- * clock, on its next step (its beats kept). Stopped, the grid goes on */
+ * at (MORPH, LOAD), playing at once if nothing played. Started, the beat begins there (grid_top), the sequences' first steps at once; following a MIDI
+ * clock, on its next step (its beats kept). Stopped, the grid goes on. The sequences say which: running, it stops;
+ * not, it starts (the arpeggio playing alone beside them starts again with them). Nothing playing at all (at
+ * power-on, after RELEASE ALL): the scene's three tracks, as held (scene_again). Tapped twice quick while anything
+ * plays (not on SCENES): RELEASE ALL, as held (the first tap's stop already made) */
 static void play_tap(void)
 {
+    static uint32_t twice;               /* when the last tap came while anything played (0: it did not) */
     int gs = st.v[P_SQ_TYPE] == SQT_SEQ, ga = st.v[P_SQ_TYPE] == SQT_ARP, bs = st.v[P_BQ_ON];
-    if (st.page == PG_SCENES) {
+    uint32_t now = plat_ms() | 1u;
+    if (st.page != PG_SCENES && twice && now - twice < PLAY_TWICE_MS) {
+        twice = 0;
+        sound_off();
+        grid_top(0);
+        app_say("RELEASE ALL", rst_valid ? "HOLD PLAY: RESTORE" : "");
+        return;
+    }
+    twice = st.page != PG_SCENES && holding_any() ? now : 0u;
+    if (st.page != PG_SCENES && scene_again()) {   /* nothing playing: its three tracks, as PLAY held */
+        app_say("PLAY", "FROM THE TOP");
+        return;
+    }
+    if (st.page == PG_SCENES) {          /* nothing playing: the scene loaded plays at once, as PLAY tapped plays a
+                                          * scene from silence (power-on alone stays quiet); its own notes, not those
+                                          * a RELEASE ALL kept for RESTORE */
+        int idle = !holding_any();
         scene_go(st.pick);
+        if (idle) {
+            rst_valid = 0;
+            scene_again();
+        }
     } else if (gs || bs) {
-        if ((gs && sq.run) || (bs && bq.run) || (ga && !arp.paused)) {
+        if ((gs && sq.run) || (bs && bq.run)) {
             seq_note_off();
             sq.run = 0;
             bseq_stop();
@@ -3567,31 +3850,11 @@ static void play_tap(void)
     }
 }
 
-/* PLAY held: RELEASE ALL (sound_off) while anything plays; with nothing playing, the scene again (RESTORE): what
- * RELEASE ALL let go, else the scene's own notes as saved (at power-on, say), and its sequences that are on from their
- * first steps (GLINT's, the bass's; the arpeggio from its notes). Either way the beat begins there (grid_top: following
- * a MIDI clock, its beats kept) */
+/* PLAY held: RELEASE ALL (sound_off) while anything plays; with nothing playing, the scene again (scene_again,
+ * RESTORED). Either way the beat begins there (grid_top: following a MIDI clock, its beats kept) */
 static void play_hold(void)
 {
-    scene_t sc;
-    const scene_t *n = &rst;
-    int gs = st.v[P_SQ_TYPE] == SQT_SEQ, bs = st.v[P_BQ_ON], top;
-    if (!rst_valid) {
-        scene_get(st.scene, &sc);
-        n = &sc;
-    }
-    if (!holding_any() && (rst_valid || n->nch || n->narp || n->bass >= 0 || gs || bs)) {
-        rst_valid = 0;
-        top = grid_top(0);
-        scene_notes_play(n);             /* (after grid_top: the bass's note played on the top) */
-        if (top) {
-            seqs_top(gs, bs);
-        } else {
-            if (gs)
-                seq_begin();
-            if (bs)
-                bseq_begin();
-        }
+    if (scene_again()) {
         app_say("RESTORED", "");
         return;
     }
@@ -3684,9 +3947,17 @@ static void buttons(uint32_t btn)
         if ((up >> k & 1u) && !(st.hold_done >> k & 1u) &&
             !(k == B_PLAY && now - st.hold_at[B_PLAY] >= PLAY_SHOW_MS))   /* (PLAY let go while counting: nothing) */
             tap(k);
+    if ((up >> B_OCTDN & 1u) && pv.on) { /* OCT- let go, a preset picked under it: taken now */
+        pv.on = 0;
+        param_set(pv.p, pv.v);
+        st.touched = pv.p;
+        st.touched_at = now;
+    }
     for (k = 0; k < NB; k++) {
         if (!(down >> k & 1u))
             continue;
+        if (k == B_OCTDN)
+            pv.oct = st.octave;          /* (to undo, should it be a hand) */
         if (k == B_OCTDN || k == B_OCTUP) {   /* at once; both: back to the start */
             if ((btn >> B_OCTDN & 1u) && (btn >> B_OCTUP & 1u))
                 st.octave = OCT_DEF;
@@ -3696,6 +3967,30 @@ static void buttons(uint32_t btn)
             b_used(B_SAVE);
             b_used(B_REC);
             scene_store();
+        } else if (k == B_PLAY && (btn >> B_OCTDN & 1u) && !(btn >> B_OCTUP & 1u)) {   /* OCT- held, PLAY: CUT,
+                                                                                       * every sound gone now, the
+                                                                                       * cloud's tail and the echoes
+                                                                                       * too (RELEASE ALL, then the
+                                                                                       * engine emptied: frasil_cut);
+                                                                                       * OCT- a hand, its step undone;
+                                                                                       * PLAY's tap and hold nothing */
+            st.octave = pv.oct;
+            b_used(B_OCTDN);
+            b_used(B_PLAY);
+            sound_off();
+            grid_top(0);
+            frasil_cut();
+            app_say("CUT", "ALL SOUND");
+        } else if (k == B_EDIT && (btn >> B_OCTDN & 1u) && !(btn >> B_OCTUP & 1u)) {   /* OCT- held, EDIT: COMPARE,
+                                                                                       * the scene as saved, while EDIT
+                                                                                       * stays down (OCT- a hand, its
+                                                                                       * step undone) */
+            st.octave = pv.oct;
+            b_used(B_OCTDN);
+            b_used(B_EDIT);
+            st.hold_acted |= 1u << B_EDIT;   /* (as EDIT's hold was: SELECT turned with it undoes it, hold_undo) */
+            st.compare = 1;
+            st.engine_dirty = 1;
         }
     }
     btn_prev = btn;
@@ -3742,16 +4037,12 @@ static void holds(void)
         case B_REC:                      /* the metronome */
             b_used(b);
             st.metro ^= 1u;
-            prefs_save();
+            prefs_later();               /* (while anything sounds, once it no longer does: the flash written stops the
+                                          * render a moment, a click) */
             app_say("METRONOME", st.metro ? "ON" : "OFF");
             break;
         case B_ENV:                      /* SWELL, while it is held (swell_update): the drone's, as its page is */
             b_used(b);
-            break;
-        case B_EDIT:                     /* COMPARE: the scene as saved, while it is held */
-            b_used(b);
-            st.compare = 1;
-            st.engine_dirty = 1;
             break;
         case B_PLAY:
             b_used(b);
@@ -4052,8 +4343,7 @@ static void enc_late_in(void);          /* (the tests' detents, come in during a
 
 static void input(void)
 {
-    uint32_t btn = plat_buttons(), lb, mb, gb, kb, kd, i;
-    frasil_view_t v[FR_NV];
+    uint32_t btn = plat_buttons(), lb, mb, gb, kb, kd;
     if (pop.on) {                        /* a pop-up up: the buttons wait (the keys and MIDI play on) */
         if (popup_input(btn))
             btn = 0;
@@ -4080,10 +4370,10 @@ static void input(void)
         static uint8_t was;
         if (was == PG_SCENES && st.page != PG_SCENES &&
             (set.load != st.v[P_LOAD] || set.magic != SET_MAGIC))
-            prefs_save();
+            prefs_later();
         was = st.page;
     }
-    if (st.prefs_due && !st.store_hold)   /* (asked while a backup streamed) */
+    if (st.prefs_due && !st.store_hold && (st.prefs_due == 2 || prefs_quiet()))   /* (kept: when nothing sounds) */
         prefs_save();
     if (frasil_pump_gain() < pump_low)
         pump_low = frasil_pump_gain();
@@ -4107,8 +4397,9 @@ static void input(void)
     }
     /* the buttons' lights, four levels (lights_set): the function buttons at the mid level, their names readable in the
      * dark; lit, what is chosen or on: the page's button, FX while the cloud is held, SEQ swelling. PLAY in the glow,
-     * lit while anything sounds. REC at the mid level; while a sequencer records on STEP, lit; LIVE, flashing on the
-     * sequence's beats (as the metronome counts them), twice as quick as OCT. OCT- and OCT+ in the glow, a little
+     * lit while anything sounds. REC in the glow (brighter, it would read as recording: at power-on, say); while a
+     * sequencer records on STEP, lit; LIVE, flashing on the sequence's beats (as the metronome counts them), twice as
+     * quick as OCT. OCT- and OCT+ in the glow, a little
      * brighter on the beat (MIDI clock, else TEMPO; app_tick). SAVE lit while the sound differs from the scene's. LFO
      * in the glow while no LFO runs. ARP, off its pages, a flash on each of GLINT's steps; SEQ, off its pages, on each
      * of the bass's sequence's NOTEs */
@@ -4141,7 +4432,7 @@ static void input(void)
             lb |= 1u << B_SEQ;
     }
     if (!st.v[P_SQ_REC] && !st.v[P_BQ_REC])
-        mb |= 1u << B_REC;
+        gb |= 1u << B_REC;
     else if (st.v[P_SQ_REC] != 2u && st.v[P_BQ_REC] != 2u)   /* STEP: lit, steady */
         lb |= 1u << B_REC;
     else if ((uint32_t)(mtr.at >= 0.0f ? mtr.at : arp.tick) % 12u < 3u)   /* LIVE: the first quarter of each
@@ -4153,16 +4444,8 @@ static void input(void)
     oct_soft = (uint32_t)arp.tick % 24u < 6u;   /* the first quarter of each beat */
     if (st.swell_btn > 0.0f)
         lb |= 1u << B_ENV;
-    frasil_view(v);
-    for (i = 0; i < FR_NV; i++)
-        if (v[i].note >= 0)
-            lb |= 1u << B_PLAY;
-    {                                    /* and the bass */
-        bass_view_t bv;
-        frasil_bass_view(&bv);
-        if (bv.note >= 0)
-            lb |= 1u << B_PLAY;
-    }
+    if (play_lit())
+        lb |= 1u << B_PLAY;
     keys_lights(&kb, &kd);
     lights_set(lb, mb & ~lb, gb & ~(lb | mb), kb, kd);
 }
@@ -4173,6 +4456,7 @@ void app_input_only(void) { input(); }
 static struct {
     char msg[2][24];
     uint32_t msg_until;
+    uint8_t red;                         /* its second line bold and bright red (say_red) */
 } say;
 
 static int text_is(const char *a, const char *b)
@@ -4214,6 +4498,7 @@ void app_say(const char *a, const char *b)
         say.msg[1][i] = b[i];
     say.msg[1][i] = 0;
     say.msg_until = plat_ms() + 1300u;
+    say.red = 0;
     if (ann_on()) {                          /* and to a screen reader (announce.c, fm1-reader) */
         t[0] = 0;
         text_cat(t, say.msg[0]);
@@ -4226,6 +4511,7 @@ void app_say(const char *a, const char *b)
 }
 
 static void say_clear(void) { say.msg_until = 0; }   /* the words gone (a hold undone: hold_undo) */
+static void say_red(void) { say.red = 1; }
 
 #include "ui.c"
 
@@ -4250,11 +4536,259 @@ void app_ui_init(void)
     ui_init();
 }
 
+/* ------------------------------------------------------- PERFORM over USB --- */
+/* Perform (perform.frasilsynth.com): a page on the computer shows the play as it goes, very large (a projector on a
+ * stage, a film). The page asks and the FM-1 tells; nothing is built or sent while no page listens (a DAW on the port
+ * never sees a byte), and never from the render: the main loop, once a UI frame, from what the screen knows already.
+ * SysEx over USB-MIDI, F0 7D 46 50 cmd .. F7 ("FP"; design/perform/README.md):
+ *   page -> FM-1  1 HELLO ver     listen (again every ~2 s: a page not heard for 5 s is gone; each one has SCENE and
+ *                                 PAGE told again, a frame the page may have missed)
+ *                 2 BYE           stop
+ *   FM-1 -> page  1 HELLO ver, NPARAM (2), the version (ASCII)            the answer to each HELLO
+ *                 2 SCENE slot (16: NEW SHARD), dirty, name (16 ASCII)     at HELLO, and when one of them changes
+ *                 3 VALUES first (2), n, then n values (2 each)            every setting: at HELLO, after a load
+ *                 4 VALUE p (2), v (2), enc (EN_*, 127: no knob's)          a setting that moved
+ *                 5 PAGE page, octave + 3, keys (0 DRONE, 1 GLINT, 2 BASS)  when one of them changes
+ *                 6 FRAME 20 a second, what sounds: the drones' 8 (note, level), GLINT's 4 (note, level as heard,
+ *                   1/20 s since struck), the bass (note, level), the LFOs on (bits), then each LFO where in its turn
+ *                   (0..127), its value ((-1..1) to 0..127) and its turns (3 bytes: RANDOM's and DRIFT's values, the
+ *                   page's lfo_rnd as app.c's), then the tracks' meters (drones, bass, glints, the cloud); a note 127:
+ *                   none; levels 0..127
+ *                 7 BUTTON b (B_*), down
+ * Two bytes: 7-bit high, low. Each frame goes whole or not at all, never waiting (plat_sysex_try): one that does not
+ * fit now (the computer not reading, a backup or the screen reader on the wire) is tried again at the next UI frame.
+ * A backup streaming (app_backup_hold): quiet. */
+#ifndef PLAT_WEB
+#define PF_VER 1u
+#define PF_DUMP 48u                      /* settings in one VALUES (a SysEx ring's third) */
+static struct {
+    uint32_t heard, frame_at, btn, kd;   /* (kd: the keys held, as the page knows them) */
+    uint8_t on, page, oct, keys, scene, dirty, dump;   /* dump: the next VALUES' first setting + 1 (0: none due) */
+    uint8_t v[NPARAM];                   /* each setting as the page knows it */
+} pf;
+
+/* COMPUTER AUDIO on the page (HELLO's flags, bit 0), or the page gone (BYE, not heard for 5 s): the FM-1's own output
+ * quiet, or as SPK/JACK says again */
+static void pf_quiet(int q)
+{
+    if ((q != 0) == spk_page)
+        return;
+    spk_page = (uint8_t)(q != 0);
+    plat_speaker(st.v[P_SPEAKER] && !spk_page);
+}
+
+static int pf_send(const uint8_t *b, uint32_t n)   /* F0 7D 46 50 b.. F7, whole or not at all: 0 = sent */
+{
+    uint8_t f[4u + 2u * PF_DUMP + 8u];
+    uint32_t i;
+    if (n + 5u > sizeof f)
+        return -1;
+    f[0] = 0xF0u, f[1] = 0x7Du, f[2] = 0x46u, f[3] = 0x50u;
+    for (i = 0; i < n; i++)
+        f[4u + i] = b[i] & 0x7Fu;
+    f[4u + n] = 0xF7u;
+    return plat_sysex_try(f, n + 5u);
+}
+
+static uint32_t pf_two(uint8_t *b, uint32_t v)
+{
+    b[0] = (uint8_t)(v >> 7 & 0x7Fu);
+    b[1] = (uint8_t)(v & 0x7Fu);
+    return 2u;
+}
+
+static uint8_t pf_note(int n) { return n < 0 || n > 126 ? 127u : (uint8_t)n; }
+static uint8_t pf_lvl(float l) { return (uint8_t)(br_clamp01(l) * 127.0f + 0.5f); }
+
+static int pf_scene(void)
+{
+    scene_t sc;
+    char t[SC_NAME + 1];
+    uint8_t b[3u + SC_NAME];
+    uint32_t i;
+    scene_get(st.scene, &sc);
+    name_text(&sc, t);
+    b[0] = 2u, b[1] = st.scene, b[2] = st.dirty != 0;
+    for (i = 0; i < SC_NAME; i++)
+        b[3u + i] = (uint8_t)(t[i] && t[i] < 0x7F ? t[i] : ' ');
+    for (i = 0; i < SC_NAME && t[i]; i++)
+        ;
+    if (pf_send(b, 3u + i))
+        return -1;
+    pf.scene = st.scene, pf.dirty = st.dirty != 0;
+    return 0;
+}
+
+/* the transport, each track playing (bits): 1 the drones (a chord latched or held, from the keys or MIDI), 2 GLINT
+ * (its arpeggio going, not waiting; its sequence running), 4 the bass (its note held or latched; its sequence running) */
+static uint8_t pf_playing(void)
+{
+    uint32_t k, dr = 0;
+    int gl = (st.v[P_SQ_TYPE] == SQT_ARP && arp.n && !arp.paused) || (st.v[P_SQ_TYPE] == SQT_SEQ && sq.run);
+    int bs = bass_note >= 0 || mb_n || (st.v[P_BQ_ON] && bq.run);
+    for (k = 0; k < 4u; k++)
+        dr |= lit[k] | mid_on[k] | sus[k];
+    return (uint8_t)((dr != 0) | (gl != 0) << 1 | (bs != 0) << 2);
+}
+
+static void pf_frame(void)
+{
+    frasil_view_t v[FR_NV];
+    glint_view_t g[GLINT_NV];
+    bass_view_t bv;
+    uint8_t b[1u + 2u * FR_NV + 3u * GLINT_NV + 3u + 5u * NLFO + 4u + 1u], *p = b;
+    uint32_t i, on = 0;
+    float m[4];
+    frasil_view(v);
+    frasil_glint_view(g);
+    frasil_bass_view(&bv);
+    *p++ = 6u;
+    for (i = 0; i < FR_NV; i++) {
+        *p++ = pf_note(v[i].level > 0.0f ? v[i].note : -1);
+        *p++ = v[i].note < 0 ? 0u : pf_lvl(v[i].level);
+    }
+    for (i = 0; i < GLINT_NV; i++) {
+        float l = g[i].level;
+        *p++ = pf_note(l < 0.004f ? -1 : g[i].note);
+        *p++ = g[i].note < 0 || l < 0.004f ? 0u : pf_lvl(1.0f + fm_log2f(l) * (1.0f / 8.0f));
+        *p++ = (uint8_t)(g[i].t * 20.0f > 127.0f ? 127u : (uint32_t)(g[i].t * 20.0f));
+    }
+    *p++ = pf_note(bv.level > 0.0f ? bv.note : -1);
+    *p++ = bv.note < 0 ? 0u : pf_lvl(bv.level);
+    for (i = 0; i < NLFO; i++)
+        on |= (uint32_t)(lfo[i].on != 0) << i;
+    *p++ = (uint8_t)on;
+    for (i = 0; i < NLFO; i++) {
+        *p++ = pf_lvl(lfo[i].ph);
+        *p++ = pf_lvl(0.5f + 0.5f * lfo[i].out);
+        *p++ = (uint8_t)(lfo[i].cyc >> 14 & 0x7Fu);
+        *p++ = (uint8_t)(lfo[i].cyc >> 7 & 0x7Fu);
+        *p++ = (uint8_t)(lfo[i].cyc & 0x7Fu);
+    }
+    frasil_meters(m);
+    for (i = 0; i < 4u; i++)
+        *p++ = pf_lvl(m[i]);
+    *p++ = pf_playing();
+    pf_send(b, (uint32_t)(p - b));
+}
+
+/* a UI frame: what changed since the page last heard, then what sounds (20 a second) */
+static void pf_tick(void)
+{
+    uint32_t now = plat_ms(), i, n, sent = 0, btn, k;
+    uint8_t b[4u + 2u * PF_DUMP], keys = st.glint ? 1u : st.bass ? 2u : 0u;
+    if (!pf.on)
+        return;
+    if (now - pf.heard > 5000u) {
+        pf.on = 0;
+        pf_quiet(0);
+        return;
+    }
+    if (st.store_hold)                   /* a backup streaming: its frames alone on the wire */
+        return;
+    if ((st.scene != pf.scene || (st.dirty != 0) != pf.dirty) && pf_scene())
+        return;                          /* (no room now: all of it at the next frame) */
+    if (st.page != pf.page || st.octave + 3 != pf.oct || keys != pf.keys) {
+        b[0] = 5u, b[1] = st.page, b[2] = (uint8_t)(st.octave + 3), b[3] = keys;
+        if (pf_send(b, 4u))
+            return;
+        pf.page = st.page, pf.oct = (uint8_t)(st.octave + 3), pf.keys = keys;
+    }
+    for (i = n = 0; i < NPARAM; i++)
+        n += st.v[i] != pf.v[i];
+    if (n > 24u && !pf.dump)             /* a scene loaded: every setting again */
+        pf.dump = 1u;
+    if (pf.dump) {
+        uint32_t first = pf.dump - 1u, cnt = NPARAM - first < PF_DUMP ? NPARAM - first : PF_DUMP;
+        b[0] = 3u;
+        pf_two(b + 1, first);
+        b[3] = (uint8_t)cnt;
+        for (i = 0; i < cnt; i++)
+            pf_two(b + 4u + 2u * i, st.v[first + i]);
+        if (pf_send(b, 4u + 2u * cnt))
+            return;
+        for (i = 0; i < cnt; i++)
+            pf.v[first + i] = st.v[first + i];
+        pf.dump = first + cnt >= NPARAM ? 0u : (uint8_t)(first + cnt + 1u);
+    } else {
+        for (i = 0; i < NPARAM && sent < 8u; i++) {
+            if (st.v[i] == pf.v[i])
+                continue;
+            b[0] = 4u;
+            pf_two(b + 1, i);
+            pf_two(b + 3, st.v[i]);
+            b[5] = i == st.touched && touched_now() ? st.touched_enc : 127u;
+            if (pf_send(b, 6u))
+                return;
+            pf.v[i] = st.v[i];
+            sent++;
+        }
+    }
+    btn = plat_buttons();
+    for (k = 0; k < NB; k++)
+        if ((btn ^ pf.btn) >> k & 1u) {
+            b[0] = 7u, b[1] = (uint8_t)k, b[2] = (uint8_t)(btn >> k & 1u);
+            if (pf_send(b, 3u))
+                return;
+            pf.btn ^= 1u << k;
+        }
+    if (keys_prev != pf.kd) {            /* the hand on THE KEYS: the keys held (bit k: key k, F3 up), in four 7-bit bytes */
+        b[0] = 8u;
+        for (k = 0; k < 4u; k++)
+            b[1u + k] = (uint8_t)(keys_prev >> (7u * k) & 0x7Fu);
+        if (pf_send(b, 5u))
+            return;
+        pf.kd = keys_prev;
+    }
+    if (now - pf.frame_at >= 50u) {
+        pf.frame_at = now;
+        pf_frame();
+    }
+}
+
+int app_sysex(const uint8_t *p, uint32_t n)
+{
+    static const char ver[] = APP_VERSION;
+    uint8_t b[4u + sizeof ver];
+    uint32_t i;
+    if (n < 4u || p[0] != 0x7Du || p[1] != 0x46u || p[2] != 0x50u)
+        return 0;
+    if (p[3] == 2u) {
+        pf.on = 0;
+        pf_quiet(0);
+        return 1;
+    }
+    if (p[3] != 1u)
+        return 1;
+    pf_quiet(n > 5u && p[5] < 0x80u && (p[5] & 1u));   /* (HELLO: version, then flags: 1 COMPUTER AUDIO) */
+    if (!pf.on) {                        /* a page arrives: everything, from the start */
+        pf.on = 1;
+        pf.scene = 0xFFu, pf.page = 0xFFu, pf.dump = 1u;
+        pf.btn = plat_buttons();
+        pf.kd = keys_prev;
+        pf.frame_at = plat_ms();
+    }
+    pf.scene = 0xFFu, pf.page = 0xFFu;   /* (told again: one the page missed comes back within 2 s) */
+    pf.heard = plat_ms();
+    if (st.store_hold)                   /* a backup streaming: heard, not answered */
+        return 1;
+    b[0] = 1u, b[1] = PF_VER;
+    pf_two(b + 2, NPARAM);
+    for (i = 0; ver[i]; i++)
+        b[4u + i] = (uint8_t)ver[i];
+    pf_send(b, 4u + i);
+    return 1;
+}
+#else
+static void pf_tick(void) {}
+#endif
+
 void app_frame(void)
 {
     input();
     load_watch();
     ui_frame();
+    pf_tick();
 }
 
 /* --------------------------------------------- backup and restore over USB --- */
@@ -4398,6 +4932,10 @@ int app_expect(const char *what, int *got)
         *got = (int)st.hiclicks;
     } else if (!strcmp(what, "metro")) {
         *got = st.metro;
+    } else if (!strcmp(what, "extclock")) {  /* a MIDI clock leading the grid now (one came in this half second) */
+        *got = plat_ms() - arp.clk_at < 500u;
+    } else if (!strcmp(what, "prefsdue")) {  /* the settings asked to be kept, not yet (something sounding) */
+        *got = st.prefs_due;
     } else if (!strcmp(what, "sparkles")) {  /* SPARKLE's glints played */
         *got = (int)spk.n;
     } else if (!strcmp(what, "compgr")) {    /* the compressor's reduction, dB x 10 */
@@ -4438,6 +4976,8 @@ int app_expect(const char *what, int *got)
         *got = play_holding() > 0.0f;
     else if (!strcmp(what, "morph"))     /* a scene's MORPH under way */
         *got = mo.on;
+    else if (!strcmp(what, "overlay"))   /* a value shown large over the strip */
+        *got = overlay_on();
     else if (!strcmp(what, "compare"))   /* EDIT held: the scene as saved sounding */
         *got = st.compare;
     else if (!strncmp(what, "used", 4))  /* usedN: slot N has a saved scene */
@@ -4523,6 +5063,11 @@ int app_expect(const char *what, int *got)
         *got = st.scene;
     else if (!strcmp(what, "shed"))
         *got = frasil_shed_level();
+    else if (!strcmp(what, "cloudlvl") || !strcmp(what, "dronelvl")) {   /* the cloud's (the drones') recent peak x 1000 */
+        float m[4];
+        frasil_meters(m);
+        *got = (int)(m[what[0] == 'c' ? 3 : 0] * 1000.0f);
+    }
     else if (!strncmp(what, "lit", 3))       /* litN: a chord on root N latched */
         *got = bit_get(lit, atoi(what + 3));
     else if (!strncmp(what, "on", 2))        /* onN: note N sounding (held by a chord) */
@@ -4575,8 +5120,8 @@ static void js_layouts(FILE *f, const layout_t *l, uint32_t n, int scenes)   /* 
         fprintf(f, "%s{\"magic\":", i ? "," : "");
         js_magic(f, l[i].magic);
         fprintf(f, ",\"nv\":%u,\"extra\":%u", l[i].nv, l[i].extra);
-        if (scenes)
-            fprintf(f, ",\"name\":%u", name_bytes(&l[i]));
+        if (scenes)                      /* (seq: GLINT's sequence in its record; FRSo's in OBJ_BSEQ) */
+            fprintf(f, ",\"name\":%u,\"seq\":%u", name_bytes(&l[i]), seq_bytes(&l[i]) ? 1u : 0u);
         fputc('}', f);
     }
     fputc(']', f);
@@ -4609,19 +5154,20 @@ static int schema_write(const char *path)
             (unsigned)SCN_BYTES);
     fprintf(f, "\"bseqs_t\":{\"size\":%u,\"magic\":0,\"s\":4,\"scene\":%u},\n", (unsigned)BSQ_BYTES, (unsigned)BSQ_SCENE);
     fprintf(f, "\"settings_t\":{\"size\":%u,\"magic\":%u,\"v\":%u,\"octave\":%u,\"keys\":%u,\"channel\":%u,"
-               "\"scene\":%u,\"tempo\":%u,\"ch_glint\":%u,\"ch_bass\":%u,\"seq\":%u,\"metro_off\":%u,\"morph\":%u,"
+               "\"scene\":%u,\"tempo\":%u,\"ch_glint\":%u,\"ch_bass\":%u,\"seq\":%u,\"metro_off\":%u,\"speaker_off\":%u,"
                "\"load\":%u,\"learn_cc\":%u,\"learn_p\":%u,\"bnote\":%u,\"blen\":%u,\"bq_on\":%u,\"bq_steps\":%u,"
-               "\"bq_trans\":%u},\n",
+               "\"bq_trans\":%u,\"anim\":%u,\"clock\":%u},\n",
             (unsigned)sizeof(settings_t), (unsigned)offsetof(settings_t, magic), (unsigned)offsetof(settings_t, v),
             (unsigned)offsetof(settings_t, octave), (unsigned)offsetof(settings_t, keys),
             (unsigned)offsetof(settings_t, channel), (unsigned)offsetof(settings_t, scene),
             (unsigned)offsetof(settings_t, tempo), (unsigned)offsetof(settings_t, ch_glint),
             (unsigned)offsetof(settings_t, ch_bass), (unsigned)offsetof(settings_t, seq),
-            (unsigned)offsetof(settings_t, metro_off), (unsigned)offsetof(settings_t, morph),
+            (unsigned)offsetof(settings_t, metro_off), (unsigned)offsetof(settings_t, speaker_off),
             (unsigned)offsetof(settings_t, load), (unsigned)offsetof(settings_t, learn_cc),
             (unsigned)offsetof(settings_t, learn_p), (unsigned)offsetof(settings_t, bnote),
             (unsigned)offsetof(settings_t, blen), (unsigned)offsetof(settings_t, bq_on),
-            (unsigned)offsetof(settings_t, bq_steps), (unsigned)offsetof(settings_t, bq_trans));
+            (unsigned)offsetof(settings_t, bq_steps), (unsigned)offsetof(settings_t, bq_trans),
+            (unsigned)offsetof(settings_t, anim), (unsigned)offsetof(settings_t, clock));
     fprintf(f, "\"magic\":{\"scenes\":");
     js_magic(f, SCN_MAGIC);
     fprintf(f, ",\"bseqs\":");
@@ -4638,24 +5184,34 @@ static int schema_write(const char *path)
     fprintf(f, "\"bseq\":{\"cut\":%u,\"hold\":%u,\"ticks\":[", SQ_REST, SQ_TIE);   /* (a STEP LENGTH's, MIDI clocks) */
     for (i = 0; i < NBQLEN; i++)
         fprintf(f, "%s%u", i ? "," : "", BQ_TICKS[i]);
-    /* a shard of an earlier layout: its name and NV sounds, then the rest of its scene's record as this one's (REC bytes
-     * in all), then its bass's sequence (SIZE - REC bytes, the rest of it, and all of it in FRSh's, an empty one's:
-     * TEMPO at its default); SCATTER where GLINT's RELEASE is, made over (scatter_gone): FRSm, FRSk, FRSi, then FRSh */
+    /* a shard of an earlier layout: its name and NV sounds, then the rest of its scene up to the bass's sequence (to
+     * REC: GLINT's sequence in it), then its bass's sequence (SIZE - REC bytes, from bnote on; none in FRSh's: an empty
+     * one's, TEMPO at its default); SCATTER where GLINT's RELEASE is, made over (scatter_gone): FRSn, FRSm, FRSk, FRSi,
+     * then FRSh */
     fprintf(f, "]},\n\"old_shards\":[{\"magic\":");
+    js_magic(f, SHARD_FRSP);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":0},{\"magic\":",
+            (unsigned)(SC_NAME + FRSO_NV + SC_TAIL + FRBT_SCENE), FRSO_NV, (unsigned)(SC_NAME + FRSO_NV + SC_TAIL));
+    js_magic(f, SHARD_FRSN);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":0},{\"magic\":", (unsigned)(FRSL_REC + FRBT_SCENE),
+            FRSL_NV, (unsigned)FRSL_REC);
     js_magic(f, SHARD_FRSM);
-    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":0},{\"magic\":", (unsigned)(SC_REC + FRBS_SCENE),
-            (unsigned)NSOUND, (unsigned)SC_REC);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":0},{\"magic\":", (unsigned)(FRSL_REC + FRBS_SCENE),
+            FRSL_NV, (unsigned)FRSL_REC);
     js_magic(f, SHARD_FRSK);
-    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":1},{\"magic\":", (unsigned)(SC_REC + FRBS_SCENE),
-            (unsigned)NSOUND, (unsigned)SC_REC);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":1},{\"magic\":", (unsigned)(FRSL_REC + FRBS_SCENE),
+            FRSL_NV, (unsigned)FRSL_REC);
     js_magic(f, SHARD_FRSI);
     fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":1},{\"magic\":", (unsigned)(FRSH_REC + FRBS_SCENE),
             FRSH_NV, (unsigned)FRSH_REC);
     js_magic(f, SCN_FRSH);
     fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":1}],\n\"old_bseqs\":[{\"magic\":", (unsigned)FRSH_REC,
             FRSH_NV, (unsigned)FRSH_REC);
-    js_magic(f, BSQ_FRBS);               /* (the basses' record before the scenes' TEMPO: a scene's FRBS_SCENE bytes) */
-    fprintf(f, ",\"scene\":%u}],\n\"old_scenes\":", (unsigned)FRBS_SCENE);
+    js_magic(f, BSQ_FRBT);               /* (the basses' record with FRSl's scenes: a scene's FRBT_SCENE bytes, from its
+                                          * bass's notes on: at that offset in this one's) */
+    fprintf(f, ",\"scene\":%u,\"at\":%u},{\"magic\":", (unsigned)FRBT_SCENE, (unsigned)SC_SEQ);
+    js_magic(f, BSQ_FRBS);               /* (the one before the scenes' TEMPO: a scene's FRBS_SCENE bytes) */
+    fprintf(f, ",\"scene\":%u,\"at\":%u}],\n\"old_scenes\":", (unsigned)FRBS_SCENE, (unsigned)SC_SEQ);
     js_layouts(f, OLD_SCN, sizeof OLD_SCN / sizeof OLD_SCN[0], 1);
     fprintf(f, ",\n\"old_settings\":");
     js_layouts(f, OLD_SET, sizeof OLD_SET / sizeof OLD_SET[0], 0);
@@ -4663,9 +5219,14 @@ static int schema_write(const char *path)
      * numbered so), SIZE bytes, those after the sound to END as this one's (the bass's sequence: none, empty): FRSI,
      * FRSH, FRSG */
     fprintf(f, ",\n\"old_settings_over\":[{\"magic\":");
+    js_magic(f, SET_FRSK);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u,\"scatter\":0,\"speaker\":1},{\"magic\":", FRSK_BYTES,
+            FRSO_NV, (unsigned)(4u + FRSO_NV + offsetof(settings_t, anim) - offsetof(settings_t, octave)));
+            /* (speaker: its byte SPK/JACK's already; the others', MORPH's) */
+    js_magic(f, SET_FRSJ);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u,\"scatter\":0},{\"magic\":", FRSJ_BYTES, FRSL_NV, FRSJ_BYTES);
     js_magic(f, SET_FRSI);
-    fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u,\"scatter\":1},{\"magic\":", (unsigned)sizeof(settings_t),
-            (unsigned)NSOUND, (unsigned)sizeof(settings_t));
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u,\"scatter\":1},{\"magic\":", FRSJ_BYTES, FRSL_NV, FRSJ_BYTES);
     js_magic(f, SET_FRSH);
     fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u,\"scatter\":1},{\"magic\":", FRSH_BYTES, FRSH_NV, FRSH_BYTES);
     js_magic(f, SET_FRSG);
@@ -4676,6 +5237,9 @@ static int schema_write(const char *path)
     for (i = 0; i < 128u; i++)
         fprintf(f, "%s%u", i ? "," : "", glint_release_of(i));
     fprintf(f, "]}");
+    /* settings whose earlier values read modulo a number now (any layout, as later_defaults has them): GLINT DELAY's
+     * TIME, 12 .. 23 its ping-pong half till 2.5 */
+    fprintf(f, ",\n\"wrap\":[[%d,12]]", (int)P_GD_TIME);
 #define ID(n) fprintf(f, "%s\"" #n "\":%d", k++ ? "," : "", (int)(n))
     fprintf(f, ",\n\"ids\":{");
     k = 0;
@@ -4685,9 +5249,13 @@ static int schema_write(const char *path)
     ID(P_CH_GLINT), ID(P_CH_BASS), ID(P_MORPH), ID(P_LOAD), ID(P_TIMBRE), ID(P_GX_SPARK), ID(P_GX_BLUR);
     ID(P_GX_SINK), ID(P_GD_TIME), ID(P_L1_SHAPE), ID(P_L2_SHAPE), ID(P_L3_SHAPE), ID(P_MX_DRONE), ID(P_MX_BASS);
     ID(P_MX_GLINT), ID(P_MX_CLOUD), ID(PG_ARP), ID(PG_SEQ), ID(PG_SEQ2), ID(PG_SEQ3), ID(PG_SCENES), ID(SQT_ARP);
-    ID(SQT_SEQ), ID(OCT_DEF), ID(P_BQ_ON), ID(P_BQ_STEPS), ID(P_BQ_TRANS), ID(P_BQ_LEN), ID(PG_BSEQ), ID(PG_BSEQ2);
+    ID(SQT_SEQ), ID(OCT_DEF), ID(P_BQ_ON), ID(P_BQ_STEPS), ID(P_BQ_TRANS), ID(P_BQ_LEN), ID(PG_BSEQ), ID(PG_BSEQ2), ID(P_SPEAKER), ID(P_ANIM), ID(P_CLOCK);
     ID(P_BS_ATTACK), ID(P_BS_DECAY), ID(P_BS_SUSTAIN), ID(P_BS_RELEASE), ID(P_BS_PULSE), ID(P_GL_ATTACK);
-    ID(P_GL_DECAY), ID(P_GL_SUSTAIN), ID(P_GL_RELEASE);
+    ID(P_GL_DECAY), ID(P_GL_SUSTAIN), ID(P_GL_RELEASE), ID(P_SQ_STEP), ID(P_SQ_NOTE), ID(P_SQ_ACC), ID(P_SQ_CLEAR);
+    ID(P_BQ_STEP), ID(P_BQ_NOTE), ID(P_BQ_CLEAR), ID(P_EQ_PRESET), ID(P_EQ_LOW), ID(P_EQ_HIGHF), ID(P_FL_TYPE);
+    ID(P_FL_CUT), ID(P_FL_RESO), ID(P_FL_TRACKS), ID(P_TP_ON), ID(P_TP_SAT), ID(P_TP_WOBBLE), ID(P_TP_TRACKS), ID(PG_FILTER);
+    ID(PG_TAPE), ID(PG_EQ), ID(PG_EQ2), ID(PG_ROUTING), ID(PG_SCREEN), ID(P_FL_PRE), ID(P_TP_PRE), ID(P_PUMP_CLOUD);
+    ID(P_PN_DRONE), ID(P_PN_BASS), ID(P_PN_GLINT), ID(P_PN_CLOUD);
 #undef ID
     fprintf(f, "},\n\"params\":[\n");
     for (p = 0; p < NPARAM; p++) {       /* each with its words for every value, as the screen writes them */
@@ -4744,6 +5312,19 @@ static int schema_write(const char *path)
     js_strs(f, SCALE_NAME, NSCALES);
     fprintf(f, ",\"chords\":");
     js_strs(f, CHORD_NAME, NCHORDS);
+    /* harmony.c's own: each scale's pitch classes (bit k: k semitones over the root), each chord's shape (the first
+     * "diatonic" in scale steps, the rest in semitones), as chord_build makes a played note a chord */
+    fprintf(f, ",\n\"harmony\":{\"scale_bits\":[");
+    for (i = 0; i < NSCALES; i++)
+        fprintf(f, "%s%u", i ? "," : "", SCALE_BITS[i]);
+    fprintf(f, "],\"shapes\":[");
+    for (i = 0; i < NCHORDS; i++) {
+        fprintf(f, "%s[", i ? "," : "");
+        for (k = 0; k < MAXCHORD && CHORD_SHAPE[i][k] >= 0; k++)
+            fprintf(f, "%s%d", k ? "," : "", CHORD_SHAPE[i][k]);
+        fputc(']', f);
+    }
+    fprintf(f, "],\"diatonic\":%d}", (int)CH_DIATONIC);
     fprintf(f, ",\n\"factory\":[");      /* each slot with nothing saved in it, as scene_get gives it: its bytes, hex */
     for (i = 0; i < NSCENES; i++) {
         scene_t sc;
@@ -4760,7 +5341,8 @@ static int schema_write(const char *path)
 }
 
 /* the tests' own commands: "schema FILE" (above); "backuphold 1|0" (app_backup_hold, as a backup streaming);
- * "nosettings" (the settings' record gone, as a new FM-1 has none);
+ * "nosettings" (the settings' record gone, as a new FM-1 has none); "prefs" (the settings asked while something
+ * sounded, kept now);
  * "oldstore L" saves the records in an earlier layout, L: 3 FRSV + FRS3 (before BASS), 4 FRSW + FRS4 (SPACE, 10,
  * where MODEL is now), 5 FRSX + FRS5, 6 FRSX + FRS6 (GLINT on channel 5, BASS on 6), 7 FRSY + FRS7, 8 FRSZ + FRS8,
  * 9 FRSa + FRS9, 10 FRSb + FRSA, 11 FRSc + FRSB, 12 FRSd + FRSC, 13 FRSe + FRSD, 14 FRSf + FRSE (the same channels):
@@ -4791,6 +5373,82 @@ static void set_frsh(void)
         if (*l >= NSOUND && *l < NPARAM)
             *l = (uint8_t)(*l - (NSOUND - FRSH_NV));
     }
+}
+
+/* the settings' record as FRSJ kept it (the sound FRSL_NV long; magic gm), the scenes' as FRSl did (GLINT's sequence in
+ * each scene's record; magic sm), the basses' as FRBT did (from the bass's notes on), each from what is now */
+static void old_frsj(uint32_t gm)
+{
+    uint32_t i;
+    memcpy(raw, &set, 4u + FRSL_NV);
+    memcpy(raw + 4u + FRSL_NV, (uint8_t *)&set + offsetof(settings_t, octave), FRSJ_BYTES - 4u - FRSL_NV);
+    for (i = 0; i < 4u; i++)
+        raw[i] = (uint8_t)(gm >> (8u * i));
+    for (i = 0; i < NLEARN; i++) {
+        uint8_t *l = raw + offsetof(settings_t, learn_p) - (NSOUND - FRSL_NV) + i;
+        if (*l >= NSOUND && *l < NPARAM)
+            *l = (uint8_t)(*l - (NSOUND - FRSL_NV));
+    }
+    plat_store_save(OBJ_SETTINGS, raw, FRSJ_BYTES);
+}
+
+static void old_frsl(uint32_t sm)
+{
+    uint32_t i;
+    uint8_t *o;
+    memcpy(raw, &scn, 8u);
+    for (i = 0; i < 4u; i++)
+        raw[i] = (uint8_t)(sm >> (8u * i));
+    for (i = 0; i < NSCENES; i++) {
+        o = raw + 8u + i * FRSL_REC;
+        memcpy(o, &scn.s[i], SC_NAME + FRSL_NV);
+        memcpy(o + SC_NAME + FRSL_NV, &scn.s[i].nch, SC_TAIL);
+    }
+    plat_store_save(OBJ_SCENES, raw, 8u + NSCENES * FRSL_REC);
+}
+
+/* the settings' record as 2.5's betas kept it (FRSK: the sound FRSO_NV long, no ANIMATIONS: its byte the padding,
+ * written 0), the scenes' as they did (FRSo: each up to GLINT's sequence, the sound FRSO_NV long); OBJ_BSEQ as it is */
+static void old_frsk(void)
+{
+    uint32_t i;
+    memset(raw, 0, FRSK_BYTES);
+    memcpy(raw, &set, 4u + FRSO_NV);
+    memcpy(raw + 4u + FRSO_NV, (uint8_t *)&set + offsetof(settings_t, octave),
+           offsetof(settings_t, anim) - offsetof(settings_t, octave));
+    for (i = 0; i < 4u; i++)
+        raw[i] = (uint8_t)(SET_FRSK >> (8u * i));
+    for (i = 0; i < NLEARN; i++) {
+        uint8_t *l = raw + offsetof(settings_t, learn_p) - (NSOUND - FRSO_NV) + i;
+        if (*l >= NSOUND && *l < NPARAM)
+            *l = (uint8_t)(*l - (NSOUND - FRSO_NV));
+    }
+    plat_store_save(OBJ_SETTINGS, raw, FRSK_BYTES);
+}
+
+static void old_frso(void)
+{
+    uint32_t i, rec = SC_NAME + FRSO_NV + SC_TAIL - SC_SEQ;
+    uint8_t *o;
+    memcpy(raw, &scn, 8u);
+    for (i = 0; i < 4u; i++)
+        raw[i] = (uint8_t)(SCN_FRSO >> (8u * i));
+    for (i = 0; i < NSCENES; i++) {
+        o = raw + 8u + i * rec;
+        memcpy(o, &scn.s[i], SC_NAME + FRSO_NV);
+        memcpy(o + SC_NAME + FRSO_NV, &scn.s[i].nch, SC_TAIL - SC_SEQ);
+    }
+    plat_store_save(OBJ_SCENES, raw, 8u + NSCENES * rec);
+}
+
+static void old_frbt(uint32_t bm, uint32_t n)   /* (FRBT's FRBT_SCENE a scene, FRBS's FRBS_SCENE) */
+{
+    uint32_t i;
+    for (i = 0; i < 4u; i++)
+        raw[i] = (uint8_t)(bm >> (8u * i));
+    for (i = 0; i < NSCENES; i++)
+        memcpy(raw + 4u + i * n, scn.s[i].bnote, n);
+    plat_store_save(OBJ_BSEQ, raw, 4u + NSCENES * n);
 }
 
 /* the tests' own scene (testscene): 1.1's first factory scene, MIST, as it was (the tests were written on it; the
@@ -4838,6 +5496,12 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     if (!strcmp(cmd, "schema")) {        /* schema FILE: the backup page's (schema_write) */
         if (schema_write(a))
             printf("schema: cannot write %s\n", a);
+        return 1;
+    }
+    if (!strcmp(cmd, "prefs")) {         /* prefs: the settings asked to be kept while something sounded, kept now (as
+                                          * the quiet after it would), for a reboot or an old store */
+        if (st.prefs_due)
+            prefs_save();
         return 1;
     }
     if (!strcmp(cmd, "nosettings")) {    /* nosettings: the settings never saved, as on a new FM-1 (the scenes kept),
@@ -4894,7 +5558,7 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         for (i = 0; i < NSCENES; i++) {
             o = raw + 8u + i * FRSH_REC;
             memcpy(o, &scn.s[i], SC_NAME + FRSH_NV);
-            memcpy(o + SC_NAME + FRSH_NV, &scn.s[i].nch, SC_REC - SC_NAME - NSOUND);
+            memcpy(o + SC_NAME + FRSH_NV, &scn.s[i].nch, SC_TAIL);
         }
         plat_store_save(OBJ_SCENES, raw, 8u + NSCENES * FRSH_REC);
         return 1;
@@ -4903,29 +5567,38 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
                                                   * FRSI): the scenes and the settings as last saved, SCATTER (N, else
                                                   * its default 80) where RELEASE is; OBJ_BSEQ as it is */
         uint8_t sc = b && *b ? (uint8_t)atoi(b) : 80u;
-        memcpy(raw, &set, sizeof set);
-        for (i = 0; i < 4u; i++)
-            raw[i] = (uint8_t)(SET_FRSI >> (8u * i));
-        raw[offsetof(settings_t, v) + P_GL_RELEASE] = sc;
-        plat_store_save(OBJ_SETTINGS, raw, sizeof set);
-        memcpy(raw, &scn, 8u);
-        for (i = 0; i < 4u; i++)
-            raw[i] = (uint8_t)(SCN_FRSJ >> (8u * i));
-        for (i = 0; i < NSCENES; i++) {
-            o = raw + 8u + i * SC_REC;
-            memcpy(o, &scn.s[i], SC_REC);
-            o[offsetof(scene_t, v) + P_GL_RELEASE] = sc;
-        }
-        plat_store_save(OBJ_SCENES, raw, 8u + NSCENES * SC_REC);
+        uint8_t keep = set.v[P_GL_RELEASE];
+        set.v[P_GL_RELEASE] = sc;
+        old_frsj(SET_FRSI);
+        set.v[P_GL_RELEASE] = keep;
+        old_frsl(SCN_FRSJ);
+        for (i = 0; i < NSCENES; i++)
+            raw[8u + i * FRSL_REC + SC_NAME + P_GL_RELEASE] = sc;
+        plat_store_save(OBJ_SCENES, raw, 8u + NSCENES * FRSL_REC);
+        old_frbt(BSQ_FRBT, FRBT_SCENE);
         return 1;
     }
     if (!strcmp(cmd, "oldstore") && k == 16) {   /* oldstore 19: 1.1's basses' record before the scenes' TEMPO (FRBS):
-                                                  * each scene's bass as it is, without its TEMPO */
-        for (i = 0; i < 4u; i++)
-            raw[i] = (uint8_t)(BSQ_FRBS >> (8u * i));
-        for (i = 0; i < NSCENES; i++)
-            memcpy(raw + 4u + i * FRBS_SCENE, scn.s[i].bnote, FRBS_SCENE);
-        plat_store_save(OBJ_BSEQ, raw, 4u + NSCENES * FRBS_SCENE);
+                                                  * each scene's bass as it is, without its TEMPO; the scenes' and the
+                                                  * scenes' record as FRASIL kept it then (FRSl) */
+        old_frsl(SCN_FRSL);
+        old_frbt(BSQ_FRBS, FRBS_SCENE);
+        return 1;
+    }
+    if (!strcmp(cmd, "oldstore") && k == 17) {   /* oldstore 20: 2.1's first builds' records, before MASTER EQ, MASTER
+                                                  * FILTER and LOFI TAPE (FRSl, FRBT, FRSJ): the scenes, their basses and
+                                                  * the settings as last saved, without them (a CC learned on a setting
+                                                  * after the sound numbered as it was) */
+        old_frsj(SET_FRSJ);
+        old_frsl(SCN_FRSL);
+        old_frbt(BSQ_FRBT, FRBT_SCENE);
+        return 1;
+    }
+    if (!strcmp(cmd, "oldstore") && k == 18) {   /* oldstore 21: 2.5's betas' records (b6 .. b9), before ROUTING, the
+                                                  * pans and ANIMATIONS (FRSo, FRSK; FRBU as now): the scenes and the
+                                                  * settings as last saved, without them */
+        old_frsk();
+        old_frso();
         return 1;
     }
     if (strcmp(cmd, "oldstore") || k < 0 || k > 11)

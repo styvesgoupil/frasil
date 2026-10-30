@@ -14,8 +14,9 @@
     <a class="p-yours" href="/yours/"{{cur_yours}}><span class="nav-long">Your </span>Private<span class="nav-long"> River</span></a>
     <a class="p-nav" href="/"{{cur_community}}>Community<span class="nav-long"> River</span></a>
     <a class="p-tools" href="/tools/"{{cur_tools}}>Tools</a>
-    <a class="rvh-who" href="/yours/#signin" data-who{{cur_profile}}>Sign in</a>
+{{discord_nav}}    <a class="rvh-who" href="/yours/#signin" data-who{{cur_profile}}>Sign in</a>
   </nav>
+  {{menu}}
   <script>   /* who was signed in here last (river-api.js keeps it): the name at once, not Sign in for a moment */
     try { const n = localStorage.getItem("river-me"), a = document.querySelector(".rvh [data-who]");
       if (n && a) { a.textContent = n; a.href = "/profile/"; a.classList.add("is-in"); a.setAttribute("aria-label", "Your profile: signed in as " + n); } } catch (_) {}

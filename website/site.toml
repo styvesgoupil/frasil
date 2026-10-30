@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------- the release status (change these two)
 # Shown at the top right of the landing (where the FM-1's logo screen shows its version), in the footer, on the
 # install sections, and in the guide's Install page.
-status = "2.0.1 · out now"
+status = "2.5 · out now"
 # One or two sentences, plain text, shown next to the install instructions.
 beta_note = "Installing is at your own risk; the installer can always put M-VAVE's own firmware back."
 
@@ -15,6 +15,9 @@ repo = "https://github.com/styvesgoupil/frasil"
 releases = "https://github.com/styvesgoupil/frasil/releases/latest"
 hub = "https://thefirmwarehub.com/#fw-frasil"
 river_url = "https://river.frasilsynth.com/"   # the River: back up the FM-1's scenes, put shards back (its own site)
+perform_url = "https://perform.frasilsynth.com/"   # Perform: the FM-1's play full screen (its own site, build/website/perform)
+# FRASIL's Discord server, Frasil Synth: a permanent invite, in both sites' headers and the footer (empty: no link)
+discord = "https://discord.gg/Bvr5crkY9A"
 
 # ---------------------------------------------------------------- the guide, in reading order
 # slug: the folder (guide/SLUG/), from pages/guide/SLUG.html; group: the sidebar's heading.
@@ -86,6 +89,11 @@ group = "Reference"
 [[guide]]
 slug = "midi"
 title = "MIDI"
+group = "Reference"
+
+[[guide]]
+slug = "perform"
+title = "PERFORM"
 group = "Reference"
 
 [[guide]]

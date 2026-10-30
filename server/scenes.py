@@ -102,6 +102,8 @@ class Schema:
             b = bytearray(b + self.empty_bass[len(b) - self.rec:])   # (the rest of an empty bass: all of it, or TEMPO)
             if old.get("scatter"):
                 b[self.v_at + self.gone["p"]] = self.gone["of"][b[self.v_at + self.gone["decay"]]]
+            for p, m in self.s.get("wrap", []):   # (a setting kept wider then: GLINT DELAY's TIME, 2.5)
+                b[self.v_at + p] %= m
             b = bytes(b)
             try:
                 return self.shard(b, self.layout)
@@ -113,7 +115,7 @@ class Schema:
             return None
         nl = sc["name"]
         size = nl + sc["nv"] + 2 + n["SC_CHORDS"] * 5 + n["SC_ARP"] + (1 if sc["extra"] else 0) + \
-            (n["SC_SEQ"] if sc["extra"] >= 2 else 0)
+            (n["SC_SEQ"] if sc.get("seq", sc["extra"] >= 2) else 0)   # (FRSo's sequence: in the second record)
         if nl >= self.name_len or size - nl != rec["rec"] - self.name_len or len(data) != size:
             return None
         return self.upgraded(bytes(data[:nl]).ljust(self.name_len, b"\0") + bytes(data[nl:]), rec["magic"])

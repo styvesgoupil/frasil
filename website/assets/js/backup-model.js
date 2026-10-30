@@ -17,7 +17,8 @@
 const FB = ((S) => {
   S.params.forEach((p) => { if (typeof p.texts === "number") p.texts = S.texts[p.texts]; });   // (assemble.py shares them)
   const ST = S.scene_t, SS = S.scenes_t, SB = S.bseqs_t, SG = S.settings_t, N = S.sizes, ID = S.ids;
-  const PACK = "frasil-scenes", REC = ST.rec, BQ = SB.scene;   // a scene's bytes in OBJ_SCENES, its bass's in OBJ_BSEQ
+  const PACK = "frasil-scenes", REC = ST.rec, BQ = SB.scene;   // a scene's bytes in OBJ_SCENES, the rest in OBJ_BSEQ
+  const BN = ST.bnote - REC;                                 // (the bass's sequence in the rest: after GLINT's)
   const OBJS = [S.objs.settings, S.objs.scenes, S.objs.bseqs];   // a backup's, in order (app.h APP_BACKUP_OBJS)
 
   const u16 = (b, o) => b[o] | b[o + 1] << 8;
@@ -74,15 +75,16 @@ const FB = ((S) => {
   }
   const NO_BSEQ = bassSeq(joined(new Uint8Array(REC), EMPTY_BQ), ST.bnote, ST.blen, ST.bq);
 
-  /* the basses' record (OBJ_BSEQ): this layout's, or one of S.old_bseqs (FRBS: before the scenes' TEMPO, the settings'
-   * for each, as the FM-1 makes it over) -> slot -> its bass's bytes (BQ), or null (none, or not one) */
+  /* the sequences' record (OBJ_BSEQ): this layout's, or one of S.old_bseqs (from the bass's notes on, at their place in
+   * this one's; FRBS: before the scenes' TEMPO, the settings' for each, as the FM-1 makes it over) -> slot -> the rest of
+   * its scene (BQ: GLINT's sequence empty in an earlier one's), or null (none, or not one) */
   function basses(q, tempo) {
     if (q && q.length === SB.size && magicAt(q, 0) === S.magic.bseqs) return (s) => q.subarray(SB.s + s * BQ, SB.s + (s + 1) * BQ);
     const o = q && S.old_bseqs.find((x) => x.magic === magicAt(q, 0) && q.length === SB.s + N.NSCENES * x.scene);
     if (!o) return null;
     return (s) => {
       const b = Uint8Array.from(EMPTY_BQ);
-      b.set(q.subarray(SB.s + s * o.scene, SB.s + (s + 1) * o.scene));
+      b.set(q.subarray(SB.s + s * o.scene, SB.s + (s + 1) * o.scene), o.at);
       b[ST.tempo - REC] = tempo;
       return b;
     };
@@ -91,6 +93,8 @@ const FB = ((S) => {
    * schema's table, app.c glint_release_of) */
   const SG_ = S.scatter_gone;
   const scatterGone = (b, v) => { b[v + SG_.p] = SG_.of[b[v + SG_.decay]]; };
+  // the settings an earlier layout kept wider: modulo their count now (GLINT DELAY's TIME: its ping-pong half, 2.5)
+  const wrapped = (b, v) => { for (const [p, m] of S.wrap || []) b[v + p] %= m; };
 
   /* a shard of an earlier layout (one of S.old_shards) in this one: its name and its sound, the settings the sound has
    * gained since at their defaults (GLINT's RELEASE where SCATTER was), the rest of its record, then its bass's
@@ -99,10 +103,11 @@ const FB = ((S) => {
     const out = new Uint8Array(ST.size), sv = ST.v + old.nv;
     out.set(b.subarray(0, sv));
     for (let p = old.nv; p < N.NSOUND; p++) out[ST.v + p] = S.params[p].def;
-    out.set(b.subarray(sv, old.rec), ST.v + N.NSOUND);
-    out.set(EMPTY_BQ, REC);                              // (its bass's sequence over an empty one's: TEMPO at its default)
-    out.set(b.subarray(old.rec), REC);
+    out.set(b.subarray(sv, old.rec), ST.v + N.NSOUND);    // (to its bass's sequence: GLINT's in its record)
+    out.set(EMPTY_BQ.subarray(BN), ST.bnote);            // (its bass's sequence over an empty one's: TEMPO at its default)
+    out.set(b.subarray(old.rec), ST.bnote);
     if (old.scatter) scatterGone(out, ST.v);
+    wrapped(out, ST.v);
     return out;
   }
 
@@ -137,13 +142,15 @@ const FB = ((S) => {
       return { layout: old ? magicAt(q, 0) : magic, current: !old, scenes: out };
     }
     const l = S.old_scenes.find((x) => x.magic === magic);
-    const rs = l && l.name + l.nv + 2 + N.SC_CHORDS * 5 + N.SC_ARP + (l.extra ? 1 : 0) + (l.extra >= 2 ? N.SC_SEQ : 0);
+    const rs = l && l.name + l.nv + 2 + N.SC_CHORDS * 5 + N.SC_ARP + (l.extra ? 1 : 0) +
+      ((l.seq !== undefined ? l.seq : l.extra >= 2) ? N.SC_SEQ : 0);   // (FRSo's sequence: in the second record)
     if (!l || p.length !== 8 + N.NSCENES * rs) throw new Error(`The scenes in this file are in a layout this page doesn't know (${magic}). It may come from a newer FRASIL.`);
     const bq = basses(q, tempo);                       // (FRSh's: beside them)
     for (let s = 0; s < N.NSCENES; s++) {             // an earlier FRASIL's: the names and what plays (its sound is
       const o = 8 + s * rs;                           // brought up to date by the FM-1 when restored)
-      const bs = bq ? bassSeq(bq(s), 0, N.SC_BSEQ, 2 * N.SC_BSEQ) : NO_BSEQ;
-      out.push(used >> s & 1 ? { slot: s, state: "saved", current: false, name: text(p, o, l.name), ...plays(p, o, l.name, l.nv, l.extra), bseq: bs }
+      const bs = bq ? bassSeq(bq(s), BN, BN + N.SC_BSEQ, BN + 2 * N.SC_BSEQ) : NO_BSEQ;
+      out.push(used >> s & 1 ? { slot: s, state: "saved", current: false, name: text(p, o, l.name), ...plays(p, o, l.name, l.nv, l.extra), bseq: bs,
+                                 tempo: bq ? bq(s)[ST.tempo - REC] : tempo }
                              : empty(s));
     }
     return { layout: magic, current: false, scenes: out };
@@ -164,6 +171,9 @@ const FB = ((S) => {
       b[SG.bq_steps] = param("P_BQ_STEPS").def;
       b[SG.bq_trans] = param("P_BQ_TRANS").def;
       b.set(p.subarray(4 + over.nv, over.end), SG.octave);
+      if (!over.speaker) b[SG.speaker_off] = 0;            // (MORPH's byte there before 2.5's betas: SPK/JACK on)
+      if (SG.anim !== undefined) b[SG.anim] = 0;            // (a padding byte there: ANIMATIONS NORMAL)
+      wrapped(b, SG.v);
       for (let i = 0; i < N.NLEARN; i++) {
         const x = b[SG.learn_p + i];
         if (x >= over.nv && x < N.NPARAM - add) b[SG.learn_p + i] = x + add;
@@ -179,7 +189,8 @@ const FB = ((S) => {
     return {
       current: true, layout: magic, v: sounding(v), raw_v: Uint8Array.from(v), octave: s8(p[SG.octave]),
       keys: p[SG.keys], channel: p[SG.channel], ch_glint: p[SG.ch_glint], ch_bass: p[SG.ch_bass],
-      scene: p[SG.scene] % N.NSCENES, tempo: p[SG.tempo], metro: !p[SG.metro_off], morph: p[SG.morph],
+      scene: p[SG.scene] % N.NSCENES, tempo: p[SG.tempo], metro: !p[SG.metro_off], speaker: !p[SG.speaker_off],
+      anim: SG.anim !== undefined ? p[SG.anim] : 0,
       load: p[SG.load], learned, seq: Array.from(p.subarray(SG.seq, SG.seq + N.SC_SEQ)),
       bseq: bassSeq(p, SG.bnote, SG.blen, SG.bq_on),
     };

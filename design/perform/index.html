@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MPL-2.0 · Copyright (C) 2026 Styves Goupil -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FRASIL Perform · mockups</title>
+<link rel="stylesheet" href="proto/perform.css">
+<style>
+/* ------------------------------------------------ the mockup's bar (not part of the page) */
+#bar { display: flex; align-items: center; gap: 22px; height: 52px; padding: 0 18px; background: #06080b;
+  border-bottom: 1px solid #151b23; font-size: 15px; font-weight: 600; letter-spacing: .12em; color: var(--mist); }
+#bar .ttl { color: var(--fog); letter-spacing: .3em; margin-right: 8px; white-space: nowrap; }
+#bar .grp { display: flex; gap: 4px; }
+#bar button { background: none; border: 1px solid transparent; border-radius: 7px; padding: 6px 11px; cursor: pointer;
+  letter-spacing: .12em; color: var(--mist); }
+#bar button:hover { color: var(--fog); }
+#bar button.on { border-color: #2b3644; color: var(--white); background: #10161e; }
+#bar kbd { font: inherit; color: var(--slate); margin-right: 6px; }
+#bar .sp { flex: 1; }
+#film-t { color: var(--slate); font-variant-numeric: tabular-nums; }
+body.bare #bar { display: none; }
+
+</style>
+</head>
+<body>
+<div id="bar">
+  <span class="ttl">FRASIL PERFORM</span>
+  <div class="grp" id="frames"></div>
+  <span id="film-t" hidden></span>
+  <span class="sp"></span>
+  <button id="full"><kbd>F</kbd>FULL SCREEN</button>
+</div>
+<div id="wrap">
+  <div id="stage">
+    <canvas id="river"></canvas>
+    <div class="hud">
+      <div class="hud-l"><div class="brand"><canvas class="logo" width="798" height="162" data-src="../../website/assets/img/logo-print.svg" role="img" aria-label="FRASIL"></canvas><svg class="url" viewBox="0 0 231.6 17" width="231.6" height="17" aria-label="frasilsynth.com"><text x="0" y="14" textLength="231.6" lengthAdjust="spacing">FRASILSYNTH.COM</text></svg></div><i class="sep"></i><div class="hud-title"><div id="hud-scene"></div><div id="hud-artist"></div></div></div>
+      <div class="hud-r"><div id="hud-status"></div><div id="hud-keys" class="keys"></div></div>
+    </div>
+    <div id="dock"></div>
+    <div id="connect" hidden>
+      <img class="cn-logo" src="../../website/assets/img/logo-print.svg" alt="FRASIL">
+      <div class="cn-word">PERFORM</div>
+      <svg class="cn-draw" viewBox="0 0 980 210">
+        <!-- the laptop -->
+        <rect x="40" y="40" width="210" height="132" rx="8" class="ln"/>
+        <rect x="54" y="54" width="182" height="104" rx="2" class="scr"/>
+        <path d="M76 120 C 110 110, 140 128, 170 116 S 214 112, 222 118" class="ln dim"/>
+        <path d="M76 132 C 116 124, 150 140, 186 130 S 214 128, 222 132" class="ln dim"/>
+        <path d="M14 182 h262 l-14 -10 h-234 z" class="ln"/>
+        <!-- the cable, the river -->
+        <path d="M276 150 C 360 150, 380 196, 470 190 S 600 130, 700 150" class="cable"/>
+        <!-- the FM-1 -->
+        <rect x="700" y="62" width="264" height="132" rx="14" class="ln"/>
+        <circle cx="730" cy="90" r="9" class="ln dim"/><circle cx="756" cy="90" r="9" class="ln dim"/>
+        <circle cx="730" cy="116" r="9" class="ln dim"/><circle cx="756" cy="116" r="9" class="ln dim"/>
+        <rect x="778" y="74" width="54" height="54" rx="5" class="scr"/>
+        <circle cx="852" cy="86" r="8" class="ln dim"/><circle cx="878" cy="86" r="8" class="ln dim"/>
+        <circle cx="904" cy="86" r="8" class="ln dim"/><circle cx="930" cy="86" r="8" class="ln dim"/>
+        <path d="M716 146 h232 M716 146 v34 h232 v-34 M745 146 v34 M774 146 v34 M803 146 v34 M832 146 v34 M861 146 v34 M890 146 v34 M919 146 v34" class="ln dim"/>
+      </svg>
+      <div class="cn-title">PLUG IN YOUR FM-1</div>
+      <div class="cn-btns"><span class="go">CONNECT</span><span>DEMO</span></div>
+      <div class="cn-foot"><span>CHROME · EDGE</span><span><kbd>F</kbd>FULL SCREEN</span></div>
+    </div>
+  </div>
+</div>
+<script src="data/perform-schema.js"></script>
+<script src="data/perform-data.js"></script>
+<script src="proto/river.js"></script>
+<script src="proto/logo.js"></script>
+<script src="proto/show.js"></script>
+<script src="proto/stage.js"></script>
+</body>
+</html>

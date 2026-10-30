@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (C) 2026 Styves Goupil
 """FRASIL River's service (river.frasilsynth.com/api/): accounts, each one's library of shards and backups, the
-public River. FastAPI and SQLite; Caddy in front (TLS, the site's static files), the same origin for both.
+public River; the waitlists (waitlist.py) and the admin page's (admin.py). FastAPI and SQLite; Caddy in front (TLS,
+the site's static files), the same origin for both.
 
     uvicorn app:create_app --factory --host 0.0.0.0 --port 8080       (the settings: store.Settings, .env.example)
 """
@@ -12,10 +13,12 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+import admin
 import auth
 import guard
 import shards
 import store
+import waitlist
 from scenes import Schema
 
 
@@ -24,6 +27,8 @@ def create_app(settings=None):
     app = FastAPI(title="FRASIL River", docs_url=None, redoc_url=None, openapi_url=None)
     u = urlsplit(s.url)
     app.state.settings, app.state.origin = s, f"{u.scheme}://{u.netloc}"
+    w = urlsplit(s.site_url)
+    app.state.site_origin = f"{w.scheme}://{w.netloc}"   # (the main site's: its waitlist signups)
     app.state.schema, app.state.limiter = Schema(s.schema), guard.Limiter()
     app.state.salt, app.state.kept = store.init(s.db, app.state.schema), 0.0
     app.state.http = httpx.Client(timeout=15)     # (Google's token endpoint)
@@ -46,6 +51,8 @@ def create_app(settings=None):
 
     app.include_router(auth.r)
     app.include_router(shards.r)
+    app.include_router(waitlist.r)
+    app.include_router(admin.r)
     if s.static:                                  # (a local run: the River's page at /, as Caddy serves it)
         from fastapi.staticfiles import StaticFiles
         app.mount("/", StaticFiles(directory=s.static, html=True))

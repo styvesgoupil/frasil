@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>River editor</title>
+<link rel="stylesheet" href="../../website/assets/css/base.css">
+<style>
+  body { background: var(--night); color: var(--fog); margin: 0; }
+  main { max-width: 1320px; margin: 0 auto; padding: 48px 32px 96px; }
+  h1 { font: 600 30px/1 var(--f-ui); letter-spacing: .2em; color: var(--white); margin: 0 0 6px; }
+  .lede { font: 400 18px/1.55 var(--f-text); color: var(--text-2); max-width: 780px; margin: 18px 0 40px; }
+  h2 { font: 600 12px/1.3 var(--f-ui); letter-spacing: .2em; color: var(--mist); margin: 56px 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--rule); }
+  figure { margin: 0 0 40px; }
+  figure img { display: block; max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 0 0 1px var(--rule); }
+  figcaption { font: 400 16px/1.55 var(--f-text); color: var(--text-2); max-width: 840px; margin-top: 12px; }
+  figcaption b { font: 600 11px/1 var(--f-ui); letter-spacing: .16em; color: var(--fog); margin-right: 8px; }
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .phone { display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 32px; align-items: start; }
+  ol, ul { font: 400 16px/1.6 var(--f-text); color: var(--text-2); max-width: 840px; padding-left: 20px; }
+  li { margin-bottom: 8px; }
+  @media (max-width: 900px) { .two, .phone { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<main>
+  <h1>EDITOR</h1>
+  <p class="lede">An opened card is also an editor. Every setting turns as on the FM-1: drag it left or right (or the
+  arrow keys), and a choice opens its list. The sound follows at once, and nothing changes in the shard until you save
+  it as a new one. Each change goes through FRASIL's own engine, as a MIDI CC learned on that setting would, so a
+  preset's sound or CUSTOM after a drone's setting is turned behave exactly as on the device. These pictures were
+  made that way: ABYSS here really plays its edited sound, and its LFO 1, woken up, moves the choir.</p>
+
+  <h2>EDITING YOUR OWN SHARD</h2>
+  <figure><img src="png/30-edit-1440.png" alt=""><figcaption><b>30</b>Three changes on ABYSS, playing: LFO 1's DEPTH
+  (turned now, a lamp frame, where it was beside it), its TARGET 1 on the CHOIR, the cloud's DECAY. A changed setting is
+  lamp, a dot before its name, a slate tick on its gauge where it was; a section holding one has a dot too. One line
+  under the description says so. The head's actions become the editor's: UNDO, REVERT, SAVE AS.</figcaption></figure>
+  <div class="two">
+    <figure><img src="png/31-target-1440.png" alt=""><figcaption><b>31</b>A TARGET's list: OFF, then the forty targets
+    by track, each in its colour.</figcaption></figure>
+    <figure><img src="png/32-choice-1440.png" alt=""><figcaption><b>32</b>A choice (SCALE) opens its list; it can
+    also be dragged or stepped with the arrows, as a knob.</figcaption></figure>
+  </div>
+  <figure><img src="png/33-save-as-own-1440.png" alt=""><figcaption><b>33</b>SAVE AS: a new shard in Your Private
+  River, its name as the FM-1 shows it (16 characters), its description (yours, to change). ABYSS stays as it
+  is.</figcaption></figure>
+
+  <h2>SOMEONE ELSE'S SHARD</h2>
+  <figure><img src="png/34-community-edit-1440.png" alt=""><figcaption><b>34</b>KATABATIC, Mira's, in the Community
+  River: the same editor, on any shard you can open.</figcaption></figure>
+  <div class="two">
+    <figure><img src="png/35-save-as-other-1440.png" alt=""><figcaption><b>35</b>Saved from someone else's: it names
+    them (CC BY 4.0), with the service's own credit (the origin it already keeps for copies).</figcaption></figure>
+    <figure><img src="png/36-save-as-signed-out-1440.png" alt=""><figcaption><b>36</b>Signed out: edit and listen
+    freely; to save, sign in. The changes wait on the page.</figcaption></figure>
+  </div>
+  <figure><img src="png/37-list-after-1440.png" alt=""><figcaption><b>37</b>Afterwards, in Your Private River:
+  KATABATIC II, Mira credited where SHARED would be; ABYSS, closed with changes not saved, says so under its
+  name.</figcaption></figure>
+
+  <h2>A PHONE</h2>
+  <div class="phone">
+    <figure><img src="png/38-edit-390.png" alt=""><figcaption><b>38</b>The same gesture: drag across a setting (a
+    vertical drag still scrolls).</figcaption></figure>
+    <div>
+      <h2 style="margin-top:0">TO DECIDE</h2>
+      <ol>
+        <li>Editing straight away, with no edit mode: every opened card turns, nothing is saved until you choose to.</li>
+        <li>On your own shards, also SAVE (replace it; asked first when it is shared, since others favorited it), beside
+        SAVE AS? On others', SAVE AS only.</li>
+        <li>Today's Edit button (name and description) becomes RENAME, so that "edit" means the sound.</li>
+        <li>Later, not in this step: what plays (the latched notes, the arpeggio, both sequences) and the shard's TEMPO.</li>
+      </ol>
+    </div>
+  </div>
+</main>
+</body>
+</html>

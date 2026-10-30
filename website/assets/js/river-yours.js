@@ -296,6 +296,8 @@
           : pub ? h("span", { class: "st dot" }, h("span", { class: "sr-only" }, "Shared")) : hid ? h("span", { class: "side-mk" }, "Hidden") : null,
       actions: f ? favActs(x, sc) : ownActs(x, sc),
       intro: () => RL.intro(x, { mine: !f, add: () => edit(x, true) }),
+      edit: f ? { saveAs: (o) => saveAs(o, x), from: { name: x.name, author: x.author || "someone", first: x.origin_author || null } }
+              : { saveAs: (o) => saveAs(o, x), save: (bytes) => saveSound(x, bytes), shared: x.visibility === "public", description: x.description },
       onPlay: f && x.shared !== false ? () => A.post(`/api/public/shards/${x.id}/played`).catch(() => {}) : null,
     });
     if (sel.has(x.id)) art.classList.add("kept");
@@ -341,7 +343,7 @@
     const pub = x.visibility === "public", hid = x.visibility === "hidden";
     return [
       RL.act(I.send(15), "Send to FM-1", () => sendOne(sc), { ice: true, of: x.name, act: "send" }),
-      RL.act(I.edit(), "Edit", () => edit(x), { of: x.name, act: "edit" }),
+      RL.act(I.edit(), "Rename", () => edit(x), { of: x.name, act: "edit" }),
       hid ? null : RL.act(I.share(), pub ? "Shared" : "Share", () => share(x), { on: pub, of: x.name, act: "share" }),
       pub ? RL.act(I.link(), "Copy link", () => RL.copyLink(x), { of: x.name, act: "link" }) : null,
       RL.act(null, "Delete", () => remove(x), { txt: true, of: x.name, act: "delete" }),
@@ -457,6 +459,26 @@
       refocus($("list").querySelector(".sr-item"));
       if (gone === n) toast(n === 1 ? [h("b", null, list[0].name), " is deleted."] : `${n} shards deleted.`);
     }
+  }
+
+  // ---------------------------------------------------------------- the editor's SAVE AS and SAVE (river-edit.js)
+  /* a new shard from one edited (one's own, or a favorite: its first author credited): in one's shards, opened */
+  async function saveAs({ bytes, name, description }, x) {
+    const y = await A.post("/api/shards", { name, description, layout: S.magic.shard, firmware: FRASIL_VERSION, data: A.b64(bytes), origin: x.id });
+    shards.unshift(y);
+    known = null;
+    if (subject !== "shards") go("shards"); else paint();
+    const art = $(`m-${y.id}`);
+    if (art) openRow(art, true);
+    toast(h("b", null, y.name), " is saved in your shards.");
+    return art && art.querySelector(".nm-n");     // (the focus there, once the sheet is closed)
+  }
+  /* one's own shard, its sound replaced by the edited one */
+  async function saveSound(x, bytes) {
+    const y = await A.patch(`/api/shards/${x.id}`, { data: A.b64(bytes), layout: S.magic.shard, firmware: FRASIL_VERSION });
+    update(y);
+    known = null;
+    toast(h("b", null, y.name), " is saved.");
   }
 
   // ---------------------------------------------------------------- a shard's name (as the FM-1 shows it) and its description
