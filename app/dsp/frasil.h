@@ -68,7 +68,28 @@ typedef struct {
     glint_params_t glint;
     bass_params_t bass;
     int ch_type;                         /* CHOEUR: the filter, 0 low-pass, 1 band-pass, 2 high-pass */
+    /* (after rev: none of these glide as the floats before it do; the effects make their own way between settings)
+     * MASTER EQ (after SINK, before MASTERING): on; its LOW and HIGH shelves' and its MID bell's gains (dB), their
+     * frequencies (Hz), the bell's Q */
+    int eq_on;
+    float eq_low, eq_mid, eq_high, eq_lowf, eq_midf, eq_q, eq_highf;
+    /* MASTER FILTER (12 dB an octave, on the tracks chosen, where PUMP's gains are): 0 off, 1 low pass, 2 high pass;
+     * its cutoff (Hz) and Q. LOFI TAPE (after it): on, its saturation and its wobble 0..1. Their tracks: bits, 1 the
+     * drones and the cloud, 2 GLINT, 4 BASS */
+    int fl_type, fl_tracks, tp_on, tp_tracks;
+    float fl_cut, fl_q, tp_sat, tp_wobble;
+    /* ROUTING: the filter and the tape before the cloud (each track through it, the cloud fed what comes out, its
+     * return as it is) or after it (0, the tracks as they sound, DRONE's with the cloud's return); PUMP on the cloud's
+     * return. The pans (-1 left .. 1 right, a balance): the drones, GLINT, BASS, the cloud's return */
+    int fl_pre, tp_pre, pump_cloud;
+    float pan[4];
 } frasil_params_t;
+
+/* RBJ's cookbook at 44.1 kHz: kind 0 a low shelf, 1 a bell (its Q), 2 a high shelf (slope 1); c: b0 b1 b2 a1 a2 (a0
+ * divided out). MASTER EQ's, and its curve on the screen */
+void frasil_eq_coefs(int kind, float hz, float db, float q, float *c);
+float frasil_tape_speed(void);           /* LOFI TAPE's speed now, 1 as it should run (its wow, flutter and hiccups: the
+                                          * screen's reels); 1 while it is off */
 
 void frasil_init(void);
 void frasil_set(const frasil_params_t *p);        /* main loop */
@@ -94,10 +115,18 @@ void frasil_pump(float phase, float inc);
 void frasil_render(int32_t *lr, uint32_t n, float gain);   /* audio interrupt: n frames (a multiple of 64), 24-bit;
                                                            * gain 0..1 (MASTER) */
 void frasil_panic(void);                         /* silence now */
+void frasil_cut(void);                           /* CUT: everything silent within two blocks, the tails too */
 /* the load: 0 everything; 1 .. 3 fewer partials, then fewer voices (the oldest released first). From the
  * platform's overload hook, and back to 0 as the load allows (the main loop) */
 void frasil_shed(int level);
 int frasil_shed_level(void);
+/* where the render's time goes: a clock (a free-running count; 0 none) it times its parts with, and each part's count
+ * so far with the samples rendered (the FM-1's log, app_log_word; tools/perf/fm1_load.py profile) */
+enum { FR_PROF_SETUP, FR_PROF_VBLOCK, FR_PROF_CHOIR, FR_PROF_PARTIALS, FR_PROF_BREATH, FR_PROF_VMIX, FR_PROF_TRACKS,
+       FR_PROF_CLOUD, FR_PROF_MIX, FR_PROF_GLINT, FR_PROF_BASS, FR_PROF_N };   /* (TRACKS: the warmth, the filter before
+                                                                             * the cloud) */
+void frasil_profile(uint32_t (*clock)(void));
+void frasil_profile_read(uint32_t acc[FR_PROF_N], uint32_t *samples);
 
 /* for the screen */
 typedef struct {

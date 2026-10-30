@@ -36,13 +36,20 @@ enum {
     P_L1_SHAPE, P_L1_RATE, P_L1_DEPTH, P_L1_POL, P_L1_T1, P_L1_T2, P_L1_T3, P_L1_T4,   /* LFO 1, and its four targets */
     P_L2_SHAPE, P_L2_RATE, P_L2_DEPTH, P_L2_POL, P_L2_T1, P_L2_T2, P_L2_T3, P_L2_T4,   /* LFO 2 */
     P_SQ_LEN, P_SQ_GATE, P_SQ_TRANS,     /* GLINT SEQ: its length, its notes', its transposition (its steps: seq[]) */
-    P_DR_PRESET, P_DR_FULL,              /* the drone's preset (0: CUSTOM), its BODY (DRONE PARAMS) */
+    P_DR_PRESET, P_DR_FULL,              /* the drone's preset (0: CUSTOM), its BODY (DRONE TONE) */
     P_L3_SHAPE, P_L3_RATE, P_L3_DEPTH, P_L3_POL, P_L3_T1, P_L3_T2, P_L3_T3, P_L3_T4,   /* LFO 3 */
     P_SQ_TYPE,                           /* GLINT's sequence: OFF, the arpeggiator, the sequencer */
     P_GX_SPARK, P_GX_BLUR, P_GX_SINK,    /* GENERATIVE FX (SWELL beside them, not kept): glints by themselves, the
                                           * drone into the cloud, everything under */
     P_BS_DECAY, P_BS_SUSTAIN, P_BS_PULSE,   /* BASS III's DECAY and SUSTAIN (between its ATTACK and RELEASE), BASS II's
                                              * PULSE: the note let go and played again on the grid */
+    P_EQ_PRESET, P_EQ_LOW, P_EQ_MID, P_EQ_HIGH,    /* MASTER EQ: OFF, CUSTOM or a preset; the three bands' gains */
+    P_EQ_LOWF, P_EQ_MIDF, P_EQ_Q, P_EQ_HIGHF,      /* MASTER EQ II: where they are, the MID's width */
+    P_FL_TYPE, P_FL_CUT, P_FL_RESO, P_FL_TRACKS,   /* MASTER FILTER: OFF, LOW PASS, HIGH PASS on the tracks chosen */
+    P_TP_ON, P_TP_SAT, P_TP_WOBBLE, P_TP_TRACKS,   /* LOFI TAPE: on, its saturation, its wobble (and hiccups), its tracks */
+    P_FL_PRE, P_TP_PRE, P_PUMP_CLOUD,    /* ROUTING: MASTER FILTER and LOFI TAPE before the cloud or after it, PUMP on the
+                                          * cloud's return */
+    P_PN_DRONE, P_PN_BASS, P_PN_GLINT, P_PN_CLOUD,   /* MIXER's pans (OCT- held, K1 .. K4) */
     NSOUND,                              /* a scene ends here; the rest are settings that pages show */
     P_KEYS = NSOUND,
     P_CANAL,
@@ -63,6 +70,12 @@ enum {
                                                  * sequence's, shown), RECORD (not kept) */
     P_BQ_STEPS, P_BQ_ON, P_BQ_CLEAR, P_BQ_TRANS,   /* BASS SEQ II: the steps it plays, SEQUENCE, CLEAR (not kept),
                                                     * TRANSPOSE: kept with the settings, not in a scene */
+    P_SPEAKER,                           /* ROUTING's K4, SPK/JACK: the FM-1's own output on or quiet (the USB audio goes
+                                          * on); kept with the settings */
+    P_ANIM,                              /* SCREEN's K1, ANIMATIONS: NORMAL, or LOW (what only decorates, still); kept with
+                                          * the settings */
+    P_CLOCK,                             /* MIDI's K4, CLOCK: AUTO (a MIDI clock coming in leads the grid) or INTERNAL
+                                          * (TEMPO's, always: clocks and Start in ignored); kept with the settings */
     NPARAM
 };
 
@@ -72,14 +85,15 @@ enum { F_PCT, F_ATT, F_REL, F_DECAY, F_PREDELAY, F_HZ, F_TAU, F_PERIOD, F_INTERV
        F_GLIDE, F_BOCTAVE, F_BATT, F_BREL, F_ONOFF, F_PCTOFF, F_HZBASS, F_BMODEL, F_TRKCH, F_PUMP, F_THRESH, F_CRATIO,
        F_CREL, F_DBGAIN, F_LEVEL, F_PATT, F_SHAPE, F_CINT, F_HARM, F_BPITCH, F_SIGNED, F_CTYPE, F_LSHAPE, F_LRATE, F_LPOL,
        F_LTGT, F_SQLEN, F_SQNOTE, F_SQREC, F_SQCLEAR, F_SQTRANS, F_DPRESET, F_SQTYPE, F_KB, F_MORPH, F_LOAD, F_UNDO, F_NEWTAKE,
-       F_BQNOTE, F_BQLEN, F_BDEC, F_BPULSE, F_GREL };
+       F_BQNOTE, F_BQLEN, F_BDEC, F_BPULSE, F_GREL, F_EQPRESET, F_EQDB, F_EQLOWF, F_EQMIDF, F_EQQ, F_EQHIGHF, F_FLTYPE,
+       F_FLCUT, F_FLTRACKS, F_PREPOST, F_PAN, F_ANIM, F_CLOCK };
 
 typedef struct {
     const char *name;
     uint8_t max, def, fmt;
 } pdesc_t;
 
-#define NLFO_TGT 41u                     /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below) */
+#define NLFO_TGT 47u                     /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below) */
 #define NDRONE 32u                       /* the settings a drone preset sets (DRONE_P, below) */
 #define NDPRESET 24u
 #define NPULSE 7u                        /* PULSE's choices: OFF, then its divisions (PULSE_TICKS, below) */
@@ -121,7 +135,7 @@ static const pdesc_t PD[NPARAM] = {
     [P_SCALE] = {"SCALE", 11, 0, F_SCALE},
     [P_CHORD] = {"CHORD", 14, 0, F_CHORD},
     [P_VOICING] = {"VOICING", 2, 0, F_VOICING},
-    [P_GL_PRESET] = {"PRESET", 21, 8, F_GPRESET},
+    [P_GL_PRESET] = {"PRESET", 22, 8, F_GPRESET},
     [P_GL_RATIO] = {"RATIO", 12, 6, F_RATIO},
     [P_GL_BRIGHT] = {"BRIGHT", 127, 70, F_PCT},
     [P_GL_DECAY] = {"DECAY", 127, 70, F_GDECAY},
@@ -132,7 +146,7 @@ static const pdesc_t PD[NPARAM] = {
                                                         * let it go before) */
     [P_GL_ATTACK] = {"ATTACK", 127, 0, F_GATTACK},
     [P_GL_PING] = {"PING", 127, 68, F_PCT},
-    [P_GD_TIME] = {"TIME", 23, 19, F_DTIME},           /* 1/32 .. 1/2 mono, then the same ping-pong */
+    [P_GD_TIME] = {"TIME", 11, 7, F_DTIME},            /* 1/32 .. 1/2, ping-pong (12 .. 23 till 2.5: the same, % 12) */
     [P_GD_FB] = {"FEEDBACK", 127, 50, F_PCT},
     [P_GD_MODE] = {"MODE", 1, 1, F_DMODE},             /* (kept for the store; TIME says it now) */
     [P_GD_MIX] = {"MIX", 127, 40, F_PCT},
@@ -234,6 +248,33 @@ static const pdesc_t PD[NPARAM] = {
     [P_BQ_ON] = {"SEQUENCE", 1, 0, F_ONOFF},
     [P_BQ_CLEAR] = {"CLEAR", 2, 0, F_SQCLEAR},         /* turned twice: every step a CUT of a sixteenth */
     [P_BQ_TRANS] = {"TRANSPOSE", 28, 14, F_SQTRANS},   /* -14 .. +14 steps of the scale */
+    [P_SPEAKER] = {"SPK/JACK", 1, 1, F_ONOFF},        /* OFF: the speaker and headphones quiet, USB audio as ever */
+    [P_ANIM] = {"ANIMATIONS", 1, 0, F_ANIM},           /* LOW: the river, the tape, the logo still (for the sound) */
+    [P_CLOCK] = {"CLOCK", 1, 0, F_CLOCK},              /* INTERNAL: an incoming MIDI clock ignored */
+    [P_EQ_PRESET] = {"PRESET", 8, 0, F_EQPRESET},      /* OFF, CUSTOM (the bands as they are), then EQ_PRESETS' seven */
+    [P_EQ_LOW] = {"LOW", 48, 24, F_EQDB},              /* -12 .. +12 DB, half a decibel a step */
+    [P_EQ_MID] = {"MID", 48, 24, F_EQDB},
+    [P_EQ_HIGH] = {"HIGH", 48, 24, F_EQDB},
+    [P_EQ_LOWF] = {"LOW FREQ", 127, 59, F_EQLOWF},     /* a shelf, 30 .. 600 HZ (120) */
+    [P_EQ_MIDF] = {"MID FREQ", 127, 64, F_EQMIDF},     /* a bell, 80 HZ .. 12 KHZ (1 KHZ) */
+    [P_EQ_Q] = {"Q", 127, 39, F_EQQ},                  /* the bell's, 0.4 .. 8 (1.0) */
+    [P_EQ_HIGHF] = {"HIGH FREQ", 127, 90, F_EQHIGHF},  /* a shelf, 1.5 .. 16 KHZ (8 KHZ) */
+    [P_FL_TYPE] = {"TYPE", 2, 0, F_FLTYPE},            /* OFF, LOW PASS, HIGH PASS: 12 DB an octave */
+    [P_FL_CUT] = {"CUTOFF", 127, 127, F_FLCUT},        /* 20 HZ .. 20 KHZ */
+    [P_FL_RESO] = {"RESONANCE", 127, 0, F_PCT},
+    [P_FL_TRACKS] = {"TRACKS", 6, 0, F_FLTRACKS},      /* ALL, DRONE (its CLOUD with it), GLINT, BASS, and the pairs */
+    [P_TP_ON] = {"TAPE", 1, 0, F_ONOFF},
+    [P_TP_SAT] = {"SATURATION", 127, 50, F_PCT},
+    [P_TP_WOBBLE] = {"WOBBLE", 127, 40, F_PCT},         /* the speed's wow and flutter, and now and then a hiccup */
+    [P_TP_TRACKS] = {"TRACKS", 6, 0, F_FLTRACKS},
+    [P_FL_PRE] = {"FILTER", 1, 0, F_PREPOST},          /* POST: after the cloud (DRONE's return in it); PRE: before it,
+                                                        * the cloud fed filtered */
+    [P_TP_PRE] = {"TAPE", 1, 0, F_PREPOST},
+    [P_PUMP_CLOUD] = {"CLOUD PUMP", 1, 1, F_ONOFF},   /* ON: the cloud's return ducked with the drone */
+    [P_PN_DRONE] = {"DRONE PAN", 100, 50, F_PAN},     /* L50 .. C .. R50, a balance */
+    [P_PN_BASS] = {"BASS PAN", 100, 50, F_PAN},
+    [P_PN_GLINT] = {"GLINT PAN", 100, 50, F_PAN},
+    [P_PN_CLOUD] = {"CLOUD PAN", 100, 50, F_PAN},
     [P_GL_VIBRATO] = {"VIBRATO", 127, 50, F_PCTOFF},
     [P_KEYS] = {"KEY MODE", 1, 0, F_KEYS},
     [P_CANAL] = {"DRONE CH", 17, 1, F_TRKCH},   /* a track's MIDI channel: OFF, 1 .. 16, OMNI */
@@ -259,10 +300,11 @@ static const char *const PULSE_NAME[NPULSE] = {"OFF", "1/8 BEAT", "1/4 BEAT", "1
  * through them */
 enum { PG_SON, PG_DRONE, PG_CHOEUR, PG_CHOEUR2, PG_PARTIELS, PG_PARTIELS2, PG_SOUFFLE, PG_SOUFFLE2, PG_GLINT, PG_GLINT2, PG_GLINT3, PG_GDELAY, PG_ARP, PG_SEQ, PG_SEQ2, PG_SEQ3, PG_BASS,
        PG_BASS2,
-       PG_BASS3, PG_FORME, PG_MOUVEMENT, PG_LFO1, PG_LFO1T, PG_LFO2, PG_LFO2T, PG_LFO3, PG_LFO3T, PG_HARMONY, PG_GENFX, PG_NUAGE, PG_NUAGE2, PG_NUAGE3, PG_PUMP, PG_PUMP2, PG_GLOBAL, PG_GLOBAL2,
-       PG_MASTER, PG_MIXER, PG_SCENES,
+       PG_BASS3, PG_FORME, PG_MOUVEMENT, PG_LFO1, PG_LFO1T, PG_LFO2, PG_LFO2T, PG_LFO3, PG_LFO3T, PG_HARMONY, PG_GENFX, PG_NUAGE, PG_NUAGE2, PG_NUAGE3, PG_FILTER, PG_TAPE, PG_PUMP, PG_PUMP2, PG_GLOBAL, PG_GLOBAL2,
+       PG_MASTER, PG_EQ, PG_EQ2, PG_MIXER, PG_SCENES,
        PG_BSEQ, PG_BSEQ2,                /* the bass's sequence: SEQ's after BASS III (app.c page_button), numbered last
                                           * (the others' numbers kept) */
+       PG_ROUTING, PG_SCREEN,            /* GLO's last two, after MASTER EQ II (page_button: by number), numbered last too */
        NPAGES };
 typedef struct {
     const char *name;
@@ -271,7 +313,7 @@ typedef struct {
 } page_t;
 static const page_t PAGES[NPAGES] = {
     [PG_SON] = {"SOUND", B_HOME, {P_CHOEUR, P_PARTIELS, P_SOUFFLE, P_CHALEUR}},
-    [PG_DRONE] = {"DRONE PARAMS", B_EDIT, {P_TIMBRE, P_ESPACE, P_MOUVEMENT, P_DR_FULL}},   /* the whole drone */
+    [PG_DRONE] = {"DRONE TONE", B_EDIT, {P_TIMBRE, P_ESPACE, P_MOUVEMENT, P_DR_FULL}},   /* the whole drone */
     [PG_CHOEUR] = {"CHOIR", B_EDIT, {P_CHOEUR, P_DESACCORD, P_FILTRE, P_CHALEUR}},
     [PG_CHOEUR2] = {"CHOIR II", B_EDIT, {P_CH_SHAPE, P_CH_INTERVAL, P_CH_RESO, P_CH_TYPE}},   /* the source, the filter */
     [PG_PARTIELS] = {"PARTIALS", B_EDIT, {P_PARTIELS, P_PENTE, P_IMPAIRS, P_ETIREMENT}},
@@ -291,6 +333,8 @@ static const page_t PAGES[NPAGES] = {
     [PG_BASS3] = {"BASS ADSR", B_SEQ, {P_BS_ATTACK, P_BS_DECAY, P_BS_SUSTAIN, P_BS_RELEASE}},   /* (ui.c adsr_scope) */
     [PG_BSEQ] = {"BASS SEQ", B_SEQ, {P_BQ_STEP, P_BQ_NOTE, P_BQ_LEN, P_BQ_REC}},
     [PG_BSEQ2] = {"BASS SEQ II", B_SEQ, {P_BQ_STEPS, P_BQ_ON, P_BQ_CLEAR, P_BQ_TRANS}},
+    [PG_SCREEN] = {"SCREEN", B_GLO, {P_ANIM, NPARAM, NPARAM, NPARAM}},
+    [PG_ROUTING] = {"ROUTING", B_GLO, {P_FL_PRE, P_TP_PRE, P_PUMP_CLOUD, P_SPEAKER}},   /* (SPK/JACK: the settings') */
     [PG_FORME] = {"DRONE SHAPE", B_ENV, {P_ATTAQUE, P_RELACHE, P_PRESSION, P_VELOCITE}},
     [PG_MOUVEMENT] = {"DRONE MOTION", B_LFO, {P_MOUVEMENT, P_VITESSE, P_MAREE, P_PERIODE}},
     [PG_LFO1] = {"LFO 1", B_LFO, {P_L1_SHAPE, P_L1_RATE, P_L1_DEPTH, P_L1_POL}},
@@ -304,11 +348,15 @@ static const page_t PAGES[NPAGES] = {
     [PG_NUAGE] = {"CLOUD", B_FX, {P_TAILLE, P_DUREE, P_TEINTE, P_FREEZE}},
     [PG_NUAGE2] = {"CLOUD II", B_FX, {P_DIFFUSION, P_MODULATION, P_PREDELAI, P_LARGEUR}},
     [PG_NUAGE3] = {"CLOUD III", B_FX, {P_SHIMMER, P_INTERVALLE, P_SH_TONE, NPARAM}},   /* the shimmer */
+    [PG_FILTER] = {"MASTER FILTER", B_FX, {P_FL_TYPE, P_FL_CUT, P_FL_RESO, P_FL_TRACKS}},   /* before PUMP */
+    [PG_TAPE] = {"LOFI TAPE", B_FX, {P_TP_ON, P_TP_SAT, P_TP_WOBBLE, P_TP_TRACKS}},     /* after the filter */
     [PG_PUMP] = {"PUMP", B_FX, {P_PUMP_RATE, P_PUMP_DRONE, P_PUMP_BASS, P_PUMP_GLINT}},
     [PG_PUMP2] = {"PUMP II", B_FX, {P_PUMP_REL, P_PUMP_ATT, P_PUMP_OFF, NPARAM}},
     [PG_GLOBAL] = {"GLOBAL", B_GLO, {P_TEMPO, P_COUPEBAS, P_ACCORD, P_KEYS}},   /* KEYS: two detents (app.c) */
-    [PG_GLOBAL2] = {"MIDI", B_GLO, {P_CANAL, P_CH_GLINT, P_CH_BASS, NPARAM}},
+    [PG_GLOBAL2] = {"MIDI", B_GLO, {P_CANAL, P_CH_GLINT, P_CH_BASS, P_CLOCK}},
     [PG_MASTER] = {"MASTERING", B_GLO, {P_MS_THRESH, P_MS_RATIO, P_MS_RELEASE, P_MS_GAIN}},
+    [PG_EQ] = {"MASTER EQ", B_GLO, {P_EQ_PRESET, P_EQ_LOW, P_EQ_MID, P_EQ_HIGH}},   /* before the compressor */
+    [PG_EQ2] = {"MASTER EQ II", B_GLO, {P_EQ_LOWF, P_EQ_MIDF, P_EQ_Q, P_EQ_HIGHF}},
     [PG_MIXER] = {"MIXER", B_HOME, {P_MX_DRONE, P_MX_BASS, P_MX_GLINT, P_MX_CLOUD}},   /* HOME's second (app.c) */
     [PG_SCENES] = {"SCENES", B_SAVE, {NPARAM, P_MORPH, P_LOAD, NPARAM}},   /* (K1: the slot, app.c) */
 };
@@ -346,13 +394,15 @@ typedef struct {
  * do, the LFOs moving them. Notes: MIDI numbers; GLINT's without its OCTAVE, the bass's sequence's without the bass's (as
  * the sequencers keep them: app.c); a step 0 is a rest or a CUT, 127 a TIE or a HOLD, A() an accent */
 #define P_END 0xFFu
+#define FACTORY_NV 130u                  /* the sound the whole ones were stored with (app.c FRSL_NV) */
 #define A(n) ((n) | 0x80)
 typedef struct {
     char name[SC_NAME + 1];              /* (its sixteen and the literal's NUL: only SC_NAME go into the scene) */
     uint8_t tempo;
     uint8_t p[52][2];                    /* its settings over NEW SHARD's base (to P_END) */
-    uint8_t whole;                       /* 1: its sound whole instead, as an FM-1 stored it (sound) */
-    uint8_t sound[NSOUND];
+    uint8_t whole;                       /* 1: its sound whole instead, as an FM-1 stored it (sound: before MASTER EQ,
+                                          * MASTER FILTER and LOFI TAPE, at their defaults) */
+    uint8_t sound[FACTORY_NV];
     int8_t keys[4];                      /* the drones latched, each key's chord as the harmony makes it (0: none) */
     uint8_t nch;                         /* or its chords as latched (ch: root, then notes; -1 none) */
     int8_t ch[SC_CHORDS][5];
@@ -424,7 +474,7 @@ static const factory_t FACTORY[] = {
     {.name = "OPEN WATER", .tempo = 88,
      .p = {{P_ROOT, 2}, {P_SCALE, 3}, {P_CHORD, 4}, {P_VOICING, 1}, {P_DR_PRESET, 19}, {P_DR_FULL, 70},
       {P_GL_PRESET, 10}, {P_SQ_TYPE, 2}, {P_GL_OCTAVE, 1}, {P_ARP_RATE, 7}, {P_SQ_LEN, 15}, {P_SQ_GATE, 50},
-      {P_GL_LEVEL, 95}, {P_GL_BRIGHT, 70}, {P_GD_TIME, 19}, {P_GD_MIX, 35}, {P_GD_FB, 40},
+      {P_GL_LEVEL, 95}, {P_GL_BRIGHT, 70}, {P_GD_TIME, 7}, {P_GD_MIX, 35}, {P_GD_FB, 40},
       {P_BS_MODEL, 3}, {P_BS_FILTER, 55}, {P_BS_RESO, 60}, {P_BS_DRIVE, 50}, {P_BS_LEVEL, 95}, {P_BS_ATTACK, 0},
       {P_BS_RELEASE, 30}, {P_BS_DECAY, 45}, {P_BS_SUSTAIN, 40}, {P_BS_GLIDE, 0},
       {P_PUMP_RATE, 5}, {P_PUMP_DRONE, 100}, {P_PUMP_BASS, 0}, {P_PUMP_GLINT, 30},
@@ -499,10 +549,11 @@ static const uint8_t NEW_SHARD_P[][2] = {
                                           * scene byte (app.c settings_t) */
 
 /* GLINT's presets: PRESET loads one into the parameters after it, which then shape it */
-#define NGPRESET 22u
+#define NGPRESET 23u
 static const char *const GLINT_NAME[NGPRESET] = {"ICE", "BELL", "BLIP", "GLASS", "CHIME", "DROP", "FROST", "CELESTA",
                                                  "SINE", "KALIMBA", "MARIMBA", "MUSIC BOX", "VIBES", "HARP", "PIPE",
-                                                 "BOWED", "WARM LEAD", "BRASS", "SQUARE", "SUB LEAD", "STRINGS", "REED"};
+                                                 "BOWED", "WARM LEAD", "BRASS", "SQUARE", "SUB LEAD", "STRINGS", "REED",
+                                                 "PIANO"};
 static const uint8_t GLINT_PRESET[NGPRESET][10] = {
     /* RATIO BRIGHT DECAY LEVEL OCTAVE SPACE RELEASE ATTACK PING SUSTAIN (RELEASE as DECAY let each go before it:
      * glint_release_of) */
@@ -530,9 +581,11 @@ static const uint8_t GLINT_PRESET[NGPRESET][10] = {
     {0, 55, 100, 90, 1, 45, 91, 8, 35, 110},    /* SUB LEAD: an octave under it too */
     {1, 48, 110, 85, 1, 85, 99, 85, 15, 120},   /* STRINGS: slow to come, an ensemble */
     {5, 45, 95, 85, 1, 55, 87, 15, 40, 100},    /* REED: nasal (no third harmonic) */
+    {1, 40, 95, 92, 1, 75, 87, 0, 0, 0},        /* PIANO: lofi, an old upright's: a long dark ring, no PING (the user's,
+                                                 * 2.5) */
 };
 /* the drone's presets (PRESETS turns them): each sets the NDRONE settings in DRONE_P, the three layers (their
- * levels, their pages and their second pages) and the drone's own (DRONE PARAMS but FULLNESS, ALGORITHM's: a hand
+ * levels, their pages and their second pages) and the drone's own (DRONE TONE but FULLNESS, ALGORITHM's: a hand
  * that stays where it is; DRONE SHAPE's ATTACK and RELEASE; DRONE MOTION). 0 is CUSTOM: the settings as turned (app.c
  * keeps them while a preset plays, and in the scenes) */
 static const uint8_t DRONE_P[NDRONE] = {P_CHOEUR, P_PARTIELS, P_SOUFFLE, P_CHALEUR, P_DESACCORD, P_FILTRE, P_PENTE,
@@ -586,7 +639,8 @@ static const uint8_t LFO_TGT[NLFO_TGT] = {NPARAM, P_TIMBRE, P_ESPACE, P_MOUVEMEN
                                     P_PA_EVOLVE, P_PA_BEAT, P_PA_FORMANT, P_PA_PEAK, P_RESONANCE, P_COULEUR, P_BR_GRAIN,
                                     P_BR_TONE, P_BR_AIR, P_ECART, P_GL_LEVEL, P_GL_BRIGHT, P_GL_PING, P_GL_SPACE,
                                     P_MX_DRONE, P_MX_GLINT, P_BS_FILTER, P_BS_RESO, P_BS_DRIVE, P_MX_BASS, P_DR_FULL,
-                                    P_ARP_CHANCE, P_SQ_LEN, P_GX_SPARK, P_GX_BLUR, P_GX_SINK};   /* (GLINT's CHANCE,
+                                    P_ARP_CHANCE, P_SQ_LEN, P_GX_SPARK, P_GX_BLUR, P_GX_SINK, P_FL_CUT, P_FL_RESO,
+                                    P_PN_DRONE, P_PN_BASS, P_PN_GLINT, P_PN_CLOUD};   /* (GLINT's CHANCE,
                                                                 * its SEQ LENGTH, SPARKLE: app.c's, arp_chance,
                                                                 * seq_len, sparkle_run) */
 static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MOTION", "WARMTH", "CHOIR", "PARTIALS",
@@ -595,7 +649,8 @@ static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MO
                                              "GRAIN", "BR TONE", "AIR", "SPREAD", "GL LEVEL", "GL BRIGHT", "GL PING",
                                              "GL SPACE", "DRONE LVL", "GLINT LVL", "BS FILTER", "BS RESO",
                                              "BS DRIVE", "BASS LVL", "BODY", "GL CHANCE", "SEQ LEN",
-                                             "SPARKLE", "BLUR", "SINK"};   /* (new ones at the end: a saved TARGET
+                                             "SPARKLE", "BLUR", "SINK", "CUTOFF", "RESO", "DRONE PAN", "BASS PAN",
+                                             "GLINT PAN", "CLOUD PAN"};   /* (new ones at the end: a saved TARGET
                                                                          * keeps its setting) */
 static float lfo_hz(uint32_t r) { return 0.005f * fm_powf(2000.0f, (float)r / (float)(LFO_NFREE - 1u)); }
 /* GLINT's OCTAVE, in semitones: every glint is played without it, the engine puts it on (a key's, a MIDI note's, the
@@ -630,7 +685,7 @@ static const char *const RATIO_NAME[13] = {"X0.5", "X1", "X1.41", "X2", "X2.76",
 static void arp_defaults(uint8_t *v)     /* a factory scene's arpeggiator (off, eighths over two octaves) and
                                           * GLINT's delay (dotted eighths, ping-pong, some) */
 {
-    v[P_GD_TIME] = 19;                   /* (1/8D, ping-pong) */
+    v[P_GD_TIME] = 7;                    /* (1/8D) */
     v[P_GD_FB] = 50;
     v[P_GD_MODE] = 1;
     v[P_GD_MIX] = 40;
@@ -642,11 +697,14 @@ static void arp_defaults(uint8_t *v)     /* a factory scene's arpeggiator (off, 
 }
 
 static void later_defaults(uint8_t *v, uint32_t from)   /* the parameters from `from` on (added after the factory
-                                                       * scenes, or after a saved scene's layout): their defaults */
+                                                       * scenes, or after a saved scene's layout): their defaults; and
+                                                       * GLINT DELAY's TIME, ping-pong always since 2.5 (12 .. 23 the
+                                                       * same times, ping-pong, before: % 12) */
 {
     uint32_t p;
     for (p = from; p < NSOUND; p++)
         v[p] = PD[p].def;
+    v[P_GD_TIME] %= 12u;
 }
 
 /* GLINT's RELEASE as DECAY let a glint go before RELEASE was one (where SCATTER was: an earlier layout's made over,
@@ -673,6 +731,25 @@ static void glint_preset(uint8_t *v, uint32_t i)   /* preset i into the GLINT pa
 }
 
 /* ---------------------------------------------------------- the engine --- */
+/* MASTER EQ and MASTER FILTER: their mappings (the engine's and the screen's), their names */
+#define EQ_LOWF(u) (30.0f * fm_powf(20.0f, (u)))
+#define EQ_MIDF(u) (80.0f * fm_powf(150.0f, (u)))
+#define EQ_HIGHF(u) (1500.0f * fm_powf(10.6667f, (u)))
+#define EQ_Q(u) (0.4f * fm_powf(20.0f, (u)))
+#define FL_CUT(u) (20.0f * fm_powf(1000.0f, (u)))
+#define FL_Q(u) (0.7071f * fm_powf(17.0f, (u)))  /* RESONANCE: 0.71 (no peak) .. 12 */
+#define EQ_NPRESET 7u
+static const char *const EQ_PRESET_NAME[2u + EQ_NPRESET] = {"OFF", "CUSTOM", "FLAT", "WARM", "AIR", "MUD CUT", "BOX CUT",
+                                                           "LOUD", "SMALL SPEAKER"};
+/* each preset's LOW, MID, HIGH (half decibels, 24: 0 DB), LOW FREQ, MID FREQ, Q, HIGH FREQ (as the knobs have them):
+ * FLAT 0 everywhere; WARM +2.5 DB under 150 HZ, -2 DB over 7 KHZ; AIR +3 DB over 10 KHZ; MUD CUT -3.5 DB at 300 HZ;
+ * BOX CUT -3 DB at 600 HZ, narrower; LOUD +3 DB under 100 HZ, +2.5 DB over 9 KHZ, -1 DB round 1 KHZ; SMALL SPEAKER
+ * -6 DB under 120 HZ (what a small speaker cannot carry), +2 DB of presence at 2.5 KHZ */
+static const uint8_t EQ_PRESETS[EQ_NPRESET][7] = {
+    {24, 24, 24, 59, 64, 39, 90}, {29, 24, 20, 68, 64, 39, 83}, {24, 24, 30, 59, 64, 39, 102}, {24, 17, 24, 59, 34, 39, 90},
+    {24, 18, 24, 59, 51, 53, 90}, {30, 22, 29, 51, 64, 24, 96}, {12, 28, 24, 59, 87, 29, 90}};
+static const char *const FL_TRACKS_NAME[7] = {"ALL", "DRONE", "GLINT", "BASS", "DRONE+GLINT", "DRONE+BASS", "GLINT+BASS"};
+
 static float u7(const uint8_t *v, int p)  /* a setting, 0..1, with what the LFOs add to it */
 {
     float x = ((float)v[p] + (p < NSOUND ? mod[p] + morph_off[p] : 0.0f)) / (float)PD[p].max;
@@ -727,7 +804,7 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
     b->glint.ping = u7(v, P_GL_PING);
     b->glint.delay_fb = u7(v, P_GD_FB);
     b->glint.delay_mix = u7(v, P_GD_MIX);
-    b->glint.delay_pp = v[P_GD_TIME] >= 12u;   /* (TIME's second half) */
+    b->glint.delay_pp = 1;               /* (always: TIME's 12 .. 23 till 2.5) */
     b->glint.delay_s = 0.25f;            /* the app puts the tempo's in (glint_delay_s) */
     b->glint.vibrato = u7(v, P_GL_VIBRATO);
     b->glint.sustain = u7(v, P_GL_SUSTAIN);
@@ -762,6 +839,35 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
         b->br_air = u7(v, P_BR_AIR);
     }
     b->fullness = u7(v, P_DR_FULL);
+    {                                    /* MASTER EQ, MASTER FILTER, LOFI TAPE (TRACKS: ALL, DRONE, GLINT, BASS, the
+                                          * pairs: the engine's bits) */
+        static const uint8_t TRK[7] = {7, 1, 2, 4, 3, 5, 6};
+        b->eq_on = v[P_EQ_PRESET] != 0 &&    /* (its bands flat: nothing to do, nothing spent) */
+                   (v[P_EQ_LOW] != 24u || v[P_EQ_MID] != 24u || v[P_EQ_HIGH] != 24u);
+        b->eq_low = 0.5f * ((float)v[P_EQ_LOW] - 24.0f);
+        b->eq_mid = 0.5f * ((float)v[P_EQ_MID] - 24.0f);
+        b->eq_high = 0.5f * ((float)v[P_EQ_HIGH] - 24.0f);
+        b->eq_lowf = EQ_LOWF((float)v[P_EQ_LOWF] / 127.0f);
+        b->eq_midf = EQ_MIDF((float)v[P_EQ_MIDF] / 127.0f);
+        b->eq_q = EQ_Q((float)v[P_EQ_Q] / 127.0f);
+        b->eq_highf = EQ_HIGHF((float)v[P_EQ_HIGHF] / 127.0f);
+        b->fl_type = v[P_FL_TYPE] % 3u;
+        b->fl_cut = FL_CUT(u7(v, P_FL_CUT));
+        b->fl_q = FL_Q(u7(v, P_FL_RESO));
+        b->fl_tracks = TRK[v[P_FL_TRACKS] % 7u];
+        b->tp_on = v[P_TP_ON] != 0;
+        b->tp_sat = u7(v, P_TP_SAT);
+        b->tp_wobble = u7(v, P_TP_WOBBLE);
+        b->tp_tracks = TRK[v[P_TP_TRACKS] % 7u];
+        b->fl_pre = v[P_FL_PRE] != 0;
+        b->tp_pre = v[P_TP_PRE] != 0;
+        b->pump_cloud = v[P_PUMP_CLOUD] != 0;
+        b->pan[0] = u7(v, P_PN_DRONE) * 2.0f - 1.0f;   /* the groups' order: the drones (and the cloud's
+                                                               * return, CLOUD PAN's), GLINT, BASS */
+        b->pan[1] = u7(v, P_PN_GLINT) * 2.0f - 1.0f;   /* (with what an LFO adds: TARGET's DRONE PAN ...) */
+        b->pan[2] = u7(v, P_PN_BASS) * 2.0f - 1.0f;
+        b->pan[3] = u7(v, P_PN_CLOUD) * 2.0f - 1.0f;
+    }
     {                                    /* GENERATIVE FX: BLUR, the drone into the cloud (wetter, longer, more
                                           * diffuse, the glints further in too); SINK, the engine's */
         float bl = u7(v, P_GX_BLUR);
@@ -842,6 +948,31 @@ static void time_text(float s, char *b)
     }
 }
 
+static char *text_end(char *b)
+{
+    while (*b)
+        b++;
+    return b;
+}
+
+/* a frequency as the screen writes it: 830 HZ, 1.2 KHZ, 12 KHZ */
+static void hz_text(float hz, char *b)
+{
+    if (hz < 999.5f) {
+        int_text((int32_t)(hz + 0.5f), b);
+        text_cat(b, " HZ");
+    } else if (hz < 9950.0f) {
+        int32_t d = (int32_t)(hz * 0.01f + 0.5f);
+        int_text(d / 10, b);
+        text_cat(b, ".");
+        int_text(d % 10, text_end(b));
+        text_cat(b, " KHZ");
+    } else {
+        int_text((int32_t)(hz * 0.001f + 0.5f), b);
+        text_cat(b, " KHZ");
+    }
+}
+
 /* parameter p at value x, as the screen writes it (the same mappings as the engine's) */
 static void value_text(int p, uint8_t x, char *b)
 {
@@ -912,10 +1043,25 @@ static void value_text(int p, uint8_t x, char *b)
     case F_GREL:
         time_text(0.02f * fm_powf(300.0f, u), b);
         break;
-    case F_DTIME:                        /* the time, then PP: ping-pong */
+    case F_DTIME:                        /* (ping-pong, always) */
         text_cat(b, GD_NAME[x % 12u]);
-        if (x >= 12u)
-            text_cat(b, " PP");
+        break;
+    case F_PREPOST:
+        text_cat(b, x ? "PRE CLOUD" : "POST CLOUD");
+        break;
+    case F_PAN:                          /* L50 .. C .. R50 */
+        if (x == 50u) {
+            text_cat(b, "C");
+        } else {
+            text_cat(b, x < 50u ? "L" : "R");
+            int_text(x < 50u ? 50 - (int32_t)x : (int32_t)x - 50, b + 1);
+        }
+        break;
+    case F_ANIM:
+        text_cat(b, x ? "LOW" : "NORMAL");
+        break;
+    case F_CLOCK:
+        text_cat(b, x ? "INTERNAL" : "AUTO");
         break;
     case F_MORPH: {
         static const char *const MO[9] = {"CUT", "1 S", "2 S", "4 S", "8 S", "15 S", "30 S", "60 S", "2:00"};
@@ -950,6 +1096,47 @@ static void value_text(int p, uint8_t x, char *b)
         text_cat(b, BM[x % BASS_NMODEL]);
         break;
     }
+    case F_EQPRESET:
+        text_cat(b, EQ_PRESET_NAME[x % (2u + EQ_NPRESET)]);
+        break;
+    case F_EQDB:                         /* half a decibel a step, 0 at the middle */
+        if (x == 24u) {
+            text_cat(b, "0 DB");
+        } else {
+            int32_t h = (int32_t)x - 24;
+            text_cat(b, h > 0 ? "+" : "-");
+            h = h < 0 ? -h : h;
+            int_text(h / 2, b + 1);
+            if (h & 1)
+                text_cat(b, ".5");
+            text_cat(b, " DB");
+        }
+        break;
+    case F_EQLOWF:
+        hz_text(EQ_LOWF(u), b);
+        break;
+    case F_EQMIDF:
+        hz_text(EQ_MIDF(u), b);
+        break;
+    case F_EQHIGHF:
+        hz_text(EQ_HIGHF(u), b);
+        break;
+    case F_EQQ: {
+        int32_t q = (int32_t)(EQ_Q(u) * 10.0f + 0.5f);
+        int_text(q / 10, b);
+        text_cat(b, ".");
+        int_text(q % 10, text_end(b));
+        break;
+    }
+    case F_FLTYPE:
+        text_cat(b, x == 0u ? "OFF" : x == 1u ? "LOW PASS" : "HIGH PASS");
+        break;
+    case F_FLCUT:
+        hz_text(FL_CUT(u), b);
+        break;
+    case F_FLTRACKS:
+        text_cat(b, FL_TRACKS_NAME[x % 7u]);
+        break;
     case F_HZBASS:                       /* BASS's low-pass */
         int_text((int32_t)(40.0f * fm_powf(125.0f, u) + 0.5f), b);
         text_cat(b, " HZ");

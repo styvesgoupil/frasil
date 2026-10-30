@@ -14,3 +14,152 @@ wait 6000
 expect bqbeat 0
 expect pulselate >-6
 expect pulselate <6
+
+# power-on with a scene's sequence on (NORTH RIVER stored, then the power cut): nothing plays, the sequences waiting for
+# PLAY (begun at boot, the bass's alone started a sixteenth into a grid no top had set: its NOTEs 18 clocks off the beat,
+# PULSE's strikes on it). PLAY tapped: from their first steps, the beat beginning there, PULSE's strikes with the NOTEs;
+# PLAY tapped or held: the scene's notes too, its three tracks (its two chords latched). (RELEASE ALL before each power
+# cut: the host's reboot keeps what the device's clears)
+press SAVE
+tap REC
+release SAVE
+tap FX
+wait 500
+press PLAY
+wait 800
+release PLAY
+wait 30
+reboot
+wait 3000
+expect bseqrun 0
+expect seqrun 0
+expect bassnote -1
+expect lit47 0
+tap PLAY
+wait 30
+expect bseqrun 1
+expect lit47 1
+expect lit54 1
+wait 6000
+expect bqbeat 0
+expect pulsebeat 0
+expect pulselate >-6
+expect pulselate <6
+press PLAY
+wait 800
+release PLAY
+wait 30
+reboot
+wait 3000
+expect bseqrun 0
+press PLAY
+wait 800
+release PLAY
+wait 30
+expect bseqrun 1
+expect lit47 1
+expect lit54 1
+wait 6000
+expect bqbeat 0
+expect pulsebeat 0
+
+# PLAY tapped twice quick while anything plays: RELEASE ALL (the first tap stopping the sequences, the second everything:
+# the chords, the bass); held then: RESTORE. Two taps further apart: stop, then start again. From silence, a tap plays
+# the three tracks, and a second one quick is a tap (nothing played at the first): the sequences stop, the chords stay
+tap PLAY
+wait 120
+tap PLAY
+wait 30
+expect bseqrun 0
+expect lit47 0
+expect lit54 0
+expect bassnote -1
+press PLAY
+wait 800
+release PLAY
+wait 30
+expect lit47 1
+expect bseqrun 1
+tap PLAY
+wait 600
+tap PLAY
+wait 30
+expect bseqrun 1
+expect lit47 1
+press PLAY
+wait 800
+release PLAY
+wait 30
+expect lit47 0
+expect bseqrun 0
+tap PLAY
+wait 120
+tap PLAY
+wait 30
+expect bseqrun 0
+expect lit47 1
+
+# PLAY's light: lit while the transport runs, out at once on a stop (the drones sounding on, fading); out at once on
+# RELEASE ALL (the tails fading). (Taps apart: one within a scan's bounce is not seen)
+wait 400
+tap PLAY
+wait 400
+expect bseqrun 1
+expect playled 3
+tap PLAY
+wait 30
+expect bseqrun 0
+expect lit47 1
+expect playled 1
+wait 400
+tap PLAY
+wait 400
+expect playled 3
+tap PLAY
+wait 120
+tap PLAY
+wait 30
+expect lit47 0
+expect playled 1
+# OCT- held, GLINT I's PRESET (p37: NORTH RIVER's 6) turned: picked unheard (the sound's preset as it was, the octave
+# as it was, the value shown), taken when OCT- is let go; the same with BASS's MODEL (p62) and the drone's PRESETS
+# (p113, encoder B)
+listen
+wait 1500
+tap ARP
+wait 30
+expect page 8
+expect octave -1
+expect p37 6
+press OCT-
+wait 30
+expect octave -2
+turn K1 3
+wait 30
+expect octave -1
+expect p37 6
+said PICKING
+release OCT-
+wait 30
+expect p37 9
+expect octave -1
+tap SEQ
+wait 30
+expect page 16
+press OCT-
+wait 30
+turn K1 2
+wait 30
+expect p62 5
+release OCT-
+wait 30
+expect p62 7
+press OCT-
+wait 30
+turn PRESET 1
+wait 30
+expect p113 0
+release OCT-
+wait 30
+expect p113 1
+expect octave -1

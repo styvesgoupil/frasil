@@ -87,7 +87,7 @@ chacune d'elles :
 | **BREATH** | du bruit ou des grains épars passés dans trois résonateurs accordés sur la note, de l'air (Q bas) au verre (Q élevé) |
 
 Chaque couche a une deuxième page dans EDIT pour sa source et ce qui la façonne ensuite (CHOIR II, PARTIALS II,
-BREATH II), et DRONE PARAMS façonne tout le drone (TIMBRE, SPACE, MOTION, BODY). PRESETS fait défiler 24 presets
+BREATH II), et DRONE TONE façonne tout le drone (TIMBRE, SPACE, MOTION, BODY). PRESETS fait défiler 24 presets
 de drone (MIST, CATHEDRAL, GLACIER, ABYSS, AURORA, EMBER, TIDE, DUST, WIND, ORGAN, HOLLOW, VOWEL, SHIMMER, CHANTER,
 ENSEMBLE, BELLS, NOCTURNE, HAZE, PULSE, RIME, DEEP, SPECTRAL, RUST, STILL) : touche un réglage et le drone devient
 CUSTOM, qu'un autre preset ne fait pas perdre. ALGORITHM amincit le drone (BODY), peu importe le preset. Trois
@@ -98,15 +98,15 @@ Ensuite, WARMTH (saturation douce) alimente **CLOUD**, la réverb : un réseau d
 avec de la diffusion dans sa boucle, un pré-délai, un **shimmer** transposé dans la boucle, et **FREEZE**. La queue va
 de 0,4 à 60 secondes.
 
-**GLINT** se pose par-dessus : 4 voix de FM propre à deux opérateurs, jamais latchées. Il a 22 presets (ICE, BELL, BLIP,
+**GLINT** se pose par-dessus : 4 voix de FM propre à deux opérateurs, jamais latchées. Il a 23 presets (ICE, BELL, BLIP,
 GLASS, CHIME, DROP, FROST, CELESTA, SINE, KALIMBA, MARIMBA, MUSIC BOX, VIBES, HARP, PIPE, BOWED, et les leads WARM LEAD,
-BRASS, SQUARE, SUB LEAD, STRINGS, REED : SUSTAIN les tient tant que la touche est enfoncée). Son enveloppe est sur
+BRASS, SQUARE, SUB LEAD, STRINGS, REED : SUSTAIN les tient tant que la touche est enfoncée ; et PIANO, un piano droit lofi). Son enveloppe est sur
 GLINT ADSR (ATTACK, DECAY, SUSTAIN, RELEASE), dessinée là avec chaque glint qui la parcourt. Son réglage SEQ (GLINT I)
 choisit comment les touches le jouent : chaque touche son glint, son propre arpégiateur (UP, DOWN, UPDOWN, RANDOM,
 DRIFT, avec latch et CHANCE), ou un séquenceur de 32 pas (écrit pas à pas ou en direct, REC y entre tout droit, avec
 accents et liaisons, transposé dans la gamme par les touches, un par scène). OCTAVE est le sien : il déplace tous ses
 glints, ceux de l'arpège et de la séquence aussi, ceux qui sonnent sur-le-champ. Il a un délai synchronisé au tempo,
-mono ou ping-pong. La pression rend un glint plus fort et
+ping-pong. La pression rend un glint plus fort et
 plus long, et avec VIBRATO, un tremblement du doigt infléchit un peu sa hauteur (une pression stable reste juste).
 
 **BASS** se glisse en dessous : une seule note grave à la fois, parmi huit MODELs (SINE, TRIANGLE, SQUARE, SAW, REESE,
@@ -130,12 +130,12 @@ plonge tout sous un passe-bas.
 | **ARP** | les pages de GLINT (tap de nouveau pour la suivante : GLINT I, II, ADSR, DELAY, puis GLINT ARP ou celles du séquenceur selon le SEQ de GLINT I). Tenu : LATCH de l'arpège (mis à ON : SEQ sur ARP aussi) |
 | **SEQ** | les pages de BASS (tap de nouveau pour la suivante : BASS, II, ADSR, puis BASS SEQ, BASS SEQ II) |
 | **SEL** | HARMONY : fondamentale, gamme, accord, voicing. Tiens SEL et tape une touche : une note seule par-dessus un accord |
-| **EDIT, ENV, LFO, FX, GLO** | DRONE PARAMS et les LAYERS (×7 : chaque couche et sa deuxième page), DRONE SHAPE, DRONE MOTION et les trois LFO (×7), GENERATIVE FX, CLOUD (×3) et PUMP (×2), GLOBAL, MIDI et MASTERING. ENV tenu : SWELL, toutes les voix du drone gonflent ensemble. EDIT tenu : COMPARE, la scène telle que sauvée. FX tenu : FREEZE. LFO tenu en tournant K1–K4 : ce réglage sur un LFO. GLO tenu en bougeant un CC : MIDI learn |
+| **EDIT, ENV, LFO, FX, GLO** | DRONE TONE et les LAYERS (×7 : chaque couche et sa deuxième page), DRONE SHAPE, DRONE MOTION et les trois LFO (×7), GENERATIVE FX, CLOUD (×3), MASTER FILTER, LOFI TAPE et PUMP (×2), GLOBAL, MIDI, MASTERING, MASTER EQ (×2), ROUTING et SCREEN. ENV tenu : SWELL, toutes les voix du drone gonflent ensemble. OCT- tenu, puis EDIT : COMPARE, la scène telle que sauvée. FX tenu : FREEZE. LFO tenu en tournant K1–K4 : ce réglage sur un LFO. GLO tenu en bougeant un CC : MIDI learn |
 | **HOME** | la page de jeu; encore une fois : le MIXER; encore une fois : l'écran du logo, vivant. Tenu : l'aide à l'écran (5 pages, tourne SELECT) |
 | **SAVE** | SCENES (K1 ou SELECT l'emplacement, ou NEW SHARD au-dessus de l'emplacement 01 pour repartir à neuf, KEYS laissé tel quel ; MORPH, LOAD); encore une fois : retour. SAVE tenu + REC : STORE. SAVE tenu + une touche blanche : charger cette scène |
-| **PLAY** | le transport : la séquence de GLINT et celle de la basse s'arrêtent ensemble ou repartent ensemble du début, l'arpège attend ou reprend; sur SCENES, charger. Tenu : RELEASE ALL; tenu quand rien ne joue : RESTORE, la scène de nouveau, ses séquences du début. Lancé ou tenu, il relance le temps à ce moment, comme un Start MIDI (les temps d'une horloge MIDI restent les siens) |
+| **PLAY** | quand rien ne joue, la scène (ses trois pistes, comme tenu); sinon le transport : la séquence de GLINT et celle de la basse s'arrêtent ensemble ou repartent ensemble du début, l'arpège attend ou reprend; sur SCENES, charger. Tapé deux fois vite pendant que ça joue, ou tenu : RELEASE ALL; tenu quand rien ne joue : RESTORE, la scène de nouveau, ses séquences du début. Lancé ou tenu, il relance le temps à ce moment, comme un Start MIDI (les temps d'une horloge MIDI restent les siens) |
 | **FREEZE** (FX tenu, ou K4 de CLOUD) | le nuage retient ce qu'il contient, plus rien n'y entre (FX vif entre-temps) |
-| **OCT− / OCT+** | octave, de −3 à +2 (les deux : retour à −1). Ils clignotent sur le temps |
+| **OCT− / OCT+** | octave, de −3 à +2 (les deux : retour à −1). Ils clignotent sur le temps. OCT− tenu en tournant le PRESET de GLINT, le MODEL de la basse ou PRESETS (B) : le choix se fait sans l'entendre, pris au relâchement |
 
 Un appui montre, un appui tenu agit : chaque bouton agit quand tu le relâches (OCT tout de suite); tenu, il fait autre
 chose.
@@ -146,9 +146,9 @@ c'est CHOIR, les cristaux, c'est PARTIALS, la brume, c'est BREATH; la basse, c'e
 de lampe, sur toute la rivière, l'eau plus sombre en dessous. Les quatre strates sous la ligne d'eau montrent le mélange exact, WARMTH avec lui.
 L'en-tête nomme la scène, avec un point ambre dès que le son a changé, et des points sous le titre de chaque page
 disent où elle est parmi les pages de son bouton. En haut à droite, un badge montre ce que jouent les touches
-(SELECT) et l'octave : un petit clavier et DRONE en blanc, BASS en orange, ou en bleu ce que font les touches de GLINT
-(GLINT, ARP, SEQ; REC en orange). Son contour est plein quand les notes sont latchées, pointillé quand elles ne
-sonnent que tant que la touche est tenue.
+(SELECT) et l'octave : un petit clavier et DRONE en blanc, BASS en orange, GLINT en bleu (quatre points qui montent
+quand l'arpégiateur de GLINT est actif; REC en orange pendant que les touches écrivent dans une séquence). Son contour
+est plein quand les notes sont latchées, pointillé quand elles ne sonnent que tant que la touche est tenue.
 
 **Harmonie.** 12 gammes (chromatique, les sept modes, mineure harmonique et mineure mélodique, les deux pentatoniques).
 Accords construits dans la gamme (SINGLE, FIFTH, TRIAD, SEVENTH, SUS2, SUS4, ADD9, QUARTAL) ou de type fixe (MAJ, MIN,
@@ -171,10 +171,13 @@ frappée à la division suivante. Avec sa SEQUENCE en marche (BASS SEQ II), les 
 écrivent (RECORD sur STEP ou LIVE; REC y entre tout droit); une séquence vide leur laisse la basse.
 
 **Mixer, pump, mastering.** Le deuxième écran de HOME est un MIXER : un fader et un vu-mètre en direct pour DRONE,
-BASS, GLINT et CLOUD, le retour de la réverb. PUMP (FX) fait plonger chaque piste sur le temps, comme le ferait un
+BASS, GLINT et CLOUD, le retour de la réverb; OCT- tenu en tournant K1-K4 : le pan de chaque piste. PUMP (FX) fait plonger chaque piste sur le temps, comme le ferait un
 sidechain, de 4 mesures au 1/8, synchronisé à l'horloge MIDI ou à TEMPO; sa remontée, son attaque et son décalage
 sont sur PUMP II. MASTERING (GLO) est un compresseur léger sur
-la sortie, avec sa réduction de gain à l'écran.
+la sortie, avec sa réduction de gain à l'écran. MASTER FILTER (FX) est un passe-bas ou un passe-haut résonant sur les
+pistes choisies, LOFI TAPE (FX) les met sur une bande saturée qui pleure et hoquette (les bobines d'une cassette à
+l'écran), et MASTER EQ (GLO) façonne la sortie avant le compresseur : trois bandes, sept presets, sa courbe dessinée.
+Chaque scène les garde. ROUTING (GLO) place le filtre et la bande avant ou après le nuage, et SPK/JACK coupe la sortie propre du FM-1 (haut-parleur et jack) pendant que l'audio USB continue; SCREEN a ANIMATIONS LOW pour garder l'écran vif avec une scène lourde.
 
 **Scènes.** 16 emplacements, dont 7 scènes d'usine qui jouent dès qu'on les charge, chacune à son TEMPO (NORTH RIVER,
 LUMIERE NOCTURNE, RESILIENCE, LONG NIGHT, OPEN WATER, WHITEOUT, THAW). Un FM-1 neuf démarre sur NEW SHARD, un son
@@ -182,7 +185,7 @@ frais d'où partir. Une scène contient le son, son TEMPO, les drones latchés, 
 et sa séquence. SAVE tenu + REC sauvegarde (puis la nomme, jusqu'à seize caractères); SAVE tenu + une touche blanche
 charge l'une des 16, comme PLAY sur SCENES ou un Program Change MIDI. MORPH fait glisser le son vers la scène (jusqu'à
 deux minutes) ou le change d'un coup (CUT); LOAD sur SND+NOTES relâche tout et joue les notes de la scène à son TEMPO,
-ses séquences du début, sur SND ONLY ne change que le son. Tiens EDIT pour entendre la scène telle que sauvée (COMPARE); SAVE
+ses séquences du début, sur SND ONLY ne change que le son. Tiens OCT-, puis EDIT, pour entendre la scène telle que sauvée (COMPARE); SAVE
 s'allume tant que le son a changé. Les scènes sauvegardées par un FRASIL antérieur se chargent telles quelles, les
 réglages plus récents à leur valeur par défaut.
 

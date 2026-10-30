@@ -83,7 +83,7 @@ Each drone voice (up to 8) has three layers. They all play the same notes; you m
 | **BREATH** | noise or sparse grains through three resonators tuned to the note, from air (low Q) to glass (high Q) |
 
 Each layer has a second page on EDIT for its source and what shapes it after (CHOIR II, PARTIALS II, BREATH II),
-and DRONE PARAMS shapes the whole drone (TIMBRE, SPACE, MOTION, BODY). PRESETS turns through 24 drone presets
+and DRONE TONE shapes the whole drone (TIMBRE, SPACE, MOTION, BODY). PRESETS turns through 24 drone presets
 (MIST, CATHEDRAL, GLACIER, ABYSS, AURORA, EMBER, TIDE, DUST, WIND, ORGAN, HOLLOW, VOWEL, SHIMMER, CHANTER, ENSEMBLE,
 BELLS, NOCTURNE, HAZE, PULSE, RIME, DEEP, SPECTRAL, RUST, STILL): touch a setting and the drone becomes CUSTOM, which
 another preset doesn't lose. ALGORITHM thins the drone out (BODY), whatever the preset.
@@ -93,14 +93,14 @@ Then WARMTH (soft saturation) feeds **CLOUD**, the reverb: an 8-line modulated f
 diffusion inside its loop, pre-delay, a pitch-shifted **shimmer** inside the loop, and **FREEZE**. The tail runs from
 0.4 to 60 seconds.
 
-**GLINT** sits on top: 4 voices of clean two-operator FM, never latched. It has 22 presets (ICE, BELL, BLIP, GLASS,
+**GLINT** sits on top: 4 voices of clean two-operator FM, never latched. It has 23 presets (ICE, BELL, BLIP, GLASS,
 CHIME, DROP, FROST, CELESTA, SINE, KALIMBA, MARIMBA, MUSIC BOX, VIBES, HARP, PIPE, BOWED, and the leads WARM LEAD,
-BRASS, SQUARE, SUB LEAD, STRINGS, REED: SUSTAIN holds them while the key is down). Its envelope is on GLINT ADSR
+BRASS, SQUARE, SUB LEAD, STRINGS, REED: SUSTAIN holds them while the key is down; and PIANO, a lofi upright). Its envelope is on GLINT ADSR
 (ATTACK, DECAY, SUSTAIN, RELEASE), drawn there with each glint riding it. Its SEQ (GLINT I) chooses how the keys
 play it: each key its glint, its own arpeggiator (UP, DOWN, UPDOWN, RANDOM, DRIFT, with latch and chance), or a
 32-step sequencer (written step by step or live, REC straight into it, with accents and ties, transposed along the scale
 by the keys, one per scene). OCTAVE is GLINT's own: it moves every glint, the arpeggio's and the sequence's too, those
-sounding at once. It has a tempo-synced delay, mono or ping-pong. Pressure makes a glint louder and longer, and with
+sounding at once. It has a tempo-synced delay, ping-pong. Pressure makes a glint louder and longer, and with
 VIBRATO a wiggle of the finger bends its pitch slightly (a steady press stays in tune).
 
 **BASS** sits underneath: one deep note at a time, from eight MODELs (SINE, TRIANGLE, SQUARE, SAW, REESE, SUB, ORGAN,
@@ -124,12 +124,12 @@ low-pass.
 | **ARP** | GLINT's pages (tap again for the next: GLINT I, II, ADSR, DELAY, then GLINT ARP or the sequencer's as GLINT I's SEQ has it). Hold: arpeggio LATCH (turned on, SEQ on ARP too) |
 | **SEQ** | BASS's pages (tap again for the next: BASS, II, ADSR, then BASS SEQ, BASS SEQ II) |
 | **SEL** | HARMONY: root, scale, chord, voicing. Hold SEL and tap a key: a single note over a chord |
-| **EDIT, ENV, LFO, FX, GLO** | DRONE PARAMS and the LAYERS (×7: each layer and its second page), DRONE SHAPE, DRONE MOTION and the three LFOs (×7), GENERATIVE FX, CLOUD (×3) and PUMP (×2), GLOBAL, MIDI and MASTERING. Hold ENV: SWELL, every drone voice swells together. Hold EDIT: COMPARE, the scene as saved. Hold FX: FREEZE. Hold LFO and turn K1–K4: that setting onto an LFO. Hold GLO and move a CC: MIDI learn |
+| **EDIT, ENV, LFO, FX, GLO** | DRONE TONE and the LAYERS (×7: each layer and its second page), DRONE SHAPE, DRONE MOTION and the three LFOs (×7), GENERATIVE FX, CLOUD (×3), MASTER FILTER, LOFI TAPE and PUMP (×2), GLOBAL, MIDI, MASTERING, MASTER EQ (×2), ROUTING and SCREEN. Hold ENV: SWELL, every drone voice swells together. Hold OCT-, then EDIT: COMPARE, the scene as saved. Hold FX: FREEZE. Hold LFO and turn K1–K4: that setting onto an LFO. Hold GLO and move a CC: MIDI learn |
 | **HOME** | the play page; again: the MIXER; again: the living logo screen. Hold: on-screen help (5 pages, turn SELECT) |
 | **SAVE** | SCENES (K1 or SELECT the slot, or NEW SHARD above slot 01 to start fresh, KEYS left as they are; MORPH, LOAD); again: back. Hold SAVE and press REC: STORE. Hold SAVE and press a white key: load that scene |
-| **PLAY** | the transport: GLINT's sequence and the bass's stop together or start together from the top, the arpeggio waits or goes on; on SCENES, load. Hold: RELEASE ALL; with nothing playing, RESTORE: the scene again, its sequences from the top. Starting or held, it restarts the beat there, as a MIDI Start (a MIDI clock's beats are left as they are) |
+| **PLAY** | with nothing playing, the scene (its three tracks, as held); else the transport: GLINT's sequence and the bass's stop together or start together from the top, the arpeggio waits or goes on; on SCENES, load. Tapped twice quick while anything plays, or held: RELEASE ALL; with nothing playing, RESTORE: the scene again, its sequences from the top. Starting or held, it restarts the beat there, as a MIDI Start (a MIDI clock's beats are left as they are) |
 | **FREEZE** (hold FX, or CLOUD's K4) | the cloud holds what is in it, nothing more goes in (FX bright meanwhile) |
-| **OCT− / OCT+** | octave, −3 to +2 (both: back to −1). They blink on the beat |
+| **OCT− / OCT+** | octave, −3 to +2 (both: back to −1). They blink on the beat. Hold OCT− and turn GLINT's PRESET, BASS's MODEL or PRESETS (B): picked unheard, taken when you let go |
 
 A press shows, a hold acts: the buttons do their job when you let them go (OCT at once), and held, their other thing.
 
@@ -138,8 +138,8 @@ three left encoders. On the play page, each layer shows in the river: the curren
 the mist BREATH; the bass is a slow swell of lamp light across the river, the water darker under it. The four strata
 below the waterline show the exact mix, WARMTH with it. The header names the scene, with an amber dot once the sound has
 changed, and dots under each page's title say where it is among its button's pages. At the top right, a badge shows
-what the keys play (SELECT) and the octave: a small keyboard and DRONE in white, BASS in orange, or in blue what
-GLINT's keys do (GLINT, ARP, SEQ; REC in orange). Its frame is solid while the notes latch, dotted while they sound
+what the keys play (SELECT) and the octave: a small keyboard and DRONE in white, GLINT in blue, BASS in orange (four
+climbing dots when GLINT's arpeggiator is on; REC in orange while the keys write into a sequence). Its frame is solid while the notes latch, dotted while they sound
 only as long as their key is held.
 
 **Harmony.** 12 scales (chromatic, the seven modes, harmonic and melodic minor, both pentatonics). Chords built in
@@ -162,8 +162,11 @@ keys transpose its sequence, or write into it (RECORD on STEP or LIVE; REC goes 
 them the bass.
 
 **Mixer, pump, mastering.** HOME's second screen is a MIXER: a fader and a live meter for DRONE, BASS, GLINT and
-CLOUD, the reverb's return. PUMP (FX) ducks each track on the beat, as a sidechain would, from 4 bars to 1/8, synced
+CLOUD, the reverb's return; hold OCT- and turn K1-K4 for each track's pan. PUMP (FX) ducks each track on the beat, as a sidechain would, from 4 bars to 1/8, synced
 to MIDI clock or TEMPO, its release, attack and offset on PUMP II. MASTERING (GLO) is a light compressor on the output, with its gain reduction on screen.
+MASTER FILTER (FX) is a low-pass or a high-pass with resonance on the tracks you choose, LOFI TAPE (FX) puts them on a
+saturated, wobbling tape (a cassette's reels on screen), and MASTER EQ (GLO) shapes the output before the compressor:
+three bands and seven presets, its curve drawn. Each scene keeps them. ROUTING (GLO) puts the filter and the tape before or after the cloud, and SPK/JACK quiets the FM-1's own output (speaker and jack) while the USB audio goes on; SCREEN has ANIMATIONS LOW to keep the screen quick with a heavy scene.
 
 **Scenes.** 16 slots, 7 of them factory scenes that play once loaded, each at its own TEMPO (NORTH RIVER, LUMIERE
 NOCTURNE, RESILIENCE, LONG NIGHT, OPEN WATER, WHITEOUT, THAW). A new FM-1 starts on NEW SHARD, a fresh sound to begin
@@ -171,7 +174,7 @@ from. A scene holds the sound, its TEMPO, the latched drones, GLINT's arpeggio a
 sequence. SAVE held and REC stores (then name it, up to sixteen characters); SAVE held and a white key loads one of the
 16, as does PLAY on SCENES or a MIDI Program Change. MORPH glides into a scene, up to two minutes, or cuts; LOAD on
 SND+NOTES lets everything go and plays the scene's notes at its TEMPO, its sequences from the top, on SND ONLY changes
-the sound alone. Hold EDIT to hear the scene as saved (COMPARE); SAVE lights while the sound has changed. Scenes saved
+the sound alone. Hold OCT-, then EDIT, to hear the scene as saved (COMPARE); SAVE lights while the sound has changed. Scenes saved
 by an earlier FRASIL load as they were, the newer settings at their defaults.
 
 The full manual is [app/docs/MANUAL.md](app/docs/MANUAL.md). A one-page field card (in French) is

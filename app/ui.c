@@ -22,6 +22,7 @@
 #define C_ICE RGB(110, 208, 255)         /* cold: the ice (PARTIALS' crystals, GLINT, FREEZE, a choice made) */
 #define C_HAZE RGB(51, 65, 79)
 #define C_SINK RGB(10, 100, 176)         /* SINK's water, a clear blue over the river (C_BG's red) */
+#define C_RED RGB(255, 56, 56)           /* a setting let go of its LFO (LFO held, a knob turned: NO LFO) */
 
 #define ML 14                            /* margins */
 #define MR 226
@@ -148,37 +149,72 @@ static int32_t fit_text(int32_t x, int32_t y, int32_t w, const char *s, uint16_t
     return text_t(x + bold, y, f, t, c, r) + bold;
 }
 
+static uint8_t ui_off;                   /* a setting whose effect is off is being drawn (cell_w): slate */
+
 static void gauge(int32_t x, int32_t y, int32_t w, float v, uint16_t fill)
 {
     int32_t n = (int32_t)(v * (float)w + 0.5f);
     n = clamp(n, 1, w);
     hline(x, x + w - 1, y, C_STEEL);
     hline(x, x + n - 1, y, fill);
-    cv_rect(x + n - 1, y - 2 - oy, 1, 5, C_FOG);
+    cv_rect(x + n - 1, y - 2 - oy, 1, 5, ui_off ? C_SLATE : C_FOG);
 }
 
 /* the control a value is under, before its name, a filled disc: K1 .. K4 ice with the number, the three left
  * encoders amber with a letter (A SELECT, B PRESETS, C ALGORITHM). Centred on (cx, cy); 14 px across (12 in the
  * strata) */
 #define BADGE_W 19                       /* the badge and the gap after it */
+/* a glyph's ink: the box of its pixels at least half covered, in its bitmap (columns from the bitmap's left edge, rows
+ * from its top); none: 0 .. -1 */
+static void glyph_ink(const felucca_font_t *f, char ch, int32_t *x0, int32_t *x1, int32_t *y0, int32_t *y1)
+{
+    uint32_t gi = glyph(f, (uint8_t)ch), w = f->bw[gi], bpr = (w + 1u) / 2u, gx, gy;
+    const uint8_t *gd = f->data + f->off[gi];
+    *x0 = *y0 = 0;
+    *x1 = *y1 = -1;
+    for (gy = 0; gy < f->h; gy++)
+        for (gx = 0; gx < w; gx++) {
+            uint32_t a = gd[gy * bpr + gx / 2u];
+            a = (gx & 1u) ? (a & 15u) : (a >> 4);
+            if (a < 8u)
+                continue;
+            if (*x1 < 0 || (int32_t)gx < *x0)
+                *x0 = (int32_t)gx;
+            if ((int32_t)gx > *x1)
+                *x1 = (int32_t)gx;
+            if (*y1 < 0)
+                *y0 = (int32_t)gy;
+            *y1 = (int32_t)gy;
+        }
+}
+
+/* the character, drawn twice a pixel apart (bolder; a small disc's smaller), its ink on the pixels round (cx, cy); the
+ * disc round the ink's own centre, on a half pixel when the ink is even across or high: centred both ways, exactly,
+ * whatever the glyph (its top was a pixel high: the cell's, not the ink's) */
 static void badge_r(int32_t cx, int32_t cy, char ch, int knob, float r)
 {
-    int32_t x, y, w, n = (int32_t)r + 2;
+    const felucca_font_t *f = r < 6.0f ? &FONT_T : &FONT_XS;
+    int32_t x, y, n = (int32_t)r + 2, gx0, gx1, gy0, gy1, iw, ih, ix, iy;
+    float dx, dy;
     char t[2] = {ch, 0};
+    glyph_ink(f, ch, &gx0, &gx1, &gy0, &gy1);
+    iw = gx1 - gx0 + 2;                  /* (the second drawing, a pixel right) */
+    ih = gy1 - gy0 + 1;
+    ix = cx - iw / 2;                    /* the ink's first column and row */
+    iy = cy - ih / 2;
+    dx = (float)ix + (float)(iw - 1) * 0.5f;
+    dy = (float)iy + (float)(ih - 1) * 0.5f;
     for (y = -n; y <= n; y++)
         for (x = -n; x <= n; x++) {
-            float c = r + 0.5f - fm_sqrtf((float)(x * x + y * y));
+            float ex = (float)(cx + x) - dx, ey = (float)(cy + y) - dy;
+            float c = r + 0.5f - fm_sqrtf(ex * ex + ey * ey);
             c = c < 0.0f ? 0.0f : c > 1.0f ? 1.0f : c;
-            bl(cx + x, cy + y, knob ? C_ICE : C_LAMP, (int32_t)(32.0f * c));
+            bl(cx + x, cy + y, ui_off ? C_SLATE : knob ? C_ICE : C_LAMP, (int32_t)(32.0f * c));
         }
-    {                                    /* the character, drawn twice a pixel apart: bolder; a small disc's smaller,
-                                          * inside it */
-        const felucca_font_t *f = r < 6.0f ? &FONT_T : &FONT_XS;
-        int32_t dy = r < 6.0f ? 6 : 8;
-        w = text_w(f, t);
-        cv_text(cx - w / 2, cy - dy - oy, f, t, C_BG);
-        cv_text(cx - w / 2 + 1, cy - dy - oy, f, t, C_BG);
-    }
+    if (gx1 < 0)
+        return;
+    cv_text(ix - gx0 + f->pad, iy - gy0 - oy, f, t, C_BG);
+    cv_text(ix - gx0 + f->pad + 1, iy - gy0 - oy, f, t, C_BG);
 }
 
 static void badge(int32_t cx, int32_t cy, char ch, int knob) { badge_r(cx, cy, ch, knob, 6.5f); }
@@ -215,7 +251,7 @@ static void value_big(int32_t x, int32_t y, int p, int32_t maxw, const felucca_f
     char t[24], *u = 0;
     int32_t w, uw = 0, i;
     const felucca_font_t *fv = f;
-    value_text(p, st.v[p], t);
+    value_text(p, (uint8_t)pv_shown(p), t);
     for (i = 0; t[i]; i++)               /* a unit after the number: S, MS, HZ, CT */
         if (t[i] == ' ' && i > 0 && t[i - 1] >= '0' && t[i - 1] <= '9' && t[i + 1] && (t[i + 2] == 0 || t[i + 3] == 0 ||
                                                                                     t[i + 4] == 0))
@@ -592,13 +628,13 @@ static int is_macro(int p) { return p == P_KB || p == P_DR_PRESET || p == P_DR_F
 
 static int is_layer(int p) { return p == P_CHOEUR || p == P_PARTIELS || p == P_SOUFFLE || p == P_CHALEUR; }
 
-/* the large view of one value: on the play page (but its strata show the three layers), and for the three hands
- * anywhere */
+/* the large view of one value: on the play page (but its strata show the three layers), and for the drone's two hands
+ * anywhere; SELECT's (what the keys play) on the play page only, elsewhere the keys' badge alone tells it */
 static int overlay_on(void)
 {
     return touched_now() && ((st.page == PG_SON && !is_layer(st.touched)) ||
-                             (is_macro(st.touched) && st.touched_enc < EN_K1));   /* (BODY on DRONE PARAMS' K4:
-                                                                                 * its cell) */
+                             (is_macro(st.touched) && st.touched != P_KB && st.touched_enc < EN_K1));   /* (BODY on
+                                                                                 * DRONE TONE's K4: its cell) */
 }
 
 /* the play page's mix: under the waterline, each layer a stratum drawn as its thing in the river (the current, the
@@ -654,23 +690,22 @@ static void strata(float dim)
 /* the keys' badge, top right: a small keyboard, what the keys play and the octave, in the mode's colour (DRONE white,
  * GLINT ice, BASS lamp), in a rounded frame: solid while the notes latch (the drones and the bass on GLOBAL's KEYS
  * LATCH; GLINT's arpeggio on and latched), dotted while they sound only as long as they are held */
-/* what the keys do, for the badge: DRONE, BASS, or GLINT's: GLINT (each key its glint, GLINT SEQ's pages' RECORD OFF
- * too), ARP (into the arpeggio), SEQ (they transpose the sequence), REC (they write into it, in lamp); BASS's sequence
- * on, SEQ and REC the same */
+/* what the keys play, for the badge: DRONE, GLINT or BASS, REC while they write into a sequence (GLINT's in lamp);
+ * GLINT's arpeggio drawn as four notes climbing instead of the keyboard (keys_arp) */
 static const char *keys_word(uint16_t *col)
 {
     *col = st.glint ? C_ICE : st.bass ? C_LAMP : C_FOG;
-    if (st.bass && st.v[P_BQ_ON])
-        return st.v[P_BQ_REC] ? "REC" : "SEQ";
+    if (st.bass && st.v[P_BQ_ON] && st.v[P_BQ_REC])
+        return "REC";
     if (!st.glint)
         return st.bass ? "BASS" : "DRONE";
-    if (seq_keys()) {
-        if (st.v[P_SQ_REC])
-            *col = C_LAMP;
-        return st.v[P_SQ_REC] ? "REC" : "SEQ";
+    if (seq_keys() && st.v[P_SQ_REC]) {
+        *col = C_LAMP;
+        return "REC";
     }
-    return st.v[P_SQ_TYPE] == SQT_ARP ? "ARP" : "GLINT";
+    return "GLINT";
 }
+static int keys_arp(void) { return st.glint && !seq_keys() && st.v[P_SQ_TYPE] == SQT_ARP; }
 
 static int32_t keys_badge_w(char *oct)       /* its width; the octave as it writes it */
 {
@@ -715,7 +750,15 @@ static void keys_badge(int32_t x0, int32_t w, const char *oct)
             bl(x0 + x, y1 - y, col, ai);
             bl(x1 - x, y1 - y, col, ai);
         }
-    {                                        /* the keyboard: four white keys, three pixels each, two black */
+    if (keys_arp()) {                        /* the arpeggio: four notes, one after another, climbing and back */
+        static const int8_t AY[4] = {6, 3, 0, 4};
+        for (k = 0; k < 4; k++) {
+            int32_t ax = x0 + 4 + k * 5, ay = 11 + AY[k];
+            for (y = 0; y < 3; y++)
+                for (x = 0; x < 3; x++)
+                    bl(ax + x, ay + y, col, x == 1 || y == 1 ? 32 : 18);
+        }
+    } else {                                 /* the keyboard: four white keys, three pixels each, two black */
         int32_t kx = x0 + 4, ky = 11;
         for (x = 0; x <= 16; x++) {
             bl(kx + x, ky, col, 28);
@@ -784,10 +827,10 @@ static void header(void)
     int32_t xt, bw = keys_badge_w(oct), bx = MR - bw + 1, xr = bx - 6;
     float ph = play_holding();
     band(R1, 32);
-    if (frasil_shed_level() > 0) {       /* the processor lightening the sound: an amber dot by the badge */
+    if (cpu_over())                      /* the render ran over its time just now: an amber dot by the badge (its room
+                                          * kept always: the title does not move as it comes and goes) */
         cv_rect(bx - 7, 13 - oy, 3, 3, C_LAMP);
-        xr -= 8;
-    }
+    xr -= 8;
     if (ph > 0.0f) {                     /* PLAY held: what it is about to do, counting down */
         title_at(ML, holding_any() || !rst_valid ? "RELEASE ALL" : "RESTORE", C_LAMP, 0);
         head_progress(ph);
@@ -797,7 +840,10 @@ static void header(void)
     }
     if (now < say.msg_until) {           /* a message for a moment (the badge stays, if there is room) */
         int32_t x = text_t(ML, 8, &FONT_B, say.msg[0], C_FOG, 1);
-        if (say.msg[1][0])
+        if (say.msg[1][0] && say.red) {  /* (bold, bright red: twice, a pixel apart, as the titles) */
+            text_t(x + 7, 8, &FONT_B, say.msg[1], C_RED, 1);
+            x = text_t(x + 8, 8, &FONT_B, say.msg[1], C_RED, 1);
+        } else if (say.msg[1][0])
             x = text_t(x + 7, 9, &FONT_XS, say.msg[1], C_MIST, 1);
         if (x + 8 <= bx)
             keys_badge(bx, bw, oct);
@@ -917,7 +963,7 @@ static void steps(int32_t x, int32_t y, int32_t w, uint32_t n, uint32_t i)
     for (k = 0; k < n; k++) {
         int32_t px = x + (int32_t)(k * (uint32_t)(w - 2) / (n - 1u));
         if (k == i)
-            cv_rect(px - 1, y - 1 - oy, 3, 3, C_ICE);
+            cv_rect(px - 1, y - 1 - oy, 3, 3, ui_off ? C_SLATE : C_ICE);
         else
             cv_rect(px, y - oy, 1, 1, C_SLATE);
     }
@@ -930,15 +976,24 @@ static uint16_t tgt_col(uint32_t t)
     if (p >= NPARAM)
         return C_MIST;
     if (p == P_GL_LEVEL || p == P_GL_BRIGHT || p == P_GL_PING || p == P_GL_SPACE || p == P_MX_GLINT || p == P_ARP_CHANCE ||
-        p == P_SQ_LEN || p == P_GX_SPARK)
+        p == P_SQ_LEN || p == P_GX_SPARK || p == P_PN_GLINT)
         return C_ICE;
-    if (p == P_BS_FILTER || p == P_BS_RESO || p == P_BS_DRIVE || p == P_MX_BASS)
+    if (p == P_BS_FILTER || p == P_BS_RESO || p == P_BS_DRIVE || p == P_MX_BASS || p == P_PN_BASS)
         return C_LAMP;
     return C_FOG;
 }
 
 static void cell_w(int32_t x, int32_t y, int p, int32_t w);
 static void cell(int32_t x, int32_t y, int p) { cell_w(x, y, p, 96); }
+
+/* a setting whose effect is off: MASTER FILTER's with its TYPE OFF, MASTER EQ's bands with its PRESET OFF, LOFI
+ * TAPE's with TAPE OFF (still turned: slate, its name too, so the page reads off) */
+static int param_off(int p)
+{
+    return ((p == P_FL_CUT || p == P_FL_RESO || p == P_FL_TRACKS) && !st.v[P_FL_TYPE]) ||
+           (p >= P_EQ_LOW && p <= P_EQ_HIGHF && !st.v[P_EQ_PRESET]) ||
+           (p >= P_TP_SAT && p <= P_TP_TRACKS && !st.v[P_TP_ON]);
+}
 
 static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its name, its value, a gauge or its
                                                               * choices, w wide */
@@ -948,15 +1003,20 @@ static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its
         return;
     hot = touched_now() && st.touched == p;
     f = PD[p].fmt;
+    ui_off = (uint8_t)param_off(p);
     badge_of(x + 7, y + 7, p, -1);
-    text_t(x + BADGE_W, y, &FONT_XS, PD[p].name, hot ? C_LAMP : C_MIST, 1);
-    value_big(x, y + 15, p, w + 4, &FONT_M, f == F_LTGT ? tgt_col(st.v[p]) : C_FOG, 0);
-    if (f == F_LTGT)                     /* (a TARGET: a name, in its track's colour, no scale) */
+    text_t(x + BADGE_W, y, &FONT_XS, PD[p].name, ui_off ? (hot ? C_MIST : C_SLATE) : hot ? C_LAMP : C_MIST, 1);
+    value_big(x, y + 15, p, w + 4, &FONT_M, ui_off ? C_SLATE : pv.on && pv.p == (uint8_t)p ? C_LAMP
+                                            : f == F_LTGT ? tgt_col(st.v[p]) : C_FOG, 0);   /* (picked under OCT-: lamp) */
+    if (f == F_LTGT) {                   /* (a TARGET: a name, in its track's colour, no scale) */
+        ui_off = 0;
         return;
+    }
     if (PD[p].max <= 16u && f != F_PCT)
-        steps(x + 1, y + 41, w, PD[p].max + 1u, st.v[p]);
+        steps(x + 1, y + 41, w, PD[p].max + 1u, pv_shown(p));
     else
-        gauge(x, y + 41, w, (float)st.v[p] / (float)PD[p].max, hot ? C_LAMP : C_MIST);
+        gauge(x, y + 41, w, (float)pv_shown(p) / (float)PD[p].max, ui_off ? C_SLATE : hot ? C_LAMP : C_MIST);
+    ui_off = 0;
     if (p < NSOUND && mod[p] != 0.0f && PD[p].max > 16u) {   /* an LFO on it: where it is now, in ice */
         float u = br_clamp01(((float)st.v[p] + mod[p]) / (float)PD[p].max);
         int32_t n = clamp((int32_t)(u * (float)w + 0.5f), 1, w);
@@ -1372,6 +1432,385 @@ static void adsr_scope(int glint)
     }
 }
 
+/* MASTER EQ and MASTER FILTER: their response across the strip, 20 HZ to 20 KHZ on a log scale (100, 1K, 10K marked
+ * under it). The EQ's (MASTER EQ, II): its three bands' biquads as the engine has them, 0 DB the middle line, +-12 DB
+ * the strip; what it raises warms (lamp), what it cuts is ice; each band's knob a small badge on the curve where the
+ * band sits, larger while it turns. The FILTER's: 12 DB an octave and its resonance's peak, what passes as water under
+ * it, CUTOFF's badge at the corner; OFF, a flat slate line. The curve is worked out again only when a setting changes */
+#define RS_TOP 42
+#define RS_BED 84
+#define RS_N (MR - ML + 1)
+
+static float rs_hz(int32_t x) { return 20.0f * fm_powf(1000.0f, (float)(x - ML) / (float)(RS_N - 1)); }
+static int32_t rs_x(float hz) { return ML + (int32_t)(fm_log2f(hz * 0.05f) * (1.0f / 9.9657843f) * (float)(RS_N - 1) + 0.5f); }
+
+static float biquad_db(const float *c, float hz)
+{
+    float w = 6.2831853f * hz * (1.0f / 44100.0f), c1 = fm_cosf(w), s1 = fm_sinf(w), c2 = fm_cosf(2.0f * w),
+          s2 = fm_sinf(2.0f * w);
+    float nr = c[0] + c[1] * c1 + c[2] * c2, ni = c[1] * s1 + c[2] * s2;
+    float dr = 1.0f + c[3] * c1 + c[4] * c2, di = c[3] * s1 + c[4] * s2;
+    return 3.0103f * fm_log2f((nr * nr + ni * ni + 1e-12f) / (dr * dr + di * di + 1e-12f));
+}
+
+/* a band's or the corner's badge on the curve: its knob, larger while it turns */
+static void rs_badge(float hz, int32_t y, int p, char ch)
+{
+    int lit = touched_now() && st.touched == p;
+    badge_r(rs_x(hz), y < RS_TOP + 2 ? RS_TOP + 2 : y > RS_BED - 2 ? RS_BED - 2 : y, ch, 1, lit ? 6.5f : 5.0f);
+}
+
+static void rs_grid(int32_t zero)
+{
+    static const float MARK[3] = {100.0f, 1000.0f, 10000.0f};
+    static const char *const MARK_NM[3] = {"100", "1K", "10K"};
+    int32_t k, y;
+    hline(ML, MR, zero, C_STEEL);
+    for (k = 0; k < 3; k++) {
+        int32_t x = rs_x(MARK[k]);
+        for (y = RS_TOP; y <= RS_BED; y += 3)
+            bl(x, y, C_STEEL, 24);
+        text_c(x, RS_BED + 3, &FONT_T, MARK_NM[k], C_SLATE, 0);
+    }
+}
+
+static void eq_scope(void)
+{
+    static int16_t ys[RS_N];
+    static uint8_t seen[8] = {255};
+    const int32_t zero = (RS_TOP + RS_BED) / 2;
+    float lo[5], mid[5], hi[5], flo, fmid, fhi;
+    uint8_t now[8];
+    int32_t x, py = 0, k, eq2 = st.page == PG_EQ2, off = !st.v[P_EQ_PRESET];
+    for (k = 0; k < 7; k++)
+        now[k] = st.v[P_EQ_LOW + k];
+    now[7] = 0;
+    flo = EQ_LOWF((float)st.v[P_EQ_LOWF] / 127.0f);
+    fmid = EQ_MIDF((float)st.v[P_EQ_MIDF] / 127.0f);
+    fhi = EQ_HIGHF((float)st.v[P_EQ_HIGHF] / 127.0f);
+    frasil_eq_coefs(0, flo, 0.5f * (float)((int32_t)st.v[P_EQ_LOW] - 24), 0.707f, lo);
+    frasil_eq_coefs(1, fmid, 0.5f * (float)((int32_t)st.v[P_EQ_MID] - 24), EQ_Q((float)st.v[P_EQ_Q] / 127.0f), mid);
+    frasil_eq_coefs(2, fhi, 0.5f * (float)((int32_t)st.v[P_EQ_HIGH] - 24), 0.707f, hi);
+    if (memcmp(now, seen, sizeof now)) {
+        memcpy(seen, now, sizeof seen);
+        for (x = 0; x < RS_N; x++) {
+            float f = rs_hz(ML + x), db = biquad_db(lo, f) + biquad_db(mid, f) + biquad_db(hi, f);
+            db = db > 13.0f ? 13.0f : db < -13.0f ? -13.0f : db;
+            ys[x] = (int16_t)(zero - (int32_t)(db * (float)(zero - RS_TOP) * (1.0f / 12.0f) + (db < 0.0f ? -0.5f : 0.5f)));
+        }
+    }
+    rs_grid(zero);
+    for (x = ML; x <= MR; x++) {         /* what it raises warms, what it cuts is ice; the curve over them */
+        int32_t y = ys[x - ML], yy, y0 = x > ML && py < y ? py : y, y1 = x > ML && py > y ? py : y;
+        for (yy = y < zero ? y + 1 : zero + 1; !off && yy < (y < zero ? zero : y); yy++)
+            if ((x + yy) & 1)
+                bl(x, yy, y < zero ? C_LAMP : C_ICE, y < zero ? 16 : 12);
+        for (yy = y0; yy <= y1; yy++) {  /* (OFF: what it would do, slate) */
+            bl(x, yy, off ? C_SLATE : C_FOG, 28);
+            bl(x, yy + 1, off ? C_SLATE : C_FOG, 6);
+        }
+        py = y;
+    }
+    ui_off = (uint8_t)off;
+    rs_badge(flo, ys[rs_x(flo) - ML], eq2 ? P_EQ_LOWF : P_EQ_LOW, eq2 ? '1' : '2');
+    rs_badge(fmid, ys[rs_x(fmid) - ML], eq2 ? P_EQ_MIDF : P_EQ_MID, eq2 ? '2' : '3');
+    rs_badge(fhi, ys[rs_x(fhi) - ML], eq2 ? P_EQ_HIGHF : P_EQ_HIGH, '4');
+    ui_off = 0;
+}
+
+static void filter_scope(void)
+{
+    const int32_t zero = 56;             /* 0 DB; 0.7 px a decibel: +20 at the top, -40 at the bed */
+    uint32_t type = st.v[P_FL_TYPE] % 3u;
+    float fc = FL_CUT((float)st.v[P_FL_CUT] / 127.0f), q = FL_Q((float)st.v[P_FL_RESO] / 127.0f);
+    int32_t x, py = 0, ycut = zero;
+    rs_grid(zero);
+    for (x = ML; x <= MR; x++) {
+        float f = rs_hz(x), r = f / fc, db, re, im;
+        int32_t y, yy, y0, y1;
+        if (!type) {
+            bl(x, zero, C_SLATE, 32);
+            continue;
+        }
+        re = 1.0f - r * r;               /* 1 / (1 - r^2 + j r / q): a low pass; times r^2, a high pass */
+        im = r / q;
+        db = -3.0103f * fm_log2f(re * re + im * im + 1e-12f) + (type == 2u ? 12.0412f * fm_log2f(r) : 0.0f);
+        db = db > 20.0f ? 20.0f : db < -40.0f ? -40.0f : db;
+        y = zero - (int32_t)(db * 0.7f + (db < 0.0f ? -0.5f : 0.5f));
+        if (x == rs_x(fc))
+            ycut = y;
+        for (yy = y + 2; yy < RS_BED; yy++) {   /* what passes: water under the curve */
+            int32_t a = (RS_BED - yy) * 16 / (RS_BED - y);
+            if ((x + yy) & 1)
+                bl(x, yy, C_ICE, 10 * a * a / 256);
+        }
+        y0 = x > ML && py < y ? py : y;
+        y1 = x > ML && py > y ? py : y;
+        for (yy = y0; yy <= y1; yy++) {
+            bl(x, yy, C_ICE, 28);
+            bl(x, yy + 1, C_ICE, 7);
+        }
+        py = y;
+    }
+    if (type)
+        rs_badge(fc, ycut, P_FL_CUT, '2');
+}
+
+/* LOFI TAPE: a cassette's two reels across the strip, the tape off the left one round a roller, over the head, round
+ * the other roller onto the right one, which fills as the left empties (then a quick rewind). The reels turn
+ * anticlockwise as the tape runs, the engine's speed made five times as plain (a
+ * wow sways them, a drag nearly stops them); the free spans hang looser and sway as WOBBLE grows, looser still in a
+ * drag; SATURATION warms the tape and lights the head, a glow that grows and whitens. Still and slate while TAPE is
+ * off */
+#define TP_CY 60                          /* the reels' centres */
+#define TP_RL 60.0f                       /* their x */
+#define TP_RR 180.0f
+#define TP_GL 100.0f                      /* the rollers' x, y, radius */
+#define TP_GR 140.0f
+#define TP_GY 83.0f
+static float tp_rot[2], tp_vs = 1.0f;     /* each reel's angle, turns; the speed shown */
+static float tp_u = 0.35f;                /* how much of the tape is on the right reel, 0 .. 1 */
+static int tp_rew;                        /* rewinding */
+
+/* a thin segment, anti-aliased (screen coordinates), half its width hw, alpha a of 32 */
+static void seg_aa(float x0, float y0, float x1, float y1, uint16_t col, int32_t a, float hw)
+{
+    float dx = x1 - x0, dy = y1 - y0, l2 = dx * dx + dy * dy + 1e-6f;
+    int32_t xa = (int32_t)fm_floorf((x0 < x1 ? x0 : x1) - hw - 1.0f), xb = (int32_t)((x0 > x1 ? x0 : x1) + hw + 1.0f);
+    int32_t ya = (int32_t)fm_floorf((y0 < y1 ? y0 : y1) - hw - 1.0f), yb = (int32_t)((y0 > y1 ? y0 : y1) + hw + 1.0f);
+    int32_t x, y;
+    for (y = ya; y <= yb; y++)
+        for (x = xa; x <= xb; x++) {
+            float t = br_clamp01(((float)x - x0) * dx / l2 + ((float)y - y0) * dy / l2);
+            float ex = x0 + t * dx - (float)x, ey = y0 + t * dy - (float)y, c = hw + 0.5f - fm_sqrtf(ex * ex + ey * ey);
+            if (c > 0.0f)
+                bl(x, y, col, (int32_t)((float)a * (c > 1.0f ? 1.0f : c)));
+        }
+}
+
+/* a reel at (cx, cy): its flange, the tape wound on it out to pack (a turn of it every other pixel, a splice's mark
+ * that turns with it), its hub's ring and three spokes at rot */
+static void reel(float cx, float cy, float pack, float rot, uint16_t tape, uint16_t hub, uint16_t rim)
+{
+    int32_t x, y, k, ix = (int32_t)cx, iy = (int32_t)cy;
+    float ms = fm_sin_turns(rot + 0.125f), mc = fm_sin_turns(rot + 0.375f);
+    for (y = 0; y <= 27; y++)                /* (a quarter, mirrored: the rings are round about the centre) */
+        for (x = 0; x <= 27; x++) {
+            float d2 = (float)(x * x + y * y), d, c;
+            int32_t ar = 0, at = 0, ah = 0, q;
+            if (d2 > 26.5f * 26.5f || (d2 < 24.5f * 24.5f && d2 > (pack + 0.5f) * (pack + 0.5f)) || d2 < 25.0f)
+                continue;
+            d = fm_sqrtf(d2);
+            c = 1.0f - fm_fabsf(d - 25.5f);
+            if (c > 0.0f)
+                ar = (int32_t)(22.0f * c);
+            if (d > 9.0f && d < pack + 0.5f) {
+                c = d > pack - 0.5f ? pack + 0.5f - d : d < 10.0f ? d - 9.0f : 1.0f;
+                at = (int32_t)((((int32_t)d & 1) ? 30.0f : 22.0f) * c);
+            }
+            c = 1.0f - fm_fabsf(d - 7.0f);
+            if (c > 0.0f)
+                ah = (int32_t)(32.0f * c);
+            for (q = 0; q < 4; q++) {
+                int32_t px = ix + (q & 1 ? -x : x), py = iy + (q & 2 ? -y : y);
+                if ((q & 1 && !x) || (q & 2 && !y))
+                    continue;
+                if (ar)
+                    bl(px, py, rim, ar);
+                if (at)
+                    bl(px, py, tape, at);
+                if (ah)
+                    bl(px, py, hub, ah);
+            }
+        }
+    seg_aa(cx + (pack - 5.0f) * mc, cy + (pack - 5.0f) * ms, cx + (pack - 0.5f) * mc, cy + (pack - 0.5f) * ms, hub, 20,
+           0.6f);
+    for (k = 0; k < 3; k++) {
+        float a = rot + (float)k * (1.0f / 3.0f), sn = fm_sin_turns(a), cs = fm_sin_turns(a + 0.25f);
+        seg_aa(cx + 1.5f * cs, cy + 1.5f * sn, cx + 6.5f * cs, cy + 6.5f * sn, hub, 32, 1.1f);
+    }
+}
+
+/* where the tape leaves circle a (centre, radius) for circle b, under both: p = a's point, then b's */
+static void tape_tangent(float ax, float ay, float ar, float bx, float by, float br, float *p)
+{
+    float dx = bx - ax, dy = by - ay, l = fm_sqrtf(dx * dx + dy * dy) + 1e-6f, ux = dx / l, uy = dy / l;
+    float c = (ar - br) / l, sn = fm_sqrtf(1.0f - c * c), nx = c * ux - sn * uy, ny = c * uy + sn * ux;
+    if (ny < 0.0f) {
+        nx = c * ux + sn * uy;
+        ny = c * uy - sn * ux;
+    }
+    p[0] = ax + ar * nx;
+    p[1] = ay + ar * ny;
+    p[2] = bx + br * nx;
+    p[3] = by + br * ny;
+}
+
+/* a free span of tape from (x0, y0) to (x1, y1), hanging sag pixels at its middle (a quadratic's) */
+static void tape_span(const float *p, float sag, uint16_t col, int32_t a)
+{
+    float dx = p[2] - p[0], dy = p[3] - p[1], l = fm_sqrtf(dx * dx + dy * dy) + 1e-6f, nx = -dy / l, ny = dx / l;
+    float cx, cy, px = p[0], py = p[1];
+    int32_t k;
+    if (ny < 0.0f) {                     /* (it hangs down) */
+        nx = -nx;
+        ny = -ny;
+    }
+    cx = 0.5f * (p[0] + p[2]) + 2.0f * sag * nx;
+    cy = 0.5f * (p[1] + p[3]) + 2.0f * sag * ny;
+    for (k = 1; k <= 10; k++) {
+        float t = (float)k * 0.1f, u = 1.0f - t;
+        float x = u * u * p[0] + 2.0f * u * t * cx + t * t * p[2], y = u * u * p[1] + 2.0f * u * t * cy + t * t * p[3];
+        seg_aa(px, py, x, y, col, a, 0.6f);
+        px = x;
+        py = y;
+    }
+}
+
+static void tape_scope(void)
+{
+    static uint32_t last;
+    const float gr = 4.0f, hy = TP_GY + gr, a0 = 10.0f * 10.0f, a1 = 23.0f * 23.0f;
+    uint32_t now = plat_ms();
+    int on = st.v[P_TP_ON] != 0, still = st.v[P_ANIM] != 0;
+    float dt = (float)(now - last) * 0.001f, sat = (float)st.v[P_TP_SAT] / 127.0f, wob = (float)st.v[P_TP_WOBBLE] / 127.0f;
+    float spd = on ? frasil_tape_speed() : 1.0f, tl[4], tr[4], loose, t = still ? 6.0f : (float)now * 0.001f, pl, pr;
+    uint16_t tape = on ? mix565(RGB(120, 72, 40), C_LAMP, (int32_t)(32.0f * sat)) : C_STEEL;
+    uint16_t hub = on ? C_FOG : C_SLATE, rim = on ? C_SLATE : C_STEEL;
+    int32_t x, y;
+    last = now;
+    dt = dt > 0.1f ? 0.1f : dt;
+    tp_vs += ((on ? spd : 1.0f) - tp_vs) * (dt > 0.15f ? 1.0f : dt * 6.7f);   /* (the engine's speed, read a frame
+                                                                            * at a time: smoothed, 150 ms) */
+    pl = fm_sqrtf(a0 + (1.0f - tp_u) * (a1 - a0));   /* the packs: the tape off the left one onto the right one, its
+                                                      * length (their area) the same */
+    pr = fm_sqrtf(a0 + tp_u * (a1 - a0));
+    if (on && !still) {                  /* the tape at some 60 px a second past the head, each reel turning at its
+                                          * radius, anticlockwise as a cassette's; at the end, rewound in a second and a
+                                          * half, quickly the other way */
+        float v = tp_rew ? -400.0f : 60.0f * (1.0f + 5.0f * (tp_vs - 1.0f));
+        v = (!tp_rew && v < 0.0f ? 0.0f : v) * dt;
+        tp_u += tp_rew ? -dt * (1.0f / 1.5f) : v * (1.0f / 5400.0f);   /* (some 90 s a side) */
+        if (tp_u >= 1.0f)
+            tp_rew = 1;
+        if (tp_u <= 0.0f) {
+            tp_u = 0.0f;
+            tp_rew = 0;
+        }
+        tp_u = tp_u > 1.0f ? 1.0f : tp_u;
+        tp_rot[0] -= v / (6.2831853f * pl);
+        tp_rot[1] -= v / (6.2831853f * pr);
+        tp_rot[0] -= fm_floorf(tp_rot[0]);
+        tp_rot[1] -= fm_floorf(tp_rot[1]);
+    }
+    if (on && sat > 0.0f) {              /* the head's glow: wider and whiter as SATURATION grows, flickering a little;
+                                          * a white-hot core past halfway (a quarter, mirrored) */
+        float rad = 10.0f + 22.0f * sat, g = (0.35f + 0.65f * sat) * (0.85f + 0.15f * fm_sin_turns(t * 2.3f) *
+                                                                         fm_sin_turns(t * 0.37f));
+        uint16_t gc = mix565(C_LAMP, C_FOG, (int32_t)(12.0f * sat * sat));
+        int32_t hx = 120, hyi = (int32_t)hy, q;
+        for (y = 0; y <= (int32_t)rad; y++)
+            for (x = 0; x <= (int32_t)(rad * 1.6f); x++) {
+                float ex = (float)x * (1.0f / 1.6f), ey = (float)y, d = fm_sqrtf(ex * ex + ey * ey) / rad;
+                int32_t a, w = 0;
+                if (d >= 1.0f)
+                    break;
+                a = (int32_t)(30.0f * g * (1.0f - d) * (1.0f - d));
+                if (sat > 0.5f && d < 0.3f)
+                    w = (int32_t)(40.0f * (sat - 0.5f) * (0.3f - d) / 0.3f);
+                for (q = 0; q < 4; q++) {
+                    int32_t px = hx + (q & 1 ? -x : x), py = hyi + (q & 2 ? -y : y);
+                    if ((q & 1 && !x) || (q & 2 && !y) || py >= 93)
+                        continue;
+                    bl(px, py, gc, a);
+                    if (w)
+                        bl(px, py, C_FOG, w);
+                }
+            }
+    }
+    reel(TP_RL, (float)TP_CY, pl, tp_rot[0], tape, hub, rim);
+    reel(TP_RR, (float)TP_CY, pr, tp_rot[1], tape, hub, rim);
+    loose = on ? wob * (4.0f + 3.0f * fm_sin_turns(t * 0.7f)) + (still ? 0.0f : 60.0f * (spd < 1.0f ? 1.0f - spd : 0.0f))
+               : 0.0f;
+    loose = loose > 10.0f ? 10.0f : loose;
+    tape_tangent(TP_RL, (float)TP_CY, pl, TP_GL, TP_GY, gr, tl);
+    tape_tangent(TP_GR, TP_GY, gr, TP_RR, (float)TP_CY, pr, tr);
+    tape_span(tl, loose, tape, 30);
+    tape_span(tr, on ? wob * (4.0f + 3.0f * fm_sin_turns(t * 0.7f + 0.4f)) : 0.0f, tape, 30);
+    seg_aa(TP_GL, hy, TP_GR, hy, on ? mix565(tape, C_FOG, (int32_t)(26.0f * sat)) : tape, 32, 0.6f + 0.4f * sat);
+                                         /* (over the head, taut, hot as it saturates) */
+    for (y = (int32_t)(TP_GY - gr) - 1; y <= (int32_t)(TP_GY + gr) + 1; y++)   /* the rollers: rings, a pin */
+        for (x = (int32_t)(TP_GL - gr) - 1; x <= (int32_t)(TP_GR + gr) + 1; x++) {
+            float cxr = x < 120 ? TP_GL : TP_GR, ex = (float)x - cxr, ey = (float)y - TP_GY;
+            float d = fm_sqrtf(ex * ex + ey * ey), c = 1.0f - fm_fabsf(d - (gr - 0.5f));
+            if (fm_fabsf(ex) > gr + 1.0f)
+                continue;
+            if (c > 0.0f)
+                bl(x, y, hub, (int32_t)(26.0f * c));
+            if (d < 1.2f)
+                bl(x, y, hub, 24);
+        }
+    cv_rect(113, (int32_t)hy + 1 - oy, 15, 4, on ? (sat > 0.5f ? mix565(C_LAMP, C_FOG, (int32_t)(40.0f * (sat - 0.5f)))
+                                                        : C_LAMP) : C_SLATE);   /* the head, its gap */
+    cv_rect(120, (int32_t)hy + 1 - oy, 1, 4, C_BG);
+}
+
+/* ROUTING: the chain as it is. The tracks along the top, the cloud on a lane below them (its share taken, its return
+ * given back); MASTER FILTER before the branch (PRE: the cloud fed it filtered) or after the return (POST), LOFI TAPE on
+ * the tracks' lane alone (PRE: the cloud left clean) or after the return; each slate while it is off. CLOUD PUMP: a
+ * duck on the return; SPK/JACK: the speaker at the end, crossed out while it is quiet */
+static void rt_block(int32_t cx, int32_t cy, const char *s, uint16_t col, int on)
+{
+    int32_t w = text_tw(&FONT_XS, s, 1) + 10, x0 = cx - w / 2, x, a = on ? 30 : 16;
+    cv_rect(x0, cy - 7 - oy, w, 15, C_BG);
+    for (x = x0 + 1; x < x0 + w - 1; x++) {
+        bl(x, cy - 7, col, a);
+        bl(x, cy + 7, col, a);
+    }
+    for (x = cy - 6; x <= cy + 6; x++) {
+        bl(x0, x, col, a);
+        bl(x0 + w - 1, x, col, a);
+    }
+    text_t(x0 + 5, cy - 5, &FONT_XS, s, on ? col : C_SLATE, 1);
+}
+
+static void routing_scope(void)
+{
+    const int32_t yt = 52, yc = 80, xs = 64, xm = 118;
+    int fon = st.v[P_FL_TYPE] != 0, ton = st.v[P_TP_ON] != 0, fpre = st.v[P_FL_PRE] != 0, tpre = st.v[P_TP_PRE] != 0;
+    int32_t y, x;
+    hline(ML, MR - 14, yt, C_SLATE);         /* the tracks */
+    for (y = yt; y <= yc; y++) {             /* the cloud's lane: its share down, its return up */
+        bl(xs, y, C_SLATE, 32);
+        bl(xm, y, C_SLATE, 32);
+    }
+    hline(xs, xm, yc, C_SLATE);
+    rt_block((xs + xm) / 2, yc, "CLOUD", C_MIST, 1);
+    if (st.v[P_PUMP_CLOUD])                  /* the return ducked with the drone: a little saw beside it */
+        for (x = 0; x < 9; x++) {
+            bl(xm + 3 + x, yc - 6 + (x % 3) * 2, C_LAMP, 30);
+            bl(xm + 3 + x, yc - 5 + (x % 3) * 2, C_LAMP, 14);
+        }
+    rt_block(fpre ? 37 : 143, yt, "FILTER", C_ICE, fon);
+    rt_block(tpre ? (xs + xm) / 2 : 188, yt, "TAPE", C_LAMP, ton);
+    {                                        /* the speaker: a box and its cone; crossed out while quiet */
+        int32_t sx = MR - 8, on = st.v[P_SPEAKER] != 0;
+        uint16_t sc = on ? C_FOG : C_SLATE;
+        cv_rect(sx, yt - 2 - oy, 3, 5, sc);
+        for (x = 0; x < 4; x++) {
+            bl(sx + 3 + x, yt - 2 - x, sc, 32);
+            bl(sx + 3 + x, yt + 2 + x, sc, 32);
+        }
+        for (y = yt - 5; y <= yt + 5; y++)
+            bl(sx + 7, y, sc, 32);
+        if (!on)
+            for (x = -5; x <= 5; x++) {
+                bl(sx + 3 + x, yt + x, C_LAMP, 32);
+                bl(sx + 3 + x, yt - x, C_LAMP, 32);
+            }
+    }
+}
+
 /* an LFO's pages: its shape over a turn (four for RANDOM and DRIFT: the three before and this one) across the strip,
  * as deep as DEPTH (a little even at 0, to be seen), from where POLARITY puts it (the middle, the bottom, the top);
  * where it is now, a glint; slate while it is off */
@@ -1464,6 +1903,15 @@ static void mixer(void)
             bl(x + 15, y, c, 30);
             bl(x + 16, y, c, 30);
         }
+        {                                         /* its PAN above it: a short scale, the centre ticked, a dot */
+            int pp = P_PN_DRONE + (int)i, ph = touched_now() && st.touched == pp;
+            int32_t xp = x + ((int32_t)st.v[pp] - 50) * 11 / 50;
+            for (dx = -11; dx <= 11; dx++)
+                bl(x + dx, 38, C_STEEL, 32);
+            bl(x, 37, C_SLATE, 32);
+            bl(x, 39, C_SLATE, 32);
+            cv_rect(xp - 1, 37 - oy, 3, 3, ph ? C_LAMP : st.v[pp] == 50u ? C_SLATE : c);
+        }
     }
 }
 
@@ -1471,11 +1919,25 @@ static void mixer_footer(void)
 {
     uint32_t i;
     for (i = 0; i < 4u; i++) {
-        int p = PAGES[PG_MIXER].p[i], hot = touched_now() && st.touched == p;
-        int32_t x = mix_x(i), w = 15 + text_tw(&FONT_XS, PD[p].name, 0), x0 = x - w / 2;
+        int pans = b_held(B_OCTDN) || (touched_now() && st.touched >= P_PN_DRONE && st.touched <= P_PN_CLOUD);
+        int q = PAGES[PG_MIXER].p[i], p = pans ? P_PN_DRONE + (int)i : q, hot = touched_now() && st.touched == p;
+        int32_t x = mix_x(i), w = 15 + text_tw(&FONT_XS, PD[q].name, 0), x0 = x - w / 2;
         badge(x0 + 6, 189, (char)('1' + i), 1);
-        text_t(x0 + 15, 182, &FONT_XS, PD[p].name, hot ? C_LAMP : C_MIST, 0);
+        text_t(x0 + 15, 182, &FONT_XS, PD[q].name, hot ? C_LAMP : C_MIST, 0);   /* (the track: its level, or its
+                                                                                * PAN while OCT- is held) */
         value_big(x, 200, p, 50, &FONT_M, hot ? C_LAMP : mix_col(i), 1);
+    }
+    {                                        /* (the pans' gesture, hidden: told at the bottom, OCT- as a key) */
+        static const char *const H0 = "PAN: HOLD", *const H1 = "AND K";
+        int32_t wk = text_tw(&FONT_XS, "OCT-", 1) + 10, w = text_tw(&FONT_XS, H0, 1) + 5 + wk + 5 + text_tw(&FONT_XS, H1, 1);
+        int32_t x = (ML + MR) / 2 - w / 2, y = 222;
+        x = text_t(x, 224, &FONT_XS, H0, C_SLATE, 1) + 5;
+        hline(x + 1, x + wk - 2, y, C_SLATE);   /* the key: a rounded box (its corners left out) */
+        hline(x + 1, x + wk - 2, y + 16, C_SLATE);
+        cv_rect(x, y + 1 - oy, 1, 15, C_SLATE);
+        cv_rect(x + wk - 1, y + 1 - oy, 1, 15, C_SLATE);
+        text_t(x + 5, 224, &FONT_XS, "OCT-", C_MIST, 1);
+        text_t(x + wk + 5, 224, &FONT_XS, H1, C_SLATE, 1);
     }
 }
 
@@ -1609,7 +2071,7 @@ static void middle(float t)
             text_t(x0 + BADGE_W, 36, &FONT_XS, PD[p].name, C_MIST, 3);
         }
         value_big(120, 52, p, 200, &FONT_L, C_FOG, 1);
-        gauge(60, 92, 120, (float)st.v[p] / (float)PD[p].max, C_LAMP);
+        gauge(60, 92, 120, (float)pv_shown(p) / (float)PD[p].max, C_LAMP);
     } else if (st.page == PG_SON) {
         river(R2, HZ_HOME, 1.0f, 1, t);
         river_status();
@@ -1627,6 +2089,18 @@ static void middle(float t)
             bseq_scope();
         else if (st.page == PG_BASS3 || st.page == PG_GLINT3)
             adsr_scope(st.page == PG_GLINT3);
+        else if (st.page == PG_EQ || st.page == PG_EQ2)
+            eq_scope();
+        else if (st.page == PG_FILTER)
+            filter_scope();
+        else if (st.page == PG_TAPE)
+            tape_scope();
+        else if (st.page == PG_ROUTING)
+            routing_scope();
+        else if (st.page == PG_SCREEN) {   /* why one would turn ANIMATIONS (the user's words) */
+            text_t(ML, 50, &FONT_XS, "REDUCE ANIMATIONS TO SAVE", C_MIST, 1);
+            text_t(ML, 62, &FONT_XS, "CPU IN HEAVY SCENES", C_MIST, 1);
+        }
         else if (st.page != PG_SCENES)
             river(R2, 86, 0.45f, 0, t);
         if (st.page == PG_SCENES) {
@@ -1899,8 +2373,8 @@ static void logo_draw(float out, float t)
     }
 }
 
-/* the whole screen in two bands: the sky's granules and the water behind, the glints around, the logo, the tagline
- * under it, the author at the bottom. still: the splash, before anything plays */
+/* the whole screen in two bands: the sky's granules and the water behind, the glints around, the site up in the sky,
+ * the logo, the tagline under it, the author at the bottom. still: the splash, before anything plays */
 static void logo_scene(float t, int still)
 {
     live_t L = live_now(still);
@@ -1925,6 +2399,8 @@ static void logo_scene(float t, int still)
             glints(0, 150, 1.0f);
         logo_draw(L.out, t);
         text_c(120, 176, &FONT_T, APP_TAGLINE, mix565(C_MIST, C_ICE, (int32_t)(6.0f + 12.0f * L.out)), 2);
+        text_c(120, 44, &FONT_S, APP_SITE, C_FOG, 1);   /* the site: its River keeps and edits the scenes */
+        text_c(120, 62, &FONT_T, APP_SITE_NOTE, C_MIST, 2);
         text_c(120, 218, &FONT_S, APP_AUTHOR, C_WHITE, 1);
         {                                /* the version, top right ("DEV" but for a release) */
             char v[16] = {0};
@@ -1962,10 +2438,10 @@ static const char *const HELP_TITLE[HELP_PAGES] = {"BUTTONS", "BUTTONS", "BUTTON
 static const help_t HELP[HELP_PAGES][4] = {
     {{H_BTN, B_FX, "GENERATIVE FX", "FX", "AGAIN: CLOUD, PUMP / HOLD: FREEZE"}, {H_BTN, B_SEL, "HARMONY", "SEL", "HOLD + KEY: SINGLE NOTE"},
      {H_BTN, B_ENV, "DRONE SHAPE", "ENV", "HOLD: SWELL"}, {H_BTN, B_LFO, "DRONE MOTION", "LFO", "AGAIN: LFO 1-3 / HOLD+K: ROUTE"}},
-    {{H_BTN, B_EDIT, "DRONE, LAYERS", "EDIT", "AGAIN: LAYERS / HOLD: COMPARE"}, {H_BTN, B_GLO, "GLOBAL", "GLO", "AGAIN: MIDI / HOLD + CC: LEARN"},
+    {{H_BTN, B_EDIT, "DRONE, LAYERS", "EDIT", "AGAIN: LAYERS / OCT- +: COMPARE"}, {H_BTN, B_GLO, "GLOBAL", "GLO", "AGAIN: MIDI / HOLD + CC: LEARN"},
      {H_BTN, B_HOME, "PLAY / MIXER", "HOME", "AGAIN: MIXER, LOGO / HOLD: HELP"}, {H_BTN, B_SAVE, "SCENES", "SAVE", "HOLD + KEY: LOAD / + REC: STORE"}},
     {{H_BTN, B_ARP, "GLINT PAGES", "ARP", "HOLD: ARP LATCH"}, {H_BTN, B_SEQ, "BASS PAGES", "SEQ", ""},
-     {H_BTN, B_PLAY, "START, STOP", "PLAY", "HOLD: RELEASE ALL / SCENES: LOAD"}, {H_BTN, B_REC, "RECORD LIVE", "REC", "AGAIN: OFF / HOLD: METRONOME"}},
+     {H_BTN, B_PLAY, "START, STOP", "PLAY", "TWICE OR HOLD: RELEASE ALL"}, {H_BTN, B_REC, "RECORD LIVE", "REC", "AGAIN: OFF / HOLD: METRONOME"}},
     {{H_ENC, 'A', "KEYS", "SELECT", "HOLD A PAGE BUTTON: ITS PAGES"}, {H_ENC, 'B', "PRESET", "PRESETS", ""},
      {H_ENC, 'C', "BODY", "ALGORITHM", ""}, {H_ENC, 0, "OCTAVE", "OCT- OCT+", "BOTH: RESET"}},
     {{H_GEST, 0, "LIGHT A DRONE", "TAP", "A CHORD WITH HARMONY"}, {H_GEST, 0, "LET IT GO", "TAP AGAIN", ""},
@@ -2231,9 +2707,9 @@ static void ui_frame(void)
         st.logo = 0;
     if (st.logo) {                       /* the logo's screen, alive: 20 frames a second, 12 while the sound takes
                                           * most of the processor (it moves slowly; the keys stay quick) */
-        if (!ui.was_logo || now - ui.field_at >= (plat_cpu_pct() > 75u ? 80u : 50u)) {
-            ui.field_at = now;
-            logo_scene((float)now * 0.001f, 0);
+        if (!ui.was_logo || (!st.v[P_ANIM] && now - ui.field_at >= (plat_cpu_pct() > 75u ? 80u : 50u))) {
+            ui.field_at = now;           /* (ANIMATIONS LOW: drawn once, still) */
+            logo_scene(st.v[P_ANIM] ? 6.0f : (float)now * 0.001f, 0);
             ui.frames++;
         }
         ui.was_logo = 1;
@@ -2247,7 +2723,7 @@ static void ui_frame(void)
     s1 = sig_add(s1, st.page | (uint32_t)st.v[P_FREEZE] << 8 | (uint32_t)st.glint << 9 | (uint32_t)(now < say.msg_until) << 10 |
                          (uint32_t)arp.latch << 11 | (uint32_t)(st.v[P_SQ_TYPE] != 0) << 12 | (uint32_t)st.bass << 13 |
                          (uint32_t)st.v[P_KEYS] << 14 | (uint32_t)st.v[P_SQ_TYPE] << 15 | (uint32_t)st.v[P_SQ_REC] << 17 |
-                         (uint32_t)st.dirty << 19 | (uint32_t)st.compare << 20 | (uint32_t)(frasil_shed_level() > 0) << 21 |
+                         (uint32_t)st.dirty << 19 | (uint32_t)st.compare << 20 | (uint32_t)cpu_over() << 21 |
                          (uint32_t)mo.on << 22 | (uint32_t)st.scene << 23 | (uint32_t)st.v[P_BQ_ON] << 28 |
                          (uint32_t)st.v[P_BQ_REC] << 29);
     s1 = sig_add(s1, (uint32_t)(play_holding() * 32.0f) | (mo.on ? (now - mo.t0) * 64u / (mo.dur ? mo.dur : 1u) : 0u) << 8);
@@ -2268,13 +2744,18 @@ static void ui_frame(void)
         s3 = sig_add(s3, p < NSOUND ? (uint32_t)(int32_t)(mod[p] * 2.0f) : 0u);
     }
     s3 = sig_add(s3, st.v[P_KB] | st.v[P_DR_PRESET] << 8 | (uint32_t)st.v[P_DR_FULL] << 16);   /* (the three hands) */
+    if (st.page == PG_MIXER)             /* (the pans, and OCT- held: the footer shows them) */
+        s3 = sig_add(s3, st.v[P_PN_DRONE] | st.v[P_PN_BASS] << 7 | (uint32_t)st.v[P_PN_GLINT] << 14 |
+                             (uint32_t)st.v[P_PN_CLOUD] << 21 | (uint32_t)b_held(B_OCTDN) << 28);
     if (ui.full || s1 != ui.sig1) {
         ui.sig1 = s1;
         header();
     }
-    if (ui.full || now - ui.field_at >= 50u) {   /* the river moves: 20 frames a second */
-        ui.field_at = now;
-        middle((float)now * 0.001f);
+    if (ui.full || (st.v[P_ANIM] ? s3 != ui.sig3 || now - ui.field_at >= 250u : now - ui.field_at >= 50u)) {
+        ui.field_at = now;               /* the river moves: 20 frames a second; ANIMATIONS LOW: still (its time
+                                          * stopped), drawn again as a value changes and four times a second (what
+                                          * tells: meters, playheads) */
+        middle(st.v[P_ANIM] ? 6.0f : (float)now * 0.001f);
         ui.frames++;
     }
     if (ui.full || s3 != ui.sig3) {

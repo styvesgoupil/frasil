@@ -13,12 +13,21 @@
 #define APP_TOUCH                        /* velocity and pressure from the keys (lib/touch.h) */
 #define APP_OVERLOAD                     /* the render took over 90 % of its time: the engine sheds */
 void app_overload(void);
+#define APP_LOG_WORD                     /* the log's word (fm1_remote.py log, "app"): the shedding's step now, the
+                                          * highest since the last log, anything playing (tools/perf/fm1_load.py) */
+uint32_t app_log_word(void);
+#define FM1B_UAC_DEEP 1                  /* the USB audio input a half deeper: FRASIL's renders take most of their time,
+                                          * and past ~40 % the shallow ring ran dry (frames held: a crackle in recordings,
+                                          * issue #1); its 4 KB ring in the pool, 5.8 ms more latency */
 #define APP_SPLASH                       /* the logo at power-on (ui.c), before the engine starts */
+#define APP_SYSEX                        /* Perform's SysEx (app.c app_sysex, pf_tick): the play told to a page */
 void app_splash(void);
 #define APP_TICK                         /* 1 kHz, in the scan's interrupt: OCT's soft blink (app.c) */
 void app_tick(void);
 #define APP_TAGLINE "DRONE TEXTURES FROZEN IN MOTION"
 #define APP_AUTHOR "by Styves Goupil"
+#define APP_SITE "frasilsynth.com"               /* the logo's screen, up in the sky */
+#define APP_SITE_NOTE "SCENES MANAGER & EDITOR"
 /* the store: the app's objects and the panel calibration (the platform's), and their flash offsets. The scenes'
  * bass sequences apart (OBJ_BSEQ: the sixteen scenes no longer fit one object), in the free pair under the scenes */
 enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_NOBJ };

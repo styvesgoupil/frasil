@@ -22,6 +22,7 @@ typedef struct {
 } nuage_params_t;
 
 void nuage_init(void);
+void nuage_clear(void);                     /* the room emptied, its settings kept (the render's: CUT) */
 void nuage_set(const nuage_params_t *p);    /* the targets; it glides to them (main loop or between blocks) */
 /* the wet signal of n frames of stereo input (n a multiple of 16) */
 void nuage_process(const float *in_l, const float *in_r, float *out_l, float *out_r, uint32_t n);

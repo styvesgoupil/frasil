@@ -34,7 +34,13 @@ on the FM-1 takes the next 0.9.x (0.9.1, 0.9.2 ...); the first release is 1.0, t
    changelog section as notes, and publishes the site to GitHub Pages: front page, web installer, browser emulator,
    manual (fm1-base's `tools/publish_site.sh`; it needs Emscripten for the emulator).
    The release must be a full release, not a pre-release: the hub and GitHub's "latest" take full releases.
-6. The first time only: in the repository's settings, set Pages to the `gh-pages` branch. Then ask for the
+6. Announce it on Discord, by hand, once the GitHub release is live (`tools/release.sh` prints this step but never
+   posts). First the dry run, which posts nothing: `python3 tools/discord_announce.py X.Y`. Read the message it
+   builds from the `## X.Y` section of `CHANGELOG.md` (the bold leads of New and of Fixes and changes, the links)
+   and the length checks. Then `python3 tools/discord_announce.py X.Y --post` sends it to #announcements and
+   publishes it to the servers following that channel. `--summary FILE` replaces the description with a Markdown
+   file you wrote; `--channel ID` skips the lookup. The bot's token is read from `~/.config/frasil/discord-bot.token`.
+7. The first time only: in the repository's settings, set Pages to the `gh-pages` branch. Then ask for the
    listing (below).
 
 ## Getting listed (once)

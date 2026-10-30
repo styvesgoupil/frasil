@@ -66,3 +66,6 @@ git push origin "v$V"
 gh release create "v$V" "$PKG" --title "FRASIL $V" --notes-file "$NOTES"
 # the site: front page, installer, emulator, manual (GitHub Pages, the gh-pages branch)
 PYTHON="$PY" base/tools/publish_site.sh app "$V"
+echo "published v$V. Last step, by hand, once the GitHub release is live:"
+echo "  python3 tools/discord_announce.py $V           (dry run: read the message)"
+echo "  python3 tools/discord_announce.py $V --post    (posts to #announcements and publishes it)"
