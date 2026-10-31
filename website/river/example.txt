@@ -149,10 +149,10 @@ tap SEQ
 tap SEQ
 tap SEQ
 wait 30
-expect page 43
+expect page 44
 turn K4 1
 wait 30
-expect p176 1
+expect p177 1
 tapkey 9
 tapkey 9
 tapkey 16
@@ -183,10 +183,10 @@ expect bseq1 127
 expect bseq3 0
 tap SEQ
 wait 30
-expect page 44
+expect page 45
 spin K1 -10
 wait 30
-expect p175 5
+expect p176 5
 turn SELECT -2
 tap HOME
 wait 30

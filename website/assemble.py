@@ -17,7 +17,7 @@ Made here, from the repository: the logo's layers (app/assets/frasil-logo.png on
 coloured: the half above the water fog, the half below sea blue), the favicons, the Open Graph image (1200 x 630),
 the screenshots (app/docs/img, the screen's own 240 x 240 pixels) and the play page: the browser emulator
 (app/build/emu, made by ./build.sh --web) with the site's header, footer and colours around it, its own code
-untouched; the River: fm1-base's protocol (base/web/backup) as it is, and the schema the firmware's code writes
+untouched, and the River's editor beside it (EDITOR: js/play-editor.js, the River's scripts, the schema); the River: fm1-base's protocol (base/web/backup) as it is, and the schema the firmware's code writes
 (app/build/host's simulator, made by ./build.sh --host: "schema FILE"). Every page's links are checked at the end: a link to nothing stops the build.
 
 Python 3.11+ with Pillow (.venv/bin/python). Usage: assemble.py [OUT_PARENT] [--no-emu] (default build/website;
@@ -749,11 +749,11 @@ DISCORD_SVG = ('<svg class="dc-mark" viewBox="0 0 24 24" aria-hidden="true" focu
 # where on the site or a site.toml key for another site, None while it is to come, its icon)
 WAYS = (("Play in browser", "Nothing to install", "play/", "browser"),
         ("Play on FM-1", "Install the firmware", "guide/install/", "fm1"),
-        ("Play on iPad", "Coming soon", None, "ipad"),
+        ("FRASIL iPad App", "Coming soon", None, "ipad"),
         ("FRASIL VST", "Coming soon", None, "vst"))
-WAITLISTS = {"ipad": "FRASIL for iPad", "vst": "FRASIL VST"}   # (what is to come: its dialog's title; server/waitlist.py LISTS)
-APPS = (("FRASIL River", "Scenes management & sharing", "river_url", "river-favicon.svg"),
-        ("FRASIL Perform", "Second screen for your FM-1", "perform_url", "perform-favicon.svg"))
+WAITLISTS = {"ipad": "FRASIL iPad App", "vst": "FRASIL VST"}   # (what is to come: its dialog's title; server/waitlist.py LISTS)
+APPS = (("FRASIL River", "Edit, back up & share your scenes", "river_url", "river-favicon.svg"),
+        ("FRASIL Perform", "Realtime second screen for your FM-1", "perform_url", "perform-favicon.svg"))
 WAY_ICONS = {   # 24 x 24, drawn in the current colour
     "browser": '<rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M2.5 8.5h19"/><path d="M10.2 11.4v5.2l4.3-2.6z" fill="currentColor" stroke="none"/>',
     "fm1": '<rect x="2" y="5.5" width="20" height="13" rx="2.2"/><circle cx="6.2" cy="9.4" r="1.1"/><circle cx="10" cy="9.4" r="1.1"/><path d="M2 13h20M7 13v5.5M12 13v5.5M17 13v5.5"/>',
@@ -945,6 +945,12 @@ def replace_once(s, pattern, repl, what, flags=0, keep=False):
     return new
 
 
+# the Play page's mode before it is drawn (js/play-editor.js: #emulator, #editor, the last chosen, else EDITOR)
+PLAY_MODE = ('<script>(() => { let m = location.hash.slice(1); if (m !== "emulator" && m !== "editor") { try { m = '
+             'localStorage.getItem("frasil-play-mode"); } catch (e) { m = null; } } '
+             'document.documentElement.dataset.play = m === "emulator" ? "emulator" : "editor"; })()</script>\n')
+
+
 def play_page(site, geo):
     emu = REPO / "app" / "build" / "emu"
     dst = OUT / "play"
@@ -962,7 +968,7 @@ def play_page(site, geo):
         body = fill(intro, v, "play") + ('<section class="wrap play-missing"><p class="lede">The emulator is not in '
                                          'this build of the site. Build it with <code>./build.sh --web</code>, then '
                                          'run <code>tools/website.sh</code> again.</p></section>') + fill(notes, v, "play")
-        (dst / "index.html").write_text(site.page("play/", title, desc, '<main id="main" class="play">' + body + "</main>",
+        (dst / "index.html").write_text(site.page("play/", title, desc, '<main id="main" class="play-main">' + body + "</main>",
                                                   root, section="play", body_class="play-page",
                                                   css=("css/play.css",)), encoding="utf-8")
         return False
@@ -974,7 +980,7 @@ def play_page(site, geo):
     if words.is_dir():
         shutil.copytree(words, OUT / "words", dirs_exist_ok=True)
     page = (emu / "index.html").read_text(encoding="utf-8")
-    css = "\n".join(f'<link rel="stylesheet" href="{asset(root, c)}">' for c in ("css/base.css", "css/play.css"))
+    css = "\n".join(f'<link rel="stylesheet" href="{asset(root, c)}">' for c in ("css/base.css", "css/river.css", "css/play.css"))
     page = replace_once(page, r'<html lang="en">', '<html lang="en" data-theme="dark">', '<html lang="en">')
     page = replace_once(page, r"<title>.*?</title>\s*", "", "<title>", re.S)
     # its fonts: ours carry the face its panel draws with (Barlow Semi Condensed), and load without blocking
@@ -982,18 +988,28 @@ def play_page(site, geo):
     page = re.sub(r'<link rel="preconnect" href="https://fonts\.(googleapis|gstatic)\.com"[^>]*>\s*', "", page)   # (ours: no other site)
     page = replace_once(page, r'<meta name="description"[^>]*>\s*', "", "the description")
     page = replace_once(page, r'<meta name="viewport"[^>]*>', '\n<script>document.documentElement.classList.add("js")</script>\n'
-                        + site.head_html(root, "play/", title, desc), "the viewport", keep=True)
+                        + PLAY_MODE + site.head_html(root, "play/", title, desc), "the viewport", keep=True)
+    # its rules for its own page's parts, kept to them: .sr (its screen reader's words) is also the River's row, its
+    # header rules the site's header's alone (a dialog's header is the River's)
+    page = replace_once(page, r"\n\.sr \{ position: absolute;", "\n.sr:not(.sr-item > .sr) { position: absolute;", "its .sr")
+    for sel in ("header", "header p", "header nav"):
+        page = replace_once(page, "\n" + re.escape(sel) + r" \{", f"\nbody > {sel} {{", f"its {sel} rule")
     page = replace_once(page, r"</head>", css + "\n</head>", "</head>")
     page = replace_once(page, r"<body>", '<body class="play-page">\n<a class="skip" href="#main">Skip to content</a>', "<body>")
     page = replace_once(page, r"<header>\s*<h1>[^<]*</h1>\s*</header>",
                         fill(site.header, {**v, "head_class": ""}, "header"), "its header")
     intro, notes = quiet_discs(nobreak(capsify(intro))), quiet_discs(nobreak(capsify(notes)))
-    page = replace_once(page, r"<main>", '<main id="main" class="play">\n' + fill(intro, v, "play") +
+    page = replace_once(page, r"<main>", f'<main id="main" class="play-main" data-install="{root}guide/install/">\n' + fill(intro, v, "play") +
                         '\n<div class="play-device wrap">', "<main>")
     page = replace_once(page, r"</main>", "</div>\n" + fill(notes, v, "play") + "\n</main>\n" +
                         nobreak(fill(site.footer, v, "footer")), "</main>")
-    page = replace_once(page, r"</body>", f'<script src="{asset(root, "js/site.js")}" defer></script>\n'
-                        f'<script src="{asset(root, "js/play.js")}" defer></script>\n</body>', "</body>")
+    # EDITOR (js/play-editor.js): the River's editor with fm1-base's protocol and the schema, as the River's pages
+    code, _ = backup_protocol()
+    schema = json.dumps(backup_schema(), separators=(",", ":")).replace("</", "<\\/")
+    version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
+    js = ("js/site.js", "js/play-editor.js", *(j for j in RIVER_JS if j not in ("js/river-api.js", "js/river-head.js")), "js/play.js")
+    page = replace_once(page, r"</body>", f'<script>\n"use strict";\n{code}\nconst SCHEMA = {schema};\nconst FRASIL_VERSION = "{version}";\n</script>\n'
+                        + "".join(f'<script src="{asset(root, j)}" defer></script>\n' for j in js) + "</body>", "</body>")
     ev = re.search(r'content="([0-9a-f]+)"', engine_meta())   # the engine asked for by its version (as river-player.js)
     for f in ("fetch(\"app.wasm\")", "addModule(\"app_worklet.js\")", "addModule(\"worklet.js\")"):
         if f not in page:
@@ -1038,7 +1054,7 @@ def backup_schema():
         ("the scenes' record and their sequences' (OBJ_SCENES up to GLINT's, OBJ_BSEQ from it)", st["seq"] == st["rec"] and
          s["scenes_t"]["rec"] == s["scenes_t"]["s"] + n["NSCENES"] * st["rec"] and st["rec"] + s["bseqs_t"]["scene"] == st["size"]
          and s["bseqs_t"]["size"] == s["bseqs_t"]["s"] + n["NSCENES"] * s["bseqs_t"]["scene"]),
-        ("settings_t's size", s["settings_t"]["size"] == s["settings_t"]["v"] + n["NSOUND"] + 95),   # (95 after the sound: ANIMATIONS, 2.5)
+        ("settings_t's size", s["settings_t"]["size"] == (s["settings_t"]["v"] + n["NSOUND"] + 95 + 3) // 4 * 4),   # (95 after the sound: ANIMATIONS, 2.5; CLOCK, 2.5-b30; to a multiple of 4)
         ("the earlier shards (the rest of their record as this one's to the bass's sequence, then it or some of it, or none)",
          all(x["rec"] - x["nv"] == st["bnote"] - n["NSOUND"] and 0 <= x["size"] - x["rec"] <= st["size"] - st["bnote"]
              for x in s["old_shards"])),
@@ -1090,6 +1106,7 @@ def perform_site():
     files = {"css/perform.css": src / "proto" / "perform.css", "js/perform-schema.js": src / "data" / "perform-schema.js",
              "js/river-player.js": SRC / "assets" / "js" / "river-player.js", "js/river.js": src / "proto" / "river.js",
              "js/logo.js": src / "proto" / "logo.js", "js/show.js": src / "proto" / "show.js", "js/live.js": src / "live" / "live.js",
+             "js/visuals.js": src / "proto" / "visuals.js",
              "img/logo-print.svg": SRC / "assets" / "img" / "logo-print.svg"}
     for f in ("perform-favicon.svg", "perform-favicon-32.png", "perform-apple-touch-icon.png"):
         files["img/" + f] = OUT / "assets" / "img" / f
@@ -1111,7 +1128,8 @@ def perform_site():
             'src="../data/perform-schema.js"': 'src="assets/js/perform-schema.js"',
             'src="../../../website/assets/js/river-player.js"': 'src="assets/js/river-player.js"',
             'src="../proto/river.js"': 'src="assets/js/river.js"', 'src="../proto/logo.js"': 'src="assets/js/logo.js"',
-            'src="../proto/show.js"': 'src="assets/js/show.js"', 'src="live.js"': 'src="assets/js/live.js"',
+            'src="../proto/show.js"': 'src="assets/js/show.js"', 'src="../proto/visuals.js"': 'src="assets/js/visuals.js"',
+            'src="live.js"': 'src="assets/js/live.js"',
             "<title>FRASIL Perform</title>": "<title>FRASIL Perform</title>\n" + (
                 '<meta name="description" content="Your FM-1 under FRASIL, full screen: the river very large, and under it '
                 'what your hands do as they do it. For a stage or a film. Chrome or Edge.">\n'
@@ -1126,6 +1144,8 @@ def perform_site():
         page = page.replace(k, v)
     if re.search(r'(?:src|href|data-src)="\.\./', page):
         die("Perform's page has a path outside its folder: update website/assemble.py's perform_site")
+    page = re.sub(r'(src|href)="(assets/(?:js|css)/[^"?]+)"', lambda m: f'{m.group(1)}="{m.group(2)}?v='   # (caches: a new
+                  f'{hashlib.sha1((PERFORM / m.group(2)).read_bytes()).hexdigest()[:8]}"', page)   # one, a new address)
     (PERFORM / "index.html").write_text(page, encoding="utf-8")
     emu = REPO / "app" / "build" / "emu"     # FRASIL's engine in the browser, for DEMO (./build.sh --web)
     if all((emu / f).exists() for f in ("app.wasm", "worklet.js", "app_worklet.js")):
@@ -1138,14 +1158,17 @@ def perform_site():
 
 
 def admin_site():
-    """the admin page (admin.frasilsynth.com), its own site: website/admin/ (index.html, admin.css, admin.js), the main
-    site's base.css, fonts, mark and favicons; its data from the River's service, /api/admin/ on its origin (Caddy adds
-    the key after its basic auth: server/admin.py). Never indexed. -> the files it has"""
+    """the admin page (admin.frasilsynth.com), its own site: website/admin/ (index.html, admin.css, admin.js; the veille:
+    veille.html, veille.css, veille.js at /veille/), the main site's base.css, fonts, mark and favicons; its data from the
+    River's service, /api/admin/ and /api/veille/ on its origin (Caddy adds the key after its basic auth: server/admin.py,
+    server/veille.py). Never indexed. -> the files it has"""
     src = SRC / "admin"
     shutil.rmtree(ADMIN, ignore_errors=True)
     a = ADMIN / "assets"
     files = {"css/base.css": OUT / "assets" / "css" / "base.css", "css/admin.css": src / "admin.css",
-             "js/admin.js": src / "admin.js", "img/logo-print.svg": OUT / "assets" / "img" / "logo-print.svg"}
+             "js/admin.js": src / "admin.js", "css/veille.css": src / "veille.css", "js/veille.js": src / "veille.js",
+             "js/head.js": src / "head.js",
+             "img/logo-print.svg": OUT / "assets" / "img" / "logo-print.svg"}
     for f in ("favicon.svg", "favicon-32.png"):
         files["img/" + f] = OUT / "assets" / "img" / f
     for f in (OUT / "assets" / "fonts").glob("*.woff2"):
@@ -1155,13 +1178,17 @@ def admin_site():
         shutil.copy2(f, a / rel)
     shutil.copy2(OUT / "assets" / "img" / "favicon.ico", ADMIN / "favicon.ico")
     v = lambda rel: f"assets/{rel}?v={hashlib.sha1((a / rel).read_bytes()).hexdigest()[:8]}"
-    page = fill((src / "index.html").read_text(encoding="utf-8"),
-                {"base_css": v("css/base.css"), "admin_css": v("css/admin.css"), "admin_js": v("js/admin.js")}, "admin")
-    if 'name="robots" content="noindex,nofollow"' not in page:
-        die("website/admin/index.html: its robots meta (noindex,nofollow) is gone")
-    (ADMIN / "index.html").write_text(page, encoding="utf-8")
+    pages = (("index.html", ADMIN / "index.html", "", {"admin_js": "js/admin.js"}),
+             ("veille.html", ADMIN / "veille" / "index.html", "../", {"veille_css": "css/veille.css", "veille_js": "js/veille.js"}))
+    for name, dst, root, own in pages:
+        links = {"base_css": "css/base.css", "admin_css": "css/admin.css", "head_js": "js/head.js", **own}
+        page = fill((src / name).read_text(encoding="utf-8"), {k: root + v(x) for k, x in links.items()}, "admin")
+        if 'name="robots" content="noindex,nofollow"' not in page:
+            die(f"website/admin/{name}: its robots meta (noindex,nofollow) is gone")
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(page, encoding="utf-8")
     (ADMIN / "robots.txt").write_text("User-agent: *\nDisallow: /\n", encoding="utf-8")
-    return len(files) + 3
+    return len(files) + 4
 
 
 def factory_tunes(root):

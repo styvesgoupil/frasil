@@ -2,7 +2,9 @@
  * Copyright (C) 2026 Styves Goupil
  * The play page: fm1-base's browser emulator (app/build/emu, its own page, its own code) in FRASIL's night.
  * Only colours and frames change here: its layout, its controls and its script stay as fm1-base made them.
- * Its panel is drawn by its script with fill attributes: they are matched here and repainted. */
+ * Its panel is drawn by its script with fill attributes: they are matched here and repainted.
+ * Two modes (js/play-editor.js; html[data-play]): EMULATOR, the FM-1 whole, and EDITOR, the River's rows and cards
+ * (river.css) on the page. */
 
 /* its palette, in ours (its own rules use these) */
 :root:root:root {
@@ -13,7 +15,7 @@
 body.play-page { padding: 0; font: 400 18px/1.62 var(--f-text); background: var(--night); color: var(--fog); }
 .play-page .site-head { max-width: none; margin: 0; flex-wrap: nowrap; align-items: center; gap: 12px 28px; }
 .play-page .site-head nav { margin-left: 0; gap: clamp(14px, 3vw, 30px); }
-.play-page main.play { max-width: none; margin: 0; padding: 0; }
+.play-page main.play-main { max-width: none; margin: 0; padding: 0; }
 .play-page .site-foot { margin-top: clamp(64px, 9vw, 120px); }
 .play-page .site-foot ul { padding-left: 0; }
 
@@ -123,3 +125,33 @@ body.play-page { padding: 0; font: 400 18px/1.62 var(--f-text); background: var(
 .label-switch button:last-of-type { border-radius: 0 999px 999px 0; margin-left: -1px; }
 .label-switch button[aria-pressed="true"] { color: var(--night); background: var(--fog); border-color: var(--fog); }
 .label-switch button:focus-visible { outline: 2px solid var(--ice); outline-offset: 2px; }
+
+/* ================================================================ the modes: EMULATOR | EDITOR (js/play-editor.js) */
+:root:not([data-play="editor"]) .play-editor, :root:not([data-play="editor"]) .lede.for-ed,
+[data-play="editor"] .play-device, [data-play="editor"] .play-notes, [data-play="editor"] .lede.for-emu,
+:root:not([data-play]) .mode-switch { display: none; }
+.mode-switch { display: inline-flex; gap: 4px; margin-top: clamp(30px, 4vw, 48px); padding: 4px; border: 1px solid var(--steel); border-radius: 999px; }
+.mode-switch button {
+  font: 600 14px/1 var(--f-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--mist);
+  min-height: 44px; padding: 0 28px; border: 0; border-radius: 999px; background: transparent; cursor: pointer;
+  transition: color .25s, background-color .3s var(--ease), box-shadow .3s var(--ease);
+}
+.mode-switch button:hover { color: var(--white); }
+.mode-switch button[aria-pressed="true"] { color: var(--night); background: var(--fog); box-shadow: 0 10px 30px -14px rgba(220, 227, 234, .5); }
+.mode-switch button:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
+@media (max-width: 620px) { .mode-switch { display: flex; } .mode-switch button { flex: 1 1 0; padding: 0 12px; } }
+
+/* EDITOR: NEW SHARD and the factory scenes, the River's rows (a number, ▶, the name, what plays, KEY, GLINT, BASS) */
+.play-editor { margin-top: clamp(28px, 4vw, 48px); }
+.play-editor .list-top { display: block; }
+.ed-list .sr, .ed-list .lh { --cols: 30px 36px minmax(0, 1fr) 232px 172px 52px 52px; }
+.list.ed-list .sr-item.open > .sr { --cols: 30px 36px minmax(0, 1fr) auto 32px; }
+.ed-list .is-new .no { color: var(--lamp); font-size: 16px; font-weight: 600; }
+.ed-list .is-new .nm-s { color: var(--lamp); opacity: .8; }
+@media (max-width: 1240px) and (min-width: 761px) { .ed-list .sr, .ed-list .lh { --cols: 28px 36px minmax(0, 1fr) 180px 150px 46px 46px; column-gap: 12px; } }
+@media (max-width: 1100px) { .list.ed-list .sr-item.open > .sr { --cols: 30px 36px minmax(0, 1fr) 32px; } }
+@media (max-width: 960px) and (min-width: 761px) {
+  .ed-list .sr, .ed-list .lh { --cols: 28px 36px minmax(0, 1fr) 160px 46px 46px; }
+  .ed-list .lh > :nth-child(6) { display: inline; }
+  .ed-list .lh > :nth-child(5) { display: none; }
+}

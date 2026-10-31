@@ -14,7 +14,8 @@
  *   RiverCards.toast(...parts) · confirm({title, text, ok, danger, check}) -> Promise<boolean>
  *   RiverCards.stopSound() · onSound(fn(key, state, scene)) · h, s, two, nn, word, key, k, fill, look, shard
  *   RiverCards.relive(art) (its live parts found again, what is heard put on them) · parts (the drawing's own, for
- *   river-keys.js) */
+ *   river-keys.js) · redraw(art, sc) (a card drawn again: only what differs changes) · patch (how: patch, kids,
+ *   place, stamp, sig) */
 "use strict";
 window.RiverCards = (() => {
   const S = FB.S, P = S.params, ID = S.ids, N = S.sizes;
@@ -36,7 +37,8 @@ window.RiverCards = (() => {
     if (attrs) for (const [a, v] of Object.entries(attrs)) {
       if (v == null || v === false) continue;
       if (a === "text") e.textContent = v;
-      else if (a.startsWith("on") && typeof v === "function") e.addEventListener(a.slice(2), v);
+      else if (a.startsWith("on") && typeof v === "function") { e.addEventListener(a.slice(2), v); e._on = true; }   // (_on: patch() never
+                                                                                                                        // keeps one changed)
       else e.setAttribute(a, v === true ? "" : String(v));
     }
     for (const c of kids.flat(Infinity)) if (c != null && c !== false && c !== "") e.append(c.nodeType ? c : String(c));
@@ -55,6 +57,76 @@ window.RiverCards = (() => {
   const listWords = (a) => (a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1]);
   const k = (t) => h("span", { class: "k" }, t);          // a word from the screen
   const key = (t) => h("span", { class: "key" }, t);      // a button
+
+  // ---------------------------------------------------------------- a drawing laid over the one shown (patch)
+  /* The editor draws a card again after each change: the new drawing is laid over the one shown, so only what differs
+   * changes (a value, a gauge, a section's line), and nothing else is replaced (no section closes, nothing fades in
+   * again, a focus and a drag stay). Kept, an element takes the new one's attributes and children (its class's
+   * transient words kept: is-active, is-open; a details' open; the waterline .ms-wave, as follow() ripples it);
+   * children matched by kind and key (data-p, data-k, data-key), in order.
+   * Some elements hold more than what they show (listeners: _on; a live part's _live, a section's _build ...): one of
+   * those is kept only if drawn the same (_sig: its markup at rest, stamped before it is shown, ids aside, and _sigx,
+   * what it holds besides), else replaced whole; one marked _shell (its own state found from itself) is patched like
+   * any other, its own props the new one's; one with _remorph(fresh) does its own (THE KEYS) */
+  const TRANSIENT = ["is-active", "is-open"];
+  const norm = (t) => t.replace(/((?:id|labelledby|controls)="|url\(#)[a-z]+\d+/g, "$1#");   // (each drawing's own ids)
+  const own = (n) => Object.keys(n).filter((x) => x[0] === "_" && x !== "_sig");
+  const held = (n) => n.nodeType === 1 && !n._shell && own(n).length > 0;
+  const sigOf = (n) => norm(n.outerHTML) + (n._sigx != null ? "\u0000" + n._sigx : "");
+  /* a fresh drawing's held elements given their _sig (before it is shown: at rest, not marked by the editor) */
+  function stamp(root) {
+    const walk = (n) => {
+      if (n.nodeType !== 1 || n._remorph) return;
+      if (held(n)) { if (n._sig == null) n._sig = sigOf(n); return; }
+      for (const c of n.children) walk(c);
+    };
+    walk(root);
+    return root;
+  }
+  const keyOf = (n) => (n.nodeType !== 1 ? "#" + n.nodeType
+    : n.nodeName + "|" + (n.getAttribute("data-p") ?? n.getAttribute("data-k") ?? n.getAttribute("data-key") ?? ""));
+  function attrs(o, f) {
+    for (const a of [...o.attributes]) if (!f.hasAttribute(a.name) && !(a.name === "open" && o.nodeName === "DETAILS")) o.removeAttribute(a.name);
+    for (const a of f.attributes) {
+      if (a.name === "class") {
+        const want = new Set(f.classList);
+        TRANSIENT.forEach((c) => { if (o.classList.contains(c)) want.add(c); });
+        if (want.size !== o.classList.length || [...o.classList].some((c) => !want.has(c))) o.setAttribute("class", [...want].join(" "));
+      } else if (o.getAttribute(a.name) !== a.value) o.setAttribute(a.name, a.value);
+    }
+  }
+  /* node o (shown) made as f (fresh) -> the node there now (o, or f in its place) */
+  function patch(o, f) {
+    if (o.nodeType === 3 && f.nodeType === 3) { if (o.data !== f.data) o.data = f.data; return o; }
+    if (o.nodeType !== 1 || f.nodeType !== 1 || o.nodeName !== f.nodeName) { o.replaceWith(f); return f; }
+    if (o._remorph) return o._remorph(f);
+    if (o.classList.contains("ms-wave")) return o;
+    if (held(o) || held(f)) {
+      if (o._sig != null && o._sig === (f._sig ?? sigOf(f))) return o;
+      o.replaceWith(f);
+      return f;
+    }
+    attrs(o, f);
+    patchKids(o, f);
+    if (o._shell || f._shell) {
+      for (const x of own(o)) if (!(x in f)) delete o[x];
+      for (const x of own(f)) o[x] = f[x];
+    }
+    return o;
+  }
+  /* o's children made as f's */
+  function patchKids(o, f) {
+    const pool = new Map();
+    for (const c of o.childNodes) { const x = keyOf(c); if (!pool.has(x)) pool.set(x, []); pool.get(x).push(c); }
+    place(o, [...f.childNodes].map((c) => { const q = pool.get(keyOf(c)), m = q && q.shift(); return m ? patch(m, c) : c; }));
+  }
+  /* parent's children: nodes, in order (the others gone; one already in its place not moved) */
+  function place(parent, nodes) {
+    const want = new Set(nodes);
+    for (const c of [...parent.childNodes]) if (!want.has(c)) c.remove();
+    let cur = parent.firstChild;
+    for (const n of nodes) { if (n === cur) cur = cur.nextSibling; else parent.insertBefore(n, cur); }
+  }
 
   /* harmony.c's scales as degrees above the root, by the screen's name (the glyph only: an unknown scale draws none) */
   const DEGREES = {
@@ -148,11 +220,15 @@ window.RiverCards = (() => {
       h("div", { class: "cell-v" }, h("span", { class: "v", style: col ? `color:${col}` : null }, val), unit && h("span", { class: "u" }, unit)),
       h("div", { class: "cell-m" }, meter));
     if (!tag || !meter || !meter.classList.contains("gauge")) return el;
-    const tg = S.lfo.targets.find((t) => t && t.p === p), now = h("b", { style: `background:${TRACK[tg && tg.track] || C.ice}` });
-    meter.append(now);
-    return live(el, (f, ctx) => {
+    const tg = S.lfo.targets.find((t) => t && t.p === p);
+    meter.append(h("b", { style: `background:${TRACK[tg && tg.track] || C.ice}` }));
+    el._x = x;                                       // (its value and its tick found from the cell itself: patched,
+    el._shell = true;                                // the cell shown takes the new one's)
+    return live(el, function (f, ctx) {
+      const now = this.querySelector(".gauge > b");
+      if (!now) return;
       if (!f || ctx.mod[p] === undefined) { now.style.opacity = 0; return; }
-      const v = Math.max(0, Math.min(d.max, x + ctx.mod[p]));
+      const v = Math.max(0, Math.min(d.max, this._x + ctx.mod[p]));
       now.style.left = `calc(${r2(v / Math.max(1, d.max) * 100)}% - .75px)`;
       now.style.opacity = 1;
     });
@@ -458,6 +534,7 @@ window.RiverCards = (() => {
     });
     const m = /^1\/(\d+)(T?)$/.exec(L.txt(ID.P_ARP_RATE)), bpm = (sc.tempo ?? P[ID.P_TEMPO].def) + 30;
     const step = (m ? 96 / +m[1] * (m[2] ? 2 / 3 : 1) : 6) * 60 / (24 * bpm);   // (seconds: RATE's MIDI clocks at TEMPO)
+    svg._sigx = r2(step * 1000);                     // (RATE, TEMPO: not drawn, but its pace)
     return live(svg, (f, ctx) => {
       const on = !!f && !reduce.matches, K = ctx.keep.arp || (ctx.keep.arp = { hits: [], seen: -1 });   // (the steps struck:
       svg.classList.toggle("is-live", on);                                    // {n (as it sounds), t}, the card's)
@@ -716,18 +793,21 @@ window.RiverCards = (() => {
     const b = S.lfo.base[i], V = (k2) => L.raw(b + k2);
     const tg = [4, 5, 6, 7].map((t) => V(t)).filter((t) => t > 0).map((t) => S.lfo.targets[t] || { name: word(b + 4, t), track: "drone", p: -1 });
     const on = V(2) > 0 && tg.length > 0;
+    /* a TARGET's gauge: its value (_v) and range (_mx), what moves it (_p), found from itself (patched, the gauge shown
+     * takes the new one's) */
+    const put2 = (g, v) => g.style.setProperty("--f", r2(Math.max(0, Math.min(1, v / Math.max(1, g._mx)))));
     const gauges = tg.map((t) => {
-      const mx = t.p >= 0 ? P[t.p].max : 127, g = h("span", { class: "lf-g", "aria-hidden": "true" }, h("i"), h("b"));
-      const put2 = (v) => g.style.setProperty("--f", r2(Math.max(0, Math.min(1, v / Math.max(1, mx)))));
-      put2(t.p >= 0 ? L.raw(t.p) : 0);
-      return { li: h("li", null, h("span", { class: "lf-t", style: `color:${TRACK[t.track] || C.fog}` }, t.name), g),
-               set: (m) => put2((t.p >= 0 ? L.raw(t.p) : 0) + (m || 0)), p: t.p };
+      const g = h("span", { class: "lf-g", "aria-hidden": "true" }, h("i"), h("b"));
+      Object.assign(g, { _p: t.p, _v: t.p >= 0 ? L.raw(t.p) : 0, _mx: t.p >= 0 ? P[t.p].max : 127, _shell: true });
+      put2(g, g._v);
+      return h("li", null, h("span", { class: "lf-t", style: `color:${TRACK[t.track] || C.fog}` }, t.name), g);
     });
     const el = h("div", { class: "lf" + (on ? "" : " is-off") },
       h("div", { class: "lf-h" }, h("span", { class: "lf-n" }, "LFO " + (i + 1)),
         h("span", { class: "lf-r" }, on ? [h("span", null, L.txt(b)), h("span", { class: "lf-rt" }, L.txt(b + 1))] : h("span", null, "OFF"))),
-      lfoScope(L, i, 176, 56), tg.length ? h("ul", { class: "lf-ts", role: "list" }, gauges.map((x) => x.li)) : h("p", { class: "lf-none" }, "NO TARGET"));
-    return live(el, (f, ctx) => gauges.forEach((x) => x.set(f ? ctx.mod[x.p] : 0)));
+      lfoScope(L, i, 176, 56), tg.length ? h("ul", { class: "lf-ts", role: "list" }, gauges) : h("p", { class: "lf-none" }, "NO TARGET"));
+    el._shell = true;                                // (patched: its picture, held, kept if drawn the same)
+    return live(el, function (f, ctx) { this.querySelectorAll(".lf-g").forEach((g) => put2(g, g._v + (f ? ctx.mod[g._p] || 0 : 0))); });
   }
   const sv = (t, col) => h("span", { class: "sig-v", style: col ? `color:${col}` : null }, t);
   const sl = (t) => h("span", { class: "sig-l" }, t);
@@ -779,23 +859,23 @@ window.RiverCards = (() => {
       const pages = sec.pages.filter((pg) => shownFor(pg, L)), lfo = o.card && sec.name.match(/^LFO (\d+)$/);
       if (!pages.length) continue;
       const { gl, sig } = signature(sec, L, bq);
-      const d = h("details", { class: "sec" },
+      const d = h("details", { class: "sec", "data-key": sec.name },
         h("summary", null, h("span", { class: "sec-row" }, chev(), h("span", { class: "sec-name" }, sec.name),
           h("span", { class: "sec-mid" }, gl, sig), hints(sec.keys))));
-      let built = false;
-      d._build = () => {                         // (on its first opening; redraw: at once, its cells there for the focus)
-        if (built) return;
-        built = true;
-        const art = d.closest("article");
+      d._shell = true;                           // (patched: the section shown takes this one's _build, _built)
+      d._build = (el) => {                       // (on its first opening; redraw: at once, its cells there for the focus)
+        if (el._built) return;
+        el._built = true;
+        const art = el.closest("article");
         if (art) art._lv = null;
-        d.append(h("div", { class: "sec-body" }, !o.card && sec.name === "BASS" && bq && bq.on && h("div", { class: "scr" }, bassStrip(bq, L, "c" + (++uid))),
+        el.append(stamp(h("div", { class: "sec-body" }, !o.card && sec.name === "BASS" && bq && bq.on && h("div", { class: "scr" }, bassStrip(bq, L, "c" + (++uid))),
           lfo && S.lfo.base[lfo[1] - 1] !== undefined && h("div", { class: "scr lf-wide" }, lfoScope(L, lfo[1] - 1, 516, 90)),
           sec.name === "MIXER" && h("div", { class: "scr" }, mixerStrip(L)),
-          pages.map((pg) => h("div", { class: "pg" }, h("div", { class: "pg-name" }, pg.name, h("span", { class: "pg-k" }, h("span", { class: "sr-only" }, ", on "), pg.button)),
-            pg.keep.map((p) => cell(p, L))))));
+          pages.map((pg) => h("div", { class: "pg", "data-key": pg.name }, h("div", { class: "pg-name" }, pg.name, h("span", { class: "pg-k" }, h("span", { class: "sr-only" }, ", on "), pg.button)),
+            pg.keep.map((p) => cell(p, L)))))));
         if (art) hooks.built(art);
       };
-      d.addEventListener("toggle", () => { if (d.open) d._build(); });
+      d.addEventListener("toggle", () => { if (d.open) d._build(d); });
       box.append(d);
     }
     return box;
@@ -1025,7 +1105,9 @@ window.RiverCards = (() => {
     const sc = hooks.scene(k2, sc0, o), L = sc.current ? look(sc.v) : null;   // (a draft of the editor's: shown edited)
     const art = h("article", { class: "sr-item" + (o.class ? " " + o.class : ""), id: o.id || null, "aria-labelledby": `${id}-n`, style: `--i:${Math.min(o.i || 0, 24)}` });
     const play = h("button", { type: "button", class: "play", disabled: !sc.bytes, "aria-label": `Play ${sc.name}`, "aria-pressed": "false",
-                               title: sc.bytes ? null : "Restore it to the FM-1 to hear it", onclick: () => toggleSound(k2) }, playIcon());
+                               title: sc.bytes ? null : "Restore it to the FM-1 to hear it",
+                               onclick: () => { toggleSound(k2); if (o.openOnPlay) openRow(art, true); } }, playIcon());   // (o.openOnPlay: ▶
+                                                                                                                  // opens the card too)
     const tick = o.tick && h("label", { class: "ck" }, h("input", { type: "checkbox", checked: !!o.tick.checked, disabled: !!o.tick.disabled,
       "aria-label": o.tick.aria || `Select ${sc.name}`, onchange: (e) => { if (o.tick.onChange) o.tick.onChange(e.target.checked); } }));
     const open = h("button", { type: "button", class: "sr-open", "aria-expanded": "false", "aria-controls": `${id}-more`, "aria-label": `Open ${sc.name}`,
@@ -1049,6 +1131,7 @@ window.RiverCards = (() => {
     };
     art._open = o.onOpen || null;
     art._key = k2;
+    art._id = id;
     REG.set(k2, { art, sc, o, sc0 });
     hooks.row(art, sc0, o);
     return art;
@@ -1075,33 +1158,27 @@ window.RiverCards = (() => {
     return h("div", { class: "oc-body" }, h("div", { class: "oc-cols" }, left, right), window.RiverKeys ? RiverKeys.panel(sc, L, art, id) : null);
   }
   /* a row drawn again with another scene (the editor's: the same shard, its sound changed): its head's columns, its
-   * card's body if built (its sections opened as they were), what ▶ plays */
+   * card's body if built, what ▶ plays. The new drawing laid over the one shown (patch()): only what differs changes,
+   * the sections built built again (open as they were), THE KEYS their own (river-keys.js); the editor's marks on it
+   * first (hooks.fresh), so that they stay as they are */
   function redraw(art, sc) {
     const c = REG.get(art._key), L = sc.current ? look(sc.v) : null;
     art._sc = sc;
     if (c) { c.sc = sc; c.L = undefined; }
-    const waves = (root) => [...root.querySelectorAll(".ms-wave polyline")];
-    const was0 = waves(art).map((w) => w.getAttribute("points"));
     const old = art.querySelectorAll(":scope > .sr > .ms, :scope > .sr > .kv, :scope > .sr > .gt, :scope > .sr > .bq, :scope > .sr > .bq-no");
     const fresh = headCells(sc, L);
-    if (old.length === 4) old.forEach((e, i) => e.replaceWith(fresh[i]));
+    if (old.length === 4) old.forEach((e, i) => patch(e, fresh[i]));
     const was = art.querySelector(".oc-body");
     if (was && L) {
-      const opened = [...was.querySelectorAll("details.sec[open] .sec-name")].map((e) => e.firstChild.textContent);
-      const now = body(sc, L, "c" + (++uid), art);
-      const k0 = was.querySelector(":scope > .oc-keys"), k1 = now.querySelector(":scope > .oc-keys");   // (THE KEYS held at the
-      if (k0 && k1 && !k1.classList.contains("is-grid")) {                                            // bottom: still, from the
-        for (const c of ["is-stuck", "no-dock"]) k1.classList.toggle(c, k0.classList.contains(c));     // start, no shadow fading in)
-        k1.style.minHeight = k0.style.minHeight;
-      }
-      was.replaceWith(now);
-      now.querySelectorAll("details.sec").forEach((d) => { if (opened.includes(d.querySelector(".sec-name").firstChild.textContent)) { d.open = true; d._build(); } });
+      const built = new Set([...was.querySelectorAll("details.sec")].filter((d) => d._built).map((d) => d.dataset.key));
+      const now = body(sc, L, art._id || "c" + (++uid), art);
+      now.querySelectorAll("details.sec").forEach((d) => { if (built.has(d.dataset.key)) d._build(d); });
+      stamp(now);
+      hooks.fresh(art, now);
+      patch(was, now);
     }
     art._lv = null;
-    if (soundKey === art._key && c) {           // (playing: what is heard on the new card at once, before it is drawn)
-      waves(art).forEach((w, i) => { if (was0[i]) w.setAttribute("points", was0[i]); });
-      heard(c, c.last ? c.last.f : null, c.last ? c.last.t : 0);
-    }
+    if (soundKey === art._key && c) heard(c, c.last ? c.last.f : null, c.last ? c.last.t : 0);   // (playing: what is heard on it at once)
   }
   /* a card's live parts found again (THE KEYS drawn again in place), what is heard put on them at once */
   function relive(art) {
@@ -1109,21 +1186,27 @@ window.RiverCards = (() => {
     const c = REG.get(art._key);
     if (c && soundKey === art._key) heard(c, c.last ? c.last.f : null, c.last ? c.last.t : 0);
   }
-  /* a cell drawn again in place (the editor, while a setting turns: the element kept, its pointer held) */
-  function refreshCell(el, p, v) {
-    const fresh = cell(p, look(v));
-    el.replaceChildren(...fresh.childNodes);
-    if (fresh._live) live(el, fresh._live);
+  /* a cell drawn again in place (the editor, while a setting turns: the element kept, its pointer held; only what
+   * differs in it changes; prep(fresh): the editor's marks on the new one first) */
+  function refreshCell(el, p, v, prep) {
+    const fresh = cell(p, look(v)), was = !!el._live;
+    if (prep) prep(fresh);
+    patchKids(el, fresh);
+    for (const x of own(el)) if (!(x in fresh)) delete el[x];
+    for (const x of own(fresh)) el[x] = fresh[x];
+    el.classList.toggle("lv", !!fresh._live);
+    const art = was !== !!fresh._live && el.closest(".sr-item");
+    if (art) art._lv = null;
   }
   /* the editor's hooks (river-edit.js): the scene a row shows (its draft), a row made, a card's body or a section
-   * built */
-  const hooks = { scene: (k, sc) => sc, row: () => {}, built: () => {} };
+   * built, a card's new drawing before it is laid over the one shown (fresh(art, root): its marks) */
+  const hooks = { scene: (k, sc) => sc, row: () => {}, built: () => {}, fresh: () => {} };
 
   /* a row opened (or closed) in place: its head the card's, the rows below glide down */
   function openRow(art, open = !art.classList.contains("open"), quiet = false) {
     if (open === art.classList.contains("open")) return;
     const inner = art.querySelector(".oc-in"), btn = art.querySelector(".sr-open"), name = art.querySelector(".nm-n").textContent;
-    if (open && art._build && !inner.firstChild) { inner.append(...art._build().filter(Boolean)); hooks.built(art); }
+    if (open && art._build && !inner.firstChild) { inner.append(...art._build().filter(Boolean).map(stamp)); hooks.built(art); }
     const after = glide(art.parentElement, () => {
       art.classList.toggle("open", open);
       btn.setAttribute("aria-expanded", String(open));
@@ -1154,7 +1237,7 @@ window.RiverCards = (() => {
   function wire(pl) {
     if (pl._river) return pl;
     pl._river = true;
-    pl.base = "/emu/";                 // (the engine at the River's root, whichever page plays)
+    pl.base = window.RIVER_EMU || "/emu/";   // (the engine at the River's root, whichever page plays; the Play page's beside it)
     pl.follow = true;                  // (what sounds, for the card playing: follow())
     pl.addEventListener("loading", (e) => sound(e.detail.id, "loading"));
     pl.addEventListener("playing", (e) => {
@@ -1281,5 +1364,6 @@ window.RiverCards = (() => {
     stopSound, onSound: (f) => soundFns.push(f), get soundKey() { return soundKey; },
     toast, confirm,
     parts: { C, live, at, star, mix, r2, cell, legend, bassPlays, scaleShift, uid: () => ++uid },
+    patch: { patch, kids: patchKids, place, stamp, sig: sigOf },
   };
 })();

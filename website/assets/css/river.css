@@ -1289,5 +1289,11 @@ button.k-step:focus-visible { outline: 2px solid var(--lamp); outline-offset: 1p
 /* a shard from a link, first and opened */
 .one { margin-top: 28px; }
 .one-h { margin-bottom: 4px; font: 600 11px/1.3 var(--f-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--ice); }
+/* a shard from the Play page's editor (Your Private River, #play=): no author, no date */
+.fp-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.fp-head .a { height: 32px; }
+.list.pub.fp-list .sr, .list.pub.fp-list .lh { --cols: 36px minmax(0, 1fr) 232px 172px 52px 52px; }
+@media (max-width: 1240px) and (min-width: 761px) { .list.pub.fp-list .sr { --cols: 36px minmax(0, 1fr) 180px 150px 46px 46px; } }
+@media (max-width: 960px) and (min-width: 761px) { .list.pub.fp-list .sr { --cols: 36px minmax(0, 1fr) 160px 46px 46px; } }
 /* Tools, privacy: the title language over their own pages */
 .legal-lede { margin-top: 22px; max-width: 46em; }

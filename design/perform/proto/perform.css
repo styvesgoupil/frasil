@@ -15,10 +15,10 @@ button { font: inherit; color: inherit; }
 
 #wrap { position: relative; margin: 0 auto; overflow: hidden; }
 #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; background: var(--bg); overflow: hidden; }
-#river { position: absolute; inset: 0; width: 100%; height: 100%; }
+#river { position: absolute; left: 0; top: calc(var(--ext, 0) * 1px); width: 100%; height: 1080px; }   /* (at the stage's foot) */
 
 /* ------------------------------------------------ the HUD: the FM-1's header, quiet */
-.hud { position: absolute; left: 96px; right: 96px; top: 52px; display: flex; align-items: center; justify-content: space-between;
+.hud { position: absolute; left: 96px; right: 96px; top: calc(52px + var(--hh, 0) * 1px); display: flex; align-items: center; justify-content: space-between;
   opacity: .78; transition: opacity .6s; }
 #stage[data-frame="connect"] .hud { opacity: 0; }
 .hud-l { display: flex; align-items: center; gap: 30px; }
@@ -88,7 +88,7 @@ button { font: inherit; color: inherit; }
 .steps i { width: 3px; height: 3px; background: var(--slate); }
 .steps i.sel { width: 9px; height: 9px; background: var(--ice); }
 
-#dock { position: absolute; left: 96px; right: 96px; top: 840px; height: 200px; display: grid;
+#dock { position: absolute; left: 96px; right: 96px; top: calc(840px + var(--ext, 0) * 1px); height: 200px; display: grid;
   grid-template-columns: 508px repeat(3, 200px) repeat(3, 1fr); gap: 14px; }
 #dock .lfo:nth-of-type(2), #dock .fx:nth-of-type(5) { margin-left: 14px; }
 .box { position: relative; border: 1.5px solid var(--steel); border-radius: 14px; background: rgba(10, 13, 18, .8);
@@ -166,6 +166,45 @@ button { font: inherit; color: inherit; }
   letter-spacing: .2em; color: var(--slate); }
 .cn-audio button:hover, .cn-audio button:focus-visible { color: var(--mist); outline: none; }
 .cn-audio button.on { background: var(--steel); color: var(--fog); }
+/* the view's switch, top centre, over both views, there all the time something plays (H's bare header takes it
+ * away): a pane of frosted ice over what moves, grained as VISUALS is, its rim lit from ice to fire and the light
+ * slowly running round it; under the view shown a glow, ice for LUCID, fire for DREAM, that slides to the other */
+#vsw { --u: min(100vw / 1920, 100vh / 1080);   /* (the stage's pixel: in the band over the header, as it scales) */
+  /* in the room the header leaves over it (the stage fills the window: no band), its middle */
+  position: fixed; left: 50%; top: calc(var(--u) * (5 + var(--hh, 0) / 2)); z-index: 5; display: grid; grid-template-columns: 1fr 1fr;
+  padding: calc(var(--u) * 4);
+  border-radius: 999px; isolation: isolate; transform: translateX(-50%); opacity: 0; pointer-events: none;
+  transition: opacity .9s;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E"),
+    rgba(7, 11, 17, .5);
+  backdrop-filter: blur(16px) saturate(1.5); -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  box-shadow: 0 10px 44px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .05);
+  animation: vsw-grain .5s steps(5) infinite; }
+#vsw::before { content: ""; position: absolute; inset: 0; padding: 1px; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(100deg, rgba(110, 208, 255, .75), rgba(243, 246, 249, .2) 30%, rgba(243, 246, 249, .2) 70%,
+    rgba(255, 128, 40, .75)) 0 0 / 220% 100%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask-composite: exclude; animation: vsw-rim 11s ease-in-out infinite alternate; }
+#vsw::after { content: ""; position: absolute; z-index: -1; top: calc(var(--u) * 4); bottom: calc(var(--u) * 4);
+  left: calc(var(--u) * 4); width: calc(50% - var(--u) * 4);
+  border-radius: 999px; pointer-events: none;
+  background: radial-gradient(70% 120% at 50% 50%, rgba(110, 208, 255, .34), rgba(40, 110, 255, .1) 60%, transparent 78%);
+  box-shadow: 0 0 26px rgba(70, 160, 255, .28), inset 0 0 14px rgba(160, 220, 255, .18);
+  transition: transform .8s cubic-bezier(.6, 0, .2, 1), background .8s, box-shadow .8s; }
+#vsw:has(button[data-v="vis"].on)::after { transform: translateX(100%);
+  background: radial-gradient(70% 120% at 50% 50%, rgba(255, 140, 50, .34), rgba(255, 90, 20, .1) 60%, transparent 78%);
+  box-shadow: 0 0 26px rgba(255, 120, 40, .28), inset 0 0 14px rgba(255, 190, 130, .18); }
+#vsw button { background: none; border: 0; margin: 0; cursor: pointer; white-space: nowrap;
+  padding: calc(var(--u) * 9) calc(var(--u) * 32); font: 600 calc(var(--u) * 14) var(--f); line-height: 1.15; letter-spacing: .62em; text-indent: .62em; color: var(--mist); transition: color .6s, text-shadow .6s; }
+#vsw button:hover:not(.on), #vsw button:focus-visible:not(.on) { color: var(--fog); outline: none; }
+#vsw button.on { color: var(--white); text-shadow: 0 0 14px rgba(110, 208, 255, .85), 0 0 2px rgba(255, 255, 255, .6); }
+#vsw button[data-v="vis"].on { text-shadow: 0 0 14px rgba(255, 140, 50, .85), 0 0 2px rgba(255, 255, 255, .6); }
+@keyframes vsw-rim { to { background-position: 100% 0; } }
+@keyframes vsw-grain { 20% { background-position: -23px 11px, 0 0; } 40% { background-position: 17px -29px, 0 0; }
+  60% { background-position: -9px 31px, 0 0; } 80% { background-position: 27px 7px, 0 0; } }
+#wrap:has(#stage[data-frame="live"]) ~ #vsw { opacity: 1; pointer-events: auto; }
+#wrap:has(#stage.nohud) ~ #vsw { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { #vsw, #vsw::before { animation: none; } }
 .cn-btns { display: flex; gap: 22px; margin-top: 40px; }
 .cn-btns button { background: none; cursor: pointer; font-family: var(--f); }
 .cn-btns button:hover, .cn-btns button:focus-visible { border-color: var(--fog); color: var(--white); outline: none; }
@@ -190,3 +229,8 @@ button { font: inherit; color: inherit; }
   transition: opacity .6s; }
 #stage[data-frame="connect"] .pf-ver { opacity: 0; }
 .cn-say { margin-top: 26px; min-height: 30px; font-size: 24px; font-weight: 600; letter-spacing: .22em; color: var(--lamp); }
+
+/* ------------------------------------------------ VISUALS (visuals.js): the whole window, over the stage, V */
+#vis { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #000; opacity: 0; pointer-events: none;
+  transition: opacity .9s; }
+body.vis #vis { opacity: 1; }

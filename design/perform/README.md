@@ -17,7 +17,7 @@ web_live's 52 floats, 30 frames a second; `design/river-live/scripts/capture.mjs
 `app/ui.c` draws the play page's river (river, current, crystal, glints, bass_bed, haze), more detail rather than
 bigger pixels. The pages, names and values written as the FM-1 writes them come from `server/schema.json`.
 
-**Perform's version:** `VERSION` at the top of `live/live.js` (1.0 now), shown on the first screen; raise it with each change people will see.
+**Perform's version:** `VERSION` at the top of `live/live.js` (1.1.0 now), shown on the first screen; raise it with each change people will see.
 
 ## Live
 
@@ -29,8 +29,18 @@ engine says sounds (web_live, as heard), the gestures from AUTO's hand or the co
     open http://127.0.0.1:8093/design/perform/live/
 
 `← →` the scene · `TAB` the page · `1`–`4` its knob · `↑ ↓` or the wheel turn it (`SHIFT` faster) · `K` the keys'
-notes · `SPACE` AUTO · `A` / `B` the direction · `H` the header · `F` full screen · `ESC` back. Checked by
+notes · `SPACE` AUTO · `A` / `B` the direction · `V` the view · `H` the header · `F` full screen · `ESC` back. Checked by
 `node design/perform/scripts/live_check.mjs`.
+
+**Two views** (LUCID | DREAM, the switch at the top centre of the live screen, there while playing, H hides it with
+the header; or `V`; kept in this browser): LUCID is the river and the dock;
+DREAM (`proto/visuals.js`, WebGL2) is light only, the whole window, for a stage's backdrop: what sounds drawn as fire
+and ice in a feedback field (the drones' rings, GLINT's sparks and ripples, the bass's fire from below), what is heard
+(the FM-1's USB audio, listened to only, or the River player's) pushing it, the hand stirring it (a knob a whirl at its
+cell, a scene its name written in, FREEZE frosting it), the scene's settings shaping it (CHOIR, PARTIALS, BREATH,
+WARMTH, CLOUD, the MASTER FILTER, LOFI TAPE, SINK; CHOIR's SHAPE the rings' shape, DETUNE doubled rings, BREATH's
+GRAIN the screen's grain, TAPE's SATURATION driven colours and WOBBLE a shockwave, GLINT's delay echoed sparks...). FRASIL's logo bottom left, alive as the header's, FRASILSYNTH.COM under it; the scene's
+name blurred; `H` takes both away.
 
 ## PERFORM over USB (app.c `pf_tick`, `app_sysex`)
 
@@ -46,11 +56,13 @@ never waiting (fm1-base's `plat_sysex_try`), from the main loop once a UI frame,
 | | 3 VALUES | first (2), n, n values (2 each): every setting at HELLO and after a load |
 | | 4 VALUE | parameter (2), value (2), encoder (plat.h EN_*, 127: not a knob's) |
 | | 5 PAGE | page (PG_*, the schema's order), octave + 3, keys (0 DRONE, 1 GLINT, 2 BASS) |
-| | 6 FRAME | ~18 a second: the drones' 8 (note, level), GLINT's 4 (note, level as heard, 1/20 s since struck), the bass (note, level), the LFOs on (bits), each LFO (phase, value, turns (3)), the tracks' 4 meters, the transport (bits: 1 the drones, 2 GLINT, 4 the bass playing; pf7 on); note 127: none, levels 0..127 |
+| | 6 FRAME | ~18 a second: the drones' 8 (note, level), GLINT's 4 (note, level as heard, 1/20 s since struck), the bass (note, level), the LFOs on (bits), each LFO (phase, value, turns (3)), the tracks' 4 meters, the transport (bits: 1 the drones, 2 GLINT, 4 the bass playing; pf7 on), LOFI TAPE's drag under way (how much slower, 127: 8 %; 2.5.2 on); note 127: none, levels 0..127 |
 | | 7 BUTTON | button (B_*), down |
 | | 8 KEYS | the keys held, bit k: key k (F3 up), four 7-bit bytes, lowest first; sent as they change (pf8 on) |
 
-Two bytes: 7-bit high, low. Its cost, measured on the FM-1 (`scripts/fm1_load_ab.py`, the scene playing, 2.5-pf2):
+Two bytes: 7-bit high, low. Settings and pages are numbered as the schema (`data/perform-schema.js`) has them; an
+earlier FRASIL's, told by HELLO's NPARAM, are brought to it (`live.js` `numbering`: 2.5 and 2.5.1, NPARAM 182, before
+CHOIR III's SOFT, from SOFT's setting and CHOIR III's page on one lower). Its cost, measured on the FM-1 (`scripts/fm1_load_ab.py`, the scene playing, 2.5-pf2):
 load 69 % off, 67-69 % on, the longest render 76 % both, no late half, no shedding. `scripts/fm1_listen.py` hears it
 from a terminal; `scripts/fm1_check.mjs` drives the page with the FM-1 plugged in.
 

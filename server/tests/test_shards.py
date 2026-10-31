@@ -388,6 +388,28 @@ def test_frsp_made_over(client, make, scenes):
     assert by[i]["layout"] == LAYOUT and base64.b64decode(by[i]["data"]) == want
 
 
+def test_frsr_made_over(client, make, scenes):
+    """FRSr (2.5's, before CHOIR III's SOFT), sent by a page from then and at startup: this layout, SOFT at 0 (the wave
+    as it was), its TEMPO and the rest as they were"""
+    n, so = OLD["FRSr"], IDS["P_CH_SOFT"]
+    assert n["size"] == ST["size"] - (NS - n["nv"]) and not n["scatter"] and n["nv"] == so == NS - 1
+    assert S["params"][so]["name"] == "SOFT" and S["params"][so]["def"] == 0
+    signup(client)
+    sc = bytearray(scenes[1])
+    sc[V + so] = 90
+    sc = bytes(sc)
+    old, want = as_old(sc, n), made_over(sc, True, n["nv"], False, sc[-1])
+    assert want[V + so] == 0 and want[:V + so] == sc[:V + so] and want[V + so + 1:] == sc[V + so + 1:]
+    j = add(client, old, layout="FRSr").json()
+    assert j["layout"] == LAYOUT and base64.b64decode(j["data"]) == want
+    i = add(client, scenes[2]).json()["id"]
+    db(client).execute("UPDATE shards SET layout = 'FRSr', data = ? WHERE id = ?", (old, i))
+    after = make()
+    after.post("/api/auth/login", json={"email": "ana@river.test", "password": PASSWORD})
+    by = {x["id"]: x for x in after.get("/api/shards").json()["items"]}
+    assert by[i]["layout"] == LAYOUT and base64.b64decode(by[i]["data"]) == want
+
+
 def test_titles_and_tags_folded_at_startup(client, make, scenes):
     """from before the River v2 (titles, tags; no bseq, the column itself missing) at startup: a title becomes its
     description's first sentence (unless the description starts with it already; 1000 characters at most), titles and

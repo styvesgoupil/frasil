@@ -13,6 +13,7 @@ container on nimbus; the host's Caddy serves the page and passes `/api/*` here, 
 | `scenes.py` | what is accepted: shards and backups, read with the schema |
 | `waitlist.py` | the waitlists (FRASIL for iPad, FRASIL VST): an email left to be told when it is out |
 | `admin.py` | the admin page's routes (admin.frasilsynth.com): accounts, uploads, waitlists, behind `FRASIL_ADMIN_KEY` |
+| `veille.py` | the veille: what is said of FRASIL on the web, sent by a scheduled agent (`FRASIL_VEILLE_TOKEN`), worked through on the admin page's `/veille/` |
 | `guard.py` | rate limits, the word filter, same-origin JSON for changes, cleaning what users type |
 | `mail.py` | the emails (SMTP over TLS; with no SMTP, the log) |
 | `store.py` | the settings (from the environment) and the database |
@@ -74,6 +75,10 @@ All from the environment (`.env` on nimbus, from `.env.example`; `store.Settings
 | `COOKIE_SECURE` | `1` | `0` only for a local run over plain http |
 | `SITE_URL` | `https://frasilsynth.com` | the main site's origin: `POST /api/waitlist` is accepted from it too |
 | `FRASIL_ADMIN_KEY` | none | the admin page's key, in the header `X-Frasil-Admin` (none: `/api/admin/overview`, `users/{id}`, `waitlist` are 404) |
+| `ADMIN_URL` | `https://admin.frasilsynth.com` | the admin page's origin, the only Origin the veille's changes are accepted from |
+| `FRASIL_VEILLE_TOKEN` | none | the veille's agent's token, `Authorization: Bearer` (none: its three routes are 404) |
+| `DISCORD_BOT_TOKEN` | none | the bot that posts a mention to #made-with-frasil (none: no Discord action on the page) |
+| `DISCORD_GUILD`, `DISCORD_MADE_CHANNEL`, `DISCORD_API` | Frasil Synth's | where it posts |
 | `RIVER_STATIC` | none | a folder served at `/` (a local run only) |
 | `TZ` | `America/Toronto` | the container's |
 
@@ -116,6 +121,9 @@ site can make one. Requests are 64 KB at most.
 | `POST /api/admin/shards/{id}/hide\|unhide\|delete` · `POST /api/admin/users/{id}/ban\|unban` | the admins' |
 | `POST /api/waitlist {list: ipad\|vst, email}` | `{ok: true}`; once per list and email (again: the same, nothing added); no email sent; 20 / h per IP; from the River or `SITE_URL` |
 | `GET /api/admin/overview` · `GET /api/admin/users/{id}` · `GET /api/admin/waitlist` | the admin page's, read-only: `X-Frasil-Admin: $FRASIL_ADMIN_KEY` or 404 (`admin.py`) |
+| `GET /api/veille/known` · `POST /api/veille/ingest` · `POST /api/veille/runs/{id}/finish` | the veille's agent's: `Authorization: Bearer $FRASIL_VEILLE_TOKEN`, past Caddy's basic auth, and nothing else that token opens (`veille.py`) |
+| `GET /api/veille/mentions` · `PATCH /api/veille/mentions/{id}` · `PATCH /api/veille/mentions` | the admin page's: the key as above, a change from `ADMIN_URL` |
+| `POST /api/veille/mentions/{id}/discord` · `DELETE ...` | the same: a mention posted to #made-with-frasil, once; taken back |
 | `GET /api/health` | `{ok, layout, firmware}` |
 
 A shard: `{id, name, description, layout, firmware, data, from_slot, root, scale, type, drone, glint, bseq,

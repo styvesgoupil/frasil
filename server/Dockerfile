@@ -4,7 +4,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app.py admin.py auth.py guard.py mail.py scenes.py shards.py store.py waitlist.py schema.json ./
+COPY app.py admin.py auth.py guard.py mail.py scenes.py shards.py store.py veille.py waitlist.py schema.json ./
 # Non-root; a new named volume at /data inherits this ownership.
 RUN useradd --system --uid 10001 --no-create-home river && mkdir -p /data && chown river /data
 USER river

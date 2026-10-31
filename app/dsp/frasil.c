@@ -97,6 +97,8 @@ typedef struct {
     float ca;                            /* one-pole coefficient */
     float sa1, sa2, sa3;                 /* the state-variable's (RESONANCE) */
     float cgain;                         /* SHAPE's and RESONANCE's level made up */
+    float cint[6];                       /* SOFT: the two integrators, the centre saw's (at its own pitch), then the
+                                          * left's, then the right's */
     uint8_t csvf;                        /* the filter running: the state-variable (1) or the one-poles */
     /* PARTIELS */
     float px[NP], py[NP], pa[NP];        /* each partial: its oscillator (x the cosine, y the sine half a step on) */
@@ -175,6 +177,8 @@ static void voice_start(voice_t *v, int note, float vel, int fresh)
     }
     for (k = 0; k < 4; k++)
         v->clp[k] = 0.0f;
+    for (k = 0; k < 6; k++)
+        v->cint[k] = 0.0f;
     v->csvf = 0;
     for (k = 0; k < NP; k++) {           /* random phases: no peak where they all start together */
         float ph = (float)(br_rand(&rng) >> 8) * (6.2831853f / 16777216.0f);
@@ -534,6 +538,7 @@ static inline uint32_t ch_run(float p, float d, float id, uint32_t m)
 }
 
 static float ch_x0[CH], ch_x1[CH];       /* a chunk's inputs, the left's and the right's (choir_run) */
+static float ch_xc[CH];                  /* with SOFT: the centre saw's alone (the sides then without it) */
 
 /* one side's state-variable (RESONANCE) over a chunk of its input x (its saws' sum): the filter (c its a1 a2 a3, s its
  * band's and low's states), out at the type's mix o (of the input, the band and the low, the gain in it) gliding e a
@@ -667,14 +672,15 @@ static inline __attribute__((always_inline)) void choir_run(voice_t *v, float *b
     float p0 = v->cph[0], p1 = v->cph[1], p2 = v->cph[2], d0 = v->cdt[0], d1 = v->cdt[1], d2 = v->cdt[2];
     float id0 = v->cid[0], id1 = v->cid[1], id2 = v->cid[2];
     float sh = v->csh, w0 = v->cw[0], w1 = v->cw[1], w2 = v->cw[2];
+    const int soft = P.ch_soft > 0.002f;  /* (SOFT: the centre saw apart, integrated at its own pitch: INTERVAL's) */
     uint32_t i = 0;
     while (i < CH) {
         uint32_t m = ch_run(p0, d0, id0, CH - i), e;
-        float A = 2.0f, k0 = -2.0f, k1 = -2.0f;   /* (2p - 1 each) */
+        float A = 2.0f, k0 = -2.0f, k1 = -2.0f, b0 = -1.0f, b1 = -1.0f, b2 = -1.0f;   /* (2p - 1 each) */
         m = ch_run(p1, d1, id1, m);
         m = ch_run(p2, d2, id2, m);
         if (sq) {                        /* the saws taken off: where they are, and from there the constants */
-            float q0 = p0 + w0, q1 = p1 + w1, q2 = p2 + w2, c0, c1, c2, b0, b1, b2;
+            float q0 = p0 + w0, q1 = p1 + w1, q2 = p2 + w2, c0, c1, c2;
             c0 = q0 >= 1.0f ? 1.0f : 0.0f;
             c1 = q1 >= 1.0f ? 1.0f : 0.0f;
             c2 = q2 >= 1.0f ? 1.0f : 0.0f;
@@ -693,13 +699,23 @@ static inline __attribute__((always_inline)) void choir_run(voice_t *v, float *b
             k0 = b0 + b1;
             k1 = b0 + b2;
         }
-        for (e = i + m; i < e; i++) {
-            p0 += d0;
-            p1 += d1;
-            p2 += d2;
-            ch_x0[i] = A * (p0 + p1) + k0;
-            ch_x1[i] = A * (p0 + p2) + k1;
-        }
+        if (soft)
+            for (e = i + m; i < e; i++) {
+                p0 += d0;
+                p1 += d1;
+                p2 += d2;
+                ch_xc[i] = A * p0 + b0;
+                ch_x0[i] = A * p1 + b1;
+                ch_x1[i] = A * p2 + b2;
+            }
+        else
+            for (e = i + m; i < e; i++) {
+                p0 += d0;
+                p1 += d1;
+                p2 += d2;
+                ch_x0[i] = A * (p0 + p1) + k0;
+                ch_x1[i] = A * (p0 + p2) + k1;
+            }
         if (i < CH) {                    /* a saw at its wrap: the sample as it was, its bleps */
             float s0, s1, s2;
             p0 += d0;
@@ -726,14 +742,67 @@ static inline __attribute__((always_inline)) void choir_run(voice_t *v, float *b
                 s1 -= sh * (2.0f * q1 - 1.0f - blepi(q1, d1, id1));
                 s2 -= sh * (2.0f * q2 - 1.0f - blepi(q2, d2, id2));
             }
-            ch_x0[i] = s0 + s1;
-            ch_x1[i] = s0 + s2;
+            if (soft) {
+                ch_xc[i] = s0;
+                ch_x0[i] = s1;
+                ch_x1[i] = s2;
+            } else {
+                ch_x0[i] = s0 + s1;
+                ch_x1[i] = s0 + s2;
+            }
             i++;
         }
     }
     v->cph[0] = p0;
     v->cph[1] = p1;
     v->cph[2] = p2;
+    if (soft) {                          /* SOFT: the wave integrated once (the square a triangle), then twice (near a
+                                          * sine), each saw at its own gain (its fundamental kept: 2 pi f a sample;
+                                          * the centre's at INTERVAL's pitch, the sides' at the note's), a leak at a
+                                          * sixth of it (no DC creeping); crossfaded by quarter turns, the three a
+                                          * quarter turn apart at the fundamental: it keeps its level. The states held
+                                          * without their gains (k, k^2 in the mix). The centre then into both sides */
+        float kc = 6.2831853f * d0, ks = 6.2831853f * d1, lc = 1.0f - 0.15f * kc, ls = 1.0f - 0.15f * ks;
+        float u = P.ch_soft, a0, a1, a2, c1, c2, s1, s2;
+        float cA = v->cint[0], cB = v->cint[1], l1 = v->cint[2], l2 = v->cint[3], r1 = v->cint[4], r2 = v->cint[5];
+        uint32_t j;
+        if (u < 0.5f) {
+            a0 = fm_cosf(3.14159265f * u);
+            a1 = fm_sinf(3.14159265f * u);
+            a2 = 0.0f;
+        } else {
+            a0 = 0.0f;
+            a1 = fm_cosf(3.14159265f * (u - 0.5f));
+            a2 = fm_sinf(3.14159265f * (u - 0.5f));
+        }
+        c1 = a1 * kc;
+        c2 = a2 * kc * kc;
+        s1 = a1 * ks;
+        s2 = a2 * ks * ks;
+        for (j = 0; j < CH; j++) {
+            float xc = ch_xc[j], xl = ch_x0[j], xr = ch_x1[j], c;
+            cA = lc * cA + xc;
+            cB = lc * cB + cA;
+            l1 = ls * l1 + xl;
+            l2 = ls * l2 + l1;
+            r1 = ls * r1 + xr;
+            r2 = ls * r2 + r1;
+            c = a0 * xc + c1 * cA + c2 * cB;
+            ch_x0[j] = c + a0 * xl + s1 * l1 + s2 * l2;
+            ch_x1[j] = c + a0 * xr + s1 * r1 + s2 * r2;
+        }
+        if (!(cB > -1e9f && cB < 1e9f && l2 > -1e9f && l2 < 1e9f && r2 > -1e9f && r2 < 1e9f))
+            cA = cB = l1 = l2 = r1 = r2 = 0.0f;   /* (never wild: begun again from nothing) */
+        v->cint[0] = cA;
+        v->cint[1] = cB;
+        v->cint[2] = l1;
+        v->cint[3] = l2;
+        v->cint[4] = r1;
+        v->cint[5] = r2;
+    } else {                             /* off: its states emptied, SOFT turned up again (an LFO crossing 0, a CC, a
+                                          * scene) starts from nothing, never from what they held when it went off */
+        v->cint[0] = v->cint[1] = v->cint[2] = v->cint[3] = v->cint[4] = v->cint[5] = 0.0f;
+    }
     if (svf) {                           /* the type's mix with the gain in it, gliding to sc over the chunk */
         float cf[3], o[3], e[3];
         cf[0] = v->sa1;
@@ -1045,6 +1114,17 @@ static void render_part(float *ol, float *or_, uint32_t n)
             if (P.souffle > 0.001f)
                 souffle_chunk(v, noise + c, bc, ba, bb, P.souffle * P.fullness * P.fullness);
             prof(FR_PROF_VMIX);
+            {                            /* a guard: a voice's buses gone wild or not numbers never reach the mix (in the
+                                          * cloud or the master one would hold for good: every scene broken till a
+                                          * restart); the voice starts again from nothing (states as a NaN carries
+                                          * them on, the last sample and the middle tell) */
+                float z = bc[CH - 1] + ba[CH - 1] + bb[CH - 1] + bc[CH / 2] + ba[CH / 2] + bb[CH / 2];
+                if (!(z > -1e4f && z < 1e4f)) {
+                    for (i = 0; i < CH; i++)
+                        bc[i] = ba[i] = bb[i] = 0.0f;
+                    voice_start(v, v->note, v->vel, 1);
+                }
+            }
             al = v->gl * sl;                 /* the sides into the field, then the voice's place */
             ar = v->gr * sr;
             bl = v->gl * sr;
@@ -1156,8 +1236,10 @@ static float tp_rate = 0.55f, tp_rate_to = 0.55f;   /* the wow's rate, and where
 static float tp_x, tp_drag, tp_drag_n, tp_drag_s;   /* the delay the drags hold back; the one under way: its time
                                                      * left, its length, its depth */
 static volatile float tp_speed = 1.0f;    /* frasil_tape_speed */
+static volatile float tp_dragd;          /* frasil_tape_drag */
 
 float frasil_tape_speed(void) { return tp_speed; }
+float frasil_tape_drag(void) { return tp_dragd; }
 
 static inline float tp_clip(float x)     /* tanh's shape, cheaper: a cubic to 1.5 (no division: the FM-1's is
                                           * slow), flat beyond */
@@ -1599,6 +1681,7 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
             }
             ddt = (tp_d - td0) / (float)(e - c);
             tp_speed = tp_bits ? 1.0f - ddt : 1.0f;   /* (reading further behind: slower) */
+            tp_dragd = tp_bits && tp_drag > 0.0f ? tp_drag_s : 0.0f;
             ddp = (tp_dip - dp0) / (float)(e - c);
             {                            /* the chunk in stages, each a short loop (on the FM-1 the FPU's registers
                                           * are the CPU's sixteen: one loop for all of it spilled at every turn): the

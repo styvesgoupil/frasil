@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.6 (2026-10-31)
+
+A softer choir, its wave on the screen, and PERFORM's DREAM.
+
+**New**
+
+- **SOFT** (CHOIR III, a new EDIT page): rounds the choir's wave off, to a triangle, then near a sine, at the same level. Older scenes sound as before.
+- **CHOIR II and III**: the choir's wave drawn above the page, as you hear it.
+- **PERFORM's DREAM** (perform.frasilsynth.com): a second view, light only, full screen, moved by what you play.
+
+**Fixes**
+
+- **SHAPE**: the screen says SQUARE in the middle, where the square is, and PULSE at the end.
+- **A voice gone wrong** is started again at once: it can no longer break every scene until a restart.
+
 ## 2.5.1 (2026-10-30)
 
 A fix for heavy scenes.

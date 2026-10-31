@@ -17,13 +17,17 @@
 <link rel="preload" href="assets/fonts/barlow-semi-condensed-normal-500-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{base_css}}">
 <link rel="stylesheet" href="{{admin_css}}">
+<script src="{{head_js}}" defer></script>
 <script src="{{admin_js}}" defer></script>
 </head>
 <body class="adm">
 <header class="adm-head">
   <a class="adm-mark" href="./"><img src="assets/img/logo-print.svg" width="150" height="31" alt="FRASIL"></a>
-  <span class="adm-name">ADMIN</span>
-  <button class="adm-btn adm-reload" type="button" data-reload>Reload</button>
+  <nav class="adm-nav" aria-label="Admin">
+    <a href="./" aria-current="page">ADMIN</a>
+    <a href="veille/">VEILLE</a>
+  </nav>
+  <div class="adm-dl" data-dl hidden><span class="adm-flip" role="img" data-dl-digits></span><small>downloads</small></div>
 </header>
 <main class="adm-main" id="main">
   <p class="adm-state" data-state role="status">Loading…</p>

@@ -7,6 +7,7 @@
  *   FB.packOf(scenes, fw)     a scene package (.frasilscenes): JSON, each scene's bytes in base64
  *   FB.readPack(text)         -> {layout, firmware, scenes}
  *   FB.patch(image, places)   the device's fresh backup with scenes put into slots ([{slot, bytes}]) -> a new image
+ *   FB.FACTORY                the sixteen slots as a FRASIL starts with them (scenes); FB.NEW_SHARD (SCENES' first line)
  * A scene: {slot, state ("saved", "factory", "empty"), current (in this FRASIL's layout), bytes (scene_t, current
  * only), name, v (its sound, the drone's preset applied, as the screen shows it), chords [{root, notes}], arp [notes],
  * bass (-1 none), seq [32 bytes] (current only), bseq {notes, lens, on, steps, trans} (the bass's sequence: empty for
@@ -122,6 +123,14 @@ const FB = ((S) => {
   }
 
   const FACTORY = S.factory.map((h) => scene(fromHex(h)));
+  /* NEW SHARD, the sound to begin a shard from: a slot past the factory's holds it, named by its number (app.c
+   * factory_get); here under its own name. null if every slot is a factory scene */
+  const NEW_SHARD = N.NFACTORY < N.NSCENES ? (() => {
+    const b = Uint8Array.from(FACTORY[N.NFACTORY].bytes), name = "NEW SHARD";
+    b.fill(0, ST.name, ST.name + ST.name_len);
+    for (let i = 0; i < name.length; i++) b[ST.name + i] = name.charCodeAt(i);
+    return scene(b);
+  })() : null;
 
   // the scenes' record and their basses' (none: each empty; FRBS's: the scenes are an earlier FRASIL's, their TEMPO the
   // settings', tempo) -> 16 scenes, slot by slot (a slot with nothing saved: the factory's, as scene_get has it)
@@ -172,7 +181,7 @@ const FB = ((S) => {
       b[SG.bq_trans] = param("P_BQ_TRANS").def;
       b.set(p.subarray(4 + over.nv, over.end), SG.octave);
       if (!over.speaker) b[SG.speaker_off] = 0;            // (MORPH's byte there before 2.5's betas: SPK/JACK on)
-      if (SG.anim !== undefined) b[SG.anim] = 0;            // (a padding byte there: ANIMATIONS NORMAL)
+      if (SG.anim !== undefined && !over.anim) b[SG.anim] = 0;   // (a padding byte there: ANIMATIONS NORMAL; 2.5's FRSL: its own)
       wrapped(b, SG.v);
       for (let i = 0; i < N.NLEARN; i++) {
         const x = b[SG.learn_p + i];
@@ -283,5 +292,5 @@ const FB = ((S) => {
                   { obj: S.objs.scenes, data: p }, { obj: S.objs.bseqs, data: q }], 0);
   }
 
-  return { S, read, packOf, readPack, patch, build, sounding, FACTORY };
+  return { S, read, packOf, readPack, patch, build, sounding, FACTORY, NEW_SHARD };
 })(SCHEMA);

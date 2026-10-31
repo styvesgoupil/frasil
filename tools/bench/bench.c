@@ -631,6 +631,7 @@ int main(int argc, char **argv)
             p.pa_peak = all || strchr(o, 'p') ? 1.0f : 0.0f;
             p.pa_beat = all || strchr(o, 'q') ? 1.0f : 0.0f;   /* q BEAT, y TYPE (high) */
             p.ch_type = all || strchr(o, 'y') ? 2 : 0;
+            p.ch_soft = strchr(o, 'o') ? 0.75f : 0.0f;   /* o SOFT (named only) */
         }
         frasil_init();
         frasil_set(&p);

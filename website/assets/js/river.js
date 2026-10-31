@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: MPL-2.0
  * Copyright (C) 2026 Styves Goupil
- * The landing's river at night, as FRASIL's logo screen draws it: stars, and granules of frasil drifting over the
- * waterline; the logo on it, its lower half under the water, deep blue, swaying; slow swells of light passing
+ * The landing's river at night, as FRASIL's logo screen draws it: stars over it, and frasil drifting in the water
+ * (grains, needles, discs catching the light, set crosses, small plates: Perform's crystals), most near the surface,
+ * fewer, slower and bluer down to the submerged letters' foot; the logo on it, its lower half under the water, deep blue, swaying; slow swells of light passing
  * through the water and the sky's light on it in short strokes that come and go.
  * The layout is CSS's: the logo's box says where the waterline is. Still when motion is reduced; asleep off screen. */
 "use strict";
@@ -21,11 +22,11 @@
   // a small seeded random, so the sky is the same sky each time
   let seed = 47;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  const gauss = () => { let u = 0, v = 0; while (!u) u = rnd(); while (!v) v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
 
   let W = 0, H = 0, dpr = 1, wl = 0, L = null, bg = null;
   let stars = [], grains = [], strokes = [], swells = [];
   let raf = 0, last = 0, t = 0, seen = true, ready = false;
+  let meteor = null, nextMeteor = 6 + Math.random() * 8;   // a shooting star now and then (the first after a few seconds)
 
   function build() {
     const r = hero.getBoundingClientRect(), lr = logoBox.getBoundingClientRect();
@@ -45,8 +46,9 @@
     let g = b.createLinearGradient(0, 0, 0, wl);
     g.addColorStop(0, "#05070b"); g.addColorStop(.62, "#080c12"); g.addColorStop(1, "#0d1520");
     b.fillStyle = g; b.fillRect(0, 0, W, wl);
-    g = b.createLinearGradient(0, wl, 0, H);
-    g.addColorStop(0, "#0f1b27"); g.addColorStop(.18, "#0c1620"); g.addColorStop(.7, "#0a1018"); g.addColorStop(1, "#0a0d12");
+    g = b.createLinearGradient(0, wl, 0, H);             // the water: a deep, dark blue under the surface, back to the
+    g.addColorStop(0, "#0c1c33"); g.addColorStop(.22, "#0b182b");   // page's own night as it goes down
+    g.addColorStop(.55, "#0a1322"); g.addColorStop(.82, "#0a0f19"); g.addColorStop(1, "#0a0d12");
     b.fillStyle = g; b.fillRect(0, wl, W, H - wl);
     b.save();                                            // the haze: the reverb rising off the water
     b.translate(W / 2, wl); b.scale(W * .62, 90);
@@ -70,16 +72,15 @@
       stars.push({ x: rnd() * W, y: 18 + Math.pow(rnd(), 1.1) * (wl - 60), r: .7 + rnd() * 1.0, a: .4 + rnd() * .6,
                    s: .25 + rnd() * .9, p: rnd() * 6.3, ice: rnd() < .22, cross: rnd() < .07 });
     }
-    // frasil: grains, needles and discs drifting over the water
+    // frasil: crystals drifting in the water, from just under the surface down to the submerged letters' foot
     grains = [];
-    const band = Math.min(170, wl * .4);
+    const deep = Math.max(40, (L.y + L.h - wl) * 1.15);
     const n = Math.round((small.matches ? 110 : 190) * Math.min(1.4, area + .2));
     for (let i = 0; i < n; i++) {
-      const k = rnd();
-      const h = rnd() < .14 ? band * (.6 + rnd() * 1.6) : Math.abs(gauss()) * band * .45 + 3;   // a few drift high, like stars
-      grains.push({ x: rnd() * W, h, vx: 5 + rnd() * 13, p: rnd() * 6.3, f: .2 + rnd() * .5,
-                    kind: k < .08 ? 2 : k < .45 ? 1 : 0, len: 2 + rnd() * 3.5, a: (.25 + rnd() * .6) * (1 - Math.min(.7, h / band * .8)),
-                    ice: rnd() < .3 });
+      const k = rnd(), d = 2 + Math.pow(rnd(), 1.7) * deep, z = d / deep;   // (most near the surface)
+      grains.push({ x: rnd() * W, d, vx: (5 + rnd() * 13) * (1 - .45 * z), p: rnd() * 6.3, f: .2 + rnd() * .5,
+                    kind: k < .34 ? 0 : k < .62 ? 1 : k < .78 ? 2 : k < .9 ? 3 : 4,   // grain, needle, disc, cross, plate
+                    size: .7 + rnd() * .8, len: 2.5 + rnd() * 4, a: (.3 + rnd() * .6) * (1 - .6 * z), ice: rnd() < .3 + .5 * z });
     }
     // the sky's light on the water: short strokes that come and go
     strokes = [];
@@ -113,6 +114,7 @@
         ctx.globalAlpha = 1;
       }
     }
+    shootingStar();
 
     // the water: slow swells of light passing through it, going down
     const depth = H - wl;
@@ -157,19 +159,59 @@
       ctx.fillRect(x, s.y, s.len, 1);
     }
 
-    // frasil over the waterline
+    // frasil in the water: each crystal swaying a little as the water does (Perform's shapes, smaller)
     for (const g of grains) {
-      const x = (g.x + t * g.vx) % (W + 20) - 10;
-      const y = wl - g.h + Math.sin(t * g.f + g.p) * 1.6;
+      const x = (g.x + t * g.vx) % (W + 30) - 15 + Math.sin(t * .9 + g.p) * .8;
+      const y = wl + g.d + Math.sin(t * g.f + g.p) * 1.3;
       const a = Math.min(1, LIFT * g.a * (.75 + .25 * Math.sin(t * .7 + g.p * 2)));
-      ctx.fillStyle = g.ice ? `rgba(150, 214, 245, ${a.toFixed(3)})` : `rgba(220, 227, 234, ${a.toFixed(3)})`;
-      if (g.kind === 0) ctx.fillRect(x, y, 1, 1);
-      else if (g.kind === 1) ctx.fillRect(x, y, g.len, .8);
-      else { ctx.fillRect(x - 1.5, y, 3, .8); ctx.fillRect(x - .4, y - 1.1, .8, 3); }
+      const col = g.ice ? "150, 214, 245" : "220, 227, 234", s = g.size;
+      const fill = (k) => (ctx.fillStyle = `rgba(${col}, ${(a * k).toFixed(3)})`);
+      if (g.kind === 0) {                                 // a grain
+        fill(1); ctx.fillRect(x, y, s, s);
+      } else if (g.kind === 1) {                          // a needle along the flow, its tail fading behind it
+        fill(1); ctx.fillRect(x, y, g.len * .45, .8);
+        fill(.55); ctx.fillRect(x - g.len * .35, y, g.len * .35, .8);
+        fill(.25); ctx.fillRect(x - g.len * .7, y, g.len * .35, .8);
+      } else if (g.kind === 2) {                          // a disc catching the light: a bright core, a faint glint
+        fill(1); ctx.fillRect(x - s, y - s, 2 * s, 2 * s);
+        fill(.35); ctx.fillRect(x - 3 * s, y - .4, 6 * s, .8); ctx.fillRect(x - .4, y - 3 * s, .8, 6 * s);
+      } else if (g.kind === 3) {                          // set ice: a small cross
+        fill(.9); ctx.fillRect(x - 2 * s, y - .4, 4 * s, .8); ctx.fillRect(x - .4, y - 2 * s, .8, 4 * s);
+      } else {                                            // a small plate: a diamond's outline
+        fill(.8); ctx.beginPath(); ctx.moveTo(x, y - 2 * s); ctx.lineTo(x + 2 * s, y); ctx.lineTo(x, y + 2 * s);
+        ctx.lineTo(x - 2 * s, y); ctx.closePath(); ctx.lineWidth = .7; ctx.strokeStyle = ctx.fillStyle; ctx.stroke();
+      }
     }
 
     // the letters above the water
     ctx.drawImage(imgTop, L.x, L.y, L.w, L.h);
+  }
+
+  /* now and then (every 14 to 30 s) a shooting star: across the sky and down, under a second, its tail growing then
+   * fading; never down to the water, behind the letters. None with motion reduced (draw once, t still) */
+  function shootingStar() {
+    if (!meteor && t >= nextMeteor && !reduce.matches) {
+      const dir = Math.random() < .5 ? 1 : -1;
+      meteor = { t0: t, dur: .6 + Math.random() * .4, x: W * (.12 + Math.random() * .76), y: 24 + Math.random() * wl * .4,
+                 dx: dir * (240 + Math.random() * 220), dy: 70 + Math.random() * 90, len: 80 + Math.random() * 110 };
+      nextMeteor = t + 14 + Math.random() * 16;
+    }
+    if (!meteor) return;
+    const u = (t - meteor.t0) / meteor.dur;
+    if (u >= 1) { meteor = null; return; }
+    const e = 1 - (1 - u) * (1 - u), hx = meteor.x + meteor.dx * e, hy = meteor.y + meteor.dy * e;
+    if (hy > wl - 24) { meteor = null; return; }
+    const n = Math.hypot(meteor.dx, meteor.dy), tx = hx - meteor.dx / n * meteor.len * Math.min(1, u * 2.5),
+          ty = hy - meteor.dy / n * meteor.len * Math.min(1, u * 2.5);
+    const a = LIFT * .75 * (u < .12 ? u / .12 : 1 - (u - .12) / .88);
+    const g = ctx.createLinearGradient(hx, hy, tx, ty);
+    g.addColorStop(0, `rgba(240, 246, 252, ${a.toFixed(3)})`);
+    g.addColorStop(.3, `rgba(150, 214, 245, ${(a * .4).toFixed(3)})`);
+    g.addColorStop(1, "rgba(150, 214, 245, 0)");
+    ctx.lineCap = "round"; ctx.lineWidth = 1.2; ctx.strokeStyle = g;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(tx, ty); ctx.stroke();
+    ctx.fillStyle = `rgba(245, 250, 255, ${Math.min(1, a * 1.2).toFixed(3)})`;   // its head, a point of light
+    ctx.fillRect(hx - 1, hy - 1, 2, 2);
   }
 
   function frame(now) {

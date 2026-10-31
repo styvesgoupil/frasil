@@ -165,6 +165,5 @@
       say(e.message);
     }
   }
-  $("[data-reload]").addEventListener("click", load);
   load();
 })();

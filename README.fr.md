@@ -87,7 +87,7 @@ chacune d'elles :
 | **BREATH** | du bruit ou des grains épars passés dans trois résonateurs accordés sur la note, de l'air (Q bas) au verre (Q élevé) |
 
 Chaque couche a une deuxième page dans EDIT pour sa source et ce qui la façonne ensuite (CHOIR II, PARTIALS II,
-BREATH II), et DRONE TONE façonne tout le drone (TIMBRE, SPACE, MOTION, BODY). PRESETS fait défiler 24 presets
+BREATH II ; le SOFT de CHOIR III arrondit l'onde du chœur), et DRONE TONE façonne tout le drone (TIMBRE, SPACE, MOTION, BODY). PRESETS fait défiler 24 presets
 de drone (MIST, CATHEDRAL, GLACIER, ABYSS, AURORA, EMBER, TIDE, DUST, WIND, ORGAN, HOLLOW, VOWEL, SHIMMER, CHANTER,
 ENSEMBLE, BELLS, NOCTURNE, HAZE, PULSE, RIME, DEEP, SPECTRAL, RUST, STILL) : touche un réglage et le drone devient
 CUSTOM, qu'un autre preset ne fait pas perdre. ALGORITHM amincit le drone (BODY), peu importe le preset. Trois
@@ -130,7 +130,7 @@ plonge tout sous un passe-bas.
 | **ARP** | les pages de GLINT (tap de nouveau pour la suivante : GLINT I, II, ADSR, DELAY, puis GLINT ARP ou celles du séquenceur selon le SEQ de GLINT I). Tenu : LATCH de l'arpège (mis à ON : SEQ sur ARP aussi) |
 | **SEQ** | les pages de BASS (tap de nouveau pour la suivante : BASS, II, ADSR, puis BASS SEQ, BASS SEQ II) |
 | **SEL** | HARMONY : fondamentale, gamme, accord, voicing. Tiens SEL et tape une touche : une note seule par-dessus un accord |
-| **EDIT, ENV, LFO, FX, GLO** | DRONE TONE et les LAYERS (×7 : chaque couche et sa deuxième page), DRONE SHAPE, DRONE MOTION et les trois LFO (×7), GENERATIVE FX, CLOUD (×3), MASTER FILTER, LOFI TAPE et PUMP (×2), GLOBAL, MIDI, MASTERING, MASTER EQ (×2), ROUTING et SCREEN. ENV tenu : SWELL, toutes les voix du drone gonflent ensemble. OCT- tenu, puis EDIT : COMPARE, la scène telle que sauvée. FX tenu : FREEZE. LFO tenu en tournant K1–K4 : ce réglage sur un LFO. GLO tenu en bougeant un CC : MIDI learn |
+| **EDIT, ENV, LFO, FX, GLO** | DRONE TONE et les LAYERS (×8 : chaque couche et sa deuxième page, CHOIR III), DRONE SHAPE, DRONE MOTION et les trois LFO (×7), GENERATIVE FX, CLOUD (×3), MASTER FILTER, LOFI TAPE et PUMP (×2), GLOBAL, MIDI, MASTERING, MASTER EQ (×2), ROUTING et SCREEN. ENV tenu : SWELL, toutes les voix du drone gonflent ensemble. OCT- tenu, puis EDIT : COMPARE, la scène telle que sauvée. FX tenu : FREEZE. LFO tenu en tournant K1–K4 : ce réglage sur un LFO. GLO tenu en bougeant un CC : MIDI learn |
 | **HOME** | la page de jeu; encore une fois : le MIXER; encore une fois : l'écran du logo, vivant. Tenu : l'aide à l'écran (5 pages, tourne SELECT) |
 | **SAVE** | SCENES (K1 ou SELECT l'emplacement, ou NEW SHARD au-dessus de l'emplacement 01 pour repartir à neuf, KEYS laissé tel quel ; MORPH, LOAD); encore une fois : retour. SAVE tenu + REC : STORE. SAVE tenu + une touche blanche : charger cette scène |
 | **PLAY** | quand rien ne joue, la scène (ses trois pistes, comme tenu); sinon le transport : la séquence de GLINT et celle de la basse s'arrêtent ensemble ou repartent ensemble du début, l'arpège attend ou reprend; sur SCENES, charger. Tapé deux fois vite pendant que ça joue, ou tenu : RELEASE ALL; tenu quand rien ne joue : RESTORE, la scène de nouveau, ses séquences du début. Lancé ou tenu, il relance le temps à ce moment, comme un Start MIDI (les temps d'une horloge MIDI restent les siens) |

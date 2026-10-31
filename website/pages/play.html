@@ -7,9 +7,18 @@ description: FRASIL in the browser: the same code the M-VAVE FM-1 runs, with sou
   <div class="play-intro-grid">
     <h1 class="display sm" id="play-title">The same code the FM-1 runs, <em>with sound.</em></h1>
     <div class="play-steps" data-caps>
-      <p class="lede">No FM-1 needed. Switch it on, tap a key: a drone rises and stays. Best in headphones.</p>
+      <p class="lede for-emu">No FM-1 needed. Switch it on, tap a key: a drone rises and stays. Best in headphones.</p>
+      <p class="lede for-ed">Every setting turns while it plays. Best in headphones.</p>
     </div>
   </div>
+  <div class="mode-switch" id="mode-switch" role="group" aria-label="Mode">
+    <button type="button" data-mode="emulator" aria-pressed="false">Emulator</button>
+    <button type="button" data-mode="editor" aria-pressed="true">Editor</button>
+  </div>
+</section>
+<!-- the editor: the River's, here (js/play-editor.js) -->
+<section class="play-editor river wrap" id="editor" aria-label="Editor" data-river="{{river}}">
+  <div class="list qb-list ed-list" id="ed-list"></div>
 </section>
 <!-- the emulator -->
 <section class="play-notes wrap" aria-labelledby="play-how">

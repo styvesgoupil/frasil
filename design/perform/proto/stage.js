@@ -6,7 +6,7 @@
  *   Keys: 1-7 the frames, F full screen, H the bar hidden. */
 "use strict";
 (() => {
-  const D = window.PERFORM_DATA, R = PerformRiver, Sh = PerformShow, S = Sh.S;
+  const D = window.PERFORM_DATA, ID = window.PERFORM_SCHEMA.ids, R = PerformRiver, Sh = PerformShow, S = Sh.S;
   const $ = (s) => document.querySelector(s);
   const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
   const scn = (name) => Sh.factory.find((f) => f.name === name);
@@ -38,8 +38,8 @@
     [9.6, () => Sh.openPage("CLOUD")],
     [10.5, () => Sh.turn("CLOUD", 1, 26, 2000)],
     [14.6, () => Sh.turn("DRONE MOTION", 0, -70, 2600)],
-    [19.0, () => { S.v[156] = 1; Sh.button("FX", "FREEZE", "ON", "ice"); }],
-    [22.2, () => { S.v[156] = 0; Sh.button("FX", "FREEZE", "OFF"); }],
+    [19.0, () => { S.v[ID.P_FREEZE] = 1; Sh.button("FX", "FREEZE", "ON", "ice"); }],
+    [22.2, () => { S.v[ID.P_FREEZE] = 0; Sh.button("FX", "FREEZE", "OFF"); }],
     [24.2, () => scene("RESILIENCE", 0)],
     [28.0, () => Sh.keys("GLINT", [], "ARP · RANDOM · 1/16")],
     [33.2, () => Sh.turn("GLINT ARP", 1, -1, 900)],
@@ -68,7 +68,7 @@
     ["KNOB", () => { load("NORTH RIVER", 200); Sh.hold = true; Sh.knob("CLOUD", 1, 104); }],
     ["SCENE", () => { Sh.hold = true; scene("RESILIENCE", 60); }],
     ["KEYS", () => { load("RESILIENCE", 150); Sh.hold = true; Sh.keys("GLINT", [], "ARP · RANDOM · 1/16"); }],
-    ["FREEZE", () => { load("NORTH RIVER", 260); S.v[156] = 1; Sh.hold = true; Sh.button("FX", "FREEZE", "ON", "ice"); }],
+    ["FREEZE", () => { load("NORTH RIVER", 260); S.v[ID.P_FREEZE] = 1; Sh.hold = true; Sh.button("FX", "FREEZE", "ON", "ice"); }],
     ["FILM", () => { load("NORTH RIVER", 0); film = { t0: performance.now(), next: 0 }; }],
   ];
   let cur = 0;

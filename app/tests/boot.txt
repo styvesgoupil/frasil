@@ -128,7 +128,7 @@ listen
 wait 1500
 tap ARP
 wait 30
-expect page 8
+expect page 9
 expect octave -1
 expect p37 6
 press OCT-
@@ -145,7 +145,7 @@ expect p37 9
 expect octave -1
 tap SEQ
 wait 30
-expect page 16
+expect page 17
 press OCT-
 wait 30
 turn K1 2

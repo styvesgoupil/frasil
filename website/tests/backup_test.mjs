@@ -9,7 +9,8 @@
 //                                                  bass's sequence (two objects, FRSh and FRSG: old10.frasil) and the
 //                                                  patched one as made before DECAY, SUSTAIN and PULSE (FRSh, FRSH and
 //                                                  OBJ_BSEQ: old11.frasil) and before GLINT's RELEASE (FRSj, FRSI,
-//                                                  SCATTER where it is: old12.frasil), read; never patched
+//                                                  SCATTER where it is: old12.frasil) and 2.5's, before SOFT (FRSL,
+//                                                  FRSq: old15.frasil), read; never patched
 //   node website/tests/backup_test.mjs check DIR   after.frasil (the simulator's backup once patched.frasil was
 //                                                  restored): slots 3 and 7 hold those bytes, the rest as it was;
 //                                                  after10r.frasil, after11r.frasil, after12r.frasil: those restored,
@@ -160,6 +161,16 @@ if (mode === "make") {
           sc.raw_v[S.ids.P_EQ_PRESET] === 0 && sc.raw_v[S.ids.P_FL_TYPE] === 0 && sc.raw_v[S.ids.P_TP_ON] === 0 && sc.bseq.on && sc.tempo === bassy[ST.tempo],
           "a package made before MASTER EQ, MASTER FILTER and LOFI TAPE (FRSn): those off, at their defaults, its TEMPO and the rest as they were");
   }
+  {                                                      // ... and in 2.5 (FRSr), before CHOIR III's SOFT: SOFT 0
+    const bs = Uint8Array.from(bassy);
+    bs[ST.v + S.ids.P_CH_SOFT] = 64;
+    const frsr = asOld(bs, OS.FRSr.nv, OS.FRSr.size);
+    const sc = FB.readPack(JSON.stringify({ format: "frasil-scenes", version: 1, layout: "FRSr", scenes: [{ name: src.name, from: 15, data: b64(frsr) }] })).scenes[0];
+    check(frsr.length === OS.FRSr.size && OS.FRSr.nv === S.ids.P_CH_SOFT && S.ids.P_CH_SOFT === N.NSOUND - 1 && !OS.FRSr.scatter &&
+          same(sc.bytes, madeOver(bs, true, OS.FRSr.nv, false, bs[ST.tempo])) && sc.raw_v[S.ids.P_CH_SOFT] === 0 &&
+          S.params[S.ids.P_CH_SOFT].def === 0 && sc.bseq.on && sc.tempo === bs[ST.tempo],
+          "a package made in 2.5 (FRSr), before CHOIR III's SOFT: SOFT 0 (the wave as it was), its TEMPO and the rest as they were");
+  }
   const out = FB.patch(dev.image, [{ slot: 2, bytes: pack.scenes[0].bytes }, { slot: 6, bytes: bassy }]);
   const bq = FB.read(PB.parse(out)).scenes[6].bseq;
   check(objsOf(out) === [O.settings, O.scenes, O.bseqs].join(), "the patched image checks whole (PB.parse), its objects in order");
@@ -241,6 +252,27 @@ if (mode === "make") {
         r14.settings.learned.some((l) => l.cc === 24 && l.p === S.ids.P_TEMPO) && r14.settings.speaker,
         "a backup from before MASTER EQ, MASTER FILTER and LOFI TAPE (FRSJ, FRSl, FRBT): an earlier FRASIL's scenes, their basses and TEMPO, CC 24 on TEMPO, SPEAKER on");
   fs.writeFileSync(path.join(dir, "old14.frasil"), old14);
+  // the patched backup as 2.5 keeps it, before CHOIR III's SOFT: FRSL (ANIMATIONS LOW, CLOCK INTERNAL, CC 25 learned on
+  // TEMPO, numbered then), FRSq (each scene's sound without SOFT, GLINT's sequence in OBJ_BSEQ), FRBU as it is
+  const set15 = setDown(of(po, O.settings), "FRSL"), at15 = N.NSOUND - OV.FRSL.nv;
+  set15[SG.learn_cc - at15] = 25;
+  set15[SG.learn_p - at15] = S.ids.P_TEMPO - at15;
+  set15[SG.anim - at15] = 1;
+  set15[SG.clock - at15] = 1;
+  const l15 = S.old_scenes.find((x) => x.magic === "FRSq"), rec15 = l15.name + l15.nv + 2 + N.SC_CHORDS * 5 + N.SC_ARP + 1;
+  const old15 = raw([{ obj: O.settings, data: set15 }, { obj: O.scenes, data: scenesDown(of(po, O.scenes), of(po, O.bseqs), "FRSq", l15.nv, rec15) },
+                     { obj: O.bseqs, data: of(po, O.bseqs) }]);
+  const r15 = FB.read(PB.parse(old15));
+  check(!r15.current && r15.layout === "FRSq" && !l15.seq && l15.nv === OS.FRSr.nv && r15.scenes[6].state === "saved" &&
+        r15.scenes[6].bseq.on && r15.scenes[6].bseq.steps === 3 && r15.scenes[6].tempo === bassy[ST.tempo] && r15.scenes[2].name === src.name,
+        "a backup from 2.5, before CHOIR III's SOFT (FRSq, FRBU): an earlier FRASIL's scenes, their basses and TEMPO");
+  check(r15.settings.current && r15.settings.layout === "FRSL" && same(r15.settings.raw_v, dev.settings.raw_v) && r15.settings.anim === 1 &&
+        r15.settings.learned.some((l) => l.cc === 25 && l.p === S.ids.P_TEMPO),
+        "... its settings (FRSL) made over: SOFT at its default, ANIMATIONS LOW kept, CC 25 on TEMPO");
+  bad = false;
+  try { FB.patch(old15, [{ slot: 4, bytes: bassy }]); } catch (_) { bad = true; }
+  check(bad, "an FM-1 keeping 2.5's scenes: no shard put into it");
+  fs.writeFileSync(path.join(dir, "old15.frasil"), old15);
   const parsed = PB.parse(dev.image);                    // (the FM-1's scenes record in another layout)
   const objs = parsed.objs.map((o) => ({ obj: o.obj, data: Uint8Array.from(o.data) }));
   objs.find((o) => o.obj === FB.S.objs.scenes).data[3] = "f".charCodeAt(0);
@@ -272,6 +304,12 @@ if (mode === "make") {
         same(a14.settings.raw_v, dev.settings.raw_v) && a14.settings.learned.some((l) => l.cc === 24 && l.p === S.ids.P_TEMPO) &&
         a14.settings.speaker,
         "the FRSJ / FRSl / FRBT backup restored, made over by the FM-1: MASTER EQ, MASTER FILTER and LOFI TAPE off, the rest as it was, CC 24 on TEMPO, SPEAKER on");
+  const a15 = load("after15r.frasil");
+  check(a15.current && same(a15.scenes[6].bytes, madeOver(bassy, true, OS.FRSr.nv, false, bassy[ST.tempo])) &&
+        same(a15.scenes[2].bytes, madeOver(src.bytes, true, OS.FRSr.nv, false, src.bytes[ST.tempo])) &&
+        same(a15.settings.raw_v, dev.settings.raw_v) && a15.settings.anim === 1 &&
+        a15.settings.learned.some((l) => l.cc === 25 && l.p === S.ids.P_TEMPO),
+        "the FRSL / FRSq backup restored, made over by the FM-1: SOFT 0, the rest as it was, ANIMATIONS LOW, CC 25 on TEMPO");
   const a12 = load("after12r.frasil");
   check(a12.current && same(a12.scenes[6].bytes, gone(bassy, ST.v)) && a12.scenes[6].raw_v[GO.p] !== 99 &&
         a12.scenes.every((s) => s.state !== "saved" || s.raw_v[GO.p] === GO.of[s.raw_v[GO.decay]]) &&

@@ -1,0 +1,72 @@
+<!doctype html>
+<!-- The veille (admin.frasilsynth.com/veille/): what is said of FRASIL on the web, gone through once a day. Assembled by
+     website/assemble.py (admin_site) into build/website/admin/veille/; its data from the River's service, /api/veille/
+     on this origin (server/veille.py: Caddy adds X-Frasil-Admin after its basic auth). No referrer meta here: with it
+     Safari sends a change's Origin as null; the links out carry rel=noreferrer themselves. -->
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0a0d12" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f3f6f9" media="(prefers-color-scheme: light)">
+<meta name="color-scheme" content="dark light">
+<title>VEILLE · FRASIL</title>
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/img/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="preload" href="../assets/fonts/barlow-semi-condensed-normal-600-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/barlow-semi-condensed-normal-500-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{base_css}}">
+<link rel="stylesheet" href="{{admin_css}}">
+<link rel="stylesheet" href="{{veille_css}}">
+<script src="{{head_js}}" defer></script>
+<script src="{{veille_js}}" defer></script>
+</head>
+<body class="adm vl">
+<header class="adm-head">
+  <a class="adm-mark" href="../"><img src="../assets/img/logo-print.svg" width="150" height="31" alt="FRASIL"></a>
+  <nav class="adm-nav" aria-label="Admin">
+    <a href="../">ADMIN</a>
+    <a href="../veille/" aria-current="page">VEILLE</a>
+  </nav>
+  <div class="adm-dl" data-dl hidden><span class="adm-flip" role="img" data-dl-digits></span><small>downloads</small></div>
+</header>
+<main class="adm-main vl-main" id="main">
+  <p class="adm-state" data-state role="status">Chargement…</p>
+
+  <div class="vl-top" data-top hidden>
+    <div class="vl-counts" data-counts></div>
+    <p class="vl-run" data-run></p>
+  </div>
+
+  <div class="vl-filters" data-filters hidden>
+    <div class="vl-row">
+      <div class="vl-chips" data-platforms></div>
+      <div class="vl-pick">
+        <label><span class="sr-only">Sentiment</span><select data-sentiment></select></label>
+        <label><span class="sr-only">Priorité</span><select data-priority></select></label>
+        <label class="vl-find"><span class="sr-only">Chercher</span>
+          <input type="search" placeholder="Chercher" autocomplete="off" spellcheck="false" data-find></label>
+      </div>
+    </div>
+    <div class="vl-tabs" role="tablist" aria-label="Statut" data-tabs></div>
+  </div>
+
+  <div class="vl-list" data-list></div>
+  <button class="adm-btn vl-more" type="button" data-more hidden>Voir plus</button>
+  <p class="vl-keys" aria-hidden="true"><kbd>j</kbd> <kbd>k</kbd> naviguer · <kbd>o</kbd> ouvrir · <kbd>r</kbd> répondu ·
+    <kbd>f</kbd> à suivre · <kbd>i</kbd> ignorer · <kbd>h</kbd> keeper · <kbd>n</kbd> note · <kbd>d</kbd> Discord · <kbd>x</kbd> sélectionner · <kbd>u</kbd> annuler</p>
+</main>
+
+<div class="vl-bulk" data-bulk hidden>
+  <span data-bulk-n></span>
+  <button class="vl-all" type="button" data-bulk-all>Tout</button>
+  <button class="vl-act" type="button" data-bulk-act="replied">Répondu</button>
+  <button class="vl-act" type="button" data-bulk-act="follow_up">À suivre</button>
+  <button class="vl-act" type="button" data-bulk-act="ignored">Ignorer</button>
+  <button class="vl-act" type="button" data-bulk-act="keeper">Keeper</button>
+  <button class="vl-all" type="button" data-bulk-none>Aucun</button>
+</div>
+<div class="vl-toast" data-toast role="status" hidden></div>
+</body>
+</html>

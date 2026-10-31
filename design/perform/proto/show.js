@@ -21,10 +21,15 @@
  *   PerformShow.tick(now, frame)           each frame: the tweens, the dock drawn, a gesture let go once the hand left
  *   PerformShow.look()                     what the river needs (PerformRiver's look) · .fit() · .clear() · .hud()
  *   PerformShow.transport(bits)            each track playing (1 the drones, 2 GLINT, 4 the bass)
- *   PerformShow.hold (true: nothing goes) · .onParam(p, v) (each value a knob reaches) · .showing */
+ *   PerformShow.eff(p)                     a setting as it sounds now, the LFOs on it
+ *   PerformShow.lfoShape(shape, x, turn, i)  an LFO's SHAPE at x (0..1) of its turn, -1..1 (app.c's lfo_shape)
+ *   PerformShow.hold (true: nothing goes) · .onParam(p, v) (each value a knob reaches) · .showing
+ *   PerformShow.onGesture(kind, d)         each gesture as it is shown: "knob" {p, cell, by (its change, 0..1 of its
+ *                                          range)} · "hand" {p, by} · "page" {name} · "scene" {name} · "keys" {track} ·
+ *                                          "button" {key, value} (VISUALS: visuals.js) */
 "use strict";
 window.PerformShow = (() => {
-  const SC = window.PERFORM_SCHEMA, P = SC.params, R = PerformRiver, LF = SC.lfo;
+  const SC = window.PERFORM_SCHEMA, P = SC.params, ID = SC.ids, R = PerformRiver, LF = SC.lfo;
   const C = { ice: "#6ed0ff", fog: "#dce3ea", mist: "#8b95a4", slate: "#4a5563", steel: "#26303c", lamp: "#f2a65a", white: "#ffffff" };
   const TRACK = { drone: C.fog, glint: C.ice, bass: C.lamp, off: C.mist };
   const $ = (s) => document.querySelector(s);
@@ -34,12 +39,17 @@ window.PerformShow = (() => {
 
   // ------------------------------------------------------------------ the stage, fitted (the bar above it, if any)
   const stage = $("#stage"), wrap = $("#wrap");
+  /* a window taller than 16:9: the stage as tall as it (no bands), the river and the dock at its foot, the header down
+   * a little (up to 56 of its pixels: room over it for the views' switch); --ext and --hh, the stage's pixels added */
   function fit() {
     const bar = $("#bar"), top = bar && !document.body.classList.contains("bare") ? bar.offsetHeight : 0;
-    const s = Math.min(innerWidth / 1920, (innerHeight - top) / 1080);
+    const s = Math.min(innerWidth / 1920, (innerHeight - top) / 1080), ext = Math.max(0, Math.floor((innerHeight - top) / s - 1080));
+    document.documentElement.style.setProperty("--ext", ext);
+    document.documentElement.style.setProperty("--hh", Math.min(56, Math.round(ext / 2)));
+    stage.style.height = `${1080 + ext}px`;
     stage.style.transform = `scale(${s})`;
     wrap.style.width = `${1920 * s}px`;
-    wrap.style.height = `${1080 * s}px`;
+    wrap.style.height = `${(1080 + ext) * s}px`;
   }
   addEventListener("resize", fit);
 
@@ -84,7 +94,7 @@ window.PerformShow = (() => {
     return {
       choir: eff(0) / 127, partials: eff(1) / 127, breath: eff(2) / 127, motion: eff(16) / 127,
       space: Math.min(1, (sp + (0.9 * 127 - sp) * Math.max(0, bl) * (sp < 0.9 * 127 ? 1 : 0)) / 127),
-      freeze: S.v[156] === 1, sink: eff(126) / 127, dim: 1, notes: S.notes, lit: S.lit,
+      freeze: S.v[ID.P_FREEZE] === 1, sink: eff(126) / 127, dim: 1, notes: S.notes, lit: S.lit,
       mix: { a: since < 2000 ? 1 : Math.max(0, 1 - (since - 2000) / 1600), lv: MIX.map((p) => eff(p) / P[p].max) },
     };
   };
@@ -114,9 +124,9 @@ window.PerformShow = (() => {
    * where its notes come from: GLINT's SEQ (ARP, SEQ), the bass's SEQUENCE (SEQ), else the keys' KEY MODE */
   let tpWas = "";
   function transport(bits) {
-    const tp = $("#transport"), v = S.v, key = text(153, v[153]);
+    const tp = $("#transport"), v = S.v, key = text(ID.P_KEYS, v[ID.P_KEYS]);
     if (!tp) return;
-    const words = [key, v[123] === 1 ? "ARP" : v[123] === 2 ? "SEQ" : key, v[176] ? "SEQ" : key];
+    const words = [key, v[123] === 1 ? "ARP" : v[123] === 2 ? "SEQ" : key, v[ID.P_BQ_ON] ? "SEQ" : key];
     if (`${bits}${words}` === tpWas) return;
     tpWas = `${bits}${words}`;
     S.play = bits;
@@ -175,7 +185,7 @@ window.PerformShow = (() => {
 
   // ------------------------------------------------------------------ the dock: LIVE, the LFOs, the effects
   const dock = $("#dock");
-  const FX = [["CLOUD", 156, [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 156]], ["TAPE", 142, [142, 143, 144, 145, 146, 147]],
+  const FX = [["CLOUD", ID.P_FREEZE, [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, ID.P_FREEZE]], ["TAPE", 142, [142, 143, 144, 145, 146, 147]],
               ["FILTER", 138, [138, 139, 140, 141]]];
   /* an LFO TARGET named in full: its section's word before it where the FM-1 shortens it (CH RESO: CHOIR RESONANCE,
    * GL BRIGHT: GLINT BRIGHT, CUTOFF: FILTER CUTOFF, DRONE LVL: MIXER DRONE); the sound's own and the hands' as they are */
@@ -286,8 +296,8 @@ window.PerformShow = (() => {
       box.classList.toggle("off", !on);
       box.classList.toggle("hot", hot);
       const tag = box.querySelector("header span");
-      tag.textContent = k === 0 ? (S.v[156] ? "FREEZE" : "") : k === 2 ? ["OFF", "LOW", "HIGH"][S.v[onP]] || "" : text(onP);
-      tag.className = (k === 0 ? S.v[156] : on) ? "ice" : "";
+      tag.textContent = k === 0 ? (S.v[ID.P_FREEZE] ? "FREEZE" : "") : k === 2 ? ["OFF", "LOW", "HIGH"][S.v[onP]] || "" : text(onP);
+      tag.className = (k === 0 ? S.v[ID.P_FREEZE] : on) ? "ice" : "";
     }
     const cw = Math.round(cv.clientWidth * 2), chh = Math.round(cv.clientHeight * 2);
     if (cw && chh && (cv.width !== cw || cv.height !== chh)) { cv.width = cw; cv.height = chh; }
@@ -299,7 +309,7 @@ window.PerformShow = (() => {
    * DIFFUSION, swaying with MODULATION, wider with WIDTH; set (FREEZE): still, a lattice over it */
   function drawRoom(ctx, W, H, now, f) {
     const size = eff(20) / 127, decay = eff(21) / 127, diff = eff(24) / 127, mod = eff(25) / 127, pre = eff(26) / 127;
-    const width = eff(29) / 127, frozen = S.v[156] !== 0, cx = W / 2, cy = H * 0.57, lvl = Math.min(1, Math.max(0, (f && f[45]) || 0));
+    const width = eff(29) / 127, frozen = S.v[ID.P_FREEZE] !== 0, cx = W / 2, cy = H * 0.57, lvl = Math.min(1, Math.max(0, (f && f[45]) || 0));
     const R = 0.16 * W + size * Math.min(W, H * 2) * 0.5, per = 1 + decay * 7, n = 14;
     for (let k = 0; k < n; k++) {
       const age = frozen ? k / n : ((now / per + k / n) % 1), r = pre * 26 + 10 + age * R;
@@ -458,7 +468,8 @@ window.PerformShow = (() => {
 
   // ------------------------------------------------------------------ LIVE: the gestures, shown then gone
   let shown = null, goneAt = 0;
-  const api = { hold: false, onParam: null };
+  const api = { hold: false, onParam: null, onGesture: null };
+  const told = (kind, d) => { if (api.onGesture) api.onGesture(kind, d); };
   function show(key, hold, build) {
     if (!shown || shown.key !== key) {
       if (shown) {                       /* the one before out quickly (80 ms), the next in over it */
@@ -508,17 +519,19 @@ window.PerformShow = (() => {
     const g = page(pageName), p = g.p[cell];
     if (p < 0 || !P[p]) return;          /* (a page's empty cell: CLOUD III's fourth) */
     if (S.v[p] !== v && api.onParam) api.onParam(p, v);
+    told("knob", { p, cell, by: (v - S.v[p]) / (P[p].max || 1) });
     S.v[p] = v;
     S.changed = true;
     hud();
     setting(`knob:${p}`, g.button, pageName, `<i class="bd">${cell + 1}</i>`, p, v, { ["K" + (cell + 1)]: "on", [g.button]: "pg" });
   }
   /* a left knob turned, the hands on every page (A SELECT: KEYS, B PRESETS: the drone's preset, C ALGORITHM: BODY) */
-  const HANDS = [[165, "A", "SELECT"], [113, "B", "PRESETS"], [114, "C", "ALGORITHM"]];
+  const HANDS = [[ID.P_KB, "A", "SELECT"], [ID.P_DR_PRESET, "B", "PRESETS"], [ID.P_DR_FULL, "C", "ALGORITHM"]];
   function hand(p, v) {
     const k = HANDS.findIndex(([q]) => q === p);
     if (k < 0) return;
     if (S.v[p] !== v && api.onParam) api.onParam(p, v);
+    told("hand", { p, by: (v - S.v[p]) / (P[p].max || 1) });
     S.v[p] = v;
     S.changed = true;
     hud();
@@ -528,6 +541,7 @@ window.PerformShow = (() => {
   function openPage(pageName) {
     const g = page(pageName);
     if (pageName === "MIXER") mixAt = performance.now();
+    told("page", { name: pageName });
     show(`page:${pageName}`, 1800, (el) => {
       el.innerHTML = `<div class="col">${kicker(g.button, pageName)}<div class="cells">${g.p.map((p, i) => (p < 0 || !P[p] ? `<div class="cell"></div>`
         : `<div class="cell"><span><i class="bd">${i + 1}</i>${P[p].name}</span><b>${valueHTML(p)}</b></div>`)).join("")}</div></div>${mini({ [g.button]: "on" })}`;
@@ -535,6 +549,7 @@ window.PerformShow = (() => {
   }
   /* a scene loaded: its number and name */
   function scene(f) {
+    told("scene", { name: f.name });
     show(`scene:${f.name}`, 2600, (el) => {
       el.innerHTML = `<div class="col">${kicker("", f.slot ? `SCENE ${String(f.slot).padStart(2, "0")}` : "SCENE")}
         <div class="scn">${f.name}</div></div>`;
@@ -597,6 +612,7 @@ window.PerformShow = (() => {
   /* keys played: the drones' notes named (lit in the river), or GLINT's walk */
   function keys(track, notes, words) {
     S.notes = track === "GLINT";
+    told("keys", { track });
     hud();
     show(`keys:${track}`, 2600, (el) => {
       if (track === "GLINT") {
@@ -610,6 +626,7 @@ window.PerformShow = (() => {
   }
   /* a button: its key and what it set */
   function button(key, word, value, cls = "") {
+    told("button", { key, value });
     show(`btn:${key}:${value}`, 1800, (el) => {
       el.innerHTML = `<div class="col">${kicker(key, word)}<div class="bval ${cls}">${value}</div></div>${mini({ [key]: "on" })}`;
     });
@@ -648,7 +665,7 @@ window.PerformShow = (() => {
   const logo = $(".brand canvas.logo");   /* FRASIL's logo, alive (logo.js) */
   if (logo && window.PerformLogo) PerformLogo.start(logo);
 
-  Object.assign(api, { factory, S, page, values, text, look, hud, fit, clear, knob, hand, turn, openPage, scene, keys,
+  Object.assign(api, { factory, S, page, values, text, eff, lfoShape, look, hud, fit, clear, knob, hand, turn, openPage, scene, keys,
                       button, strikes, tick, touch, transport });
   /* (a getter of its own: Object.assign would have copied its value once, null) */
   Object.defineProperty(api, "showing", { get: () => shown && shown.key, enumerable: true });

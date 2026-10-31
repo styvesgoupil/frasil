@@ -220,7 +220,7 @@ tap FX
 tap FX
 tap FX
 wait 30
-expect page 32
+expect page 33
 turn K1 1
 turn K2 -40
 turn K3 60
@@ -229,7 +229,7 @@ wait 2500
 shot screen-filter.png
 tap FX
 wait 30
-expect page 33
+expect page 34
 turn K1 1
 turn K2 30
 turn K3 40
@@ -244,14 +244,14 @@ tap FX
 tap FX
 tap FX
 wait 30
-expect page 32
+expect page 33
 turn K1 -1
 tap GLO
 tap GLO
 tap GLO
 tap GLO
 wait 30
-expect page 39
+expect page 40
 turn K1 7
 wait 2500
 shot screen-eq.png

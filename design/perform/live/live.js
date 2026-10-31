@@ -6,22 +6,25 @@
  * River's player (website/assets/js/river-player.js: app.wasm in an AudioWorklet, a fresh engine per scene), the
  * gestures from a hand: AUTO's (a knob turned every few seconds, a scene every seven) or the computer's keys.
  *   Keys (DEMO): ← → the scene · TAB / SHIFT TAB the page · 1-4 its knob · ↑ ↓ (or the wheel) turn it (SHIFT: faster) ·
- *         K the keys' notes · SPACE AUTO · (both) A / B the direction · H the header · F full screen · ESC back */
+ *         K the keys' notes · SPACE AUTO · (both) A / B the direction · V the view · H the header · F full screen · ESC back
+ * Two views: LUCID (the river, the dock, the header) and DREAM (visuals.js: light only, the whole window, from what
+ * sounds, what is heard and the hand), kept in this browser. */
 "use strict";
 (() => {
-  const VERSION = "1.0.1";               /* Perform's own, shown on the first screen (FRASIL's comes with the FM-1) */
-  const SC = window.PERFORM_SCHEMA, P = SC.params, R = PerformRiver, Sh = PerformShow, S = Sh.S, pl = RiverPlayer;
+  const VERSION = "1.1.11";               /* Perform's own, shown on the first screen (FRASIL's comes with the FM-1) */
+  const SC = window.PERFORM_SCHEMA, P = SC.params, ID = SC.ids, R = PerformRiver, Sh = PerformShow, S = Sh.S, pl = RiverPlayer;
   const $ = (s) => document.querySelector(s);
   pl.base = "../../../app/build/emu/";
   pl.follow = true;
 
   /* nothing sounding yet: every voice free */
-  const BLANK = new Float32Array(52);
+  const BLANK = new Float32Array(53);
   [0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 24, 38, 39, 40].forEach((i) => (BLANK[i] = -1));
   /* what the engine lets the page set (app/web.c web_param): the scene's settings, TEMPO */
   const settable = (p) => p < SC.nsound || p === SC.tempo;
   let mode = "";                         /* "fm1" | "demo" | "" (the connect screen) */
   Sh.onParam = (p, v) => { if (mode === "demo" && settable(p)) pl.param(p, v); };
+  Sh.onGesture = (kind, d) => V && V.gesture(kind, d);
 
   // ------------------------------------------------------------------ the scenes
   let at = -1, started = false;
@@ -108,8 +111,8 @@
   const say = (t) => ($("#say").textContent = t || "");
   let helpT = 0;
   const HELP = {
-    demo: "<kbd>← →</kbd> SCENE · <kbd>TAB</kbd> PAGE · <kbd>1–4</kbd> KNOB · <kbd>↑ ↓</kbd> TURN · <kbd>K</kbd> KEYS · <kbd>SPACE</kbd> AUTO · <kbd>H</kbd> · <kbd>F</kbd>",
-    fm1: "<kbd>H</kbd> · <kbd>F</kbd> · <kbd>ESC</kbd>",
+    demo: "<kbd>← →</kbd> SCENE · <kbd>TAB</kbd> PAGE · <kbd>1–4</kbd> KNOB · <kbd>↑ ↓</kbd> TURN · <kbd>K</kbd> KEYS · <kbd>SPACE</kbd> AUTO · <kbd>V</kbd> · <kbd>H</kbd> · <kbd>F</kbd>",
+    fm1: "<kbd>V</kbd> · <kbd>H</kbd> · <kbd>F</kbd> · <kbd>ESC</kbd>",
   };
   function help() {
     $("#help").innerHTML = HELP[mode] || HELP.demo;
@@ -126,6 +129,8 @@
     S.auto = true;
     pl.unlock();
     start(at < 0 ? 0 : at);
+    showView();
+    poke(3000);
     help();
   }
   function back() {
@@ -135,9 +140,40 @@
     started = false;
     S.hand = true;
     Sh.clear();
+    document.body.classList.remove("vsh");
     $("#connect").hidden = false;
     $("#stage").dataset.frame = "connect";
+    showView();
   }
+  // ------------------------------------------------------------------ the views: LUCID ("device"), DREAM ("vis")
+  const V = PerformVisuals.create($("#vis"));
+  const viewBtns = document.querySelectorAll("#vsw button");
+  let view = "device", both = 0;          /* both: until then, the two drawn (the one going fades) */
+  try { if (localStorage.getItem("perform.view") === "vis") view = "vis"; } catch (_) { /* no storage here */ }
+  function viewPick(k) {
+    if (k === "vis" && !V.ok) return say("NO WEBGL HERE · LUCID ONLY");
+    view = k;
+    try { localStorage.setItem("perform.view", k); } catch (_) { /* no storage here */ }
+    viewBtns.forEach((b) => { b.classList.toggle("on", b.dataset.v === k); b.setAttribute("aria-checked", b.dataset.v === k); });
+    showView();
+    poke(3000);
+  }
+  /* the view's switch shows for ms, then goes (the pointer's rest hides it with the cursor) */
+  let pokeT = 0;
+  function poke(ms) {
+    clearTimeout(pokeT);
+    document.body.classList.toggle("vsh", started);
+    if (started) pokeT = setTimeout(() => document.body.classList.remove("vsh"), ms);
+  }
+  function showView() {
+    const vis = started && view === "vis";
+    if (vis !== document.body.classList.contains("vis")) both = performance.now() + 1000;
+    document.body.classList.toggle("vis", vis);
+    if (vis && mode === "fm1") listen();
+  }
+  viewBtns.forEach((b) => (b.onclick = () => { b.blur(); viewPick(b.dataset.v); }));
+  viewPick(V.ok ? view : "device");
+
   /* H: the header bare (the logo in the middle, the transport at the right), or whole again */
   const bare = () => { Sh.hud(); $("#stage").classList.toggle("nohud"); };
   $("#demo-btn").onclick = demo;
@@ -162,6 +198,7 @@
     if (k === "f" || k === "F") return full();
     if (!started) { if ((k === "Enter" || k === " ") && !(e.target.closest && e.target.closest("button"))) { e.preventDefault(); demo(); } return; }
     if (k === "h" || k === "H") return bare();
+    if (k === "v" || k === "V") return viewPick(view === "vis" ? "device" : "vis");
     if (k === "Escape" && !document.fullscreenElement) return back();
     if (mode !== "demo") return;
     if (k === "ArrowRight") start(at + 1);
@@ -185,6 +222,7 @@
   let idleT = 0;
   addEventListener("pointermove", () => {
     document.body.classList.remove("idle");
+    poke(2500);
     clearTimeout(idleT);
     idleT = setTimeout(() => started && document.body.classList.add("idle"), 2500);
   });
@@ -202,7 +240,7 @@
    * FM-1's 44.1 kHz, this computer's output); Web Audio's source does not, and clicked */
   const A = { pick: "fm1", el: null, stream: null };
   try { if (localStorage.getItem("perform.audio") === "pc") A.pick = "pc"; } catch (_) { /* no storage here */ }
-  const picks = document.querySelectorAll(".cn-audio button");
+  const picks = document.querySelectorAll(".cn-audio button[data-a]");
   function audioPick(k) {
     A.pick = k;
     try { localStorage.setItem("perform.audio", k); } catch (_) { /* no storage here */ }
@@ -210,8 +248,8 @@
   }
   picks.forEach((b) => (b.onclick = () => audioPick(b.dataset.a)));
   audioPick(A.pick);
-  async function audioOn() {
-    if (A.stream) return "";
+  /* the FM-1's USB audio, as this computer hears it (a stream), or why not (a string) */
+  async function fm1Stream() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return "NO AUDIO INPUT HERE";
     const fm1 = async () => (await navigator.mediaDevices.enumerateDevices()).find((d) => d.kind === "audioinput" &&
       /FM-1/i.test(d.label) && d.deviceId !== "default" && d.deviceId !== "communications");   /* (itself, not "the default") */
@@ -222,8 +260,18 @@
         dev = await fm1();
       }
       if (!dev) return "NO FM-1 AUDIO · PLUG IT IN, OR FM-1 AUDIO";
-      A.stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: dev.deviceId }, channelCount: { ideal: 2 },
+      return await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: dev.deviceId }, channelCount: { ideal: 2 },
         echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    } catch (_) {
+      return "AUDIO NOT ALLOWED · ALLOW IT IN THE ADDRESS BAR";
+    }
+  }
+  async function audioOn() {
+    if (A.stream) return "";
+    const got = await fm1Stream();
+    if (typeof got === "string") return got;
+    A.stream = got;
+    try {
       A.el = new Audio();
       A.el.srcObject = A.stream;
       /* never back into the FM-1 (an output too: a loop): this computer's own output, its speakers if that is the FM-1 */
@@ -246,6 +294,35 @@
     if (A.stream) A.stream.getTracks().forEach((t) => t.stop());
     if (A.el) { A.el.pause(); A.el.srcObject = null; }
     A.stream = A.el = null;
+  }
+  /* VISUALS hear the FM-1: COMPUTER AUDIO's stream, else one of their own, only listened to (the FM-1 not quieted:
+   * HELLO's flag is COMPUTER AUDIO's). An analyser in an AudioContext that plays nothing */
+  const L = { ac: null, an: null, own: null, busy: false };
+  async function listen() {
+    if (L.an || L.busy || mode !== "fm1") return;
+    L.busy = true;
+    let stream = A.stream;
+    if (!stream) {
+      const got = await fm1Stream();
+      if (typeof got !== "string" && mode === "fm1") stream = L.own = got;
+      else if (typeof got !== "string") got.getTracks().forEach((t) => t.stop());
+    }
+    if (stream) {
+      try {
+        L.ac = new AudioContext({ latencyHint: "playback" });
+        L.an = L.ac.createAnalyser();
+        L.an.fftSize = 2048;
+        L.an.smoothingTimeConstant = 0.5;
+        L.ac.createMediaStreamSource(stream).connect(L.an);
+        if (L.ac.state === "suspended") L.ac.resume();
+      } catch (_) { unlisten(); }
+    }
+    L.busy = false;
+  }
+  function unlisten() {
+    if (L.own) L.own.getTracks().forEach((t) => t.stop());
+    if (L.ac) L.ac.close().catch(() => {});
+    L.ac = L.an = L.own = null;
   }
   async function connect() {
     if (!navigator.requestMIDIAccess) return say("NO WEB MIDI HERE · CHROME OR EDGE");
@@ -274,6 +351,7 @@
   function unplug() {
     clearInterval(fm.timer);
     clearTimeout(fm.wait);
+    unlisten();
     audioOff();
     if (fm.inp) fm.inp.onmidimessage = null;
     sendFM(BYE);
@@ -289,14 +367,38 @@
     $("#connect").hidden = true;
     $("#stage").dataset.frame = "live";
     say("");
+    showView();
+    poke(3000);
     help();
   }
   const ascii = (b) => String.fromCharCode(...b).replace(/\s+$/, "");
+  /* an earlier FRASIL's numbers in this page's (the schema's), told by HELLO's NPARAM: 2.5 and 2.5.1 (182) before
+   * CHOIR III's SOFT, their settings from SOFT's on and their pages from CHOIR III's on one lower */
+  const EARLIER = { 182: { p: ID.P_CH_SOFT, g: ID.PG_CHOEUR3 } };
+  const PF_VER = 1;                     /* PERFORM's own version, the FM-1's HELLO's first byte (app.c PF_VER) */
+  let pOf = (p) => p, gOf = (g) => g;
+  function numbering(n) {
+    const e = n !== P.length && EARLIER[n];
+    pOf = e ? (p) => (p >= e.p ? p + 1 : p) : (p) => p;
+    gOf = e ? (g) => (g >= e.g ? g + 1 : g) : (g) => g;
+    fm.nparam = n;
+  }
   function message(d) {
     if (d.length < 6 || d[0] !== 0xF0 || d[1] !== 0x7D || d[2] !== 0x46 || d[3] !== 0x50) return;
     const b = d.subarray(5, d.length - 1), two = (i) => (b[i] << 7) | b[i + 1];
     switch (d[4]) {
-      case 1: if (mode !== "fm1") live(); break;
+      case 1: {                          /* HELLO ver, NPARAM, FRASIL's version: only a FRASIL this page knows */
+        const n = b.length >= 3 ? two(1) : 0, fw = b.length > 3 ? ascii(b.subarray(3)) : "";
+        if (b[0] !== PF_VER || (n !== P.length && !EARLIER[n])) {
+          if (mode === "fm1") back();
+          unplug();
+          return say(n > P.length || b[0] > PF_VER ? `FRASIL ${fw} IS NEWER THAN THIS PAGE · RELOAD IT`
+                                  : `FRASIL ${fw || "ON THIS FM-1"} · NOT SUPPORTED · UPDATE IT`);
+        }
+        numbering(n);
+        if (mode !== "fm1") live();
+        break;
+      }
       case 2: {                          /* SCENE slot, dirty, name */
         const slot = b[0], name = ascii(b.subarray(2)) || "NEW SHARD";
         const again = slot !== fm.slot || name !== fm.name;
@@ -310,13 +412,13 @@
       }
       case 3: {                          /* VALUES first, n, values */
         const first = two(0), n = b[2];
-        for (let i = 0; i < n; i++) S.v[first + i] = two(3 + 2 * i);
-        if (first + n >= P.length) fm.dumped = true;
+        for (let i = 0; i < n; i++) S.v[pOf(first + i)] = two(3 + 2 * i);
+        if (first + n >= (fm.nparam || P.length)) fm.dumped = true;
         Sh.hud();
         break;
       }
-      case 4: value(two(0), two(2), b[4]); break;
-      case 5: page(b[0], b[1] - 3, b[2]); break;
+      case 4: value(pOf(two(0)), two(2), b[4]); break;
+      case 5: page(gOf(b[0]), b[1] - 3, b[2]); break;
       case 6: frame(b); break;
       case 8: keysHeld(b[0] | b[1] << 7 | b[2] << 14 | b[3] << 21); break;
       default: break;
@@ -326,10 +428,10 @@
   function value(p, v, enc) {
     const g = fm.page >= 0 && SC.pages[fm.page];
     if (enc >= K1 && enc < K1 + 4 && g && g.p[enc - K1] === p) return Sh.knob(g.name, enc - K1, v);
-    if (HAND_ENC[enc] && (p === 165 || p === 113 || p === 114)) return Sh.hand(p, v);
+    if (HAND_ENC[enc] && (p === ID.P_KB || p === ID.P_DR_PRESET || p === ID.P_DR_FULL)) return Sh.hand(p, v);
     S.v[p] = v;
     Sh.touch(p);
-    if (p === 156) Sh.button("FX", "FREEZE", v ? "ON" : "OFF", v ? "ice" : "");
+    if (p === ID.P_FREEZE) Sh.button("FX", "FREEZE", v ? "ON" : "OFF", v ? "ice" : "");
     else if (enc !== 127 && g) {         /* a knob on a page that shows something else (SCENES' slots...) */
       const c = g.p.indexOf(p);
       if (c >= 0) Sh.knob(g.name, c, v);
@@ -364,6 +466,7 @@
     }
     for (let k = 0; k < 4 && i < b.length; k++) f[42 + k] = b[i++] / 127;   /* the tracks' meters (pf4 on) */
     Sh.transport(i < b.length ? b[i] : playing(f));                           /* the transport (pf7 on) */
+    f[52] = i + 1 < b.length ? b[i + 1] / 127 : 0;                            /* LOFI TAPE's drag (2.5.2 on) */
     fm.prev = fm.cur || f;
     fm.cur = f;
     fm.at = performance.now();
@@ -431,11 +534,14 @@
     const f = mode === "fm1" ? fmFrame(now) : (started && pl.live()) || BLANK;
     if (mode !== "fm1") {
       Sh.strikes(f);
-      if (f[40] >= 0) S.v[176] = 1;      /* (the bass's SEQUENCE: not in a factory scene's sound, seen as it plays) */
+      if (f[40] >= 0) S.v[ID.P_BQ_ON] = 1;   /* (the bass's SEQUENCE: not in a factory scene's sound, seen as it plays) */
       Sh.transport(started ? playing(f) : 0);
     }
     Sh.tick(now, f);
-    river.draw(f, Sh.look(), now);
+    const vis = document.body.classList.contains("vis");
+    if (vis || now < both) V.draw(f, now, { n: (p) => Sh.eff(p) / (P[p].max || 1), scene: S.scene, artist: S.artist,
+      bare: $("#stage").classList.contains("nohud"), an: mode === "demo" ? pl.analyser() : L.an });
+    if (!vis || now < both) river.draw(f, Sh.look(), now);
     requestAnimationFrame(loop);
   }
   $("#version").textContent = $("#pf-ver").textContent = `PERFORM ${VERSION}`;

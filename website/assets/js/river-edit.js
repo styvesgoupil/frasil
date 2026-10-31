@@ -23,7 +23,14 @@
  * row()'s o.edit: {saveAs({bytes, name, description}) -> Promise (an element to focus after, or nothing; null, or
  *   canSave() false: signing in first), save(bytes) -> Promise (one's own: its sound replaced), shared (one's own,
  *   shared: SAVE asks first), description (one's own: SAVE AS's to start from), from {name, author, first} (someone
- *   else's: credited, CC BY 4.0: first, its first author, whom the service credits when there is one)} */
+ *   else's: credited, CC BY 4.0: first, its first author, whom the service credits when there is one), keeps(art) ->
+ *   nodes (a page without the River's service, the Play page: its own ways to keep it, in SAVE's and SAVE AS's place)}
+ *   RiverEdit.now(art) -> {sc, bytes}   the card's shard as it is now (its draft, or as it was)
+ *   RiverEdit.saveAs(art)               SAVE AS, edited or not (a shard brought from the Play page)
+ *   RiverEdit.seed(key, b0, cur, force) a draft made from outside (the Play page's edits: cur over b0), for the row
+ *                                       of that key; kept unless force, if this tab has one already
+ *   RiverEdit.forget(key)               that draft gone
+ * The engine: window.RIVER_EMU (where app.wasm is), else /emu/ (the River's). */
 "use strict";
 window.RiverEdit = (() => {
   const RC = RiverCards, { h, I, toast, confirm } = RC;
@@ -46,7 +53,7 @@ window.RiverEdit = (() => {
     if (ex) return Promise.resolve(ex);
     if (!asked) asked = (async () => {
       const m = document.querySelector('meta[name="frasil-engine"]'), v = m && m.content ? "?v=" + encodeURIComponent(m.content) : "";
-      const r = await fetch("/emu/app.wasm" + v);
+      const r = await fetch((window.RIVER_EMU || "/emu/") + "app.wasm" + v);
       if (!r.ok) throw new Error("missing");
       const stub = new Proxy({ clock_time_get: () => 0, fd_write: () => 0, proc_exit: () => {} }, { get: (t, k) => (k in t ? t[k] : () => 0) });
       const env = new Proxy({}, { get: () => () => 0 });
@@ -156,16 +163,19 @@ window.RiverEdit = (() => {
     model().catch(() => {});                     // (ready by the first turn)
     paint(art);
   };
+  RC.hooks.fresh = (art, root) => { if (art._edit) marks(art, root); };   // (a card's new drawing, marked before it is shown)
   const draft = (art) => drafts.get(art._edit.dk);
 
-  /* a card as its draft has it: its head's actions, its mark, its line, its settings */
+  /* a card as its draft has it: its head's actions, its mark, its line, its settings (each changed only where it
+   * differs: the card is painted after each change) */
   function paint(art) {
     const E = art._edit, d = draft(art), name = E.sc0.name;
     art.classList.toggle("is-edited", !!d);
     const acts = art.querySelector(".acts");
     if (d) {
-      if (!E.acts) E.acts = [...acts.childNodes];
-      acts.replaceChildren(...actions(art, d));
+      if (!E.acts) { E.acts = [...acts.childNodes]; acts.replaceChildren(...actions(art, d)); }
+      const u = acts.querySelector('[data-act="undo"]');
+      if (u && u.disabled !== !d.back.length) u.disabled = !d.back.length;
     } else if (E.acts) {
       acts.replaceChildren(...E.acts);
       E.acts = null;
@@ -178,21 +188,27 @@ window.RiverEdit = (() => {
     let band = inner.querySelector(".ed-band");
     if (d && bodyEl) {
       if (!band) inner.insertBefore(band = h("div", { class: "ed-band", role: "status" }, h("b", null, "EDITED"), h("span")), bodyEl);
-      RC.fill(band.lastChild, h("em", null, what(d, true) + " changed"), `. The sound follows; ${name} stays as it was until you save.`);
+      const em = what(d, true) + " changed", rest = E.o.edit.keeps ? ". The sound follows." : `. The sound follows; ${name} stays as it was until you save.`;
+      if (band.lastChild.textContent !== em + rest) RC.fill(band.lastChild, h("em", null, em), rest);
     } else if (band) band.remove();
-    if (!bodyEl) return;
+    if (bodyEl) marks(art, bodyEl);
+  }
+  /* the editor's marks on a card's settings under root (the card's body, or a new drawing of it): each setting's
+   * cell, a dot on a section holding a changed one, on THE KEYS (what it plays, or HARMONY, changed) */
+  function marks(art, root) {
+    const E = art._edit, d = draft(art);
     const v = vals(d ? d.sc : E.sc0, art), v0 = vals(E.sc0, art);
-    bodyEl.querySelectorAll(".cell[data-p]").forEach((c) => mark(c, +c.dataset.p, v, v0));
+    root.querySelectorAll(".cell[data-p]").forEach((c) => mark(c, +c.dataset.p, v, v0));
     const touched = new Set();
     for (let p = 0; p < NS; p++) if (v[p] !== v0[p]) touched.add(p);
-    const kt = bodyEl.querySelector(".k-title");                  // (THE KEYS: what it plays, or HARMONY, changed)
+    const kt = root.querySelector(".k-title");                    // (THE KEYS: what it plays, or HARMONY, changed)
     if (kt) {
       const on = !!d && (notesChanged(d) || (SECS.get("HARMONY") || []).some((p) => touched.has(p)));
       let dot = kt.querySelector(".ed-dot");
       if (on && !dot) kt.append(h("span", { class: "ed-dot" }, h("span", { class: "sr-only" }, ", changed")));
       if (!on && dot) dot.remove();
     }
-    bodyEl.querySelectorAll("details.sec").forEach((sec) => {
+    root.querySelectorAll("details.sec").forEach((sec) => {
       const nm = sec.querySelector(".sec-name"), on = SECS.get(nm.firstChild.textContent)?.some((p) => touched.has(p));
       let dot = nm.querySelector(".ed-dot");
       if (on && !dot) nm.append(dot = h("span", { class: "ed-dot" }, h("span", { class: "sr-only" }, ", changed")));
@@ -213,21 +229,23 @@ window.RiverEdit = (() => {
   /* a setting's cell: a slider (its name, its value in the screen's words), lamp once changed, a tick where it was */
   function mark(c, p, v, v0) {
     const d = P[p], was = v[p] !== v0[p];
-    c.tabIndex = 0;
-    c.setAttribute("role", "slider");
-    c.setAttribute("aria-label", d.name);
-    c.setAttribute("aria-valuemin", "0");
-    c.setAttribute("aria-valuemax", String(d.max));
-    c.setAttribute("aria-valuenow", String(v[p]));
-    c.setAttribute("aria-valuetext", word(p, v[p]) + (was ? `, was ${word(p, v0[p])}` : ""));
+    const at = (a, x) => { if (c.getAttribute(a) !== x) c.setAttribute(a, x); };   // (as it is: left as it is)
+    at("tabindex", "0");
+    at("role", "slider");
+    at("aria-label", d.name);
+    at("aria-valuemin", "0");
+    at("aria-valuemax", String(d.max));
+    at("aria-valuenow", String(v[p]));
+    at("aria-valuetext", word(p, v[p]) + (was ? `, was ${word(p, v0[p])}` : ""));
     c.classList.toggle("is-choice", d.kind !== "gauge");
     c.classList.toggle("is-edited", was);
-    c.title = was ? `Was ${word(p, v0[p])}` : "";
+    if (was) at("title", `Was ${word(p, v0[p])}`); else if (c.hasAttribute("title")) c.removeAttribute("title");
     const g = c.querySelector(".gauge");
     let t = g && g.querySelector(".was");
     if (g && was) {
       if (!t) g.append(t = h("i", { class: "was", "aria-hidden": "true" }));
-      t.style.left = `${Math.max(1, Math.min(88, Math.round(v0[p] / Math.max(1, d.max) * 88))) / 88 * 100}%`;
+      const left = `${Math.max(1, Math.min(88, Math.round(v0[p] / Math.max(1, d.max) * 88))) / 88 * 100}%`;
+      if (t.style.left !== left) t.style.left = left;
     } else if (t) t.remove();
   }
   function actions(art, d) {
@@ -235,8 +253,9 @@ window.RiverEdit = (() => {
     return [
       h("button", { type: "button", class: "a", "data-act": "undo", disabled: !d.back.length, "aria-label": `Undo: ${nm}`, onclick: () => undoOne(art) }, undoIcon(), "Undo"),
       h("button", { type: "button", class: "a a-txt", "data-act": "revert", "aria-label": `Revert: ${nm}`, onclick: () => revert(art) }, "Revert"),
+      ...(o.keeps ? o.keeps(art) : [
       o.save ? h("button", { type: "button", class: "a", "data-act": "save", "aria-label": `Save: ${nm}`, onclick: () => saveOwn(art) }, "Save") : null,
-      h("button", { type: "button", class: "a a-ice", "data-act": "save-as", "aria-label": `Save as: ${nm}`, onclick: () => saveAs(art) }, "Save as…"),
+      h("button", { type: "button", class: "a a-ice", "data-act": "save-as", "aria-label": `Save as: ${nm}`, onclick: () => saveAs(art) }, "Save as…")]),
     ].filter(Boolean);
   }
   const undoIcon = () => RC.s("svg", { viewBox: "0 0 16 16", width: 15, height: 15, "aria-hidden": "true", fill: "none", stroke: "currentColor", "stroke-width": 1.4,
@@ -270,7 +289,7 @@ window.RiverEdit = (() => {
     const { d } = change(art, opsFor(art, p, x));
     if (!d) return false;
     const v = vals(d.sc, art), v0 = vals(E.sc0, art);
-    art.querySelectorAll(`.oc-body .cell[data-p="${p}"]`).forEach((c) => { RC.refreshCell(c, p, v); mark(c, p, v, v0); });
+    art.querySelectorAll(`.oc-body .cell[data-p="${p}"]`).forEach((c) => { RC.refreshCell(c, p, v, (f) => mark(f, p, v, v0)); mark(c, p, v, v0); });
     return true;
   }
   /* THE KEYS (river-keys.js): ops on the card's shard, a gesture whole ("one": a step back kept, the card drawn
@@ -560,10 +579,12 @@ window.RiverEdit = (() => {
     const base = m ? m[1] : name, n = m ? R[R.indexOf(m[2]) + 1] || "II" : "II";
     return (base.slice(0, NL - n.length - 1).trimEnd() + " " + n).trim();
   }
-  function saveAs(art) {
+  /* (whole: the shard as it is, edited or not) */
+  function saveAs(art, whole = false) {
     flush(art);
-    const E = art._edit, o = E.o.edit;
-    if (!draft(art) || E.busy) return;
+    const E = art._edit, o = E && E.o.edit;
+    const cur = () => draft(art) || (whole ? { cur: E.sc0.bytes } : null);
+    if (!E || !cur() || E.busy) return;
     const can = o.saveAs && (!o.canSave || o.canSave()), from = o.from;
     const name = h("input", { class: "name-in", name: "name", required: true, maxlength: NL, autocomplete: "off", spellcheck: "false", value: nextName(E.sc0.name) });
     const desc = h("textarea", { name: "description", maxlength: 1000, rows: 4 });
@@ -573,7 +594,7 @@ window.RiverEdit = (() => {
     name.addEventListener("input", () => { const at = name.selectionStart; name.value = name.value.toUpperCase(); name.setSelectionRange(at, at); });
     const credited = from && (from.first || from.author);
     const form = h("form", { class: "sheet-in", novalidate: true },
-      h("header", { class: "sheet-head" }, h("p", { class: "label" }, `${E.sc0.name} · edited`),
+      h("header", { class: "sheet-head" }, h("p", { class: "label" }, draft(art) ? `${E.sc0.name} · edited` : E.sc0.name),
         h("button", { class: "sheet-x", type: "button", "data-close": "", "aria-label": "Close" }, I.x())),
       h("h2", { class: "sheet-h", id: "ed-h" }, "Save as a new shard"),
       can ? [
@@ -597,7 +618,7 @@ window.RiverEdit = (() => {
       e.preventDefault();
       const nm = name.value.trim().toUpperCase();
       if (!NAME.test(nm)) { say.textContent = `A name: 1 to ${NL} characters, A to Z, 0 to 9, space - . # +`; name.focus(); return; }
-      const now = draft(art);
+      const now = cur();
       if (!now) { dlg.close(); return; }
       go.disabled = true;
       E.busy = true;
@@ -609,8 +630,7 @@ window.RiverEdit = (() => {
         const to = el && el.isConnected ? el : art.isConnected ? art.querySelector(".nm-n") : null;
         if (to) to.focus({ preventScroll: true });
       } catch (err) {
-        drafts.set(E.dk, now);
-        keep(E.dk, now);
+        if (now.b0) { drafts.set(E.dk, now); keep(E.dk, now); }
         if (art.isConnected) show(art, "head");
         if (dlg.open) say.textContent = err.message; else toast(err.message);
       } finally { go.disabled = false; E.busy = false; }
@@ -620,5 +640,18 @@ window.RiverEdit = (() => {
     if (can) { name.focus(); name.setSelectionRange(name.value.length, name.value.length); }
   }
 
-  return { drafts, nextName, ready: () => model() };
+  /* a draft from outside: cur over b0 (nothing if they are the same), unless this tab has one for the key (force: it
+   * goes) */
+  function seed(k, b0, cur, force = false) {
+    if (!force && (drafts.has(k) || store.get(KEY(k)))) return;
+    drop(k);
+    if (!same(b0, cur)) keep(k, { b0: Uint8Array.from(b0), cur: Uint8Array.from(cur), back: [] });
+  }
+  function now(art) {
+    const E = art._edit, d = E && draft(art);
+    const sc = d ? d.sc : E ? E.sc0 : art._sc;
+    return { sc, bytes: d ? d.cur : sc.bytes };
+  }
+
+  return { drafts, nextName, ready: () => model(), now, seed, forget: drop, saveAs: (art) => saveAs(art, true) };
 })();

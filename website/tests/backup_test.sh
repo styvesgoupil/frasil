@@ -5,8 +5,8 @@
 # assembled) puts that scene into two other slots (one with a bass's sequence of its own) and rebuilds the image; the
 # simulator restores it and backs up again; the page checks it byte for byte (website/tests/backup_test.mjs). Then a
 # backup from before the bass's sequence (1.1's test builds: two objects, no OBJ_BSEQ), one from before BASS's DECAY,
-# SUSTAIN and PULSE (FRSh, FRSH), and one from before GLINT's RELEASE (FRSj, FRSI: SCATTER where it is), restored: made
-# over by the FM-1.
+# SUSTAIN and PULSE (FRSh, FRSH), one from before GLINT's RELEASE (FRSj, FRSI: SCATTER where it is), and 2.5's, before
+# CHOIR III's SOFT (FRSq, FRSL), restored: made over by the FM-1.
 set -e
 cd "$(dirname "$0")/../.."
 PY="${PYTHON:-.venv/bin/python}"
@@ -70,6 +70,12 @@ restore out:old14.frasil
 expect restore_rc 0
 expect storeold 3
 backup out:after14r.frasil
+restore out:old15.frasil
+expect restore_rc 0
+expect storeold 3
+expect p153 0
+expect p181 1
+backup out:after15r.frasil
 S
 "$HOST" "$T/make.txt" "$T" | grep -v "^  ok" || true
 node website/tests/backup_test.mjs make "$T"

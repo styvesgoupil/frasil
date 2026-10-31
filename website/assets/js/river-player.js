@@ -10,6 +10,7 @@
  *   RiverPlayer.unlock()          in a click or a key: lets a play started before any (held back by the browser) sound
  *   RiverPlayer.wave(n)           what sounds now, n points of its waveform (-1..1), or null
  *   RiverPlayer.level()           its loudness now (RMS, 0..1)
+ *   RiverPlayer.analyser()        what the page plays, to listen to (an AnalyserNode, 2048), or null before the first play
  *   RiverPlayer.param(p, x)       the shard playing, a setting set as on the FM-1 (the editor: app_worklet.js op "param")
  *   RiverPlayer.keys(op)          the shard playing, what it plays: THE KEYS' {op: "latch", t, n} | {op: "clear", t} |
  *                                 {op: "hold", t, n, down} (app_worklet.js; app/web.c web_latch, web_clear, web_hold)
@@ -255,6 +256,7 @@ window.RiverPlayer = (() => {
     base: "emu/",
     follow: false,
     play, stop, unlock, wave, level, live, param, keys, scene,
+    analyser: () => tap,
     get state() { return !current ? "idle" : current.sounding ? "playing" : "loading"; },
     get id() { return current ? current.id : null; },
     get held() { return !!(current && !current.sounding && ac && ac.state === "suspended" && wasm); },   // (waiting for a click)

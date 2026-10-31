@@ -262,8 +262,9 @@ __attribute__((used, visibility("default"))) void web_hold(uint32_t t, uint32_t 
  *   42..45  the tracks' meters (drones, bass, glints, the cloud), 0..1     46  the tide on the timbre, -1..1
  *   47      the notes GLINT's arpeggio and sequence have struck (more than at the last frame: those struck since are
  *           the voices struck last, 48..51)
- *   48..51  GLINT's voices: the seconds since each was struck */
-#define WEB_LIVE 52
+ *   48..51  GLINT's voices: the seconds since each was struck
+ *   52      LOFI TAPE's drag under way: how much slower, 0..1 (1: 8 %) */
+#define WEB_LIVE 53
 static float web_lv[WEB_LIVE];
 __attribute__((used, visibility("default"))) uint32_t web_live_size(void) { return WEB_LIVE; }
 __attribute__((used, visibility("default"))) float *web_live(void)
@@ -303,5 +304,6 @@ __attribute__((used, visibility("default"))) float *web_live(void)
         web_lv[42 + i] = m[i];
     web_lv[46] = frasil_tide();
     web_lv[47] = (float)(arp.steps + sq.steps);
+    web_lv[52] = frasil_tape_drag() * 12.5f;
     return web_lv;
 }

@@ -15,6 +15,10 @@
  *                A long list (more than 32) gets the toolbar: a search, the filters, a sort, all here in the page;
  *                24 rows, then 24 more. Ticked rows: Download, Share, Delete, Clear. The account itself is the
  *                profile's (river-profile.js)
+ *   #play=       a shard from the Play page's editor (frasilsynth.com/play/: play-editor.js), LAYOUT.FROM.DATA (FROM: n
+ *                NEW SHARD, 1-16 the factory slot it began as; DATA its bytes, base64url): above the rest, signed in or
+ *                not, a draft over the scene it began as (EDITED · NOT SAVED), SAVE AS into one's shards once signed
+ *                in; kept in this tab until saved or discarded (a sign-in, Google's way back)
  * What people typed is only ever text (river-cards.js builds no HTML from strings). */
 "use strict";
 (() => {
@@ -464,7 +468,8 @@
   // ---------------------------------------------------------------- the editor's SAVE AS and SAVE (river-edit.js)
   /* a new shard from one edited (one's own, or a favorite: its first author credited): in one's shards, opened */
   async function saveAs({ bytes, name, description }, x) {
-    const y = await A.post("/api/shards", { name, description, layout: S.magic.shard, firmware: FRASIL_VERSION, data: A.b64(bytes), origin: x.id });
+    const y = await A.post("/api/shards", { name, description, layout: S.magic.shard, firmware: FRASIL_VERSION, data: A.b64(bytes), origin: x ? x.id : undefined });
+    if (!x) dropPlay();                           // (the Play page's: now one's own)
     shards.unshift(y);
     known = null;
     if (subject !== "shards") go("shards"); else paint();
@@ -665,7 +670,50 @@
     catch (e) { toast(e.message); }
   }
 
+  // ================================================================ a shard from the Play page (#play=)
+  const PLAY = "river-from-play", PK = "play:from";
+  function fromPlay() {
+    const m = /^#play=([A-Za-z0-9]{4})\.(n|\d{1,2})\.([\w-]{8,1000})$/.exec(location.hash);
+    if (m) { kept.set(PLAY, m.slice(1).join(".")); history.replaceState(null, "", location.pathname + location.search); }
+    const t = kept.get(PLAY);
+    if (!t) return;
+    const [layout, from, data] = t.split("."), d64 = data.replace(/-/g, "+").replace(/_/g, "/");
+    let sc;
+    try {
+      sc = FB.readPack(JSON.stringify({ format: "frasil-scenes", version: 1, layout, firmware: "",
+                                        scenes: [{ name: "", from: 1, data: d64 + "===".slice((d64.length + 3) % 4) }] })).scenes[0];
+    } catch (e) { kept.set(PLAY, null); V.say(["The shard from the Play page didn’t open. ", e.message], "err"); return; }
+    const base = from === "n" ? FB.NEW_SHARD : +from >= 1 && +from <= S.sizes.NFACTORY ? FB.FACTORY[+from - 1] : null;
+    let sc0 = { ...sc, slot: null, state: "saved" };
+    if (base && base.current) {                   // (a draft over the scene it began as: what changed, marked)
+      sc0 = { ...base, slot: from === "n" ? null : +from - 1, state: "saved" };
+      RiverEdit.seed(PK, base.bytes, sc.bytes, !!m);
+    }
+    const art = RiverCards.row(sc0, { id: "from-play-card", key: PK, class: "is-from-play",
+      actions: [RL.act(null, "Save as…", () => RiverEdit.saveAs(art), { ice: true, act: "save-as", of: sc0.name })],
+      edit: { saveAs: (o) => saveAs(o, null), canSave: () => !!A.signedIn } });
+    $("fp-card").replaceChildren(art);
+    $("from-play").hidden = false;
+    openRow(art, true, true);
+  }
+  function dropPlay() {
+    kept.set(PLAY, null);
+    if (RiverCards.soundKey === PK) RiverCards.stopSound();
+    $("from-play").hidden = true;
+    $("fp-card").replaceChildren();
+  }
+  $("fp-drop").addEventListener("click", async () => {
+    if (await confirm({ title: "Discard it?", text: "The changes made on the Play page go.", ok: "Discard" })) { RiverEdit.forget(PK); dropPlay(); }
+  });
+  // (signed out, the editor's SAVE AS sends here: its sheet closed, the form shown)
+  addEventListener("hashchange", () => {
+    if (me || !/^#(signin|register)$/.test(location.hash)) return;
+    document.querySelectorAll("dialog[open]").forEach((d) => d.close());
+    tab(location.hash.slice(1));
+  });
+
   // ================================================================ start
+  fromPlay();
   readHash();
   A.providers().then((p) => { $("auth-google").hidden = !p.google; });
   A.me().then((u) => {

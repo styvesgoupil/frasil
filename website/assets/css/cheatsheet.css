@@ -211,6 +211,7 @@ a.sh-url:hover { text-decoration: underline; text-underline-offset: .2em; }
 .sh-gest dt .key { color: var(--lamp); border-color: rgba(242, 166, 90, .5); }
 .sh-gest dt .key ~ .key { color: var(--white); border-color: #44505f; }
 .sh-gest dt .kn { color: var(--night); }
+.sh-gest dt .disc { vertical-align: 0; }   /* (in caps: the letter's middle on the line's capitals' middle) */
 .sh-gest dd { color: var(--text-2); }
 .sh-gest .tap dt, .sh-gest .tap dt .key { color: var(--white); border-color: #44505f; }   /* a tap: white */
 

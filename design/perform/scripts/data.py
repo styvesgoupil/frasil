@@ -3,7 +3,7 @@
 # Perform's data, as scripts the pages load (they run from file:// too):
 #   data/perform-schema.js  from the schema (server/schema.json), what the FM-1 would tell the page: the pages, each
 #                           setting's name and its value as the FM-1 writes it, the factory scenes (their scene_t bytes,
-#                           as the engine takes them)
+#                           as the engine takes them), the ids the page names settings and pages by
 #   data/perform-data.js    the mockups' river: what the engine played (data/live.json, from
 #                           design/river-live/scripts/capture.mjs: web_live's 52 floats, 30 frames a second)
 #   .venv/bin/python design/perform/scripts/data.py
@@ -25,6 +25,7 @@ schema = {
     "nsound": S["sizes"]["NSOUND"],
     "tempo": S["ids"].get("P_TEMPO"),
     "lfo": S["lfo"],
+    "ids": S["ids"],
 }
 (HERE / "data/perform-schema.js").write_text("window.PERFORM_SCHEMA = " + json.dumps(schema, separators=(",", ":")) + ";\n")
 live = json.loads((HERE / "data/live.json").read_text())

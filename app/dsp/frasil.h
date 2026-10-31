@@ -52,6 +52,8 @@ typedef struct {
     float ch_shape;                      /* CHOEUR: each saw toward a pulse, 0 saw .. 0.5 square .. 1 a narrow pulse */
     float ch_interval;                   /* CHOEUR: the centre saw's frequency over the note's (1, 0.5, 1.5, 2) */
     float ch_reso;                       /* CHOEUR: the filter's peak, 0 none (Q 0.5) .. 1 (Q 20) */
+    float ch_soft;                       /* CHOEUR: its wave softened, 0 as SHAPE makes it .. 0.5 integrated once (the
+                                          * square a triangle) .. 1 twice (near a sine) */
     float pa_evolve;                     /* PARTIELS: their levels wandering, beyond MOTION's, 0..1 */
     float pa_beat;                       /* PARTIELS: each one pulsing at its own pace, 0 none .. 1 deep and quick */
     float pa_formant;                    /* PARTIELS: a formant's place, log2 of the harmonic, 0 .. 3 */
@@ -88,6 +90,8 @@ typedef struct {
 /* RBJ's cookbook at 44.1 kHz: kind 0 a low shelf, 1 a bell (its Q), 2 a high shelf (slope 1); c: b0 b1 b2 a1 a2 (a0
  * divided out). MASTER EQ's, and its curve on the screen */
 void frasil_eq_coefs(int kind, float hz, float db, float q, float *c);
+float frasil_tape_drag(void);            /* LOFI TAPE's drag under way: how much slower at its deepest (0.02 .. 0.08 times
+                                          * WOBBLE), 0 none */
 float frasil_tape_speed(void);           /* LOFI TAPE's speed now, 1 as it should run (its wow, flutter and hiccups: the
                                           * screen's reels); 1 while it is off */
 

@@ -40,6 +40,12 @@ class Settings:
     static: str = ""                              # a folder served at / (local runs only: Caddy does it on nimbus)
     site_url: str = "https://frasilsynth.com"     # the main site: the other Origin a waitlist signup comes from
     admin_key: str = field(default="", repr=False)   # /api/admin/ (admin.py): X-Frasil-Admin; empty: 404
+    admin_url: str = "https://admin.frasilsynth.com"   # the admin page: the Origin the veille's changes come from
+    veille_token: str = field(default="", repr=False)  # the veille's agent (veille.py): Bearer; empty: 404
+    discord_token: str = field(default="", repr=False) # the bot that posts a mention (veille.py); empty: no such action
+    discord_api: str = "https://discord.com/api/v10"
+    discord_guild: str = "1563986548209356830"         # the server Frasil Synth
+    discord_channel: str = "1563988202677739541"       # its #made-with-frasil
 
     @classmethod
     def from_env(cls):
@@ -55,7 +61,12 @@ class Settings:
                    admins=[a.lower() for a in env_list("ADMIN_EMAILS")], words=words or None,
                    ip_header=e("CLIENT_IP_HEADER", cls.ip_header).lower(),
                    cookie_secure=e("COOKIE_SECURE", "1") != "0", static=e("RIVER_STATIC", ""),
-                   site_url=(e("SITE_URL") or cls.site_url).rstrip("/"), admin_key=e("FRASIL_ADMIN_KEY", "").strip())
+                   site_url=(e("SITE_URL") or cls.site_url).rstrip("/"), admin_key=e("FRASIL_ADMIN_KEY", "").strip(),
+                   admin_url=(e("ADMIN_URL") or cls.admin_url).rstrip("/"),
+                   veille_token=e("FRASIL_VEILLE_TOKEN", "").strip(), discord_token=e("DISCORD_BOT_TOKEN", "").strip(),
+                   discord_api=(e("DISCORD_API") or cls.discord_api).rstrip("/"),
+                   discord_guild=e("DISCORD_GUILD") or cls.discord_guild,
+                   discord_channel=e("DISCORD_MADE_CHANNEL") or cls.discord_channel)
 
 
 SQL = """
@@ -108,6 +119,24 @@ CREATE INDEX IF NOT EXISTS waitlist_new ON waitlist(list, created);
 CREATE TABLE IF NOT EXISTS hits (               -- the counters' once a day per listener (a user, or a hashed IP)
   shard_id TEXT NOT NULL, kind TEXT NOT NULL, who TEXT NOT NULL, day INTEGER NOT NULL,
   PRIMARY KEY (shard_id, kind, who, day)) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS mention_runs (       -- the veille's passes (veille.py); status: none while one runs
+  id TEXT PRIMARY KEY, started_at INTEGER NOT NULL, finished_at INTEGER, status TEXT,
+  items_sent INTEGER NOT NULL DEFAULT 0, inserted INTEGER NOT NULL DEFAULT 0, updated INTEGER NOT NULL DEFAULT 0,
+  notes TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS mentions (           -- what is said of FRASIL on the web (url: canon()'s, one form of it)
+  id INTEGER PRIMARY KEY, url TEXT NOT NULL UNIQUE, platform TEXT NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL,
+  author TEXT, community TEXT, summary TEXT NOT NULL, language TEXT NOT NULL, sentiment TEXT NOT NULL,
+  priority INTEGER NOT NULL, parent_url TEXT, published_at INTEGER, engagement INTEGER,
+  is_own INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'new', status_changed_at INTEGER NOT NULL,
+  notes TEXT NOT NULL DEFAULT '', new_activity INTEGER NOT NULL DEFAULT 0, first_found_at INTEGER NOT NULL,
+  last_seen_at INTEGER NOT NULL, last_run_id TEXT REFERENCES mention_runs(id) ON DELETE SET NULL,
+  discord_url TEXT,                             -- its post in #made-with-frasil ('': one on its way)
+  moments TEXT,                                 -- where a video says it (JSON: [{at: seconds, quote}])
+  parent_title TEXT,                            -- what a comment is under, when that isn't kept itself
+  discord_nonce TEXT,                           -- a post that may have gone: its nonce, for Discord to know it again
+  quote TEXT);                                  -- what was said, word for word (summary: ours, when there is none)
+CREATE INDEX IF NOT EXISTS mentions_status ON mentions(status, new_activity);
+CREATE INDEX IF NOT EXISTS mentions_found ON mentions(first_found_at);
 """
 
 
@@ -146,6 +175,11 @@ def init(path, schema=None):
     db.executescript(SQL)
     if "bseq" not in [c["name"] for c in db.execute("PRAGMA table_info(shards)")]:
         db.execute("ALTER TABLE shards ADD COLUMN bseq INTEGER")    # (a database from before the bass's filter)
+    have = [c["name"] for c in db.execute("PRAGMA table_info(mentions)")]
+    for c in ("discord_url", "moments", "parent_title", "discord_nonce", "quote"):      # (a database from before them)
+        if c not in have:
+            db.execute(f"ALTER TABLE mentions ADD COLUMN {c} TEXT")
+    db.execute("UPDATE mentions SET discord_url = NULL WHERE discord_url = ''")     # (a post cut off; one worker: none under way)
     db.execute("INSERT OR IGNORE INTO meta (k, v) VALUES ('salt', ?)", (secrets.token_hex(16),))
     salt = db.execute("SELECT v FROM meta WHERE k = 'salt'").fetchone()[0]
     housekeep(db)

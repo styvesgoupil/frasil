@@ -19,7 +19,9 @@ WORDS = ["fuck", "motherfucker", "shit", "bullshit", "cunt", "nigger", "nigga", 
          "whore", "slut", "porn", "hentai", "nazi", "hitler", "rape", "rapist", "viagra", "casino", "onlyfans"]
 CHANGES = {"POST", "PUT", "PATCH", "DELETE"}
 BODY_MAX = 64 * 1024
+AGENT_MAX = 2 * 1024 * 1024                      # (a pass of the veille's agent: what it found at once)
 WAITLIST = {"/api/waitlist"}                     # (changes the main site may make too: waitlist.py)
+AGENT = re.compile(r"/api/veille/(ingest|runs/[^/]+/finish)")   # (no browser: a token instead of an Origin, veille.py)
 
 
 class Limiter:
@@ -79,18 +81,30 @@ def clean(text, n, what, lines=False):
     return t
 
 
+def from_home(request: Request):
+    """the Origin a change to this path may come from: the River, the main site for the waitlist (its /api/waitlist
+    sent here), the admin page for the veille's page; the veille's agent has none, it carries its token"""
+    a, p, o = request.app.state, request.url.path, request.headers.get("origin", "")
+    if AGENT.fullmatch(p):
+        return True
+    if p.startswith("/api/veille/"):
+        return o == a.admin_origin
+    return o == a.origin or (p in WAITLIST and o == a.site_origin)
+
+
 async def same_origin(request: Request, call_next):
     """a request that changes something: from the site itself (Origin), as JSON (no form can send it from elsewhere
     without the browser asking first), not too big"""
     if request.method in CHANGES and request.url.path.startswith("/api/"):
-        o = request.headers.get("origin", "")    # (the waitlist: the main site's too, its /api/waitlist sent here)
-        if o != request.app.state.origin and not (request.url.path in WAITLIST and o == request.app.state.site_origin):
+        if not from_home(request):
             return JSONResponse({"detail": "This request didn't come from the River."}, 403)
+        if AGENT.fullmatch(request.url.path) and "transfer-encoding" in request.headers:     # (no length to check)
+            return JSONResponse({"detail": "Send a Content-Length."}, 411)
         ct = request.headers.get("content-type", "").split(";")[0].strip().lower()
         if request.method != "DELETE" and ct != "application/json":
             return JSONResponse({"detail": "Send JSON (Content-Type: application/json)."}, 415)
         n = request.headers.get("content-length", "0")
-        if not n.isdigit() or int(n) > BODY_MAX:
+        if not n.isdigit() or int(n) > (AGENT_MAX if AGENT.fullmatch(request.url.path) else BODY_MAX):
             return JSONResponse({"detail": "Too big."}, 413)
     response = await call_next(request)
     if request.url.path.startswith("/api/"):

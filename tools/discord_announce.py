@@ -129,9 +129,10 @@ def pick_sections(sections):
     first = by.get("new") or by.get("highlights")
     if first:
         out.append(("Highlights" if "new" not in by else "New", first))
-    for key in ("fixes and changes", "changes"):
+    for key in ("fixes and changes", "fixes", "changes"):
         if by.get(key):
-            out.append(("Fixes and changes", by[key]))
+            out.append(("Fixes" if key == "fixes" else "Fixes and changes", by[key]))
+            break
     return out
 
 

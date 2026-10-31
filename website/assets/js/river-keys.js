@@ -79,12 +79,26 @@ window.RiverKeys = (() => {
     el._art = art;
     el._id = id;
     el._set = h("div", { class: "oc-kset" });
+    /* the card drawn again (RiverCards.redraw, its new drawing laid over the one shown): THE KEYS shown kept as they
+     * are if drawn the same (their scene the new one), else drawn again in place (fill: only their parts that differ);
+     * their settings under them with them */
+    el._remorph = (fresh) => {
+      if (el._sig && el._sig === fresh._sig) { el._sc = fresh._sc; el._L = fresh._L; }
+      else fill(el, fresh._sc, fresh._L);
+      return el;
+    };
+    el._set._remorph = () => el._set;
     fill(el, sc, L);
     return [el, el._set];
   }
-  /* the panel drawn (again, in place: a track, a mode, a step chosen) */
+  /* what the board's drawing holds besides what it shows (a key's chord, as its ghost and a click have it) */
+  const boardData = (sc, L) => [ID.P_ROOT, ID.P_SCALE, ID.P_CHORD, ID.P_VOICING, ID.P_SQ_TYPE, ID.P_GL_OCTAVE, ID.P_ARP_RANGE, ID.P_SQ_LEN, ID.P_BS_OCTAVE]
+    .map((p) => L.raw(p)).join(",") + JSON.stringify([sc.chords, sc.arp, sc.bass, sc.seq, sc.bseq]);
+  /* the panel drawn (again, in place: a track, a mode, a step chosen; the card drawn again). Drawn again, each of its
+   * parts drawn the same as the one shown (its controls, the steps, the board and the strip under it) is kept: only
+   * what differs is replaced; its settings under it patched (RiverCards.patch) */
   function fill(el, sc, L) {
-    const art = el._art, K = stateOf(art), ed = editable(art), id = el._id;
+    const art = el._art, K = stateOf(art), ed = editable(art), id = el._id, prev = el._parts, P2 = RC.patch;
     if (!ed) K.mode = "latch";
     if (el._board) holdsOff();                       // (drawn again: what its keys held let go)
     el._sc = sc;
@@ -103,22 +117,48 @@ window.RiverKeys = (() => {
       legendOf(sc, L, K));
     const bqOn = !!(sc.bseq && sc.bseq.on), latch = K.mode === "latch" || K.track === "overview";
     const grid = latch && K.track === "glint" && L.seqOn, lane = latch && K.track === "bass" && bqOn;
-    const board = h("div", { class: "k-board" + (grid ? " is-grid" : ""), tabindex: ed ? 0 : null, "data-k": "board",
-      role: ed ? "application" : null, "aria-roledescription": ed ? (grid ? "grid of steps" : "keyboard") : null });
+    const kind = (grid ? "grid" : "keys") + (ed ? " ed" : ""), kept = !!(prev && prev.kind === kind && prev.board.parentNode === el);
+    let board = kept ? prev.board : null;            // (the board shown kept, its scroll and its listeners: only its
+    if (!board) {                                    // drawing drawn again, if it differs)
+      board = h("div", { class: "k-board" + (grid ? " is-grid" : ""), tabindex: ed ? 0 : null, "data-k": "board",
+        role: ed ? "application" : null, "aria-roledescription": ed ? (grid ? "grid of steps" : "keyboard") : null });
+      live(board, (f, ctx) => { if (board._draw) board._draw._live(f, ctx); });
+    }
     el._board = board;
     el.classList.toggle("is-grid", grid);              // (GLINT's grid stays in its place: the keyboard alone is held)
     if (!grid) board.style.setProperty("--kz", zoomOf(K));
-    live(board, (f, ctx) => { if (board._draw) board._draw._live(f, ctx); });
-    if (ed) (grid ? wireGrid : wireKeys)(el, board);
-    if (!grid) wireZoom(el, board);
-    el._say = h("p", { class: "sr-only", "aria-live": "polite" });
-    const parts = [top, el._say, lane ? laneOf(el, sc, L, K, ed) : null, board, grid ? null : stripOf(el, board),
-      grid && ed ? h("p", { class: "k-how" }, "CLICK A NOTE: IT GOES · DRAG ITS END: LONGER · DRAG IT UP OR DOWN: ANOTHER NOTE · SHIFT-CLICK: ACCENT · LENGTH: DRAG ITS GRIP") : null];
-    el.replaceChildren(...parts.filter(Boolean));
-    el._set.replaceChildren(...[bottom(el, sc, L, K, ed)].filter(Boolean));
-    draw(el);
+    if (!kept) {
+      if (ed) (grid ? wireGrid : wireKeys)(el, board);
+      if (!grid) wireZoom(el, board);
+    }
+    const drawn = grid ? gridOf(el) : keysOf(el);
+    let top2 = P2.stamp(top), ln = lane ? P2.stamp(laneOf(el, sc, L, K, ed)) : null, strip = grid ? null : P2.stamp(stripOf(el));
+    let say = h("p", { class: "sr-only", "aria-live": "polite" });
+    let how = grid && ed ? h("p", { class: "k-how" }, "CLICK A NOTE: IT GOES · DRAG ITS END: LONGER · DRAG IT UP OR DOWN: ANOTHER NOTE · SHIFT-CLICK: ACCENT · LENGTH: DRAG ITS GRIP") : null;
+    const low = P2.stamp(h("div", null, bottom(el, sc, L, K, ed)));
+    const sig = { top: P2.sig(top), lane: ln ? P2.sig(ln) : "", board: kind + P2.sig(drawn) + boardData(sc, L), strip: strip ? P2.sig(strip) : "",
+                  how: how ? P2.sig(how) : "", low: P2.sig(low) };
+    if (!kept || prev.sig.board !== sig.board) { board._draw = drawn; board.replaceChildren(drawn); }
+    RC.hooks.fresh(art, top);                        // (the editor's marks on the new drawing, before it is laid over)
+    RC.hooks.fresh(art, low);
+    const over = (a, b) => (a && b && a.parentNode ? P2.patch(a, b) : b);   // (the part shown made as the new one)
+    if (prev && el.isConnected) {
+      top2 = over(prev.top, top);
+      if (ln) ln = over(prev.lane, ln);
+      if (strip) strip = over(prev.strip, strip);
+      if (how) how = over(prev.how, how);
+      if (prev.say && prev.say.parentNode === el) say = prev.say;
+    }
+    el._say = say;
+    el._strip = strip;
+    P2.place(el, [top2, say, ln, board, strip, how].filter(Boolean));
+    P2.kids(el._set, low);
+    el._parts = { kind, top: top2, say, lane: ln, board, strip, how, sig };
+    el._sig = Object.values(sig).join("\u0001");
+    stuckSoon();
+    if (!grid) requestAnimationFrame(() => { if (el._strip) el._strip._sync(); });
     const sx = grid ? "gx" : "kx";                   // (the keys' scroll and the grid's, each its own)
-    const put = () => { if (K[sx] != null) board.scrollLeft = K[sx]; if (grid && K.gy != null) board.scrollTop = K.gy; };
+    const put = () => { if (K[sx] != null && board.scrollLeft !== K[sx]) board.scrollLeft = K[sx]; if (grid && K.gy != null && board.scrollTop !== K.gy) board.scrollTop = K.gy; };
     if (K[sx] != null || (grid && K.gy != null)) { put(); requestAnimationFrame(put); }   // (a card drawn again is built apart: once in)
     else if (!grid) requestAnimationFrame(() => {    // (a phone: the keys opened where the notes are; a grid at its step 1)
       if (board.scrollWidth <= board.clientWidth + 2) return;
@@ -128,13 +168,11 @@ window.RiverKeys = (() => {
       board.scrollLeft = Math.max(0, x - board.clientWidth / 2);
       K.kx = board.scrollLeft;
     });
-    board.addEventListener("scroll", () => {
+    if (!kept) board.addEventListener("scroll", () => {
       if (!board.isConnected) return;
       K[sx] = board.scrollLeft;
       if (grid) K.gy = board.scrollTop; else if (el._strip) el._strip._sync();
     }, { passive: true });
-    if (!grid) requestAnimationFrame(() => { if (el._strip) el._strip._sync(); });
-    stuckSoon();
   }
   /* drawn again in place, its live parts found again, its settings the editor's again */
   function again(el) {
@@ -151,11 +189,14 @@ window.RiverKeys = (() => {
     if (f) { const t = el.querySelector(`[data-k="${f}"]`); if (t) t.focus({ preventScroll: true }); }
   }
   const focusKey = (el) => { const a = document.activeElement; return a && el.contains(a) && a.dataset ? a.dataset.k : null; };
-  /* the board's picture: the grid (GLINT's sequence, LATCH) or the keyboard */
+  /* the board's picture: the grid (GLINT's sequence, LATCH) or the keyboard (drawn apart from fill: the board no
+   * longer as fill drew it, never kept as it is by the next) */
   function draw(el) {
     const board = el._board;
     board._draw = board.classList.contains("is-grid") ? gridOf(el) : keysOf(el);
     board.replaceChildren(board._draw);
+    if (el._parts) el._parts.sig.board = "";
+    el._sig = "";
   }
   /* the legend, beside the controls: what the track plays (OVERVIEW: all), RANGE over C8 too; nothing for a track that
    * holds nothing there */
@@ -222,7 +263,7 @@ window.RiverKeys = (() => {
     } else if (bqOn) {
       title = "BASS SEQ";
       ps = [ID.P_BQ_ON, ID.P_BQ_STEPS, ID.P_BQ_LEN, ID.P_BQ_TRANS, ID.P_BS_OCTAVE];
-      const put = (b) => edit(el, writeStep(sc, K, b));
+      const put = (b) => edit(el, writeStep(el._sc, K, b));   // (the scene now: a button kept as it was drawn)
       tools = [h("div", { class: "k-ctl k-next" }, h("span", { class: "k-l", "aria-hidden": "true" }, "AUTO NEXT STEP"),
         h("div", { class: "k-seg", role: "group", "aria-label": "AUTO NEXT STEP" }, [[true, "ON"], [false, "OFF"]].map(([x, t]) =>
           h("button", { type: "button", class: K.next === x ? "on" : "", "aria-pressed": String(K.next === x), "data-k": "next:" + t,
@@ -251,7 +292,6 @@ window.RiverKeys = (() => {
   function laneOf(el, sc, L, K, ed) {
     const bq = sc.bseq, n = bq.steps + 1, Tk = S.bseq.ticks, maxT = Math.max(...Tk), words = P[ID.P_BQ_LEN].texts;
     const box = h("div", { class: "k-steps", role: "group", "aria-label": "BASS's steps" });
-    const cells = [];
     for (let i = 0; i < 16; i++) {
       const b = bq.notes[i], cut = b === CUT, hold = b === HOLD, t = Tk[bq.lens[i] % Tk.length], out = i >= n;
       const v = out ? "" : cut ? "CUT" : hold ? "HOLD" : nn(bassKey(b, L));
@@ -271,10 +311,10 @@ window.RiverKeys = (() => {
           if (t2) t2.focus({ preventScroll: true });
         } }, kids)
         : h("div", { class: cls, "aria-label": label }, kids);
-      cells.push(c);
       box.append(c);
     }
-    return live(box, (f) => cells.forEach((c, i) => c.classList.toggle("now", !!f && f.bq === i)));
+    box._shell = true;                               // (patched: its steps found from itself)
+    return live(box, function (f) { [...this.children].forEach((c, i) => c.classList.toggle("now", !!f && f.bq === i)); });
   }
 
   // ---------------------------------------------------------------- the keyboard: C1 .. C8
@@ -593,8 +633,10 @@ window.RiverKeys = (() => {
     board.addEventListener("gestureend", () => { if (g0 == null) return; g0 = null; requestAnimationFrame(done); });
   }
   /* under the keys: where they are (a track, the window on it to drag, the track's notes on it) and ZOOM's - + */
-  function stripOf(el, board) {
+  function stripOf(el) {
     const K = el._art._keys, z = zoomOf(K);
+    const board = { get scrollWidth() { return el._board.scrollWidth; }, get clientWidth() { return el._board.clientWidth; },   // (the panel's
+                    get scrollLeft() { return el._board.scrollLeft; }, set scrollLeft(x) { el._board.scrollLeft = x; } };      // board now)
     const thumb = h("i", { class: "k-thumb" });
     const ticks = notesOf(el._sc, el._L, K).filter((n) => n >= LO && n <= HI).map((n) => h("b", { style: `left:${r2(keyX(n) / 12)}%` }));
     const track = h("div", { class: "k-scroll", "aria-hidden": "true" }, h("span", { class: "k-rail" }), ...ticks, thumb);

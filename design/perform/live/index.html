@@ -47,14 +47,17 @@ body.idle, body.idle * { cursor: none !important; }
       <div class="cn-foot"><span>CHROME · EDGE</span><span class="cn-ver" id="version"></span><span><kbd>F</kbd>FULL SCREEN</span></div>
     </div>
     <div class="pf-ver" id="pf-ver"></div>
-    <div class="help gone" id="help"><kbd>← →</kbd> SCENE · <kbd>TAB</kbd> PAGE · <kbd>1–4</kbd> KNOB · <kbd>↑ ↓</kbd> TURN · <kbd>K</kbd> KEYS · <kbd>SPACE</kbd> AUTO · <kbd>A B</kbd> · <kbd>H</kbd> · <kbd>F</kbd></div>
+    <div class="help gone" id="help"><kbd>← →</kbd> SCENE · <kbd>TAB</kbd> PAGE · <kbd>1–4</kbd> KNOB · <kbd>↑ ↓</kbd> TURN · <kbd>K</kbd> KEYS · <kbd>SPACE</kbd> AUTO · <kbd>A B</kbd> · <kbd>V</kbd> · <kbd>H</kbd> · <kbd>F</kbd></div>
   </div>
 </div>
+<canvas id="vis"></canvas>
+<div id="vsw" role="radiogroup" aria-label="View"><button data-v="device" role="radio" type="button" tabindex="-1">LUCID</button><button data-v="vis" role="radio" type="button" tabindex="-1">DREAM</button></div>
 <script src="../data/perform-schema.js"></script>
 <script src="../../../website/assets/js/river-player.js"></script>
 <script src="../proto/river.js"></script>
 <script src="../proto/logo.js"></script>
 <script src="../proto/show.js"></script>
+<script src="../proto/visuals.js"></script>
 <script src="live.js"></script>
 </body>
 </html>
