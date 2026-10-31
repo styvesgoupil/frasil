@@ -66,6 +66,9 @@ window.PerformRiver = (() => {
     const FOG = profile(C.fog), LAMP = profile(C.lamp);
     let labels = [];
     let k = 1, stillT = 0, frzAt = -1e9, frz = false, last = 0;
+    /* how far the currents have swayed and the frasil gone downstream, added up frame by frame at MOTION's pace then
+     * (MOTION moves, under an LFO: time times its value now would run them backwards whenever it falls) */
+    let sway = 0, flow = 0;
     function fit() {
       const r = canvas.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
       const w = Math.max(320, Math.round(Math.min(r.width * dpr, 2880)));
@@ -159,7 +162,7 @@ window.PerformRiver = (() => {
     /* a voice: the water around it, the current, its crystals */
     function current(note, lvl, look, dim, tt, fz) {
       const wob = 1 - fz, yc = noteY(note), half = (30 + lvl * 76) * G.sx, ph = note * 0.37;
-      const th = (1.4 + lvl * 2) * G.sy, drift = tt * (0.004 + 0.03 * look.motion), fade = 34 * G.sx;
+      const th = (1.4 + lvl * 2) * G.sy, drift = sway, fade = 34 * G.sx;
       const xa = Math.max(G.x0 - 20, G.xc - half), xb = Math.min(G.x1, G.xc + half);
       const yAt = (x) => {
         const d = devX(x);
@@ -190,7 +193,7 @@ window.PerformRiver = (() => {
       for (let i = 0; i < nc; i++) {
         const u = hsh(seed, i * 3) / 65536, spread = 0.55 + 0.45 * hsh(seed, i * 3 + 7) / 65536;
         const speed = 0.6 + 0.8 * hsh(seed, i * 5 + 3) / 65536;
-        let p = u + tt * (0.01 + 0.05 * look.motion) * speed;
+        let p = u + flow * speed;
         p -= Math.floor(p);
         let xf = G.xc + (p - 0.5) * 2 * (half - 6 * G.sx) * spread;
         const g = (hsh(seed, i * 3 + 1) + hsh(seed, i * 3 + 2)) / 65536 - 1;
@@ -311,7 +314,10 @@ window.PerformRiver = (() => {
       let fz = smooth01((now - frzAt) / 300);
       if (!look.freeze) fz = 1 - fz;
       const tt = look.freeze ? stillT : t;
+      const dt = Math.min(0.1, Math.max(0, tt - last));   /* (frozen: none; a tab that slept: a frame's at most) */
       last = tt;
+      sway += dt * (0.004 + 0.03 * look.motion);
+      flow += dt * (0.01 + 0.05 * look.motion);
       const dim = look.dim == null ? 1 : look.dim;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = "source-over";

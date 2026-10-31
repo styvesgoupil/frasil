@@ -2455,6 +2455,10 @@ void app_init(void)
                                           * still, a scene loaded then not from its top) */
     frasil_init();
     frasil_profile(plat_ticks);          /* (where the render's time goes: the log's word) */
+#if !defined(PLAT_HOST) && !defined(PLAT_WEB)
+    frasil_budget((float)PLAT_TICKS_US * 1e6f / 44100.0f);   /* room made before a voice, not a render run over (the
+                                                              * host's and the web's renders stay as they were) */
+#endif
     drone_init();
     state_load();
     st.booting = 1;

@@ -78,6 +78,7 @@ typedef struct {
     int8_t note;                         /* -1: free */
     uint8_t gate;
     uint8_t shed;                        /* let go by the shedding: out in some 15 ms, not cut (no click) */
+    uint8_t wait;                        /* chunks before it sounds: room being made for it (make_room) */
     uint32_t age;                        /* note-on order (stealing) */
     float vel, prs, prs_t;
     float env;                           /* 0..1; the amplitude is its square */
@@ -125,6 +126,14 @@ static volatile uint32_t prof_acc[FR_PROF_N], prof_n;
 static uint32_t prof_t;
 static int prof_at;
 static float np_cap = (float)NP;        /* the partials the shedding allows, gliding */
+/* foresight (frasil_budget: the FM-1 only): a render's cost as it goes, its ticks a sample without the drone voices and
+ * a voice's (each render's, smoothed), so a voice to come is weighed before it sounds: past ROOM of the time, room is
+ * made first (make_room). 2.5.1, the user: a chord taken while the last one rang out glitched a quarter second, the
+ * shedding stepping in only after renders had run over */
+#define ROOM 0.80f
+#define ROOM_WAIT 11u                    /* chunks: a voice let go by the shedding is out (env 0.35 a chunk, TAIL_END) */
+static float bud_tps, cost_base, cost_voice;
+static uint32_t rv_ticks, rv_vs;         /* this render's: the voices' ticks, and voices times samples */
 static volatile float swell;             /* frasil_swell */
 static const uint8_t SHED_NP[6] = {NP, 6, 5, 4, 3, 3}, SHED_NV[6] = {NV, NV, 7, 6, 5, 4};   /* (4 and 5: a heavy
                                                                                          * preset with the effects) */
@@ -155,6 +164,7 @@ static void voice_start(voice_t *v, int note, float vel, int fresh)
         return;
     v->env = 0.0f;
     v->lvl = 0.0f;
+    v->wait = 0;
     v->prs = v->prs_t = 0.0f;
     /* a place in the field from the note, so a chord opens out (the drift moves it) */
     v->pan = (float)(((note * 7) % 12) - 6) * (1.0f / 6.0f);
@@ -185,6 +195,36 @@ static void voice_start(voice_t *v, int note, float vel, int fresh)
     v->ou_pan = 0.0f;
 }
 
+/* a fresh voice to come (nv): if the render would then run past ROOM, the quietest released voices are let go as the
+ * shedding lets them (some 15 ms), and nv waits as long, silent: the old chord's tail shorter, never a glitch. With
+ * room, nothing changes */
+static void make_room(voice_t *nv)
+{
+    uint32_t j, s = 0, fading = 0;
+    if (bud_tps <= 0.0f || cost_voice <= 0.0f)
+        return;
+    for (j = 0; j < NV; j++)
+        if (vo[j].note >= 0 && &vo[j] != nv) {
+            if (vo[j].shed)
+                fading = 1;
+            else
+                s++;
+        }
+    while (s && cost_base + (float)(s + 1u) * cost_voice > ROOM * bud_tps) {
+        voice_t *x = 0;
+        for (j = 0; j < NV; j++)
+            if (&vo[j] != nv && vo[j].note >= 0 && !vo[j].shed && !vo[j].gate && (!x || vo[j].env < x->env))
+                x = &vo[j];
+        if (!x)
+            break;
+        x->shed = 1;
+        s--;
+        fading = 1;
+    }
+    if (fading)
+        nv->wait = (uint8_t)ROOM_WAIT;
+}
+
 static void note_on(int note, float vel)
 {
     voice_t *v = 0;
@@ -200,6 +240,7 @@ static void note_on(int note, float vel)
             v = &vo[i];
     if (v) {
         voice_start(v, note, vel, 1);
+        make_room(v);
         return;
     }
     for (i = 0; i < NV; i++)             /* none free: the quietest released one, else the oldest */
@@ -970,10 +1011,17 @@ static void render_part(float *ol, float *or_, uint32_t n)
     }
     sl = 0.5f + 0.4f * P.spread * (0.3f + 0.7f * P.fullness);   /* a side's share on its own side */
     sr = 1.0f - sl;
+    uint32_t tv0 = bud_tps > 0.0f ? prof_clk() : 0u, nr = 0;
     for (j = 0; j < NV; j++) {
         voice_t *v = &vo[j];
         if (v->note < 0)
             continue;
+        if (v->wait) {                   /* room being made for it: silent until the voices let go are out */
+            uint32_t k = n / CH;
+            v->wait = v->wait > k ? (uint8_t)(v->wait - k) : 0u;
+            continue;
+        }
+        nr++;
         prof(FR_PROF_VBLOCK);
         voice_block(v);
         for (c = 0; c < n; c += CH) {
@@ -1011,6 +1059,10 @@ static void render_part(float *ol, float *or_, uint32_t n)
         }
         if (!v->gate && v->env < TAIL_END)
             v->note = -1;                /* faded out: free */
+    }
+    if (bud_tps > 0.0f) {                /* (the voices' share of this render: make_room's foresight) */
+        rv_ticks += prof_clk() - tv0;
+        rv_vs += nr * n;
     }
     prof(FR_PROF_TRACKS);
 }
@@ -1238,6 +1290,8 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
         prof_t = prof_clk();
         prof_at = FR_PROF_SETUP;
     }
+    uint32_t t_in = bud_tps > 0.0f ? prof_clk() : 0u;
+    rv_ticks = rv_vs = 0u;
     while (off < n) {
         uint32_t m = n - off > MAXN ? MAXN : n - off, i, c;
         float wd, ww, dk, dmake, dg, ka, kr, pk[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -1750,6 +1804,12 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
         off += m;
         prof(FR_PROF_SETUP);
     }
+    if (bud_tps > 0.0f) {                /* what this render cost, smoothed: its ticks a sample, the voices' apart */
+        float all = (float)(prof_clk() - t_in) / (float)n, v = (float)rv_ticks / (float)n;
+        cost_base += (all - v - cost_base) * 0.1f;
+        if (rv_vs)
+            cost_voice += ((float)rv_ticks / (float)rv_vs - cost_voice) * 0.1f;
+    }
     if (cut_at == 1) {                   /* CUT: this block out to silence */
         uint32_t i;
         for (i = 0; i < n; i++) {
@@ -1810,6 +1870,7 @@ void frasil_view(frasil_view_t v[FR_NV])
 void frasil_swell(float s) { swell = br_clampf(s, 0.0f, 1.0f); }
 void frasil_shed(int level) { shed = level < 0 ? 0 : level > 5 ? 5 : level; }
 void frasil_profile(uint32_t (*clock)(void)) { prof_clk = clock; }
+void frasil_budget(float ticks_a_sample) { bud_tps = prof_clk ? ticks_a_sample : 0.0f; }
 void frasil_profile_read(uint32_t acc[FR_PROF_N], uint32_t *samples)
 {
     uint32_t k;

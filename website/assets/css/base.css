@@ -248,6 +248,10 @@ a { color: inherit; }
   opacity: 0; transform: translateY(-8px); transition: opacity .2s var(--ease), transform .25s var(--ease);
 }
 .site-menu.open { opacity: 1; transform: none; }
+/* closed, it is gone, whatever a page's own CSS says of a header's nav (the play page's emulator: header nav { display:
+ * flex }); while it fades out, it lets the clicks through */
+.site-menu[hidden] { display: none !important; }
+.site-menu:not(.open) { pointer-events: none; }
 .menu-main, .menu-ways { list-style: none; margin: 0; padding: 0; }
 .menu-main { padding: 0 8px 8px; }
 .menu-main a { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--rule);

@@ -126,6 +126,9 @@ enum { FR_PROF_SETUP, FR_PROF_VBLOCK, FR_PROF_CHOIR, FR_PROF_PARTIALS, FR_PROF_B
        FR_PROF_CLOUD, FR_PROF_MIX, FR_PROF_GLINT, FR_PROF_BASS, FR_PROF_N };   /* (TRACKS: the warmth, the filter before
                                                                              * the cloud) */
 void frasil_profile(uint32_t (*clock)(void));
+/* the FM-1 only (after frasil_profile): the clock's ticks a sample of time; a drone voice to come is then weighed first,
+ * and room made for it rather than a render running over (frasil.c make_room). Not called: renders as before */
+void frasil_budget(float ticks_a_sample);
 void frasil_profile_read(uint32_t acc[FR_PROF_N], uint32_t *samples);
 
 /* for the screen */

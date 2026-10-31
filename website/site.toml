@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------- the release status (change these two)
 # Shown at the top right of the landing (where the FM-1's logo screen shows its version), in the footer, on the
 # install sections, and in the guide's Install page.
-status = "2.5 · out now"
+status = "2.5.1 · out now"
 # One or two sentences, plain text, shown next to the install instructions.
 beta_note = "Installing is at your own risk; the installer can always put M-VAVE's own firmware back."
 

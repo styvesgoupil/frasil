@@ -9,7 +9,7 @@
  *         K the keys' notes · SPACE AUTO · (both) A / B the direction · H the header · F full screen · ESC back */
 "use strict";
 (() => {
-  const VERSION = "1.0";                 /* Perform's own, shown on the first screen (FRASIL's comes with the FM-1) */
+  const VERSION = "1.0.1";               /* Perform's own, shown on the first screen (FRASIL's comes with the FM-1) */
   const SC = window.PERFORM_SCHEMA, P = SC.params, R = PerformRiver, Sh = PerformShow, S = Sh.S, pl = RiverPlayer;
   const $ = (s) => document.querySelector(s);
   pl.base = "../../../app/build/emu/";
