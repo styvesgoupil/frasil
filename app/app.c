@@ -15,7 +15,11 @@
 #include "frasil.h"
 #include "params.c"
 
-#define SET_MAGIC 0x4C535246u            /* "FRSL": the settings record (a new one when its layout changes) */
+#define SET_MAGIC 0x4D535246u            /* "FRSM": the settings record (a new one when its layout changes) */
+#define SET_FRSL 0x4C535246u             /* "FRSL": 2.5's (2.5 .. 2.5.1): this one, its sound FRSQ_NV long (FRSL_BYTES),
+                                          * the settings learned numbered so */
+#define FRSQ_NV 153u                     /* the sound before CHOIR III's SOFT (FRSq, FRSL, FRSr) */
+#define FRSL_BYTES 252u
 #define SET_FRSK 0x4B535246u             /* "FRSK": 2.5's betas' (b6 .. b9): this one, its sound FRSO_NV long, without
                                           * ANIMATIONS (FRSK_BYTES), the settings learned numbered so */
 #define FRSO_NV 146u                     /* the sound before ROUTING and the pans (FRSo, FRSK, FRSp) */
@@ -33,9 +37,10 @@
 #define FRSH_BYTES 224u
 #define FRSH_BSEQ (FRSH_BYTES - 2u * SC_BSEQ - 3u)
 #define FRSG_BYTES 192u
-#define SCN_MAGIC 0x71535246u            /* "FRSq": the scenes record (with their notes and the bass; names of
+#define SCN_MAGIC 0x73535246u            /* "FRSs": the scenes record (with their notes and the bass; names of
                                           * sixteen), each scene up to GLINT's sequence (SC_REC): the sequences in
                                           * OBJ_BSEQ (the sound outgrew the record) */
+#define SCN_FRSQ 0x71535246u             /* "FRSq": 2.5's (OLD_SCN's last): this one, its sound FRSQ_NV long */
 #define SCN_FRSO 0x6F535246u             /* "FRSo": 2.5's betas' (OLD_SCN's last): this one, its sound FRSO_NV long */
 #define SCN_FRSL 0x6C535246u             /* "FRSl": the one before MASTER EQ and MASTER FILTER (OLD_SCN's last, the
                                           * sequence in each scene's record), GLINT's RELEASE in it */
@@ -46,13 +51,15 @@
                                           * notes and lengths, SEQUENCE, SEQ STEPS, TRANSPOSE, and the scene's TEMPO */
 #define BSQ_FRBT 0x54425246u             /* "FRBT": the one before (with FRSl): from the bass's notes on */
 #define BSQ_FRBS 0x53425246u             /* "FRBS": the one before the scenes' TEMPO (FRBT's less one a scene) */
-#define SHARD_MAGIC 0x72535246u          /* "FRSr": a scene whole (scene_t: its sequences and its TEMPO after the
-                                          * rest), as the River keeps it, a shard; "FRSp": 2.5's betas' (FRSO_NV
+#define SHARD_MAGIC 0x74535246u          /* "FRSt": a scene whole (scene_t: its sequences and its TEMPO after the
+                                          * rest), as the River keeps it, a shard; "FRSr": 2.5's (FRSQ_NV sounds);
+                                          * "FRSp": 2.5's betas' (FRSO_NV
                                           * sounds); "FRSn": the one before MASTER EQ and
                                           * MASTER FILTER (FRSL_NV sounds); "FRSm": that without its TEMPO;
                                           * "FRSk" shards: without it, SCATTER where GLINT's
                                           * RELEASE is; "FRSi": before BASS's DECAY, SUSTAIN and PULSE too (FRSH_NV
                                           * sounds); "FRSh": those without the bass's too */
+#define SHARD_FRSR 0x72535246u
 #define SHARD_FRSP 0x70535246u
 #define SHARD_FRSN 0x6E535246u
 #define SHARD_FRSM 0x6D535246u
@@ -125,6 +132,7 @@ static const layout_t OLD_SCN[] = {
     {SCN_FRSL, FRSL_NV, 4},              /* "FRSl": with GLINT's RELEASE (extra 4: none to make over) */
     {SCN_FRSO, FRSO_NV, 5},              /* "FRSo": with MASTER EQ, MASTER FILTER and LOFI TAPE (extra 5: GLINT's
                                           * sequence in OBJ_BSEQ already, FRBU's) */
+    {SCN_FRSQ, FRSQ_NV, 5},              /* "FRSq": with ROUTING and the pans (2.5, 2.5.1) */
 };
 #define OLD_NAME 10u                     /* their names: ten characters (NUL-padded, none when all ten were used) */
 static const layout_t OLD_SET[] = {
@@ -154,8 +162,8 @@ static const layout_t OLD_SET[] = {
 #define FRBS_SCENE (FRBT_SCENE - 1u)     /* FRBS's: without TEMPO */
 #define BSQ_BYTES (4u + NSCENES * BSQ_SCENE)
 static uint8_t raw[8u + NSCENES * FRSL_REC];   /* an old record as it was saved (the largest, FRSl's scenes: 3800),
-                                                * and the scenes' records as they are written and read (FRSo's:
-                                                * 3480) */
+                                                * and the scenes' records as they are written and read (FRSs's:
+                                                * 3672) */
 static uint8_t store_old;                /* bit 0 the scenes, bit 1 the settings: made over from an earlier layout at
                                           * load, the store's still in it (a backup saves them first) */
 _Static_assert(sizeof(scene_t) == SC_REC + BSQ_SCENE && offsetof(scene_t, seq) == SC_REC &&
@@ -165,14 +173,16 @@ _Static_assert(sizeof(scene_t) == SC_REC + BSQ_SCENE && offsetof(scene_t, seq) =
                "a scene: its bytes, no padding, the sequences last");
 _Static_assert(P_BS_DRIVE == 55 && P_BS_RESO == 64 && P_PUMP_RATE == 65 && P_SH_TONE == 77 && P_PUMP_REL == 78 &&
                    P_CH_SHAPE == 81 && P_L1_SHAPE == 94 && P_SQ_LEN == 110 && P_DR_PRESET == 113 && P_L3_SHAPE == 115 &&
-                   P_SQ_TYPE == 123 && P_BS_DECAY == FRSH_NV && P_EQ_PRESET == FRSL_NV && P_FL_PRE == FRSO_NV,
+                   P_SQ_TYPE == 123 && P_BS_DECAY == FRSH_NV && P_EQ_PRESET == FRSL_NV && P_FL_PRE == FRSO_NV &&
+                   P_CH_SOFT == FRSQ_NV,
                "the parameters added come after the old");
 _Static_assert(FACTORY_NV == FRSL_NV, "the factory's whole sounds: FRSl's");
 _Static_assert(SCN_BYTES <= 3840u && BSQ_BYTES <= 3840u, "the scenes' records fit a store object each (4 KiB less "
                                                          "its 256-byte header)");
 _Static_assert(offsetof(settings_t, clock) == offsetof(settings_t, anim) + 1u &&
                    offsetof(settings_t, anim) == offsetof(settings_t, bq_trans) + 1u &&
-                   sizeof(settings_t) == ((offsetof(settings_t, anim) + 4u) & ~3u) &&
+                   sizeof(settings_t) == ((offsetof(settings_t, clock) + 4u) & ~3u) &&
+                   FRSL_BYTES == 4u + FRSQ_NV + offsetof(settings_t, clock) + 1u - offsetof(settings_t, octave) &&
                    FRSK_BYTES == ((4u + FRSO_NV + offsetof(settings_t, anim) - offsetof(settings_t, octave) + 3u) & ~3u) &&
                    FRSJ_BYTES == ((4u + FRSL_NV + offsetof(settings_t, anim) - offsetof(settings_t, octave) + 3u) & ~3u) &&
                    offsetof(settings_t, bnote) == 192u + (NSOUND - FRSL_NV) &&
@@ -2275,6 +2285,17 @@ static int settings_over(void)            /* the settings in an earlier layout, 
     uint32_t k, j;
     set.bq_steps = PD[P_BQ_STEPS].def;
     set.bq_trans = PD[P_BQ_TRANS].def;
+    if (n == (int)FRSL_BYTES && rd32(raw) == SET_FRSL) {
+        /* FRSL, 2.5's: this layout, its sound FRSQ_NV long (SOFT not yet: 0, the wave as it was). A CC learned on a
+         * setting after the sound: on the same setting, its number moved on by the sound's one more */
+        sound_over(set.v, raw + 4, FRSQ_NV, 0);
+        memcpy((uint8_t *)&set + offsetof(settings_t, octave), raw + 4u + FRSQ_NV, FRSL_BYTES - 4u - FRSQ_NV);
+        for (j = 0; j < NLEARN; j++)
+            if (set.learn_p[j] >= FRSQ_NV && set.learn_p[j] < NPARAM - (NSOUND - FRSQ_NV))
+                set.learn_p[j] = (uint8_t)(set.learn_p[j] + (NSOUND - FRSQ_NV));
+        set.magic = SET_MAGIC;
+        return 1;
+    }
     if (n == (int)FRSK_BYTES && rd32(raw) == SET_FRSK) {
         /* FRSK, 2.5's betas': this layout, its sound FRSO_NV long, ANIMATIONS not yet (its padding byte there: NORMAL).
          * A CC learned on a setting after the sound: on the same setting, its number moved on by the sounds added */
@@ -4556,8 +4577,9 @@ void app_ui_init(void)
  *                 6 FRAME 20 a second, what sounds: the drones' 8 (note, level), GLINT's 4 (note, level as heard,
  *                   1/20 s since struck), the bass (note, level), the LFOs on (bits), then each LFO where in its turn
  *                   (0..127), its value ((-1..1) to 0..127) and its turns (3 bytes: RANDOM's and DRIFT's values, the
- *                   page's lfo_rnd as app.c's), then the tracks' meters (drones, bass, glints, the cloud); a note 127:
- *                   none; levels 0..127
+ *                   page's lfo_rnd as app.c's), then the tracks' meters (drones, bass, glints, the cloud), the
+ *                   transport (bits), LOFI TAPE's drag under way (how much slower: 127 is 8 %); a note 127: none;
+ *                   levels 0..127
  *                 7 BUTTON b (B_*), down
  * Two bytes: 7-bit high, low. Each frame goes whole or not at all, never waiting (plat_sysex_try): one that does not
  * fit now (the computer not reading, a backup or the screen reader on the wire) is tried again at the next UI frame.
@@ -4640,7 +4662,7 @@ static void pf_frame(void)
     frasil_view_t v[FR_NV];
     glint_view_t g[GLINT_NV];
     bass_view_t bv;
-    uint8_t b[1u + 2u * FR_NV + 3u * GLINT_NV + 3u + 5u * NLFO + 4u + 1u], *p = b;
+    uint8_t b[1u + 2u * FR_NV + 3u * GLINT_NV + 3u + 5u * NLFO + 4u + 1u + 1u], *p = b;
     uint32_t i, on = 0;
     float m[4];
     frasil_view(v);
@@ -4673,6 +4695,7 @@ static void pf_frame(void)
     for (i = 0; i < 4u; i++)
         *p++ = pf_lvl(m[i]);
     *p++ = pf_playing();
+    *p++ = pf_lvl(frasil_tape_drag() * 12.5f);   /* (LOFI TAPE's drag: 0.08 slower, 127) */
     pf_send(b, (uint32_t)(p - b));
 }
 
@@ -5193,6 +5216,9 @@ static int schema_write(const char *path)
      * one's, TEMPO at its default); SCATTER where GLINT's RELEASE is, made over (scatter_gone): FRSn, FRSm, FRSk, FRSi,
      * then FRSh */
     fprintf(f, "]},\n\"old_shards\":[{\"magic\":");
+    js_magic(f, SHARD_FRSR);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":0},{\"magic\":",
+            (unsigned)(SC_NAME + FRSQ_NV + SC_TAIL + FRBT_SCENE), FRSQ_NV, (unsigned)(SC_NAME + FRSQ_NV + SC_TAIL));
     js_magic(f, SHARD_FRSP);
     fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":0},{\"magic\":",
             (unsigned)(SC_NAME + FRSO_NV + SC_TAIL + FRBT_SCENE), FRSO_NV, (unsigned)(SC_NAME + FRSO_NV + SC_TAIL));
@@ -5223,6 +5249,10 @@ static int schema_write(const char *path)
      * numbered so), SIZE bytes, those after the sound to END as this one's (the bass's sequence: none, empty): FRSI,
      * FRSH, FRSG */
     fprintf(f, ",\n\"old_settings_over\":[{\"magic\":");
+    js_magic(f, SET_FRSL);
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u,\"scatter\":0,\"speaker\":1,\"anim\":1},{\"magic\":", FRSL_BYTES,
+            FRSQ_NV, FRSL_BYTES);
+            /* (anim: its ANIMATIONS and CLOCK bytes theirs already; the others', a padding byte or none) */
     js_magic(f, SET_FRSK);
     fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u,\"scatter\":0,\"speaker\":1},{\"magic\":", FRSK_BYTES,
             FRSO_NV, (unsigned)(4u + FRSO_NV + offsetof(settings_t, anim) - offsetof(settings_t, octave)));
@@ -5259,7 +5289,8 @@ static int schema_write(const char *path)
     ID(P_BQ_STEP), ID(P_BQ_NOTE), ID(P_BQ_CLEAR), ID(P_EQ_PRESET), ID(P_EQ_LOW), ID(P_EQ_HIGHF), ID(P_FL_TYPE);
     ID(P_FL_CUT), ID(P_FL_RESO), ID(P_FL_TRACKS), ID(P_TP_ON), ID(P_TP_SAT), ID(P_TP_WOBBLE), ID(P_TP_TRACKS), ID(PG_FILTER);
     ID(PG_TAPE), ID(PG_EQ), ID(PG_EQ2), ID(PG_ROUTING), ID(PG_SCREEN), ID(P_FL_PRE), ID(P_TP_PRE), ID(P_PUMP_CLOUD);
-    ID(P_PN_DRONE), ID(P_PN_BASS), ID(P_PN_GLINT), ID(P_PN_CLOUD);
+    ID(P_PN_DRONE), ID(P_PN_BASS), ID(P_PN_GLINT), ID(P_PN_CLOUD), ID(P_CH_SOFT), ID(PG_CHOEUR2), ID(PG_CHOEUR3);
+    ID(P_FREEZE), ID(P_SWELL), ID(P_KB);
 #undef ID
     fprintf(f, "},\n\"params\":[\n");
     for (p = 0; p < NPARAM; p++) {       /* each with its words for every value, as the screen writes them */
@@ -5445,6 +5476,35 @@ static void old_frso(void)
     plat_store_save(OBJ_SCENES, raw, 8u + NSCENES * rec);
 }
 
+/* the settings' record and the scenes' as 2.5 kept them (FRSL, FRSq: the sound FRSQ_NV long, SOFT not yet; a setting
+ * learned after it numbered so); OBJ_BSEQ as it is */
+static void old_frsq(void)
+{
+    uint32_t i, rec = SC_NAME + FRSQ_NV + SC_TAIL - SC_SEQ;
+    uint8_t *o;
+    memcpy(raw, &set, 4u + FRSQ_NV);
+    memcpy(raw + 4u + FRSQ_NV, (uint8_t *)&set + offsetof(settings_t, octave), FRSL_BYTES - 4u - FRSQ_NV);
+    for (i = 0; i < 4u; i++)
+        raw[i] = (uint8_t)(SET_FRSL >> (8u * i));
+    for (i = 0; i < NLEARN; i++) {
+        uint8_t *l = raw + offsetof(settings_t, learn_p) - (NSOUND - FRSQ_NV) + i;
+        if (*l == P_CH_SOFT)             /* (2.5 had no SOFT to learn a CC on: none) */
+            *l = l[-(int32_t)NLEARN] = 0;
+        if (*l >= NSOUND && *l < NPARAM)
+            *l = (uint8_t)(*l - (NSOUND - FRSQ_NV));
+    }
+    plat_store_save(OBJ_SETTINGS, raw, FRSL_BYTES);
+    memcpy(raw, &scn, 8u);
+    for (i = 0; i < 4u; i++)
+        raw[i] = (uint8_t)(SCN_FRSQ >> (8u * i));
+    for (i = 0; i < NSCENES; i++) {
+        o = raw + 8u + i * rec;
+        memcpy(o, &scn.s[i], SC_NAME + FRSQ_NV);
+        memcpy(o + SC_NAME + FRSQ_NV, &scn.s[i].nch, SC_TAIL - SC_SEQ);
+    }
+    plat_store_save(OBJ_SCENES, raw, 8u + NSCENES * rec);
+}
+
 static void old_frbt(uint32_t bm, uint32_t n)   /* (FRBT's FRBT_SCENE a scene, FRBS's FRBS_SCENE) */
 {
     uint32_t i;
@@ -5603,6 +5663,12 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
                                                   * settings as last saved, without them */
         old_frsk();
         old_frso();
+        return 1;
+    }
+    if (!strcmp(cmd, "oldstore") && k == 19) {   /* oldstore 22: 2.5's records (2.5, 2.5.1), before CHOIR III's SOFT
+                                                  * (FRSq, FRSL; FRBU as now): the scenes and the settings as last
+                                                  * saved, without it */
+        old_frsq();
         return 1;
     }
     if (strcmp(cmd, "oldstore") || k < 0 || k > 11)

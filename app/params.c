@@ -50,6 +50,7 @@ enum {
     P_FL_PRE, P_TP_PRE, P_PUMP_CLOUD,    /* ROUTING: MASTER FILTER and LOFI TAPE before the cloud or after it, PUMP on the
                                           * cloud's return */
     P_PN_DRONE, P_PN_BASS, P_PN_GLINT, P_PN_CLOUD,   /* MIXER's pans (OCT- held, K1 .. K4) */
+    P_CH_SOFT,                           /* CHOIR III: its wave softened (the saws integrated, once, then twice) */
     NSOUND,                              /* a scene ends here; the rest are settings that pages show */
     P_KEYS = NSOUND,
     P_CANAL,
@@ -93,8 +94,8 @@ typedef struct {
     uint8_t max, def, fmt;
 } pdesc_t;
 
-#define NLFO_TGT 47u                     /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below) */
-#define NDRONE 32u                       /* the settings a drone preset sets (DRONE_P, below) */
+#define NLFO_TGT 48u                     /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below) */
+#define NDRONE 33u                       /* the settings a drone preset sets (DRONE_P, below) */
 #define NDPRESET 24u
 #define NPULSE 7u                        /* PULSE's choices: OFF, then its divisions (PULSE_TICKS, below) */
 static const pdesc_t PD[NPARAM] = {
@@ -186,6 +187,8 @@ static const pdesc_t PD[NPARAM] = {
     [P_CH_INTERVAL] = {"INTERVAL", 3, 0, F_CINT},      /* the centre saw: UNISON, -12, +7, +12 */
     [P_CH_RESO] = {"RESONANCE", 127, 0, F_PCT},
     [P_CH_TYPE] = {"TYPE", 2, 0, F_CTYPE},             /* the filter: LOW, BAND, HIGH */
+    [P_CH_SOFT] = {"SOFT", 127, 0, F_PCT},             /* 0: the wave as SHAPE makes it; 50 %: a triangle of the
+                                                        * square; 100 %: near a sine */
     [P_PA_EVOLVE] = {"EVOLVE", 127, 0, F_PCT},         /* 0: as MOTION has them */
     [P_PA_BEAT] = {"BEAT", 127, 0, F_PCT},
     [P_PA_FORMANT] = {"FORMANT", 127, 85, F_HARM},     /* the 1st .. 8th harmonic (the 4th by default) */
@@ -298,7 +301,7 @@ static const char *const PULSE_NAME[NPULSE] = {"OFF", "1/8 BEAT", "1/4 BEAT", "1
 
 /* the pages: a page button, and the four parameters K1 .. K4 turn; a button with more than one page steps
  * through them */
-enum { PG_SON, PG_DRONE, PG_CHOEUR, PG_CHOEUR2, PG_PARTIELS, PG_PARTIELS2, PG_SOUFFLE, PG_SOUFFLE2, PG_GLINT, PG_GLINT2, PG_GLINT3, PG_GDELAY, PG_ARP, PG_SEQ, PG_SEQ2, PG_SEQ3, PG_BASS,
+enum { PG_SON, PG_DRONE, PG_CHOEUR, PG_CHOEUR2, PG_CHOEUR3, PG_PARTIELS, PG_PARTIELS2, PG_SOUFFLE, PG_SOUFFLE2, PG_GLINT, PG_GLINT2, PG_GLINT3, PG_GDELAY, PG_ARP, PG_SEQ, PG_SEQ2, PG_SEQ3, PG_BASS,
        PG_BASS2,
        PG_BASS3, PG_FORME, PG_MOUVEMENT, PG_LFO1, PG_LFO1T, PG_LFO2, PG_LFO2T, PG_LFO3, PG_LFO3T, PG_HARMONY, PG_GENFX, PG_NUAGE, PG_NUAGE2, PG_NUAGE3, PG_FILTER, PG_TAPE, PG_PUMP, PG_PUMP2, PG_GLOBAL, PG_GLOBAL2,
        PG_MASTER, PG_EQ, PG_EQ2, PG_MIXER, PG_SCENES,
@@ -316,6 +319,7 @@ static const page_t PAGES[NPAGES] = {
     [PG_DRONE] = {"DRONE TONE", B_EDIT, {P_TIMBRE, P_ESPACE, P_MOUVEMENT, P_DR_FULL}},   /* the whole drone */
     [PG_CHOEUR] = {"CHOIR", B_EDIT, {P_CHOEUR, P_DESACCORD, P_FILTRE, P_CHALEUR}},
     [PG_CHOEUR2] = {"CHOIR II", B_EDIT, {P_CH_SHAPE, P_CH_INTERVAL, P_CH_RESO, P_CH_TYPE}},   /* the source, the filter */
+    [PG_CHOEUR3] = {"CHOIR III", B_EDIT, {P_CH_SOFT, NPARAM, NPARAM, NPARAM}},   /* the wave softened (ui.c choir_scope) */
     [PG_PARTIELS] = {"PARTIALS", B_EDIT, {P_PARTIELS, P_PENTE, P_IMPAIRS, P_ETIREMENT}},
     [PG_PARTIELS2] = {"PARTIALS II", B_EDIT, {P_PA_EVOLVE, P_PA_BEAT, P_PA_FORMANT, P_PA_PEAK}},
     [PG_SOUFFLE] = {"BREATH", B_EDIT, {P_SOUFFLE, P_RESONANCE, P_COULEUR, P_ECART}},
@@ -585,42 +589,42 @@ static const uint8_t GLINT_PRESET[NGPRESET][10] = {
                                                  * 2.5) */
 };
 /* the drone's presets (PRESETS turns them): each sets the NDRONE settings in DRONE_P, the three layers (their
- * levels, their pages and their second pages) and the drone's own (DRONE TONE but FULLNESS, ALGORITHM's: a hand
- * that stays where it is; DRONE SHAPE's ATTACK and RELEASE; DRONE MOTION). 0 is CUSTOM: the settings as turned (app.c
- * keeps them while a preset plays, and in the scenes) */
+ * levels, their pages and their second pages, CHOIR III's SOFT) and the drone's own (DRONE TONE but FULLNESS,
+ * ALGORITHM's: a hand that stays where it is; DRONE SHAPE's ATTACK and RELEASE; DRONE MOTION). 0 is CUSTOM: the
+ * settings as turned (app.c keeps them while a preset plays, and in the scenes) */
 static const uint8_t DRONE_P[NDRONE] = {P_CHOEUR, P_PARTIELS, P_SOUFFLE, P_CHALEUR, P_DESACCORD, P_FILTRE, P_PENTE,
                                         P_IMPAIRS, P_ETIREMENT, P_RESONANCE, P_COULEUR, P_ECART, P_ATTAQUE, P_RELACHE,
                                         P_MOUVEMENT, P_VITESSE, P_MAREE, P_PERIODE, P_TIMBRE, P_ESPACE, P_CH_SHAPE,
                                         P_CH_INTERVAL, P_CH_RESO, P_CH_TYPE, P_PA_EVOLVE, P_PA_BEAT, P_PA_FORMANT,
-                                        P_PA_PEAK, P_BR_GRAIN, P_BR_PITCH, P_BR_TONE, P_BR_AIR};
+                                        P_PA_PEAK, P_BR_GRAIN, P_BR_PITCH, P_BR_TONE, P_BR_AIR, P_CH_SOFT};
 static const char *const DRONE_NAME[NDPRESET + 1u] = {"CUSTOM", "MIST", "CATHEDRAL", "GLACIER", "ABYSS", "AURORA", "EMBER", "TIDE", "DUST", "WIND", "ORGAN", "HOLLOW", "VOWEL", "SHIMMER", "CHANTER", "ENSEMBLE", "BELLS", "NOCTURNE", "HAZE", "PULSE", "RIME", "DEEP", "SPECTRAL", "RUST", "STILL"};
 static const uint8_t DRONE_PRESET[NDPRESET][NDRONE] = {
     /* CHO PAR SOU WAR DET FIL TIL ODD STR BRES COL SPR ATT REL MOT RAT TID PER TIM SPA SHP INT CRES TYP EVO BEAT
-     * FORM PEAK GRN PIT TONE AIR */
-    {76, 89, 32, 19, 51, 44, 57, 25, 0, 70, 0, 89, 89, 83, 44, 51, 25, 38, 64, 57, 0, 0, 0, 0, 0, 0, 85, 0, 0, 1, 64, 0},  /* MIST: the default: all three, gently */
-    {110, 50, 20, 25, 85, 55, 60, 30, 0, 60, 0, 110, 100, 100, 60, 40, 20, 50, 60, 95, 0, 1, 20, 0, 10, 0, 85, 0, 0, 1, 64, 0},  /* CATHEDRAL: a wide choir, an octave under, a long hall */
-    {20, 100, 70, 5, 30, 60, 35, 50, 60, 115, 127, 100, 80, 110, 40, 30, 30, 40, 80, 90, 0, 0, 0, 0, 40, 15, 100, 30, 20, 2, 80, 0},  /* GLACIER: glass: stretched partials, bell resonators */
-    {90, 70, 25, 50, 70, 20, 90, 40, 0, 50, 0, 70, 100, 105, 50, 25, 50, 25, 40, 70, 30, 1, 40, 0, 20, 0, 60, 0, 0, 0, 30, 0},  /* ABYSS: dark and deep, an octave under, warm */
-    {60, 105, 40, 15, 45, 65, 40, 15, 10, 85, 60, 115, 90, 105, 55, 45, 45, 50, 75, 95, 0, 0, 0, 0, 70, 25, 90, 35, 0, 2, 75, 10},  /* AURORA: the spectrum wandering, a light formant */
-    {100, 55, 20, 80, 40, 40, 70, 60, 0, 50, 30, 80, 70, 80, 35, 40, 20, 40, 55, 50, 64, 0, 50, 0, 10, 0, 70, 0, 0, 1, 50, 0},  /* EMBER: a warm square choir, glowing low */
-    {80, 80, 45, 25, 60, 45, 55, 30, 10, 75, 40, 100, 95, 100, 70, 30, 110, 60, 60, 70, 0, 0, 30, 0, 30, 0, 85, 0, 0, 1, 64, 0},  /* TIDE: a deep tide on the timbre */
-    {25, 40, 85, 20, 40, 50, 60, 30, 20, 100, 60, 120, 60, 90, 50, 50, 30, 40, 60, 75, 0, 0, 0, 0, 30, 0, 85, 0, 90, 2, 85, 40},  /* DUST: grains ringing in resonators, crackle */
-    {0, 20, 85, 0, 40, 50, 60, 30, 0, 20, 30, 127, 80, 95, 90, 80, 50, 70, 64, 80, 0, 0, 0, 0, 0, 0, 85, 0, 0, 1, 75, 50},  /* WIND: air: breath alone, moving */
-    {40, 115, 10, 30, 10, 50, 45, 0, 0, 60, 0, 60, 40, 60, 15, 40, 10, 40, 64, 50, 0, 2, 0, 0, 0, 0, 85, 0, 0, 1, 64, 0},  /* ORGAN: steady pipes, a fifth over, still */
-    {105, 80, 25, 20, 35, 50, 50, 110, 0, 70, 64, 90, 80, 90, 40, 45, 25, 40, 60, 65, 64, 0, 40, 1, 15, 0, 85, 0, 0, 1, 60, 0},  /* HOLLOW: odd harmonics, a band-passed square */
-    {65, 125, 15, 10, 30, 55, 30, 20, 0, 70, 0, 85, 90, 95, 45, 35, 60, 45, 64, 70, 0, 0, 60, 1, 20, 0, 95, 105, 0, 1, 64, 0},  /* VOWEL: a sung overtone, a vowel */
-    {45, 100, 50, 10, 55, 75, 25, 20, 15, 100, 90, 120, 85, 110, 50, 55, 30, 40, 85, 100, 0, 3, 0, 0, 40, 50, 100, 20, 10, 3, 90, 20},  /* SHIMMER: bright beating partials, a halo a twelfth up */
-    {105, 45, 15, 40, 30, 55, 60, 70, 0, 60, 30, 70, 50, 70, 30, 45, 15, 40, 60, 45, 110, 0, 35, 1, 0, 0, 85, 0, 0, 1, 64, 0},  /* CHANTER: a reed: a narrow pulse, nasal */
-    {115, 40, 20, 30, 75, 60, 55, 25, 0, 60, 0, 115, 95, 90, 55, 55, 20, 40, 65, 75, 90, 0, 15, 0, 0, 0, 85, 0, 0, 1, 64, 0},  /* ENSEMBLE: strings: detuned pulses swaying */
-    {15, 115, 45, 5, 25, 50, 30, 20, 95, 110, 127, 95, 40, 110, 30, 40, 20, 40, 75, 85, 0, 0, 0, 0, 30, 30, 85, 0, 0, 2, 80, 0},  /* BELLS: stretched into bells, ringing */
-    {90, 60, 30, 35, 55, 25, 85, 30, 0, 55, 0, 90, 110, 115, 45, 20, 40, 20, 45, 85, 20, 1, 70, 0, 25, 0, 70, 0, 0, 0, 35, 0},  /* NOCTURNE: slow and dark, a resonant low-pass */
-    {85, 50, 60, 10, 60, 70, 50, 25, 0, 40, 30, 120, 100, 105, 60, 50, 30, 50, 70, 90, 0, 3, 20, 2, 20, 0, 85, 0, 0, 2, 80, 30},  /* HAZE: airy: high-passed, an octave up */
-    {50, 95, 25, 20, 30, 50, 45, 30, 0, 70, 20, 100, 60, 80, 30, 50, 20, 40, 64, 65, 0, 0, 0, 0, 15, 100, 85, 0, 0, 1, 64, 0},  /* PULSE: every partial beating, quick */
-    {30, 110, 70, 0, 20, 80, 20, 40, 30, 120, 100, 110, 70, 100, 35, 60, 20, 40, 90, 90, 0, 3, 0, 2, 30, 20, 110, 40, 40, 4, 100, 15},  /* RIME: thin ice, two octaves up, glittering */
-    {100, 100, 0, 40, 25, 25, 100, 20, 0, 50, 0, 60, 90, 95, 25, 30, 20, 30, 40, 45, 0, 1, 10, 0, 0, 0, 40, 0, 0, 0, 30, 0},  /* DEEP: weight: the fundamental, an octave under */
-    {20, 120, 15, 5, 20, 50, 20, 10, 0, 70, 0, 90, 90, 100, 50, 40, 80, 50, 64, 80, 0, 0, 0, 0, 50, 10, 85, 127, 0, 1, 64, 0},  /* SPECTRAL: one overtone alone, singing */
-    {80, 50, 40, 100, 50, 45, 65, 60, 20, 80, 40, 80, 60, 80, 40, 55, 25, 40, 55, 55, 70, 0, 80, 1, 20, 15, 75, 0, 60, 1, 45, 20},  /* RUST: gritty: driven, grains, a resonant band */
-    {0, 125, 0, 0, 0, 50, 127, 0, 0, 50, 0, 60, 100, 100, 5, 20, 0, 40, 50, 70, 0, 0, 0, 0, 0, 0, 85, 0, 0, 1, 64, 0},  /* STILL: almost a sine, unmoving */
+     * FORM PEAK GRN PIT TONE AIR SOFT (SOFT 0 in each: as they were made, before it) */
+    {76, 89, 32, 19, 51, 44, 57, 25, 0, 70, 0, 89, 89, 83, 44, 51, 25, 38, 64, 57, 0, 0, 0, 0, 0, 0, 85, 0, 0, 1, 64, 0, 0},  /* MIST: the default: all three, gently */
+    {110, 50, 20, 25, 85, 55, 60, 30, 0, 60, 0, 110, 100, 100, 60, 40, 20, 50, 60, 95, 0, 1, 20, 0, 10, 0, 85, 0, 0, 1, 64, 0, 0},  /* CATHEDRAL: a wide choir, an octave under, a long hall */
+    {20, 100, 70, 5, 30, 60, 35, 50, 60, 115, 127, 100, 80, 110, 40, 30, 30, 40, 80, 90, 0, 0, 0, 0, 40, 15, 100, 30, 20, 2, 80, 0, 0},  /* GLACIER: glass: stretched partials, bell resonators */
+    {90, 70, 25, 50, 70, 20, 90, 40, 0, 50, 0, 70, 100, 105, 50, 25, 50, 25, 40, 70, 30, 1, 40, 0, 20, 0, 60, 0, 0, 0, 30, 0, 0},  /* ABYSS: dark and deep, an octave under, warm */
+    {60, 105, 40, 15, 45, 65, 40, 15, 10, 85, 60, 115, 90, 105, 55, 45, 45, 50, 75, 95, 0, 0, 0, 0, 70, 25, 90, 35, 0, 2, 75, 10, 0},  /* AURORA: the spectrum wandering, a light formant */
+    {100, 55, 20, 80, 40, 40, 70, 60, 0, 50, 30, 80, 70, 80, 35, 40, 20, 40, 55, 50, 64, 0, 50, 0, 10, 0, 70, 0, 0, 1, 50, 0, 0},  /* EMBER: a warm square choir, glowing low */
+    {80, 80, 45, 25, 60, 45, 55, 30, 10, 75, 40, 100, 95, 100, 70, 30, 110, 60, 60, 70, 0, 0, 30, 0, 30, 0, 85, 0, 0, 1, 64, 0, 0},  /* TIDE: a deep tide on the timbre */
+    {25, 40, 85, 20, 40, 50, 60, 30, 20, 100, 60, 120, 60, 90, 50, 50, 30, 40, 60, 75, 0, 0, 0, 0, 30, 0, 85, 0, 90, 2, 85, 40, 0},  /* DUST: grains ringing in resonators, crackle */
+    {0, 20, 85, 0, 40, 50, 60, 30, 0, 20, 30, 127, 80, 95, 90, 80, 50, 70, 64, 80, 0, 0, 0, 0, 0, 0, 85, 0, 0, 1, 75, 50, 0},  /* WIND: air: breath alone, moving */
+    {40, 115, 10, 30, 10, 50, 45, 0, 0, 60, 0, 60, 40, 60, 15, 40, 10, 40, 64, 50, 0, 2, 0, 0, 0, 0, 85, 0, 0, 1, 64, 0, 0},  /* ORGAN: steady pipes, a fifth over, still */
+    {105, 80, 25, 20, 35, 50, 50, 110, 0, 70, 64, 90, 80, 90, 40, 45, 25, 40, 60, 65, 64, 0, 40, 1, 15, 0, 85, 0, 0, 1, 60, 0, 0},  /* HOLLOW: odd harmonics, a band-passed square */
+    {65, 125, 15, 10, 30, 55, 30, 20, 0, 70, 0, 85, 90, 95, 45, 35, 60, 45, 64, 70, 0, 0, 60, 1, 20, 0, 95, 105, 0, 1, 64, 0, 0},  /* VOWEL: a sung overtone, a vowel */
+    {45, 100, 50, 10, 55, 75, 25, 20, 15, 100, 90, 120, 85, 110, 50, 55, 30, 40, 85, 100, 0, 3, 0, 0, 40, 50, 100, 20, 10, 3, 90, 20, 0},  /* SHIMMER: bright beating partials, a halo a twelfth up */
+    {105, 45, 15, 40, 30, 55, 60, 70, 0, 60, 30, 70, 50, 70, 30, 45, 15, 40, 60, 45, 110, 0, 35, 1, 0, 0, 85, 0, 0, 1, 64, 0, 0},  /* CHANTER: a reed: a narrow pulse, nasal */
+    {115, 40, 20, 30, 75, 60, 55, 25, 0, 60, 0, 115, 95, 90, 55, 55, 20, 40, 65, 75, 90, 0, 15, 0, 0, 0, 85, 0, 0, 1, 64, 0, 0},  /* ENSEMBLE: strings: detuned pulses swaying */
+    {15, 115, 45, 5, 25, 50, 30, 20, 95, 110, 127, 95, 40, 110, 30, 40, 20, 40, 75, 85, 0, 0, 0, 0, 30, 30, 85, 0, 0, 2, 80, 0, 0},  /* BELLS: stretched into bells, ringing */
+    {90, 60, 30, 35, 55, 25, 85, 30, 0, 55, 0, 90, 110, 115, 45, 20, 40, 20, 45, 85, 20, 1, 70, 0, 25, 0, 70, 0, 0, 0, 35, 0, 0},  /* NOCTURNE: slow and dark, a resonant low-pass */
+    {85, 50, 60, 10, 60, 70, 50, 25, 0, 40, 30, 120, 100, 105, 60, 50, 30, 50, 70, 90, 0, 3, 20, 2, 20, 0, 85, 0, 0, 2, 80, 30, 0},  /* HAZE: airy: high-passed, an octave up */
+    {50, 95, 25, 20, 30, 50, 45, 30, 0, 70, 20, 100, 60, 80, 30, 50, 20, 40, 64, 65, 0, 0, 0, 0, 15, 100, 85, 0, 0, 1, 64, 0, 0},  /* PULSE: every partial beating, quick */
+    {30, 110, 70, 0, 20, 80, 20, 40, 30, 120, 100, 110, 70, 100, 35, 60, 20, 40, 90, 90, 0, 3, 0, 2, 30, 20, 110, 40, 40, 4, 100, 15, 0},  /* RIME: thin ice, two octaves up, glittering */
+    {100, 100, 0, 40, 25, 25, 100, 20, 0, 50, 0, 60, 90, 95, 25, 30, 20, 30, 40, 45, 0, 1, 10, 0, 0, 0, 40, 0, 0, 0, 30, 0, 0},  /* DEEP: weight: the fundamental, an octave under */
+    {20, 120, 15, 5, 20, 50, 20, 10, 0, 70, 0, 90, 90, 100, 50, 40, 80, 50, 64, 80, 0, 0, 0, 0, 50, 10, 85, 127, 0, 1, 64, 0, 0},  /* SPECTRAL: one overtone alone, singing */
+    {80, 50, 40, 100, 50, 45, 65, 60, 20, 80, 40, 80, 60, 80, 40, 55, 25, 40, 55, 55, 70, 0, 80, 1, 20, 15, 75, 0, 60, 1, 45, 20, 0},  /* RUST: gritty: driven, grains, a resonant band */
+    {0, 125, 0, 0, 0, 50, 127, 0, 0, 50, 0, 60, 100, 100, 5, 20, 0, 40, 50, 70, 0, 0, 0, 0, 0, 0, 85, 0, 0, 1, 64, 0, 0},  /* STILL: almost a sine, unmoving */
 };
 
 /* the LFOs: RATE's free values (LFO_NFREE of them, 0.005 Hz .. 10 Hz), then its values on the grid, in MIDI clocks
@@ -640,7 +644,7 @@ static const uint8_t LFO_TGT[NLFO_TGT] = {NPARAM, P_TIMBRE, P_ESPACE, P_MOUVEMEN
                                     P_BR_TONE, P_BR_AIR, P_ECART, P_GL_LEVEL, P_GL_BRIGHT, P_GL_PING, P_GL_SPACE,
                                     P_MX_DRONE, P_MX_GLINT, P_BS_FILTER, P_BS_RESO, P_BS_DRIVE, P_MX_BASS, P_DR_FULL,
                                     P_ARP_CHANCE, P_SQ_LEN, P_GX_SPARK, P_GX_BLUR, P_GX_SINK, P_FL_CUT, P_FL_RESO,
-                                    P_PN_DRONE, P_PN_BASS, P_PN_GLINT, P_PN_CLOUD};   /* (GLINT's CHANCE,
+                                    P_PN_DRONE, P_PN_BASS, P_PN_GLINT, P_PN_CLOUD, P_CH_SOFT};   /* (GLINT's CHANCE,
                                                                 * its SEQ LENGTH, SPARKLE: app.c's, arp_chance,
                                                                 * seq_len, sparkle_run) */
 static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MOTION", "WARMTH", "CHOIR", "PARTIALS",
@@ -650,7 +654,7 @@ static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MO
                                              "GL SPACE", "DRONE LVL", "GLINT LVL", "BS FILTER", "BS RESO",
                                              "BS DRIVE", "BASS LVL", "BODY", "GL CHANCE", "SEQ LEN",
                                              "SPARKLE", "BLUR", "SINK", "CUTOFF", "RESO", "DRONE PAN", "BASS PAN",
-                                             "GLINT PAN", "CLOUD PAN"};   /* (new ones at the end: a saved TARGET
+                                             "GLINT PAN", "CLOUD PAN", "SOFT"};   /* (new ones at the end: a saved TARGET
                                                                          * keeps its setting) */
 static float lfo_hz(uint32_t r) { return 0.005f * fm_powf(2000.0f, (float)r / (float)(LFO_NFREE - 1u)); }
 /* GLINT's OCTAVE, in semitones: every glint is played without it, the engine puts it on (a key's, a MIDI note's, the
@@ -828,6 +832,7 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
         b->ch_shape = u7(v, P_CH_SHAPE);
         b->ch_interval = CH_IV[v[P_CH_INTERVAL] % 4u];
         b->ch_reso = u7(v, P_CH_RESO);
+        b->ch_soft = u7(v, P_CH_SOFT);
         b->ch_type = v[P_CH_TYPE] % 3u;
         b->pa_evolve = u7(v, P_PA_EVOLVE);
         b->pa_beat = u7(v, P_PA_BEAT);
@@ -1197,10 +1202,12 @@ static void value_text(int p, uint8_t x, char *b)
         time_text(0.001f * fm_powf(300.0f, u), b);
         break;
     case F_SHAPE:
-        if (x == 0)
+        if (x == 0)                     /* frasil.c's: the square at the middle, the narrowest pulse at the end */
             text_cat(b, "SAW");
-        else if (x >= PD[p].max)
+        else if (x == (PD[p].max + 1u) / 2u)
             text_cat(b, "SQUARE");
+        else if (x >= PD[p].max)
+            text_cat(b, "PULSE");
         else
             int_text((int32_t)((u * 100.0f) + 0.5f), b);
         break;

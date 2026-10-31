@@ -2057,6 +2057,118 @@ static void scenes_list(void)
     }
 }
 
+/* CHOIR II and III: the wave SHAPE makes (frasil.c's: a saw minus a of itself w later; a SAW, the SQUARE at the middle,
+ * then a PULSE ever narrower), two turns across the strip, its width swaying as the engine sways it; faint, the bare
+ * shape; bright, the wave as heard: SOFT's integrators (frasil.c choir_run: each k / (0.15 k + j w), at harmonic n
+ * 1 / (0.15 + j n), mixed by quarter turns), then CHOIR's filter (FILTER and TIMBRE where it cuts, RESONANCE, TYPE: its
+ * first harmonics). CHOIR II: SHAPE's badge on the edge it moves; III: SOFT's on the wave's top, near the strip's
+ * start */
+#define CS_N 40
+static void choir_scope(float t)
+{
+    const int32_t zero = 62, half = 20;
+    const float ph0 = 0.18f;             /* (no edge on the strip's ends) */
+    float sh = br_clamp01(((float)st.v[P_CH_SHAPE] + mod[P_CH_SHAPE]) * (1.0f / 127.0f));
+    float a = sh < 0.5f ? 2.0f * sh : 1.0f, w0 = sh < 0.5f ? 0.5f : 0.5f - 0.8f * (sh - 0.5f);
+    float sw = sh > 0.5f ? 0.03f + 0.18f * (sh - 0.5f) : 0.03f * a;
+    float w = w0 + sw * fm_sinf(6.2831853f * 0.21f * t);
+    float ce = br_clamp01(((float)st.v[P_FILTRE] + mod[P_FILTRE]) * (1.0f / 127.0f) +
+                          (((float)st.v[P_TIMBRE] + mod[P_TIMBRE]) * (1.0f / 127.0f) - 0.5f) * 0.6f);
+    float hc = 1.0f + 39.0f * ce * ce, rs = br_clamp01(((float)st.v[P_CH_RESO] + mod[P_CH_RESO]) * (1.0f / 127.0f));
+    float q = 0.5f * fm_powf(40.0f, rs), cr[CS_N], ci[CS_N], raw[RS_N], out[RS_N], pr = 1e-3f, po = 1e-3f, edge, pk = -1e9f;
+    float so = br_clamp01(((float)st.v[P_CH_SOFT] + mod[P_CH_SOFT]) * (1.0f / 127.0f)), s0 = 1.0f, s1 = 0.0f, s2 = 0.0f;
+    uint32_t type = st.v[P_CH_TYPE] % 3u, n;
+    int32_t x, py = 0, qy = 0, ex, top = 0, tx = 0;
+    w = w < 0.04f ? 0.04f : w > 0.96f ? 0.96f : w;
+    if (so > 0.002f) {                   /* SOFT's mix, as the engine's (its gains k and k^2 in the stages here) */
+        float g = 3.14159265f * (so < 0.5f ? so : so - 0.5f), c = fm_cosf(g), sn = fm_sinf(g);
+        s0 = so < 0.5f ? c : 0.0f;
+        s1 = so < 0.5f ? sn : c;
+        s2 = so < 0.5f ? 0.0f : sn;
+    }
+    for (n = 0; n < CS_N; n++) {          /* each harmonic: the saw's, less a of it w later, softened, through the filter */
+        float k = (float)(n + 1), r = k / hc, th = 6.2831853f * k * w, c0 = -0.63661977f / k;
+        float xr = c0 * (1.0f - a * fm_cosf(th)), xi = c0 * (-a * fm_sinf(th)), dr, di, nr, ni, m;
+        if (so > 0.002f) {               /* s0 + s1 / (L + j k) + s2 / (L + j k)^2, L = 0.15 (the engine's leak) */
+            float dd = 1.0f / (0.0225f + k * k), ir = 0.15f * dd, ii = -k * dd;
+            float hr = s0 + s1 * ir + s2 * (ir * ir - ii * ii), hi = s1 * ii + s2 * 2.0f * ir * ii, tr = xr * hr - xi * hi;
+            xi = xr * hi + xi * hr;
+            xr = tr;
+        }
+        if (rs > 0.002f || type) {       /* the state-variable: 1 / (1 - r^2 + j r / q), its low, band or high */
+            dr = 1.0f - r * r;
+            di = r / q;
+            nr = type == 2u ? -r * r : type == 1u ? 0.0f : 1.0f;
+            ni = type == 1u ? r / q : 0.0f;
+        } else {                         /* two one-poles: 1 / (1 + j r)^2 */
+            dr = 1.0f - r * r;
+            di = 2.0f * r;
+            nr = 1.0f;
+            ni = 0.0f;
+        }
+        m = 1.0f / (dr * dr + di * di + 1e-9f);
+        {
+            float hr = (nr * dr + ni * di) * m, hi = (ni * dr - nr * di) * m;
+            cr[n] = xr * hr - xi * hi;
+            ci[n] = xr * hi + xi * hr;
+        }
+    }
+    for (x = 0; x < RS_N; x++) {
+        float ph = ph0 + 2.0f * (float)x / (float)RS_N, f1 = ph - (float)(int32_t)ph, f2 = ph + w;
+        float zr = fm_cosf(6.2831853f * ph), zi = fm_sinf(6.2831853f * ph), ur = zr, ui = zi, y = 0.0f, tmp;
+        f2 -= (float)(int32_t)f2;
+        raw[x] = (2.0f * f1 - 1.0f) - a * (2.0f * f2 - 1.0f);
+        for (n = 0; n < CS_N; n++) {     /* (e^(j n ph) by turning, not by n sines) */
+            y += cr[n] * ui + ci[n] * ur;
+            tmp = ur * zr - ui * zi;
+            ui = ur * zi + ui * zr;
+            ur = tmp;
+        }
+        out[x] = y;
+        pr = fm_fabsf(raw[x]) > pr ? fm_fabsf(raw[x]) : pr;
+        po = fm_fabsf(y) > po ? fm_fabsf(y) : po;
+    }
+    hline(ML, MR, zero, C_STEEL);
+    for (x = 0; x < RS_N; x++) {
+        int32_t X = ML + x, yr = zero - (int32_t)(raw[x] / pr * (float)half + (raw[x] < 0.0f ? -0.5f : 0.5f));
+        int32_t yo = zero - (int32_t)(out[x] / po * (float)half + (out[x] < 0.0f ? -0.5f : 0.5f)), yy, y0, y1;
+        y0 = x && py < yr ? py : yr;     /* the bare shape, faint, its edges drawn */
+        y1 = x && py > yr ? py : yr;
+        for (yy = y0; yy <= y1; yy++)
+            bl(X, yy, C_SLATE, 14);
+        py = yr;
+        for (yy = yo < zero ? yo + 2 : zero + 1; yy < (yo < zero ? zero : yo - 1); yy++) {   /* water to the line */
+            int32_t d = yo < zero ? zero - yy : yy - zero, s = yo < zero ? zero - yo : yo - zero, al = d * 16 / (s ? s : 1);
+            if ((X + yy) & 1)
+                bl(X, yy, C_ICE, 10 * al * al / 256);
+        }
+        y0 = x && qy < yo ? qy : yo;     /* the wave heard */
+        y1 = x && qy > yo ? qy : yo;
+        for (yy = y0; yy <= y1; yy++) {
+            bl(X, yy, C_ICE, 28);
+            bl(X, yy + 1, C_ICE, 7);
+        }
+        qy = yo;
+        if (x >= 16 && x < 16 + RS_N / 2 && out[x] > pk) {   /* (its top over a whole turn, clear of the strip's
+                                                               * start: a peak, never where the strip cuts the wave) */
+            pk = out[x];
+            top = yo;
+            tx = X;
+        }
+    }
+    if (st.page == PG_CHOEUR3) {         /* SOFT's badge on the wave's top */
+        badge_r(tx, top - 2 < RS_TOP + 2 ? RS_TOP + 2 : top - 2, '1', 1,
+                touched_now() && st.touched == P_CH_SOFT ? 6.5f : 5.0f);
+        return;
+    }
+    edge = (a > 0.05f ? 1.0f - w : 0.0f) - ph0;   /* SHAPE's edge in the first turn: the shifted saw's jump, else the saw's */
+    edge -= (float)(int32_t)edge;
+    edge += edge < 0.0f ? 1.0f : 0.0f;
+    ex = ML + (int32_t)(edge * 0.5f * (float)RS_N + 0.5f);
+    badge_r(ex, zero - half - 2 < RS_TOP + 2 ? RS_TOP + 2 : zero - half - 2, '1', 1,
+            touched_now() && st.touched == P_CH_SHAPE ? 6.5f : 5.0f);
+}
+
 static void middle(float t)
 {
     band(R2, 144);
@@ -2093,6 +2205,8 @@ static void middle(float t)
             eq_scope();
         else if (st.page == PG_FILTER)
             filter_scope();
+        else if (st.page == PG_CHOEUR2 || st.page == PG_CHOEUR3)
+            choir_scope(t);
         else if (st.page == PG_TAPE)
             tape_scope();
         else if (st.page == PG_ROUTING)

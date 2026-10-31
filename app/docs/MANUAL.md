@@ -59,14 +59,15 @@ The keys play one set of notes. Every note you light is a **voice** (up to 8), a
 - **BREATH:** noise (a hiss or sparse grains) through three resonators tuned to the note, from air to glass.
 
 Each layer has two pages on EDIT: the first its level and main character, the second (CHOIR II, PARTIALS II,
-BREATH II) its source and what shapes it after. Before them, **DRONE TONE** shapes the whole drone: TIMBRE (all
-three layers brighter or darker), SPACE (how much of it goes to the reverb), MOTION (how far it drifts) and BODY.
-At 100 % BODY leaves the drone as its settings make it. Turned down, it thins it out without changing them: the
-choir closer and quieter, fewer partials, little breath, narrower, less warmth, its low body taken off.
+BREATH II) its source and what shapes it after; CHOIR has a third, CHOIR III (SOFT). Before them, **DRONE TONE**
+shapes the whole drone: TIMBRE (all three layers brighter or darker), SPACE (how much of it goes to the reverb), MOTION
+(how far it drifts) and BODY. At 100 % BODY leaves the drone as its settings make it. Turned down, it thins it out
+without changing them: the choir closer and quieter, fewer partials, little breath, narrower, less warmth, its low body
+taken off.
 **ALGORITHM** (C) turns it too, on any page, and the presets leave it where it is. An LFO can move it.
 
 **The drone's presets.** Turn **PRESETS** (B), on any page: 24 drones, each setting the three layers (their levels,
-both their pages) and the drone's own (DRONE TONE but BODY, DRONE SHAPE's ATTACK and RELEASE, DRONE MOTION).
+all their pages) and the drone's own (DRONE TONE but BODY, DRONE SHAPE's ATTACK and RELEASE, DRONE MOTION).
 The cloud, PRESSURE and VELOCITY stay as they are. MIST, CATHEDRAL, GLACIER, ABYSS, AURORA, EMBER, TIDE, DUST, WIND,
 ORGAN, HOLLOW, VOWEL, SHIMMER, CHANTER, ENSEMBLE, BELLS, NOCTURNE, HAZE, PULSE, RIME, DEEP, SPECTRAL, RUST, STILL.
 Before them, **CUSTOM**: your own. Turn any of those settings and the drone becomes CUSTOM, from where it was.
@@ -565,7 +566,7 @@ step. While SEQUENCE is on, notes on BASS's MIDI channel go into the sequencer a
 
 ## 8. The pages
 
-Press a page's button again for its next page (EDIT ×7, LFO ×7: DRONE MOTION and the three LFOs, ARP ×4 to ×7 as
+Press a page's button again for its next page (EDIT ×8, LFO ×7: DRONE MOTION and the three LFOs, ARP ×4 to ×7 as
 GLINT's SEQ has them, SEQ ×5, FX ×8, GLO ×7: GLOBAL, MIDI, MASTERING, MASTER EQ, MASTER EQ II, ROUTING, SCREEN;
 HOME: SOUND, MIXER, the logo). A button opens its page when you let it go, because holding it may do something else
 (section 4, the buttons). The dots under the page's name say where you are among them.
@@ -577,6 +578,7 @@ HOME: SOUND, MIXER, the logo). A button opens its page when you let it go, becau
 | EDIT | DRONE TONE | TIMBRE (all three layers' brightness) | SPACE (the reverb's share) | MOTION (the drift's depth) | BODY (100 %: as set; down: thinner) |
 | EDIT | CHOIR | CHOIR (level) | DETUNE (0 to 40 cents) | FILTER (follows the note) | WARMTH |
 | EDIT | CHOIR II | SHAPE (SAW, SQUARE in the middle, then narrower pulses) | INTERVAL (the centre saw: UNISON, −12, +7, +12) | RESONANCE (the filter's peak, Q 0.5 to 20) | TYPE (LOW, BAND, HIGH) |
+| EDIT | CHOIR III | SOFT (the wave softened: 50 %, a square becomes a triangle; 100 %, near a sine) | | | |
 | EDIT | PARTIALS | PARTIALS (level) | TILT (bright to dark) | ODD (odd harmonics) | STRETCH (toward a bell) |
 | EDIT | PARTIALS II | EVOLVE (their levels wander, deeper and quicker) | BEAT (each one pulses at its own pace) | FORMANT (its place, H1 to H8) | PEAK (up to that harmonic alone) |
 | EDIT | BREATH | BREATH (level) | RESONANCE (air to glass) | COLOR (harmonic, odd, bell) | SPREAD (the voices' width) |
@@ -704,6 +706,10 @@ the three off.
   octave down, a fifth up or an octave up, under or over its two detuned neighbours. RESONANCE gives the filter a
   peak, a soft vowel by the middle, a whistle at the top. TYPE is the filter: LOW (the low-pass, as on the first
   page), BAND (a band-pass: nasal, vocal) or HIGH (a high-pass: thin, airy). FILTER sets where it sits either way.
+  Above the page, the wave: faint, as SHAPE makes it; bright, as heard.
+- **CHOIR III.** SOFT rounds the choir's wave off, the harmonics going down, the fundamental as loud: at 50 % a
+  square becomes a triangle, at 100 % the wave is near a sine. At 0, the wave as SHAPE makes it. Its wave above the
+  page, as on CHOIR II. The presets set it to 0.
 - **PARTIALS II.** EVOLVE makes the partials' levels wander much further, and up to four times quicker, than
   MOTION alone does: partials come and go, and the spectrum changes colour by itself. At 0 they wander as MOTION has
   them. BEAT makes each partial pulse at its own pace, slow and shallow at first, quick and deep at the top (about
@@ -734,9 +740,9 @@ its targets, LFO 3, its targets.
   glide, so a FILTER swept by an LFO is a smooth wobble), DRONE LVL, GLINT LVL and BASS LVL (the MIXER's), BODY,
   GL CHANCE (the arpeggiator's and the sequencer's CHANCE), SEQ LEN (GLINT's SEQ LENGTH), SPARKLE, BLUR, SINK,
   CUTOFF and RESO (MASTER FILTER's), DRONE PAN, BASS PAN, GLINT PAN and CLOUD PAN (the MIXER's pans: chosen here, the
-  MIXER's knobs being the levels). Each is written in its track's colour, as the keys' badge has them: GLINT's ice
-  blue (the GL ones, GLINT LVL, SEQ LEN, SPARKLE, GLINT PAN), BASS's orange (the BS ones, BASS LVL, BASS PAN), the
-  drone's and the whole mix's white.
+  MIXER's knobs being the levels), SOFT (CHOIR III's). Each is written in its track's colour, as the keys' badge has
+  them: GLINT's ice blue (the GL ones, GLINT LVL, SEQ LEN, SPARKLE, GLINT PAN), BASS's orange (the BS ones, BASS LVL,
+  BASS PAN), the drone's and the whole mix's white.
 
 An LFO runs freely and without end while it is on, with DEPTH up and a target set; a key does not start or restart
 it. Its four targets move together, by the same amount, and LFOs on one setting add up. The setting keeps the

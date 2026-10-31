@@ -82,7 +82,8 @@ Each drone voice (up to 8) has three layers. They all play the same notes; you m
 | **PARTIALS** | 8 additive harmonics, each drifting on its own in level and tuning; from bright to dark, odd, stretched into bells, beating, with a formant down to one overtone alone |
 | **BREATH** | noise or sparse grains through three resonators tuned to the note, from air (low Q) to glass (high Q) |
 
-Each layer has a second page on EDIT for its source and what shapes it after (CHOIR II, PARTIALS II, BREATH II),
+Each layer has a second page on EDIT for its source and what shapes it after (CHOIR II, PARTIALS II, BREATH II; CHOIR
+III's SOFT rounds the choir's wave off),
 and DRONE TONE shapes the whole drone (TIMBRE, SPACE, MOTION, BODY). PRESETS turns through 24 drone presets
 (MIST, CATHEDRAL, GLACIER, ABYSS, AURORA, EMBER, TIDE, DUST, WIND, ORGAN, HOLLOW, VOWEL, SHIMMER, CHANTER, ENSEMBLE,
 BELLS, NOCTURNE, HAZE, PULSE, RIME, DEEP, SPECTRAL, RUST, STILL): touch a setting and the drone becomes CUSTOM, which
@@ -124,7 +125,7 @@ low-pass.
 | **ARP** | GLINT's pages (tap again for the next: GLINT I, II, ADSR, DELAY, then GLINT ARP or the sequencer's as GLINT I's SEQ has it). Hold: arpeggio LATCH (turned on, SEQ on ARP too) |
 | **SEQ** | BASS's pages (tap again for the next: BASS, II, ADSR, then BASS SEQ, BASS SEQ II) |
 | **SEL** | HARMONY: root, scale, chord, voicing. Hold SEL and tap a key: a single note over a chord |
-| **EDIT, ENV, LFO, FX, GLO** | DRONE TONE and the LAYERS (×7: each layer and its second page), DRONE SHAPE, DRONE MOTION and the three LFOs (×7), GENERATIVE FX, CLOUD (×3), MASTER FILTER, LOFI TAPE and PUMP (×2), GLOBAL, MIDI, MASTERING, MASTER EQ (×2), ROUTING and SCREEN. Hold ENV: SWELL, every drone voice swells together. Hold OCT-, then EDIT: COMPARE, the scene as saved. Hold FX: FREEZE. Hold LFO and turn K1–K4: that setting onto an LFO. Hold GLO and move a CC: MIDI learn |
+| **EDIT, ENV, LFO, FX, GLO** | DRONE TONE and the LAYERS (×8: each layer and its second page, CHOIR III), DRONE SHAPE, DRONE MOTION and the three LFOs (×7), GENERATIVE FX, CLOUD (×3), MASTER FILTER, LOFI TAPE and PUMP (×2), GLOBAL, MIDI, MASTERING, MASTER EQ (×2), ROUTING and SCREEN. Hold ENV: SWELL, every drone voice swells together. Hold OCT-, then EDIT: COMPARE, the scene as saved. Hold FX: FREEZE. Hold LFO and turn K1–K4: that setting onto an LFO. Hold GLO and move a CC: MIDI learn |
 | **HOME** | the play page; again: the MIXER; again: the living logo screen. Hold: on-screen help (5 pages, turn SELECT) |
 | **SAVE** | SCENES (K1 or SELECT the slot, or NEW SHARD above slot 01 to start fresh, KEYS left as they are; MORPH, LOAD); again: back. Hold SAVE and press REC: STORE. Hold SAVE and press a white key: load that scene |
 | **PLAY** | with nothing playing, the scene (its three tracks, as held); else the transport: GLINT's sequence and the bass's stop together or start together from the top, the arpeggio waits or goes on; on SCENES, load. Tapped twice quick while anything plays, or held: RELEASE ALL; with nothing playing, RESTORE: the scene again, its sequences from the top. Starting or held, it restarts the beat there, as a MIDI Start (a MIDI clock's beats are left as they are) |
