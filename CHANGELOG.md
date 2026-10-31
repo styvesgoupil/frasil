@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.5.1 (2026-10-30)
+
+A fix for heavy scenes.
+
+**Fixes**
+
+- **Chord changes**: on a heavy scene, a new chord taken while the last one rang out glitched for a moment. The engine now makes room first: the old chord's tail ends sooner, the sound never breaks.
+
 ## 2.5 (2026-10-30)
 
 Three new effects, clean recording over USB, and new ways to start and stop a scene live.
