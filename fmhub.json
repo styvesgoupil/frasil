@@ -5,5 +5,6 @@
     "chords"
   ],
   "play": "https://frasilsynth.com/play/",
-  "editor": "https://editor.frasilsynth.com/"
+  "editor": "https://editor.frasilsynth.com/",
+  "image": "docs/img/screen-play.png"
 }
