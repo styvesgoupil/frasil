@@ -2,22 +2,30 @@
 
 ## 3.0 (2026-11-02)
 
-Three tracks, each with its own keys, sequence and presets.
+**A complete controls redesign, more intuitive.** Three tracks, each with its own keys, sound, arpeggio and sequence.
+
+**The basics**
+
+- **SEL**: pick the track: DRONE, GLINT or BASS. The keys, the header's colour and every page below follow it.
+- **HOME II (KEYS)**: how the keys play the track: SINGLE NOTE or CHORD, in the scale or not, LATCH, STACK.
+- **EDIT**: shape the selected track's sound.
+- **ARP**: the selected track's arpeggiator.
+- **SEQ**: the selected track's sequencer.
 
 **New**
 
-- **Three tracks**: SELECT picks DRONE, GLINT or BASS; the keys, the header's colour and EDIT, ENV, ARP, SEQ and REC follow it.
-- **KEYS**: HARMONY, NOTES, LATCH and STACK for each track, on HOME's second page; the header says CHORD · GLINT while a track's keys play chords.
-- **The drone's sequence**: its chords a step at a time, up to 32 steps.
-- **Your presets**: save a drone, a GLINT sound or a bass, sixteen of each; they go into backups too.
-- **The name grid**: presets, an LFO's targets and scales as a list while you turn; SEL keeps, FX goes back.
-- **Recording on every track**: REC from any page, LIVE or STEP, a bar counted in from silence.
+- **Your own presets**: save your DRONE, GLINT and BASS sounds, sixteen of each; they go into backups too.
+- **Recording, far simpler**: REC from any page, realtime (LIVE) or step by step (STEP), a bar counted in from silence.
+- **The drone and the bass can be sequenced**: the drone's chords a step at a time, the bass's notes, up to 32 steps each.
+- **The bass has the arpeggiator**, not just GLINT.
+- **BASS TONE**: DRIVE, WEIGHT, PUNCH, BITE.
+- **ARP SNAP**: a new chord joins an arpeggio on the beat, the hand gathered first (GLO, GLOBAL; 1/4 at first, OFF as before).
 - **STACK**: hold SEQ, and new notes and chords join what is held instead of replacing it.
-- **The bass**: 32 steps on one RATE, its own arpeggio, and BASS TONE (DRIVE, WEIGHT, PUNCH, BITE).
+- **The name grid**: presets, an LFO's targets and scales as a list while you turn; SEL keeps, FX goes back.
+- **CHORD in the header**: CHORD · GLINT while a track's keys play chords.
 - **AUTO VIB**: a vibrato of its own on every glint.
 - **EDIT held**: three black keys jump to the track's pages.
 - **CLOUD SEND**: each track's reverb send on one page.
-- **ARP SNAP**: a new chord joins an arpeggio on the beat, the hand gathered first (GLO, GLOBAL; 1/4 at first, OFF as before).
 - **SCREENSAVER**: after ten minutes untouched the screen goes black and the logo drifts; any control wakes it (GLO, SCREEN).
 
 **Fixes and changes**
@@ -33,6 +41,19 @@ Three tracks, each with its own keys, sequence and presets.
 - **The River**: shards go into an FM-1 on 3.0; update first.
 
 Scenes and backups from earlier versions convert on their own. A backup from before 3.0 holds no presets: yours stay.
+
+**FRASIL River**
+
+- [river.frasilsynth.com](https://river.frasilsynth.com/): back up your FM-1 and keep your scenes, called shards, in Your Private River; share them in the Community River.
+- A shard plays in the browser with its LUCID and DREAM pictures; SEND TO FM-1 puts it into an FM-1 on 3.0.
+
+**FRASIL Editor, new**
+
+- [editor.frasilsynth.com](https://editor.frasilsynth.com/): shape a scene track by track in the browser: open it from your FM-1, the River or a file, save it back to any of them.
+
+**FRASIL Perform**
+
+- [perform.frasilsynth.com](https://perform.frasilsynth.com/): a realtime second screen for your FM-1 on 3.0: what plays, drawn large, over Web MIDI.
 
 ## 2.6 (2026-10-31)
 
