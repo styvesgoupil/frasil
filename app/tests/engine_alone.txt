@@ -1,0 +1,1266 @@
+# The engine with MIDI and settings alone (no FM-1 panel): the drone's presets, the harmony, GLINT's arpeggio and
+# sequence, BASS and its sequence, PULSE, the LFOs, FREEZE, GENERATIVE FX, every sound setting at its ends, the
+# clock and Start, All Notes Off, All Sound Off, the scenes (Program Change), MORPH, LOAD SND ONLY, PUMP, MASTERING;
+# 2.5's MASTER EQ, MASTER FILTER and LOFI TAPE (each choice of tracks, before and after the cloud), CLOUD PUMP, the
+# pans, PIANO, CLOCK INTERNAL; 2.6's CHOIR III's SOFT (0, 64, 127 on a square choir an octave under, then an octave
+# over, off and on again, on an LFO crossing 0, turned on a preset). The settings' numbers 2.6's: past NSOUND 23
+# higher than 2.0's in 2.5, one more in 2.6 (SOFT 153).
+# The simulator's and the engine alone's (engine/tests/run.sh: alone) the same renderhash, part by part:
+#   app/build/host/frasil_host app/tests/engine_alone.txt OUTDIR
+# (made by a script from the schema; the values are the settings' numbers, as schema.json's ids have them)
+master 4096
+wait 300
+wav engine-alone.wav
+midi 90 30 64
+midi 90 37 50
+wait 1200
+param 113 1
+wait 600
+param 113 2
+wait 600
+param 113 3
+wait 600
+param 113 4
+wait 600
+param 113 5
+wait 600
+param 113 6
+wait 600
+param 113 7
+wait 600
+param 113 8
+wait 600
+param 113 9
+wait 600
+param 113 10
+wait 600
+param 113 11
+wait 600
+param 113 12
+wait 600
+param 113 13
+wait 600
+param 113 14
+wait 600
+param 113 15
+wait 600
+param 113 16
+wait 600
+param 113 17
+wait 600
+param 113 18
+wait 600
+param 113 19
+wait 600
+param 113 20
+wait 600
+param 113 21
+wait 600
+param 113 22
+wait 600
+param 113 23
+wait 600
+param 113 24
+wait 600
+param 113 0
+wait 800
+# -- the drone's presets
+renderhash
+midi 80 30 00
+midi 80 37 00
+wait 1200
+param 33 5
+param 34 2
+param 35 3
+param 36 1
+midi 90 32 5A
+wait 700
+midi 90 39 46
+wait 900
+midi A0 32 50
+wait 500
+midi D0 40 00
+wait 500
+midi B0 40 7F
+midi 80 32 00
+wait 800
+midi B0 40 00
+wait 800
+midi B0 0B 64
+wait 900
+midi B0 0B 00
+wait 600
+param 35 9
+param 36 2
+midi 90 35 64
+wait 1500
+midi 80 39 00
+midi 80 35 00
+wait 1500
+# -- the harmony
+renderhash
+param 123 1
+midi 90 2D 5A
+midi 91 3E 64
+midi 91 42 64
+midi 91 45 64
+wait 1500
+param 45 0
+wait 1800
+param 45 1
+wait 1800
+param 45 2
+wait 1800
+param 45 3
+wait 1800
+param 45 4
+wait 1800
+param 47 2
+param 48 80
+param 46 7
+wait 2000
+param 37 0
+wait 400
+param 37 1
+wait 400
+param 37 2
+wait 400
+param 37 3
+wait 400
+param 37 4
+wait 400
+param 37 5
+wait 400
+param 37 6
+wait 400
+param 37 7
+wait 400
+param 37 8
+wait 400
+param 37 9
+wait 400
+param 37 10
+wait 400
+param 37 11
+wait 400
+param 37 12
+wait 400
+param 37 13
+wait 400
+param 37 14
+wait 400
+param 37 15
+wait 400
+param 37 16
+wait 400
+param 37 17
+wait 400
+param 37 18
+wait 400
+param 37 19
+wait 400
+param 37 20
+wait 400
+param 37 21
+wait 400
+param 37 8
+midi A1 42 50
+wait 800
+midi 81 3E 00
+midi 81 42 00
+midi 81 45 00
+wait 1500
+# -- GLINT's arpeggio
+renderhash
+param 123 2
+param 160 0
+param 161 60
+param 162 1
+param 160 1
+param 161 62
+param 160 2
+param 161 0
+param 160 3
+param 161 67
+param 160 4
+param 161 127
+param 160 5
+param 161 64
+param 162 1
+param 160 6
+param 161 0
+param 160 7
+param 161 72
+param 160 8
+param 161 69
+param 160 9
+param 161 0
+param 160 10
+param 161 127
+param 162 1
+param 160 11
+param 161 65
+param 160 12
+param 161 60
+param 160 13
+param 161 0
+param 160 14
+param 161 74
+param 160 15
+param 161 72
+param 162 1
+param 110 15
+wait 3000
+param 111 110
+param 112 17
+wait 2500
+midi 91 40 64
+wait 300
+midi 81 40 00
+wait 2500
+param 164 1
+param 164 2
+wait 1000
+param 171 1
+param 171 2
+wait 2500
+# -- GLINT's sequence
+renderhash
+param 123 0
+midi 92 24 64
+wait 1500
+param 62 0
+wait 700
+param 62 1
+wait 700
+param 62 2
+wait 700
+param 62 3
+wait 700
+param 62 4
+wait 700
+param 62 5
+wait 700
+param 62 6
+wait 700
+param 62 7
+wait 700
+midi 92 2B 5A
+wait 1000
+param 129 1
+wait 1600
+param 129 3
+wait 1600
+param 129 5
+wait 1600
+param 129 0
+wait 1600
+midi 82 2B 00
+wait 400
+midi 82 24 00
+wait 800
+param 177 2
+param 176 23
+param 172 0
+param 173 36
+param 183 5
+param 172 7
+param 173 43
+param 183 2
+param 172 9
+param 173 41
+param 183 8
+param 172 18
+param 173 38
+param 183 6
+wait 4000
+param 179 17
+midi 92 28 64
+wait 300
+midi 82 28 00
+wait 3000
+param 129 2
+wait 2500
+param 129 0
+# -- BASS
+renderhash
+param 94 0
+param 95 50
+param 96 90
+param 97 0
+param 98 1
+param 99 2
+param 102 5
+param 103 70
+param 104 60
+param 105 1
+param 106 3
+param 107 5
+param 115 6
+param 116 66
+param 117 100
+param 118 2
+param 119 9
+param 120 12
+wait 5000
+param 94 0
+wait 700
+param 94 1
+wait 700
+param 94 2
+wait 700
+param 94 3
+wait 700
+param 94 4
+wait 700
+param 94 5
+wait 700
+param 94 6
+wait 700
+# -- the LFOs
+renderhash
+midi B0 50 7F
+wait 2000
+midi B0 50 00
+wait 2000
+param 157 1
+wait 1500
+param 157 0
+wait 1500
+param 165 100
+wait 2000
+param 124 90
+wait 2000
+param 125 100
+wait 2000
+param 126 80
+wait 2000
+param 165 0
+param 124 0
+param 125 0
+param 126 0
+wait 1500
+# -- FREEZE and GENERATIVE FX
+renderhash
+param 123 1
+midi 91 40 64
+midi 91 47 64
+midi 92 26 64
+param 0 127
+wait 200
+param 0 0
+wait 200
+param 0 76
+param 1 127
+wait 200
+param 1 0
+wait 200
+param 1 89
+param 2 127
+wait 200
+param 2 0
+wait 200
+param 2 32
+param 3 127
+wait 200
+param 3 0
+wait 200
+param 3 19
+param 4 127
+wait 200
+param 4 0
+wait 200
+param 4 51
+param 5 127
+wait 200
+param 5 0
+wait 200
+param 5 44
+param 6 127
+wait 200
+param 6 0
+wait 200
+param 6 57
+param 7 127
+wait 200
+param 7 0
+wait 200
+param 7 25
+param 8 127
+wait 200
+param 8 0
+wait 200
+param 8 0
+param 9 127
+wait 200
+param 9 0
+wait 200
+param 9 70
+param 10 127
+wait 200
+param 10 0
+wait 200
+param 10 0
+param 11 127
+wait 200
+param 11 0
+wait 200
+param 11 89
+param 12 127
+wait 200
+param 12 0
+wait 200
+param 12 89
+param 13 127
+wait 200
+param 13 0
+wait 200
+param 13 83
+param 14 127
+wait 200
+param 14 0
+wait 200
+param 14 76
+param 15 127
+wait 200
+param 15 0
+wait 200
+param 15 38
+param 16 127
+wait 200
+param 16 0
+wait 200
+param 16 44
+param 17 127
+wait 200
+param 17 0
+wait 200
+param 17 51
+param 18 127
+wait 200
+param 18 0
+wait 200
+param 18 25
+param 19 127
+wait 200
+param 19 0
+wait 200
+param 19 38
+param 20 127
+wait 200
+param 20 0
+wait 200
+param 20 95
+param 21 127
+wait 200
+param 21 0
+wait 200
+param 21 79
+param 22 127
+wait 200
+param 22 0
+wait 200
+param 22 64
+param 23 127
+wait 200
+param 23 0
+wait 200
+param 23 0
+param 24 127
+wait 200
+param 24 0
+wait 200
+param 24 95
+param 25 127
+wait 200
+param 25 0
+wait 200
+param 25 64
+param 26 127
+wait 200
+param 26 0
+wait 200
+param 26 13
+param 27 4
+wait 200
+param 27 0
+wait 200
+param 27 0
+param 28 127
+wait 200
+param 28 0
+wait 200
+param 28 25
+param 29 127
+wait 200
+param 29 0
+wait 200
+param 29 127
+param 30 100
+wait 200
+param 30 0
+wait 200
+param 30 50
+param 31 127
+wait 200
+param 31 0
+wait 200
+param 31 64
+param 32 127
+wait 200
+param 32 0
+wait 200
+param 32 57
+param 33 11
+wait 200
+param 33 0
+wait 200
+param 33 2
+param 34 11
+wait 200
+param 34 0
+wait 200
+param 34 0
+param 35 14
+wait 200
+param 35 0
+wait 200
+param 35 0
+param 36 2
+wait 200
+param 36 0
+wait 200
+param 36 0
+param 38 12
+wait 200
+param 38 0
+wait 200
+param 38 6
+param 39 127
+wait 200
+param 39 0
+wait 200
+param 39 70
+param 40 127
+wait 200
+param 40 0
+wait 200
+param 40 70
+param 41 127
+wait 200
+param 41 0
+wait 200
+param 41 90
+param 42 3
+wait 200
+param 42 0
+wait 200
+param 42 2
+param 43 127
+wait 200
+param 43 0
+wait 200
+param 43 90
+param 44 127
+wait 200
+param 44 0
+wait 200
+param 44 76
+param 45 4
+wait 200
+param 45 0
+wait 200
+param 45 0
+param 46 9
+wait 200
+param 46 0
+wait 200
+param 46 5
+param 47 2
+wait 200
+param 47 0
+wait 200
+param 47 1
+param 48 127
+wait 200
+param 48 0
+wait 200
+param 48 127
+param 49 127
+wait 200
+param 49 0
+wait 200
+param 49 0
+param 50 127
+wait 200
+param 50 0
+wait 200
+param 50 68
+param 51 23
+wait 200
+param 51 0
+wait 200
+param 51 19
+param 52 127
+wait 200
+param 52 0
+wait 200
+param 52 50
+param 53 1
+wait 200
+param 53 0
+wait 200
+param 53 1
+param 54 127
+wait 200
+param 54 0
+wait 200
+param 54 40
+param 55 127
+wait 200
+param 55 0
+wait 200
+param 55 20
+param 56 127
+wait 200
+param 56 0
+wait 200
+param 56 80
+param 57 127
+wait 200
+param 57 0
+wait 200
+param 57 20
+param 58 127
+wait 200
+param 58 0
+wait 200
+param 58 90
+param 59 2
+wait 200
+param 59 0
+wait 200
+param 59 1
+param 60 127
+wait 200
+param 60 0
+wait 200
+param 60 30
+param 61 127
+wait 200
+param 61 0
+wait 200
+param 61 50
+param 62 7
+wait 200
+param 62 0
+wait 200
+param 62 0
+param 63 127
+wait 200
+param 63 0
+wait 200
+param 63 50
+param 64 127
+wait 200
+param 64 0
+wait 200
+param 64 20
+param 65 6
+wait 200
+param 65 0
+wait 200
+param 65 0
+param 66 127
+wait 200
+param 66 0
+wait 200
+param 66 90
+param 67 127
+wait 200
+param 67 0
+wait 200
+param 67 60
+param 68 127
+wait 200
+param 68 0
+wait 200
+param 68 40
+param 69 40
+wait 200
+param 69 0
+wait 200
+param 69 28
+param 70 7
+wait 200
+param 70 0
+wait 200
+param 70 0
+param 71 127
+wait 200
+param 71 0
+wait 200
+param 71 62
+param 72 18
+wait 200
+param 72 0
+wait 200
+param 72 0
+param 73 127
+wait 200
+param 73 0
+wait 200
+param 73 100
+param 74 127
+wait 200
+param 74 0
+wait 200
+param 74 100
+param 75 127
+wait 200
+param 75 0
+wait 200
+param 75 100
+param 76 127
+wait 200
+param 76 0
+wait 200
+param 76 100
+param 77 127
+wait 200
+param 77 0
+wait 200
+param 77 57
+param 78 127
+wait 200
+param 78 0
+wait 200
+param 78 127
+param 79 127
+wait 200
+param 79 0
+wait 200
+param 79 36
+param 80 127
+wait 200
+param 80 0
+wait 200
+param 80 0
+param 81 127
+wait 200
+param 81 0
+wait 200
+param 81 0
+param 82 3
+wait 200
+param 82 0
+wait 200
+param 82 0
+param 83 127
+wait 200
+param 83 0
+wait 200
+param 83 0
+param 84 2
+wait 200
+param 84 0
+wait 200
+param 84 0
+param 85 127
+wait 200
+param 85 0
+wait 200
+param 85 0
+param 86 127
+wait 200
+param 86 0
+wait 200
+param 86 0
+param 87 127
+wait 200
+param 87 0
+wait 200
+param 87 85
+param 88 127
+wait 200
+param 88 0
+wait 200
+param 88 0
+param 89 127
+wait 200
+param 89 0
+wait 200
+param 89 0
+param 90 4
+wait 200
+param 90 0
+wait 200
+param 90 1
+param 91 127
+wait 200
+param 91 0
+wait 200
+param 91 64
+param 92 127
+wait 200
+param 92 0
+wait 200
+param 92 0
+param 93 127
+wait 200
+param 93 0
+wait 200
+param 93 0
+param 94 6
+wait 200
+param 94 0
+wait 200
+param 94 0
+param 95 75
+wait 200
+param 95 0
+wait 200
+param 95 25
+param 96 127
+wait 200
+param 96 0
+wait 200
+param 96 0
+param 97 2
+wait 200
+param 97 0
+wait 200
+param 97 0
+param 98 40
+wait 200
+param 98 0
+wait 200
+param 98 0
+param 99 40
+wait 200
+param 99 0
+wait 200
+param 99 0
+param 100 40
+wait 200
+param 100 0
+wait 200
+param 100 0
+param 101 40
+wait 200
+param 101 0
+wait 200
+param 101 0
+param 102 6
+wait 200
+param 102 0
+wait 200
+param 102 0
+param 103 75
+wait 200
+param 103 0
+wait 200
+param 103 25
+param 104 127
+wait 200
+param 104 0
+wait 200
+param 104 0
+param 105 2
+wait 200
+param 105 0
+wait 200
+param 105 0
+param 106 40
+wait 200
+param 106 0
+wait 200
+param 106 0
+param 107 40
+wait 200
+param 107 0
+wait 200
+param 107 0
+param 108 40
+wait 200
+param 108 0
+wait 200
+param 108 0
+param 109 40
+wait 200
+param 109 0
+wait 200
+param 109 0
+param 110 31
+wait 200
+param 110 0
+wait 200
+param 110 15
+param 111 127
+wait 200
+param 111 0
+wait 200
+param 111 64
+param 112 28
+wait 200
+param 112 0
+wait 200
+param 112 14
+param 114 127
+wait 200
+param 114 0
+wait 200
+param 114 127
+param 115 6
+wait 200
+param 115 0
+wait 200
+param 115 0
+param 116 75
+wait 200
+param 116 0
+wait 200
+param 116 25
+param 117 127
+wait 200
+param 117 0
+wait 200
+param 117 0
+param 118 2
+wait 200
+param 118 0
+wait 200
+param 118 0
+param 119 40
+wait 200
+param 119 0
+wait 200
+param 119 0
+param 120 40
+wait 200
+param 120 0
+wait 200
+param 120 0
+param 121 40
+wait 200
+param 121 0
+wait 200
+param 121 0
+param 122 40
+wait 200
+param 122 0
+wait 200
+param 122 0
+param 124 127
+wait 200
+param 124 0
+wait 200
+param 124 0
+param 125 127
+wait 200
+param 125 0
+wait 200
+param 125 0
+param 126 127
+wait 200
+param 126 0
+wait 200
+param 126 0
+param 127 127
+wait 200
+param 127 0
+wait 200
+param 127 64
+param 128 127
+wait 200
+param 128 0
+wait 200
+param 128 127
+param 129 6
+wait 200
+param 129 0
+wait 200
+param 129 0
+# -- every sound setting
+renderhash
+param 123 2
+clock 96 20
+midi FA 00 00
+clock 192 20
+wait 600
+midi B0 7B 00
+midi B1 7B 00
+midi B2 7B 00
+wait 1000
+midi 90 34 64
+wait 600
+midi B0 78 00
+wait 1500
+# -- MIDI's clock, Start, All Notes Off, All Sound Off
+renderhash
+midi C0 00 00
+wait 1500
+midi C0 01 00
+wait 1500
+midi C0 02 00
+wait 1500
+midi C0 03 00
+wait 1500
+midi C0 04 00
+wait 1500
+midi C0 05 00
+wait 1500
+midi C0 06 00
+wait 1500
+midi C0 07 00
+wait 1500
+midi C0 08 00
+wait 1500
+midi C0 09 00
+wait 1500
+midi C0 0A 00
+wait 1500
+midi C0 0B 00
+wait 1500
+midi C0 0C 00
+wait 1500
+midi C0 0D 00
+wait 1500
+midi C0 0E 00
+wait 1500
+midi C0 0F 00
+wait 1500
+param 167 2
+midi C0 03 00
+wait 2500
+midi C0 06 00
+wait 1000
+param 167 0
+param 168 1
+midi C0 05 00
+wait 2000
+param 168 0
+# -- the scenes
+renderhash
+param 65 4
+param 66 100
+param 67 80
+param 68 90
+wait 2500
+param 70 5
+param 69 10
+param 72 6
+wait 2000
+param 156 140
+wait 2000
+param 65 0
+param 70 0
+wait 1500
+# -- PUMP and MASTERING
+renderhash
+param 123 1
+midi 90 30 64
+midi 90 37 50
+midi 91 48 70
+midi 91 4C 70
+midi 92 24 90
+wait 1500
+param 130 1
+wait 700
+param 130 2
+wait 700
+param 130 3
+wait 700
+param 130 4
+wait 700
+param 130 5
+wait 700
+param 130 6
+wait 700
+param 130 7
+wait 700
+param 130 8
+wait 700
+param 130 1
+param 131 0
+param 132 48
+param 133 10
+wait 900
+param 134 0
+param 135 127
+param 136 0
+param 137 127
+wait 900
+param 134 127
+param 135 0
+param 136 127
+param 137 0
+param 131 48
+param 132 0
+param 133 48
+wait 900
+param 130 0
+wait 500
+# -- MASTER EQ
+renderhash
+param 138 1
+param 139 40
+param 140 100
+wait 1200
+param 141 1
+wait 700
+param 141 2
+wait 700
+param 141 3
+wait 700
+param 141 4
+wait 700
+param 141 5
+wait 700
+param 141 6
+wait 700
+param 141 0
+param 138 2
+param 139 90
+param 140 127
+wait 1200
+param 146 1
+wait 1200
+param 139 0
+param 140 0
+wait 700
+param 139 127
+wait 700
+param 138 0
+param 146 0
+wait 500
+# -- MASTER FILTER, before and after the cloud
+renderhash
+param 142 1
+param 143 127
+param 144 127
+wait 2500
+param 145 1
+wait 900
+param 145 2
+wait 900
+param 145 3
+wait 900
+param 145 4
+wait 900
+param 145 5
+wait 900
+param 145 6
+wait 900
+param 145 0
+param 147 1
+wait 2000
+param 143 0
+param 144 0
+wait 1200
+param 143 60
+param 144 70
+param 147 0
+wait 2000
+param 142 0
+wait 500
+# -- LOFI TAPE, before and after the cloud
+renderhash
+param 65 4
+param 66 100
+param 148 0
+wait 2000
+param 148 1
+wait 1500
+param 65 0
+param 149 0
+param 150 100
+param 151 20
+param 152 80
+wait 2000
+param 149 100
+param 150 0
+param 151 80
+param 152 20
+wait 2000
+param 149 50
+param 150 50
+param 151 50
+param 152 50
+wait 500
+# -- CLOUD PUMP, the pans
+renderhash
+param 37 22
+midi 91 54 90
+wait 1500
+midi 81 54 00
+midi 91 57 60
+wait 1500
+param 37 8
+param 182 1
+clock 120 48
+wait 1500
+param 182 0
+clock 120 48
+wait 1500
+midi B0 7B 00
+midi B1 7B 00
+midi B2 7B 00
+wait 2500
+# -- PIANO, CLOCK INTERNAL then AUTO, All Notes Off
+renderhash
+param 113 1
+param 0 127
+param 1 0
+param 2 0
+param 81 64
+param 82 1
+param 96 0
+param 104 0
+param 117 0
+midi 90 30 64
+midi 90 37 50
+wait 2000
+# -- 2.6: CHOIR alone, a square, the centre an octave under (INTERVAL -12), SOFT 0
+renderhash
+param 153 64
+wait 2000
+# -- SOFT 64
+renderhash
+param 153 127
+wait 2000
+# -- SOFT 127
+renderhash
+param 82 3
+wait 1500
+param 153 0
+wait 500
+param 153 100
+wait 1500
+# -- SOFT 127 then 100, the centre an octave over (INTERVAL +12), off between (its integrators emptied)
+renderhash
+param 153 40
+param 94 0
+param 95 50
+param 97 0
+param 98 47
+param 99 0
+param 100 0
+param 101 0
+param 96 127
+wait 3000
+param 96 0
+param 98 0
+wait 500
+# -- SOFT on LFO 1 (TARGET 47), crossing 0
+renderhash
+param 113 6
+wait 1500
+param 153 90
+wait 1500
+midi 80 30 00
+midi 80 37 00
+wait 2000
+# -- a preset's SOFT (0), turned on it (CUSTOM), the notes let go
+renderhash
+wavstop

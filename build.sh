@@ -3,6 +3,7 @@
 # Copyright (C) 2026 Styves Goupil
 # Build FRASIL with fm1-base (base/, a git submodule).
 #   ./build.sh [--release X.Y] [--host | --web]       (the version: VERSION's, unless --release names another)
+#   --web also makes stream.wasm (tools/stream_wasm.sh: FRASIL STREAM's engine, app/build/stream/)
 #   JIELI_TOOLCHAIN  JieLi Linux toolchain (default: ~/.jieli/toolchain)
 #   AC79_SDK         JieLi AC79 SDK checkout (default: ~/fw-AC79_AIoT_SDK)
 #   PYTHON           a Python with Pillow and fontTools (default: .venv/bin/python)
@@ -20,5 +21,10 @@ V="$(tr -d ' \n' < VERSION 2>/dev/null || true)"
 case " $* " in
 *" --release "*) ;;
 *) [ -n "$V" ] && set -- --release "$V" "$@" ;;
+esac
+case " $* " in
+*" --web "*)
+    "$PY" base/tools/build.py app "$@"
+    exec tools/stream_wasm.sh ;;
 esac
 exec "$PY" base/tools/build.py app "$@"

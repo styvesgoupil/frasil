@@ -6,7 +6,8 @@ you distribute a changed file, publish your change to that file under MPL-2.0.
 
 | What | Licence | Where |
 | --- | --- | --- |
-| FRASIL's code: the app, its DSP, its tools | MPL-2.0, Copyright (C) 2026 Styves Goupil | `app/`, `tools/`, `build.sh` |
+| FRASIL's code: the engine (its sound and its brain), the app, its tools | MPL-2.0, Copyright (C) 2026 Styves Goupil | `engine/`, `app/`, `tools/`, `build.sh` |
+| `engine/dsp/fastmath.h`, a copy of fm1-base's (the engine builds without fm1-base) | MPL-2.0, Copyright (C) 2026 Charles Vestal | its header |
 | Parts of `app/app.c` and `app/app.h` from fm1-base's template | MPL-2.0, Copyright (C) 2026 Charles Vestal | marked in each file's header |
 | The FRASIL name and logo | (C) 2026 Styves Goupil: redistribute them unchanged, as part of FRASIL's source and packages | `app/assets/frasil-logo.png` |
 | [fm1-base](https://github.com/charlesvestal/fm1-base), with [felucca-bsp](https://github.com/hugelton/felucca-bsp) | MPL-2.0 (see its `LICENSING.md`) | `base/`, a git submodule |

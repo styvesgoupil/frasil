@@ -3,12 +3,19 @@
 # Copyright (C) 2026 Styves Goupil
 # A FRASIL release (RELEASING.md).
 #   tools/release.sh             the checks, then the package app/build/frasil-VERSION.fwsc (VERSION's), verified
-#   tools/release.sh --publish   and then the tag vVERSION, the GitHub release with the package, and the site
-# The FM-1 Firmware Hub takes the newest GitHub release by itself: --publish is what puts a version in players' hands.
+#   tools/release.sh --publish   refuses: this repository's history is private. The public repository gets one snapshot
+#                                commit of the firmware only (tools/public_snapshot.sh), tagged there (RELEASING.md).
+# The FM-1 Firmware Hub takes the newest GitHub release of the public repository by itself.
 set -e
 cd "$(dirname "$0")/.."
 V="$(tr -d ' \n' < VERSION)"
 PUBLISH="${1:-}"
+# Tagging HEAD and pushing the tag to origin would publish this repository's whole history (the websites, the River).
+if [ "$PUBLISH" = "--publish" ]; then
+    echo "release: --publish is gone. The public repository (origin) holds firmware-only snapshots, never this history."
+    echo "  tools/public_snapshot.sh dev --commit \"FRASIL $(tr -d ' \n' < "$(dirname "$0")/../VERSION")\"   then the steps in RELEASING.md (Publishing)"
+    exit 1
+fi
 PY="${PYTHON:-.venv/bin/python}"
 [ -x "$PY" ] || PY=python3
 PKG="app/build/frasil-$V.fwsc"
@@ -26,7 +33,7 @@ fi
 
 # the host checks
 ./build.sh --host >/dev/null
-OUT="$(app/build/host/frasil_host app/tests/basic.txt app/build/host; app/build/host/frasil_host app/tests/boot.txt app/build/host)"
+OUT="$(app/build/host/frasil_host app/tests/basic.txt app/build/host; app/build/host/frasil_host app/tests/boot.txt app/build/host; app/build/host/frasil_host app/tests/ux.txt app/build/host)"
 OK="$(printf '%s\n' "$OUT" | grep -c '^  ok' || true)"
 if printf '%s\n' "$OUT" | grep -q '^FAIL'; then
     printf '%s\n' "$OUT" | grep '^FAIL'
@@ -34,6 +41,18 @@ if printf '%s\n' "$OUT" | grep -q '^FAIL'; then
     exit 1
 fi
 echo "checks   $OK ok"
+
+# the engine alone (engine/tests/run.sh: its API, at 48 and 96 kHz, the simulator's renders bit for bit, FRS_VERSION
+# VERSION's)
+sh engine/tests/run.sh "$TMP/engine" > "$TMP/engine.log" 2>&1 || { cat "$TMP/engine.log"; echo "release: the engine's checks failed"; exit 1; }
+echo "engine   $(grep -h -c '^  ok' "$TMP/engine/api.txt") API ok, the simulator's renders bit for bit"
+
+# FRASIL STREAM: this version's engine kept (website/stream/engines/: a stream plays on the engine it was made on, for ever).
+# Missing: a word now, a stop at --publish (tools/stream_wasm.sh --keep, then commit it)
+if [ ! -f "website/stream/engines/$V.wasm" ]; then
+    echo "release: website/stream/engines/$V.wasm is not kept (tools/stream_wasm.sh --keep, then commit it)"
+    [ "$PUBLISH" = "--publish" ] && exit 1
+fi
 
 # the package, and what the hub checks: an FM-1 identity of FRASIL's own (FM-1_47XXYYZZ), the update loader
 ./build.sh --release "$V" > "$TMP/build.log" || { cat "$TMP/build.log"; exit 1; }
@@ -52,20 +71,4 @@ if got != want:
 print(f"package  {pkg}  {len(raw)} B  {got}  sha256 {hashlib.sha256(raw).hexdigest()}")
 EOF
 
-if [ "$PUBLISH" != "--publish" ]; then
-    echo "ready: try $PKG on the FM-1 (python3 base/tools/fm1_install.py $PKG), then tools/release.sh $V --publish"
-    exit 0
-fi
-
-# the tag, the release (a full one, not a pre-release: the hub and GitHub's "latest" take full releases; the hub
-# marks versions below 1.0 beta by itself), the notes from CHANGELOG.md
-NOTES="$TMP/notes.md"
-awk -v v="$V" '$0 ~ "^## " v "( |$)" {on = 1; next} /^## / {on = 0} on' CHANGELOG.md > "$NOTES"
-git tag -a "v$V" -m "FRASIL $V"
-git push origin "v$V"
-gh release create "v$V" "$PKG" --title "FRASIL $V" --notes-file "$NOTES"
-# the site: front page, installer, emulator, manual (GitHub Pages, the gh-pages branch)
-PYTHON="$PY" base/tools/publish_site.sh app "$V"
-echo "published v$V. Last step, by hand, once the GitHub release is live:"
-echo "  python3 tools/discord_announce.py $V           (dry run: read the message)"
-echo "  python3 tools/discord_announce.py $V --post    (posts to #announcements and publishes it)"
+echo "ready: try $PKG on the FM-1 (python3 base/tools/fm1_install.py $PKG), then publish the snapshot (RELEASING.md)"

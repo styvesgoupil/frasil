@@ -23,25 +23,33 @@ The hub marks a card **beta** while the version is below 1.0, or when its name s
 logo's screen, its identity, its package `app/build/frasil-VERSION.fwsc`. Until the first release, each build installed
 on the FM-1 takes the next 0.9.x (0.9.1, 0.9.2 ...); the first release is 1.0, then 1.1, 1.2 ... (1.0.1 for a fix).
 
-1. Set `VERSION` to the release's number, and update `CHANGELOG.md`: a `## X.Y` section with what changed.
+1. Set `VERSION` to the release's number, and `FRS_VERSION` in `engine/frasil_engine.h` the same (`engine/tests/run.sh`
+   checks them), and update `CHANGELOG.md`: a `## X.Y` section with what changed.
 2. Refresh the screenshots if the screen changed: `./build.sh --host && tools/screens.sh`.
+   Keep FRASIL STREAM's engine for this version: `tools/stream_wasm.sh --keep` (`website/stream/engines/X.Y.wasm`, for ever:
+   a stream plays on the engine it was made on). `--publish` stops without it.
 3. Commit, then build and check: `tools/release.sh`. It runs the host checks, builds `app/build/frasil-X.Y.fwsc`,
    and confirms its identity.
 4. Install that package on the FM-1 (`python3 base/tools/fm1_install.py app/build/frasil-X.Y.fwsc`) and play it.
    The hub also suggests booting it in [fm1-emulator](https://github.com/simonjohansson/fm1-emulator), which runs the
    real package.
-5. Publish: `tools/release.sh --publish`. It tags `vX.Y`, creates the GitHub release with the package and the
-   changelog section as notes, and publishes the site to GitHub Pages: front page, web installer, browser emulator,
-   manual (fm1-base's `tools/publish_site.sh`; it needs Emscripten for the emulator).
-   The release must be a full release, not a pre-release: the hub and GitHub's "latest" take full releases.
-6. Announce it on Discord, by hand, once the GitHub release is live (`tools/release.sh` prints this step but never
-   posts). First the dry run, which posts nothing: `python3 tools/discord_announce.py X.Y`. Read the message it
+5. Publish, from the private repository, outside office hours. This repository's history is private: the public one
+   (origin, styvesgoupil/frasil) holds the firmware only, one snapshot commit per release.
+   ```
+   SNAP=$(tools/public_snapshot.sh dev --commit "FRASIL X.Y" | awk '/^snapshot/{print $2}')   # local, pushes nothing
+   git push origin "${SNAP}:refs/heads/main"
+   git tag -a vX.Y "$SNAP" -m "FRASIL X.Y" && git push origin vX.Y
+   gh release create vX.Y app/build/frasil-X.Y.fwsc --title "FRASIL X.Y" --notes-file <the CHANGELOG's X.Y section>
+   ```
+   `tools/public_snapshot.sh` keeps what `tools/public_allowlist.txt` names (the firmware, its tests, docs and
+   release tools) and nothing of the websites, the River's service or the apps. The release must be a full release,
+   not a pre-release: the hub and GitHub's "latest" take full releases. The site is not published from here.
+6. Announce it on Discord, by hand, once the GitHub release is live, from the private repository (nothing posts by itself). First the dry run, which posts nothing: `python3 tools/discord_announce.py X.Y`. Read the message it
    builds from the `## X.Y` section of `CHANGELOG.md` (the bold leads of New and of Fixes and changes, the links)
-   and the length checks. Then `python3 tools/discord_announce.py X.Y --post` sends it to #announcements and
-   publishes it to the servers following that channel. `--summary FILE` replaces the description with a Markdown
+   and the length checks. Then `python3 tools/discord_announce.py X.Y --post` sends it to #announcements, a copy
+   to the product's news channel (`--product`, default fm-1: #fm1-news), and publishes both to the servers following them. `--summary FILE` replaces the description with a Markdown
    file you wrote; `--channel ID` skips the lookup. The bot's token is read from `~/.config/frasil/discord-bot.token`.
-7. The first time only: in the repository's settings, set Pages to the `gh-pages` branch. Then ask for the
-   listing (below).
+7. The first time only: ask for the listing (below).
 
 ## Getting listed (once)
 

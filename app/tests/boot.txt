@@ -3,7 +3,20 @@
 # a scene loaded as FRASIL starts (the website's players: a fresh engine a tune, the scene sent at once): no MIDI clock
 # has come, so the grid is TEMPO's from the start and the load begins it at its top: the bass's NOTEs on the beat (its
 # steps NORTH RIVER's: 2 BARS, 1 BAR, 1/2, 1/4, 1/4), PULSE's strikes with them
+keysstay 1
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
 wait 60
+# ARP held on DRONE, then SELECT: nothing to undo, no arpeggio held yet since the start (a crash once: hold_undo)
+press ARP
+wait 500
+turn SELECT 1
+wait 30
+release ARP
+wait 30
+expect p166 0
 press SAVE
 tapkey w0
 release SAVE
@@ -30,6 +43,10 @@ wait 800
 release PLAY
 wait 30
 reboot
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
 wait 3000
 expect bseqrun 0
 expect seqrun 0
@@ -50,6 +67,10 @@ wait 800
 release PLAY
 wait 30
 reboot
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
 wait 3000
 expect bseqrun 0
 press PLAY
@@ -126,7 +147,9 @@ expect playled 1
 # (p113, encoder B)
 listen
 wait 1500
-tap ARP
+wait 80
+setp 166 1
+gopage 9
 wait 30
 expect page 9
 expect octave -1
@@ -143,7 +166,9 @@ release OCT-
 wait 30
 expect p37 9
 expect octave -1
-tap SEQ
+wait 80
+setp 166 2
+gopage 17
 wait 30
 expect page 17
 press OCT-
@@ -154,6 +179,7 @@ expect p62 5
 release OCT-
 wait 30
 expect p62 7
+setp 166 0
 press OCT-
 wait 30
 turn PRESET 1

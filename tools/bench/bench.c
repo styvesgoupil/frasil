@@ -372,7 +372,7 @@ static void run_engine(const frasil_params_t *pp, const cue_t *cue, uint32_t n)
     frasil_params_t p = *pp;
     int32_t lr[2 * BLK];
     uint32_t i0, i;
-    frasil_init();
+    frasil_init(44100.0f);
     frasil_set(&p);
     for (i0 = 0; i0 + BLK <= n; i0 += BLK) {
         float t = (float)i0 / 44100.0f;
@@ -633,7 +633,7 @@ int main(int argc, char **argv)
             p.ch_type = all || strchr(o, 'y') ? 2 : 0;
             p.ch_soft = strchr(o, 'o') ? 0.75f : 0.0f;   /* o SOFT (named only) */
         }
-        frasil_init();
+        frasil_init(44100.0f);
         frasil_set(&p);
         for (k = 0; k < nv; k++)
             frasil_note_on(40 + 5 * (int)k, 0.8f);
@@ -757,7 +757,7 @@ int main(int argc, char **argv)
             p.fl_cut = 800.0f;
             p.fl_q = 2.0f;
         }
-        frasil_init();
+        frasil_init(44100.0f);
         frasil_set(&p);
         frasil_note_on(38, 0.8f);
         frasil_note_on(45, 0.8f);

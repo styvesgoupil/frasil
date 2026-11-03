@@ -1,5 +1,39 @@
 # Changelog
 
+## 3.0 (2026-11-02)
+
+Three tracks, each with its own keys, sequence and presets.
+
+**New**
+
+- **Three tracks**: SELECT picks DRONE, GLINT or BASS; the keys, the header's colour and EDIT, ENV, ARP, SEQ and REC follow it.
+- **KEYS**: HARMONY, NOTES, LATCH and STACK for each track, on HOME's second page; the header says CHORD · GLINT while a track's keys play chords.
+- **The drone's sequence**: its chords a step at a time, up to 32 steps.
+- **Your presets**: save a drone, a GLINT sound or a bass, sixteen of each; they go into backups too.
+- **The name grid**: presets, an LFO's targets and scales as a list while you turn; SEL keeps, FX goes back.
+- **Recording on every track**: REC from any page, LIVE or STEP, a bar counted in from silence.
+- **STACK**: hold SEQ, and new notes and chords join what is held instead of replacing it.
+- **The bass**: 32 steps on one RATE, its own arpeggio, and BASS TONE (DRIVE, WEIGHT, PUNCH, BITE).
+- **AUTO VIB**: a vibrato of its own on every glint.
+- **EDIT held**: three black keys jump to the track's pages.
+- **CLOUD SEND**: each track's reverb send on one page.
+- **ARP SNAP**: a new chord joins an arpeggio on the beat, the hand gathered first (GLO, GLOBAL; 1/4 at first, OFF as before).
+- **SCREENSAVER**: after ten minutes untouched the screen goes black and the logo drifts; any control wakes it (GLO, SCREEN).
+
+**Fixes and changes**
+
+- **KEY MODE**: now each track's LATCH, on KEYS.
+- **DRONE MOTION**: now EDIT's second page; LFO opens the three LFOs.
+- **MASTER FILTER's CUTOFF**: now GLO held and ALGORITHM turned.
+- **CLEAR**: hold OCT-, press REC on a SEQ page; no longer a knob.
+- **SAVE**: LOAD or SAVE first, SEL to go on, SAVE twice to store; SAVE + REC still stores the scene.
+- **RECORD STEP**: STEP stays where it is; K1 moves it.
+- **The octave**: shown large when you change it, no longer in the header.
+- **The metronome**: hold REC 0.8 s.
+- **The River**: shards go into an FM-1 on 3.0; update first.
+
+Scenes and backups from earlier versions convert on their own. A backup from before 3.0 holds no presets: yours stay.
+
 ## 2.6 (2026-10-31)
 
 A softer choir, its wave on the screen, and PERFORM's DREAM.

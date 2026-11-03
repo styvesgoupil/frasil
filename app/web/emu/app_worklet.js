@@ -6,6 +6,8 @@
 // {type: "app", op: "param", p, x}: the River's editor, a setting set (web_param: as a MIDI CC learned on it sets it);
 // {type: "app", op: "latch", t, n}, {op: "clear", t}, {op: "hold", t, n, down}: THE KEYS, what it plays (web_latch,
 // web_clear, web_hold: t 0 the drones, 1 GLINT, 2 the bass; n a note as it sounds);
+// {type: "app", op: "dstep", i, notes}: the editor, the drone's sequence's step i written (web_dseq_buf, web_dseq_step:
+// its notes as the step keeps them, up to its size; one tie; none, a rest);
 // {type: "app", op: "live", on}: while on, what sounds (web_live: web_live_size() floats) posted about 30 times a second,
 // {type: "live", t (currentTime: what was rendered up to then), v (a Float32Array)}: the River's card follows the sound;
 // {type: "app", op: "end"}: this engine is done (another one, fresh, plays the next shard): silent, its memory let go,
@@ -45,6 +47,10 @@ globalThis.fm1App = {
       ex.web_clear(m.t >>> 0);
     } else if (m.op === "hold" && ex.web_hold) {
       ex.web_hold(m.t >>> 0, m.n >>> 0, m.down ? 1 : 0);
+    } else if (m.op === "dstep" && ex.web_dseq_step) {
+      const n = Uint8Array.from(m.notes || []).subarray(0, 8);
+      new Uint8Array(fm1.mem.buffer, ex.web_dseq_buf(), n.length).set(n);
+      ex.web_dseq_step(m.i >>> 0, n.length);
     } else if (m.op === "stop" && ex.web_scene_stop) {
       ex.web_scene_stop();
     }

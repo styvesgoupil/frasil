@@ -1,0 +1,205 @@
+# The screensaver (GLO > SCREEN's K2, SCREENSAVER, ON by default): ten minutes without a touch of the panel, the screen
+# black but for the small logo, which drifts a pixel a step on both axes and bounces off the edges (each bounce the next
+# colour); the sound goes on as it was. Any button, knob or key wakes it, and that touch does nothing else (a knob's turn
+# dropped till it rests); what was on the screen comes back (a page, the help, a pop-up). OFF: never. Kept with the
+# settings (an earlier record reads ON). Shots: OUTDIR/saver-*.png. (saver.sh: the render with and without it, bit
+# for bit.)
+#   app/build/host/frasil_host app/tests/saver.txt OUTDIR
+master 3000
+wait 600
+testscene
+wait 100
+expect page 0
+# ON by default
+expect p226 1
+expect saver 0
+# a drone latched: it sounds all the while
+tapkey 7
+wait 200
+expect held 1
+setp 0 64
+# the ten minutes themselves: still awake a second before them (from the key let go), asleep a second after
+wait 598600
+expect saver 0
+expect held 1
+wait 2000
+expect saver 1
+expect held 1
+# the screen black but for the logo; it moves (a pixel a step, both ways, 20 steps a second), always inside the screen
+expect saver_stray 0
+expect saver_lit >300
+expect saver_out 0
+shot saver-1.png
+savermark
+wait 1000
+expect saver_steps >18
+expect saver_dist >18
+expect saver_stray 0
+shot saver-2.png
+# half an hour of drifting: bounced many times, never outside, the screen black around it; the sound still the same
+wait 1800000
+expect saver 1
+expect saver_bounces >20
+expect saver_out 0
+expect saver_stray 0
+expect saver_lit >300
+expect held 1
+shot saver-3.png
+wait 7000
+shot saver-4.png
+wait 7000
+shot saver-5.png
+wait 7000
+shot saver-6.png
+expect saver_stray 0
+uicost
+# a knob wakes it, and turns nothing while it turns on (SOUND's K1, CHOIR: still 64)
+turn K1 4
+wait 100
+expect saver 0
+expect p0 64
+wait 100
+shot saver-woken.png
+# rested: the next turn turns it
+wait 400
+turn K1 2
+wait 100
+expect p0 >64
+uicost
+# the same with a button: HOME (its next page) only wakes it
+saveridle 5000
+wait 5600
+expect saver 1
+tap HOME
+wait 100
+expect saver 0
+expect page 0
+tap HOME
+wait 100
+expect page 58
+tap HOME
+tap HOME
+tap HOME
+wait 100
+expect page 0
+# a button held from the wake on: no hold either (PLAY held would let everything go)
+wait 5600
+expect saver 1
+press PLAY
+wait 900
+release PLAY
+wait 100
+expect saver 0
+expect held 1
+# a key: no note, no letting go (a tap on a lit key would let its drone go)
+wait 5600
+expect saver 1
+expect lit48 1
+tapkey 7
+wait 200
+expect saver 0
+expect held 1
+expect lit48 1
+# awake, the same tap does
+tapkey 7
+wait 200
+expect held 0
+# MIDI plays, the screen sleeps on (MIDI is no touch of the panel)
+wait 5600
+expect saver 1
+midi 90 30 64
+wait 300
+expect saver 1
+midi 80 30 0
+wait 300
+expect saver 1
+tapkey 0
+wait 200
+expect saver 0
+# the help: the screensaver over it, then the help again
+press HOME
+wait 600
+release HOME
+wait 100
+wait 5600
+expect saver 1
+expect octave -1
+tap OCT+
+wait 200
+expect saver 0
+expect octave -1
+shot saver-help.png
+tap HOME
+wait 200
+# a pop-up left up (a restore tried while playing: STOP FIRST): the screensaver over it; SEL wakes it and only wakes it
+# (the pop-up still up), then SEL closes it
+tapkey 7
+wait 200
+expect held 1
+backup out:saver.frasil
+restore out:saver.frasil
+wait 100
+expect popup 1
+wait 5600
+expect saver 1
+expect popup 1
+shot saver-over-popup.png
+tap SEL
+wait 200
+expect saver 0
+expect popup 1
+shot saver-popup-back.png
+tap SEL
+wait 200
+expect popup 0
+# a pop-up that comes while it sleeps wakes it (nothing dropped: SEL closes it at once)
+wait 5600
+expect saver 1
+restore out:saver.frasil
+wait 100
+expect saver 0
+expect popup 1
+tap SEL
+wait 200
+expect popup 0
+# GLO > SCREEN: K1 ANIMATIONS, K2 SCREENSAVER; OFF: never, however long
+gopage 47
+wait 100
+expect page 47
+expect knob2 226
+shot saver-setting.png
+turn K2 -1
+wait 100
+expect p226 0
+shot saver-setting-off.png
+wait 30000
+expect saver 0
+saveridle 0
+wait 700000
+expect saver 0
+# kept: a reboot keeps it OFF
+prefs
+reboot
+wait 600
+expect p226 0
+# a backup has it: OFF in the backup, ON now, the backup restored: OFF again
+tapkey 7
+wait 200
+expect held 0
+backup out:saver-off.frasil
+gopage 47
+wait 100
+turn K2 1
+wait 100
+expect p226 1
+restore out:saver-off.frasil
+wait 300
+expect p226 0
+# an earlier record (3.0's first builds' FRSO, without the byte; 2.5's ...): ON
+oldfrso 1
+reboot
+wait 600
+expect p226 1
+saveridle 3000
+wait 3600
+expect saver 1

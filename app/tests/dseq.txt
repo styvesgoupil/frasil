@@ -1,0 +1,109 @@
+# FRASIL 3.0's drone sequence on the FM-1, in the host simulator: ./build.sh --host, then
+#   app/build/host/frasil_host app/tests/dseq.txt app/build/host
+# No page of its own yet (the FM-1's UX refactor): its settings set as a PERFORM page's SET sets them (setp: DRONE SEQ
+# 197, RATE 198, SEQ LENGTH 199, GATE 200, CHANCE 201, TRANSPOSE 202, RECORD 203, CLEAR 204, STEP 205). The same engine
+# plays it; a scene stored keeps it (OBJ_DSEQ), a power cut brings it back, a backup holds it and a restore puts it back;
+# an earlier FRASIL's backup (no OBJ_DSEQ) restores with none
+stepmoves 1
+recanywhere 1
+wait 60
+expect p197 0
+expect dqrun 0
+# a drone key on RECORD STEP: its chord into STEP's step, STEP on as it lets go (the key latches it, as always)
+setp 199 3
+setp 198 2
+setp 197 1
+setp 203 1
+setp 205 0
+wait 30
+expect p203 1
+key 9 down
+wait 30
+key 9 up
+wait 30
+expect dqn0 >0
+expect dqn1 0
+expect p205 1
+tapkey 9
+wait 30
+setp 203 0
+expect p205 1
+# (a tap on the lit key let it go, RECORD STEP's step as it was; the sequence, on since 197, plays it already.) Turned
+# off: stopped, nothing held; on: from its first step at once (a quarter a step, 90 BPM: 667 ms), the drone holding its
+# notes, its rest none; PLAY stops it, PLAY with nothing playing plays the scene again, its drone sequence from its
+# first step
+setp 197 0
+wait 30
+expect dqrun 0
+expect held 0
+setp 197 1
+wait 300
+expect dqrun 1
+expect dqpos 0
+expect dqsnd >0
+expect held >0
+wait 600
+expect dqpos 1
+expect dqsnd 0
+expect held 0
+tap PLAY
+wait 30
+expect dqrun 0
+wait 400
+tap PLAY
+wait 300
+expect dqrun 1
+expect dqpos 0
+expect dqsnd >0
+# stored into a slot: kept there (OBJ_DSEQ), and through a power cut
+press PLAY
+wait 800
+release PLAY
+wait 30
+press SAVE
+tap REC
+release SAVE
+tap FX
+wait 50
+expect used7 1
+expect scene 7
+expect dirty 0
+expect dqslot7 >0
+expect dqslot0 0
+prefs
+reboot
+wait 600
+expect p197 1
+expect dqn0 >0
+expect dqslot7 >0
+expect dqrun 0
+expect playing 0
+# backed up, cleared and stored again, restored: back
+backup out:dseq.frasil
+setp 204 2
+wait 30
+expect dqn0 0
+expect dirty 1
+press SAVE
+tap REC
+release SAVE
+tap FX
+wait 50
+expect dqslot7 0
+restore out:dseq.frasil
+expect restore_rc 0
+tap SEL
+wait 30
+expect dqslot7 >0
+expect dqn0 >0
+expect p197 1
+# an earlier FRASIL's backup (its first three objects, no OBJ_DSEQ): every scene's drone sequence none
+backup_trim out:dseq.frasil 3
+restore out:dseq.frasil
+expect restore_rc 0
+tap SEL
+wait 30
+expect dqslot7 0
+expect dqn0 0
+expect p197 0
+expect used7 1

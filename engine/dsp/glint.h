@@ -1,0 +1,67 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 Styves Goupil */
+/* GLINT: FRASIL's icy glints, a small FM voice played over the drones. Never latched: a glint sounds while its
+ * key is down and rings out as a bell does (or, with SUSTAIN, holds as a lead does), then dies away over RELEASE.
+ * Two operators (a modulator at RATIO into a carrier), the index bright at the strike and mellower after it, a soft
+ * onset; 4 at once, each a little apart in the field and in tune (as SCATTER's default had them).
+ * The engine (frasil.c) calls these from the render, with its queued events. */
+#pragma once
+#include <stdint.h>
+
+#define GLINT_NV 4
+
+typedef struct {
+    float ratio;                         /* the modulator's frequency over the carrier's */
+    int octave;                          /* OCTAVE: every glint so many octaves up (those sounding too, at once) */
+    float bright;                        /* 0..1: the FM index, 0 .. 5 */
+    float decay;                         /* 0..1: 80 ms .. 6 s to silence (to SUSTAIN's level while held) */
+    float level;                         /* 0..1 */
+    float space;                         /* 0..1: how much goes into the reverb */
+    float release;                       /* 0..1: 20 ms .. 6 s to silence once let go */
+    float attack;                        /* 0..1: 2 ms .. 1.5 s (a pluck .. a bowed glass) */
+    float ping;                          /* 0..1: how much brighter the strike than the ring (0 steady, an organ;
+                                          * 1 a pluck whose ring is nearly pure) */
+    float vibrato;                       /* 0..1: the pressure's wiggle on the pitch (a steady press stays in tune),
+                                          * 0 off .. 25 cents either way */
+    float vib_auto;                      /* 0..1: AUTO VIB, a vibrato by itself on every glint, whatever plays it: some
+                                          * 5.2 Hz, fading in after the strike, 0 off .. 50 cents either way */
+    float sustain;                       /* 0..1: the level it settles at while the key is down (0: a bell, it fades
+                                          * out; up: a lead, held) */
+    /* the delay, on the glints alone */
+    float delay_s;                       /* a repeat's time, seconds (the app syncs it to the tempo) */
+    float delay_fb;                      /* 0..1: feedback */
+    float delay_mix;                     /* 0..1: the echoes' level */
+    int delay_pp;                        /* 1: ping-pong, 0: mono */
+} glint_params_t;
+
+void glint_init(void);
+void glint_reset(void);                  /* everything as at power-on (frasil_reset) */
+void glint_hush(void);                   /* silent at once, the echoes too (frasil_silence) */
+void glint_cut(void);                       /* every glint silent, its echoes gone (the render's: CUT) */
+void glint_on(int note, float vel, const glint_params_t *p);      /* render side */
+void glint_off(int note, const glint_params_t *p);
+void glint_press(int note, float p);
+#ifndef __PI32V2__
+/* a skip's (frasil_skip): ms passing with no render, the strikes and the keys let go in it, then its end */
+void glint_skip_on(int note, float vel, const glint_params_t *p);
+void glint_skip_off(int note, const glint_params_t *p);
+void glint_skip_press(int note, float prs, const glint_params_t *p);
+void glint_skip_ms(uint32_t ms);
+void glint_skip_done(const glint_params_t *p);
+#endif
+/* n frames added into l, r (dry) and send_l, send_r (into the reverb) */
+void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, const glint_params_t *p);
+/* the delay: the glints' echoes added to l, r (which hold the glints alone) and to the sends, n even */
+void glint_delay(float *l, float *r, float *send_l, float *send_r, uint32_t n, const glint_params_t *p);
+#define GLINT_DELAY_MAX 0.92f            /* seconds a repeat at most (longer: halved, still on the beat) */
+
+typedef struct {
+    int8_t note;                         /* -1: silent; else as it sounds (OCTAVE on it) */
+    uint8_t gate;                        /* its key down */
+    float level;                         /* 0..1 */
+    float env;                           /* its envelope alone, 0..1 of the strike's (the onset, DECAY, RELEASE) */
+    float t, toff;                       /* seconds since the strike, since let go */
+    uint32_t age;                        /* render blocks since the strike */
+    float cents;                         /* VIBRATO's bend now */
+} glint_view_t;
+void glint_view(glint_view_t v[GLINT_NV]);

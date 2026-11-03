@@ -1,0 +1,78 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (C) 2026 Styves Goupil
+# The engine alone:
+# - engine/dsp/fastmath.h, fm1-base's (its guard aside);
+# - its API (engine/tests/api: frasil_engine.h as an iPad or a plug-in calls it; in C99 and C11) and its inside (engine/tests/inside:
+#   the clock past 2^32 ms, a note under the scale, the engine opened again, the tracks stopped and played again in
+#   phase, a chord's kind), also under AddressSanitizer and UBSan;
+# - the calls any thread may make, from a UI's thread while the audio thread plays, under ThreadSanitizer
+#   (engine/tests/threads);
+# - against the FM-1's simulator (./build.sh --host first): engine/tests/alone runs app/tests/engine_alone.txt, the
+#   simulator too, every renderhash the same, bit for bit;
+# - at 48 kHz: the same script second by second beside 44.1 kHz's (engine/tests/rates.py), and measured
+#   (engine/tests/rate, at 48 and 96 kHz: a pitch, GLINT's echo, CLOUD's RT60, LOFI TAPE's delay and flutter,
+#   MASTER FILTER's 3 dB point, MASTER EQ's MID FREQ).
+# - a stream joined at any place (engine/tests/skip: frasil_stream's player, a skip's messages against a render's, every
+#   factory scene, with the controls that must differ);
+# - ENERGY, FRASIL STREAM's measure of a piece (engine/tools/test.sh: the drones alone calm, a busy sequence high, the
+#   same piece the same numbers);
+#   engine/tests/run.sh [OUT_DIR]
+set -e
+cd "$(dirname "$0")/../.."
+OUT="${1:-build/engine}"
+mkdir -p "$OUT"
+DSP="engine/dsp/frasil.c engine/dsp/glint.c engine/dsp/bass.c engine/dsp/nuage.c"
+CF="-O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Iengine -Iengine/dsp"
+SAN="-g -O1 -fsanitize=address,undefined -fno-sanitize=shift-base -fno-sanitize-recover=all"
+
+if [ -f base/include/fastmath.h ]; then
+    python3 - <<'EOF'
+import sys
+mine = open("engine/dsp/fastmath.h").read().split("\n")
+theirs = open("base/include/fastmath.h").read().split("\n")
+i = mine.index("#ifndef FM_PI")
+mine = mine[:i - 2] + mine[i + 1:]                 # (the copy's note and its guard)
+while mine and mine[-1] in ("", "#endif /* FM_PI */"):
+    mine.pop()
+while theirs and theirs[-1] == "":
+    theirs.pop()
+if mine != theirs:
+    sys.exit("fastmath.h: engine/dsp's is not fm1-base's")
+print("fastmath.h: fm1-base's, its guard aside")
+EOF
+fi
+
+V="$(tr -d ' \n' < VERSION)"
+grep -q "^#define FRS_VERSION \"$V\"" engine/frasil_engine.h || { echo "run.sh: frasil_engine.h's FRS_VERSION is not VERSION's ($V)"; exit 1; }
+echo "FRS_VERSION: VERSION's ($V)"
+
+${CC:-cc} $CF -o "$OUT/api" engine/tests/api.c engine/frasil_engine.c $DSP -lm
+${CC:-cc} $CF -std=c11 -o "$OUT/api-c11" engine/tests/api.c engine/frasil_engine.c $DSP -lm   # (C11's atomics)
+${CC:-cc} $CF -o "$OUT/inside" engine/tests/inside.c $DSP -lm
+${CC:-cc} $CF -o "$OUT/alone" engine/tests/alone.c $DSP -lm
+${CC:-cc} $CF -o "$OUT/rate" engine/tests/rate.c $DSP -lm
+${CC:-cc} $CF $SAN -o "$OUT/api-san" engine/tests/api.c engine/frasil_engine.c $DSP -lm
+${CC:-cc} $CF $SAN -o "$OUT/inside-san" engine/tests/inside.c $DSP -lm
+${CC:-cc} $CF -fsanitize=thread -g -o "$OUT/threads" engine/tests/threads.c engine/frasil_engine.c $DSP -lm -lpthread
+${CC:-cc} $CF -DFRASIL_EV_LOG=skip_log -o "$OUT/skip" engine/tests/skip.c engine/frasil_stream.c engine/frasil_engine.c $DSP -lm
+for t in api api-c11 inside api-san inside-san rate threads skip; do
+    "$OUT/$t" > "$OUT/$t.txt" 2>&1 || { cat "$OUT/$t.txt"; echo "run.sh: $t failed"; exit 1; }
+    tail -1 "$OUT/$t.txt"
+done
+grep -h 'Hz' "$OUT/rate.txt"
+engine/tools/test.sh "$OUT" > "$OUT/energy.txt" 2>&1 || { cat "$OUT/energy.txt"; echo "run.sh: energy failed"; exit 1; }
+tail -1 "$OUT/energy.txt"
+
+[ -x app/build/host/frasil_host ] || { echo "run.sh: no simulator (./build.sh --host)"; exit 1; }
+app/build/host/frasil_host app/tests/engine_alone.txt "$OUT" | grep renderhash > "$OUT/host.hash"
+"$OUT/alone" app/tests/engine_alone.txt 44100 "$OUT/alone-44100.wav" > "$OUT/alone.hash"
+if cmp -s "$OUT/host.hash" "$OUT/alone.hash"; then
+    echo "alone: the simulator's renders, bit for bit ($(wc -l < "$OUT/host.hash" | tr -d ' ') renderhash)"
+else
+    echo "alone: NOT the simulator's renders"
+    diff "$OUT/host.hash" "$OUT/alone.hash" || true
+    exit 1
+fi
+"$OUT/alone" app/tests/engine_alone.txt 48000 "$OUT/alone-48000.wav" > /dev/null
+python3 engine/tests/rates.py "$OUT/alone-44100.wav" "$OUT/alone-48000.wav"

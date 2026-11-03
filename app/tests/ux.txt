@@ -1,0 +1,3336 @@
+# FRASIL 3.0's panel, by its own gestures: SELECT the track, the pages each button has for it, ARP and SEQ ON/OFF, the
+# drone's sequence, REC, KEYS, GLO > RECORD. (basic.txt: what the sound and the keys do, reaching its pages by gopage.)
+#   app/build/host/frasil_host app/tests/ux.txt OUTDIR
+master 3000
+wait 300
+listen
+expect page 0
+expect p166 0
+# EDIT, DRONE's nine: DRONE TONE, DRONE MOTION, then its layers
+tap EDIT
+wait 30
+expect page 1
+expect knob1 113
+expect knob2 31
+expect knob3 32
+expect knob4 114
+tap EDIT
+wait 30
+expect page 21
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+expect page 8
+tap EDIT
+wait 30
+expect page 1
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+expect page 3
+# LFO: the LFOs alone, six pages round; DRONE MOTION is EDIT's, and SELECT leaves it for the new track's first
+tap LFO
+wait 30
+expect page 22
+tap LFO
+tap LFO
+tap LFO
+tap LFO
+tap LFO
+wait 30
+expect page 27
+tap LFO
+wait 30
+expect page 22
+gopage 21
+wait 30
+turn SELECT 1
+wait 30
+expect p166 1
+expect page 9
+turn SELECT -1
+wait 30
+expect p166 0
+gopage 3
+wait 30
+# SELECT: the track, the page following: EDIT's first, the track large a moment
+turn SELECT 1
+wait 30
+expect p166 1
+expect page 9
+expect overlay 1
+expect knob1 37
+expect knob2 41
+expect knob3 39
+expect knob4 38
+tap EDIT
+wait 30
+expect page 10
+expect knob4 196
+tap EDIT
+wait 30
+expect page 12
+tap EDIT
+wait 30
+expect page 9
+turn SELECT 1
+wait 30
+expect p166 2
+expect page 17
+expect knob1 62
+expect knob2 58
+tap EDIT
+wait 30
+expect page 18
+expect knob4 195
+tap EDIT
+wait 30
+expect page 50
+tap EDIT
+wait 30
+expect page 17
+turn SELECT 3
+wait 30
+expect p166 2
+# ENV, the same place on each
+tap ENV
+wait 30
+expect page 19
+turn SELECT -1
+wait 30
+expect page 11
+turn SELECT -1
+wait 30
+expect page 20
+# ENV held: SWELL, whatever track, the drone's; the page stays
+turn SELECT 2
+wait 30
+press ENV
+wait 500
+expect envled 3
+release ENV
+wait 100
+expect page 19
+# on every track's pages but those, SELECT leaves the page
+tap FX
+wait 30
+expect page 29
+turn SELECT -1
+wait 30
+expect page 29
+expect overlay 0
+expect p166 1
+# OCT- + SELECT: the keys change track, the page stays, the octave as it was
+tap ENV
+wait 30
+expect page 11
+press OCT-
+wait 30
+turn SELECT 1
+wait 30
+expect p166 2
+expect page 11
+expect octave -1
+release OCT-
+wait 30
+expect octave -1
+# EDIT from there: the selected track's
+tap EDIT
+wait 30
+expect page 17
+turn SELECT -2
+wait 30
+expect p166 0
+expect page 1
+# ARP on DRONE: not available, and held does nothing; in the glow
+tap ARP
+wait 30
+expect page 57
+expect knob1 227
+expect knob2 227
+expect arpled 3
+tap ARP
+wait 30
+expect page 57
+press ARP
+wait 500
+release ARP
+wait 30
+expect page 57
+tap HOME
+wait 30
+expect arpled 1
+# ARP on GLINT, on from the start (NEW SHARD's): its two pages; SELECT from DRONE's goes the same place
+tap ARP
+wait 30
+turn SELECT 1
+wait 30
+expect page 13
+expect p123 1
+expect knob2 45
+expect knob3 46
+expect knob4 47
+tap ARP
+wait 30
+expect page 52
+expect knob1 48
+expect knob2 209
+tap ARP
+wait 30
+expect page 13
+# OFF: one page, its ON/OFF alone, PLAYS KEYS; the page stays
+turn K1 -1
+wait 30
+expect p123 0
+expect page 13
+expect knob2 227
+expect knob3 227
+expect knob4 227
+tap ARP
+wait 30
+expect page 13
+turn K2 3
+wait 30
+expect p45 0
+# SEQ: the same; ON its pages appear
+tap SEQ
+wait 30
+expect page 14
+expect knob2 227
+tap SEQ
+wait 30
+expect page 14
+turn K1 1
+wait 30
+expect p123 2
+expect knob2 110
+expect knob3 46
+expect knob4 111
+tap SEQ
+wait 30
+expect page 15
+expect knob1 160
+expect knob2 161
+expect knob3 191
+expect knob4 162
+tap SEQ
+wait 30
+expect page 16
+expect knob1 48
+expect knob2 112
+expect knob3 171
+expect knob4 227
+tap SEQ
+wait 30
+expect page 14
+# ARP ON turns SEQ OFF: it says so, and back
+tap ARP
+wait 30
+expect page 13
+turn K1 1
+wait 30
+expect p123 1
+said ARP ON SEQ OFF
+tap SEQ
+wait 30
+expect page 14
+turn K1 1
+wait 30
+expect p123 2
+said SEQ ON ARP OFF
+# on ARP II, its OFF elsewhere (a setting, a scene): the page gone, its first
+setp 123 1
+wait 30
+tap ARP
+tap ARP
+wait 30
+expect page 52
+setp 123 0
+wait 30
+expect page 13
+setp 123 1
+wait 30
+# SELECT on SEQ II: the same page of the bass's, or its first if hidden
+tap SEQ
+wait 30
+turn K1 1
+wait 30
+tap SEQ
+wait 30
+expect page 15
+turn SELECT 1
+wait 30
+expect p166 2
+expect page 44
+turn K1 1
+wait 30
+expect p177 2
+tap SEQ
+wait 30
+expect page 45
+tap SEQ
+wait 30
+expect page 49
+turn SELECT -1
+wait 30
+expect page 16
+turn SELECT 1
+wait 30
+expect page 49
+tap SEQ
+wait 30
+expect page 44
+turn K1 -1
+wait 30
+expect p177 0
+expect knob2 227
+tap ARP
+wait 30
+expect page 48
+expect knob2 227
+turn K1 1
+wait 30
+expect p177 1
+expect knob2 184
+expect knob3 174
+expect knob4 185
+tap ARP
+wait 30
+expect page 53
+expect knob1 186
+expect knob2 210
+# the bass's ARP held: its LATCH
+press ARP
+wait 500
+expect barplatch 0
+release ARP
+wait 30
+expect page 53
+turn K2 1
+wait 30
+expect barplatch 1
+expect p210 1
+turn SELECT -1
+wait 30
+expect page 13
+setp 123 0
+setp 177 0
+wait 30
+expect page 13
+# the drone's sequence: SEQ on DRONE, OFF: one page; ON, the three
+turn SELECT -1
+wait 30
+expect page 57
+tap SEQ
+wait 30
+expect page 54
+expect p197 0
+expect knob2 227
+tap SEQ
+wait 30
+expect page 54
+turn K1 1
+wait 30
+expect p197 1
+expect knob2 199
+expect knob3 198
+expect knob4 200
+tap SEQ
+wait 30
+expect page 55
+expect knob1 205
+expect knob2 206
+expect knob3 207
+expect knob4 214
+tap SEQ
+wait 30
+expect page 56
+expect knob1 201
+expect knob2 202
+expect knob3 208
+expect knob4 227
+# NOTES: a step REST, the keys held (dseq_held), TIE; turned back they are kept
+tap SEQ
+tap SEQ
+wait 30
+expect page 55
+expect p206 0
+key 5 down
+wait 30
+key 9 down
+wait 30
+turn K2 1
+wait 30
+key 5 up
+key 9 up
+wait 30
+expect p206 1
+expect dqn0 >1
+turn K2 1
+wait 30
+expect p206 2
+turn K2 -1
+wait 30
+expect p206 1
+expect dqn0 >1
+# LENGTH: its ties
+turn K3 1
+wait 30
+expect p207 2
+expect dqn1 127
+turn K3 -1
+wait 30
+expect p207 1
+expect dqn1 0
+# CLEAR, turned twice; UNDO TAKE, twice
+tap SEQ
+wait 30
+expect page 56
+setp 204 1
+wait 30
+setp 204 2
+wait 30
+expect dqn0 0
+turn K3 1
+wait 30
+turn K3 1
+wait 30
+expect dqn0 >1
+setp 204 1
+wait 30
+setp 204 2
+wait 30
+expect dqn0 0
+tap SEQ
+wait 30
+expect page 54
+turn K1 -1
+wait 30
+expect p197 0
+expect page 54
+# REC on the drone, from silence: on, its steps, a bar counted (TEMPO's: 90 BPM: 4 beats, 2667 ms), the take after it
+setp 156 60
+wait 30
+tap REC
+wait 30
+expect p197 1
+expect p203 2
+expect page 55
+expect counting 1
+expect dqrun 0
+said COUNT-IN
+expect knob1 199
+wait 1000
+expect counting 1
+wait 1400
+expect counting 1
+wait 300
+expect counting 0
+expect dqrun 1
+expect recled >-1
+# SELECT locked while recording
+turn SELECT 1
+wait 30
+expect p166 0
+expect page 55
+said RECORDING REC: OFF
+# a chord played goes in; REC: STEP; REC: OFF
+tapkey 7 90
+wait 100
+expect recled >-1
+tap REC
+wait 30
+expect p203 1
+expect knob3 207
+expect recled 3
+tap REC
+wait 30
+expect p203 0
+expect page 55
+expect p166 0
+tap PLAY
+wait 30
+expect dqrun 0
+tap HOME
+wait 30
+expect page 0
+tap SEQ
+wait 30
+expect page 54
+turn K1 -1
+wait 30
+tap HOME
+wait 30
+# STEP on the drone: a chord from the keys down; STEP stays, K1 moves it (the owner's); STACK off a new hand in the step's place, on beside it; SEQ held turns it, shown on the SEQ pages
+tap REC
+wait 30
+tap REC
+wait 30
+expect counting 0
+expect p203 1
+expect p205 0
+key 5 down
+wait 30
+key 9 down
+wait 30
+key 5 up
+wait 30
+expect p205 0
+key 9 up
+wait 30
+expect p205 0
+expect dqn0 >1
+setp 212 0
+wait 30
+key 3 down
+wait 30
+key 3 up
+wait 30
+expect dqn0 1
+press SEQ
+wait 500
+release SEQ
+wait 30
+expect p214 1
+said STACK
+key 12 down
+wait 30
+key 12 up
+wait 30
+expect dqn0 2
+press SEQ
+wait 500
+release SEQ
+wait 30
+expect p214 0
+setp 212 1
+wait 30
+tap REC
+wait 30
+expect p203 0
+tap PLAY
+wait 30
+setp 197 0
+wait 30
+# REC on GLINT from silence: counted, SEQ II; ARP OFF by it; the page's K3 SEQ LENGTH while LIVE
+turn SELECT 1
+wait 30
+tap HOME
+wait 30
+tap REC
+wait 30
+expect p123 2
+expect p163 2
+expect page 15
+expect counting 1
+expect knob1 110
+tap REC
+wait 30
+expect counting 0
+expect p163 1
+expect knob3 191
+tap REC
+wait 30
+expect p163 0
+tap PLAY
+wait 30
+setp 123 1
+wait 30
+# REC held: METRONOME off, back to its last on value; GLO > RECORD
+expect p223 1
+press REC
+wait 850
+release REC
+wait 30
+expect p223 0
+expect metro 0
+press REC
+wait 850
+release REC
+wait 30
+expect p223 1
+expect p224 1
+tap GLO
+wait 30
+expect page 37
+# (GLOBAL's K4: ARP SNAP, 225)
+expect knob4 225
+tap GLO
+tap GLO
+tap GLO
+tap GLO
+tap GLO
+tap GLO
+tap GLO
+wait 30
+expect page 59
+expect knob1 223
+expect knob2 224
+turn K1 1
+wait 30
+expect p223 2
+press REC
+wait 850
+release REC
+wait 30
+expect p223 0
+press REC
+wait 850
+release REC
+wait 30
+expect p223 2
+turn K1 -1
+wait 30
+turn K2 -1
+wait 30
+expect p224 0
+turn K2 1
+wait 30
+expect p224 1
+# KEYS: HOME's second, the selected track's; CHORD slate and not turned on the bass; SOUND, KEYS, MIXER, CLOUD SEND, logo
+tap HOME
+wait 30
+expect page 0
+tap HOME
+wait 30
+expect page 58
+expect knob1 215
+expect knob2 216
+expect knob3 217
+expect knob4 218
+turn SELECT 1
+wait 30
+expect page 58
+expect knob1 219
+expect p220 0
+turn K2 1
+wait 30
+expect p220 1
+turn K2 -1
+wait 30
+expect p220 0
+turn SELECT -1
+wait 30
+# NOTES to CHORD with HARMONY off: HARMONY on too
+turn K1 -1
+wait 30
+expect p215 0
+turn K2 -1
+wait 30
+expect p216 0
+turn K2 1
+wait 30
+expect p216 1
+expect p215 1
+# on a track's SEQUENCE: NOTES turned all the same, the value says why it is not heard
+setp 123 2
+wait 30
+turn K2 -1
+wait 30
+expect p216 0
+turn K2 1
+wait 30
+expect p216 1
+setp 123 1
+tap PLAY
+wait 30
+# LATCH OFF: a second detent the same way, within 2 s, its notes let go; ON at once
+turn SELECT -1
+wait 30
+tapkey 9 90
+wait 300
+expect lit50 >-1
+turn K3 -1
+wait 30
+said LATCH TURN AGAIN
+expect p213 1
+wait 2100
+turn K3 -1
+wait 30
+expect p213 1
+turn K3 -1
+wait 30
+expect p213 0
+expect p154 1
+wait 30
+expect held 0
+turn K3 1
+wait 30
+expect p213 1
+expect p154 0
+tap HOME
+wait 30
+expect page 42
+tap HOME
+wait 30
+expect page 51
+tap HOME
+wait 30
+expect page 0
+expect logo 1
+tap HOME
+wait 30
+expect logo 0
+# ALGORITHM: the track's filter; OCT- + ALGORITHM: MASTER FILTER's CUTOFF, the octave as it was
+turn ALGO 2
+wait 30
+expect p31 66
+turn SELECT 1
+wait 30
+turn ALGO 2
+wait 30
+expect overlay 1
+expect p39 >0
+turn SELECT 1
+wait 30
+expect p56 >-1
+press GLO
+wait 30
+turn ALGO 3
+wait 30
+expect p139 >-1
+expect octave -1
+release GLO
+wait 30
+expect octave -1
+# the bass: LATCH off with a finger on a latched note: it goes with the rest (as the drone's); a key after it sounds while
+# down
+tap HOME
+wait 30
+expect page 58
+tapkey 5 90
+wait 200
+expect bassnote >0
+key 7 down
+wait 100
+turn K3 -1
+wait 30
+turn K3 -1
+wait 30
+expect p221 0
+expect bassnote -1
+key 7 up
+wait 200
+key 7 down
+wait 100
+expect bassnote >0
+key 7 up
+wait 200
+expect bassnote -1
+turn K3 1
+wait 30
+expect p221 1
+# STACK on the bass's arpeggio: its second hand adds; off, a new hand replaces
+setp 177 1
+wait 30
+turn K4 1
+wait 30
+expect p222 1
+tapkey 5 90
+wait 60
+tapkey 9 90
+wait 60
+expect barpnotes 2
+tap PLAY
+wait 100
+press PLAY
+wait 800
+release PLAY
+wait 30
+turn K4 -1
+wait 30
+expect p222 0
+tapkey 5 90
+wait 60
+tapkey 9 90
+wait 60
+expect barpnotes 1
+press PLAY
+wait 800
+release PLAY
+wait 30
+setp 177 0
+wait 30
+# pressure on a ring key (GLINT, LATCH: the ring of four): the glint under the finger bends with it
+turn SELECT -1
+wait 30
+setp 216 0
+wait 30
+setp 123 0
+wait 30
+setp 66 127
+wait 30
+key 9 down 90 90
+wait 400
+expect glints >0
+expect glintcents >-1
+key 9 up
+wait 30
+setp 66 0
+press PLAY
+wait 800
+release PLAY
+wait 30
+# what an earlier FRASIL kept: KEY MODE as the drone's and the bass's LATCH, KEYS' others their defaults
+oldfrso 1
+reboot
+wait 600
+expect p213 0
+expect p221 0
+expect p217 1
+expect p216 0
+expect p214 0
+expect p154 1
+expect storeold >1
+setp 213 1
+setp 221 1
+setp 166 0
+wait 30
+tap HOME
+wait 30
+# the grid of names: a track's preset: nothing taken till SEL, no delay; FX leaves the old one; only those two lit
+expect p166 0
+turn PRESET 3
+wait 30
+expect grid_on 1
+expect gridp 113
+expect gridv 3
+expect selled 3
+expect fxled 3
+wait 1600
+expect grid_on 1
+expect p113 3
+tap SEL
+wait 30
+expect grid_on 0
+expect p113 3
+setp 31 40
+wait 30
+expect p113 0
+turn PRESET 1
+wait 400
+expect p113 1
+expect p31 >-1
+tap FX
+wait 30
+expect grid_on 0
+expect p113 0
+expect p31 40
+expect page 0
+setp 113 3
+wait 30
+# OCT+ OCT- its pages, the octave as it is
+turn PRESET 1
+wait 30
+tap OCT+
+wait 30
+expect gridv 24
+expect octave -1
+expect grid_on 1
+tap OCT-
+wait 30
+expect gridv 4
+expect octave -1
+tap SEL
+wait 30
+expect grid_on 0
+expect p113 4
+# the rest wait: a button, another knob
+turn PRESET 1
+wait 30
+tap GLO
+wait 30
+turn ALGO 1
+wait 30
+expect grid_on 1
+expect page 0
+tap SEL
+wait 30
+expect p113 5
+expect page 0
+# B follows the track; K1 of EDIT's first page opens it too
+turn SELECT 1
+wait 30
+turn PRESET 2
+wait 30
+expect gridp 37
+tap FX
+wait 30
+turn SELECT 1
+wait 30
+turn PRESET 1
+wait 30
+expect gridp 62
+tap FX
+wait 30
+turn SELECT -2
+wait 30
+setp 113 0
+wait 30
+tap EDIT
+wait 30
+turn K1 1
+wait 30
+expect grid_on 1
+expect gridp 113
+expect gridv 1
+tap SEL
+wait 30
+expect p113 1
+# SCALE, a list too, on the delay as ever
+tap SEL
+wait 30
+turn K2 1
+wait 30
+expect gridp 34
+wait 1300
+tap HOME
+wait 30
+# OCT- + B: picked unheard, the grid staying, taken as OCT- is let go; the octave as it was
+press OCT-
+wait 30
+turn PRESET 2
+wait 30
+expect grid_on 1
+expect p113 1
+wait 2000
+expect grid_on 1
+expect p113 1
+release OCT-
+wait 30
+expect grid_on 0
+expect p113 3
+expect octave -1
+# EDIT held: its three keys at the mid level, the rest dark; the group's page, again its next, round; nothing sounds
+tap EDIT
+wait 30
+expect page 1
+press EDIT
+wait 500
+expect editmap 1
+expect keymid 42
+expect keyleds 42
+tapkey 3
+wait 30
+expect page 5
+expect keymid 34
+expect keyleds 42
+expect voices 0
+tapkey 3
+wait 30
+expect page 6
+tapkey 3
+wait 30
+expect page 5
+tapkey 1
+wait 30
+expect page 2
+tapkey 1
+tapkey 1
+wait 30
+expect page 4
+tapkey 1
+wait 30
+expect page 2
+tapkey 0
+wait 30
+expect page 2
+expect voices 0
+release EDIT
+wait 30
+expect editmap 0
+expect keymid 0
+expect page 2
+# a key before the hold counts; no tap on the release
+tap HOME
+wait 30
+press EDIT
+wait 50
+tapkey 5
+wait 30
+expect page 7
+release EDIT
+wait 30
+expect page 7
+# GLINT's, the bass's: their three
+turn SELECT 1
+wait 30
+press EDIT
+wait 500
+tapkey 3
+wait 30
+expect page 10
+tapkey 5
+wait 30
+expect page 12
+tapkey 3
+wait 30
+tapkey 3
+wait 30
+expect page 10
+release EDIT
+wait 30
+turn SELECT 1
+wait 30
+press EDIT
+wait 500
+tapkey 5
+wait 30
+expect page 50
+tapkey 1
+wait 30
+expect page 17
+release EDIT
+wait 30
+# EDIT held and SELECT: its pages, the keys back; OCT- + EDIT: COMPARE, no keys
+press EDIT
+wait 500
+expect editmap 1
+turn SELECT 1
+wait 30
+expect editmap 0
+expect page 18
+release EDIT
+wait 30
+turn SELECT -2
+wait 30
+press OCT-
+wait 30
+press EDIT
+wait 500
+expect compare 1
+expect editmap 0
+release EDIT
+release OCT-
+wait 30
+tap HOME
+wait 30
+# SEL held + key: the note over what is latched, whatever STACK says; without it, SWAP
+expect p214 0
+press PLAY
+wait 800
+release PLAY
+wait 30
+tapkey 9
+wait 30
+expect lit50 1
+press SEL
+wait 30
+tapkey 14
+wait 30
+release SEL
+wait 30
+expect lit50 1
+expect lit55 1
+tapkey 18
+wait 30
+expect lit50 0
+expect lit55 0
+expect lit59 1
+tapkey 18
+wait 30
+expect lit59 0
+# on GLINT: its ring (KEYS), its arpeggio
+turn SELECT 1
+wait 30
+setp 123 0
+wait 30
+setp 216 0
+wait 30
+tapkey 9
+wait 30
+expect ringn 1
+press SEL
+wait 30
+tapkey 14
+wait 30
+release SEL
+wait 30
+expect ringn 2
+tapkey 18
+wait 30
+expect ringn 1
+press PLAY
+wait 800
+release PLAY
+wait 30
+setp 123 1
+wait 30
+tapkey 9
+wait 30
+expect arpnotes 1
+press SEL
+wait 30
+tapkey 14
+wait 30
+release SEL
+wait 30
+expect arpnotes 2
+tapkey 18
+wait 30
+expect arpnotes 1
+press PLAY
+wait 800
+release PLAY
+wait 30
+setp 216 1
+wait 30
+# on the bass: its arpeggio
+turn SELECT 1
+wait 30
+setp 177 1
+wait 30
+tapkey 9
+wait 30
+expect barpnotes 1
+press SEL
+wait 30
+tapkey 14
+wait 30
+release SEL
+wait 30
+expect barpnotes 2
+tapkey 18
+wait 30
+expect barpnotes 1
+press PLAY
+wait 800
+release PLAY
+wait 30
+setp 177 0
+wait 30
+turn SELECT -2
+wait 30
+# SAVE: LOAD | SAVE, only SAVE and FX lit; FX back where it was
+tap GLO
+wait 30
+expect page 37
+tap SAVE
+wait 30
+expect page 60
+expect selled 3
+expect saveled 2
+expect fxled 3
+expect homeled 0
+expect svload 0
+tap FX
+wait 30
+expect page 37
+# LOAD: SCENES, as ever; SAVE back; K1 kept
+tap SAVE
+wait 30
+turn K1 -1
+wait 30
+expect svload 1
+tap SEL
+wait 30
+expect page 43
+tap SAVE
+wait 30
+expect page 37
+tap SAVE
+wait 30
+turn K1 1
+wait 30
+expect svload 0
+# SAVE again: straight to WHAT and INTO, LOAD chosen or not; K1 back on SAVE
+turn K1 -1
+wait 30
+tap SAVE
+wait 30
+expect page 61
+expect svload 0
+tap FX
+wait 30
+expect page 60
+# SAVE: WHAT and INTO; a new scene: the first empty slot
+tap SAVE
+wait 30
+expect page 61
+expect svwhat 0
+expect scene 16
+expect svinto 7
+turn K2 1
+wait 30
+expect svinto 8
+tap FX
+wait 30
+expect page 60
+tap SAVE
+wait 30
+expect svinto 7
+# NAME IT: OCT-, OCT+, K1 the cursor, K2 a space, K4, K3; FX back; SAVE stores
+tap SEL
+wait 30
+expect naming 1
+expect nameflow 1
+expect selled 0
+expect fxled 3
+expect saveled 3
+turn K1 2
+wait 30
+expect namecur 2
+tap OCT-
+wait 30
+expect namecur 1
+tap OCT+
+wait 30
+expect namecur 2
+expect octave -1
+turn K2 1
+wait 30
+tap FX
+wait 30
+expect naming 0
+expect page 61
+expect used7 0
+tap SEL
+wait 30
+turn K4 1
+wait 30
+tap SEL
+wait 30
+expect naming 0
+expect used7 1
+expect scene 7
+expect page 37
+said STORED
+expect scnchar0 72
+# the scene the player's: INTO starts on it
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+expect svinto 7
+tap FX
+tap FX
+wait 30
+expect page 37
+# SAVE + REC: STORE of the current scene, NAME IT after it, as ever: SEL keeps the name, FX leaves it
+press SAVE
+wait 30
+tap REC
+wait 30
+release SAVE
+wait 30
+expect naming 1
+expect nameflow 0
+expect selled 0
+expect saveled 3
+tap FX
+wait 30
+expect naming 0
+# a preset: NEW; its name the one in use; listed after the factory ones
+setp 113 9
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K1 1
+wait 30
+expect svwhat 1
+expect svinto 0
+tap SEL
+wait 30
+expect nameflow 1
+turn K4 1
+wait 30
+tap SEL
+wait 30
+expect upn0 1
+expect upcur0 0
+expect page 37
+tap HOME
+wait 30
+turn PRESET 1
+wait 30
+expect gridv 37
+wait 1300
+tap SEL
+wait 30
+expect upcur0 0
+# GLINT's: a new one, its sound round trip
+turn SELECT 1
+wait 30
+setp 38 5
+setp 39 40
+setp 40 50
+setp 44 60
+setp 50 7
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K1 2
+wait 30
+tap SEL
+wait 30
+turn K4 1
+wait 30
+tap SEL
+wait 30
+expect upn1 1
+expect upcur1 0
+# turned away, taken from the grid: every setting back
+setp 38 9
+setp 39 90
+setp 40 100
+setp 44 10
+wait 30
+tap HOME
+wait 30
+turn PRESET 40
+wait 30
+expect gridv 23
+wait 1300
+tap SEL
+wait 30
+expect p38 5
+expect p39 40
+expect p40 50
+expect p44 60
+expect p50 7
+expect upcur1 0
+# INTO: the one in use, replaced
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K1 2
+wait 30
+expect svinto 1
+tap SEL
+wait 30
+tap SEL
+wait 30
+expect upn1 1
+# a factory one again: its sound
+tap HOME
+wait 30
+turn PRESET -1
+wait 1500
+tap SEL
+wait 30
+expect upcur1 -1
+# the bass's
+turn SELECT 1
+wait 30
+setp 56 33
+setp 62 3
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K1 3
+wait 30
+tap SEL
+wait 30
+turn K4 1
+wait 30
+tap SEL
+wait 30
+expect upn2 1
+setp 56 99
+setp 62 1
+wait 30
+tap HOME
+wait 30
+turn PRESET 9
+wait 1500
+tap SEL
+wait 30
+expect p56 33
+expect p62 3
+# a power cut, a backup and restore: they are there
+reboot
+wait 600
+expect upn0 1
+expect upn1 1
+expect upn2 1
+expect size_upresets 2884
+backup out:ux.frasil
+wait 30
+expect playing 0
+restore out:ux.frasil
+wait 30
+expect upn1 1
+tap SEL
+wait 30
+# the slots full: a new scene starts on slot 01
+setp 166 0
+wait 30
+tap HOME
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K2 1
+wait 30
+tap SEL
+wait 30
+tap SEL
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K2 1
+wait 30
+tap SEL
+wait 30
+tap SEL
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K2 1
+wait 30
+tap SEL
+wait 30
+tap SEL
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K2 1
+wait 30
+tap SEL
+wait 30
+tap SEL
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K2 1
+wait 30
+tap SEL
+wait 30
+tap SEL
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K2 1
+wait 30
+tap SEL
+wait 30
+tap SEL
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K2 1
+wait 30
+tap SEL
+wait 30
+tap SEL
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K2 1
+wait 30
+tap SEL
+wait 30
+tap SEL
+wait 30
+expect used15 1
+tap SAVE
+wait 30
+turn K1 -1
+wait 30
+tap SEL
+wait 30
+turn K1 -40
+wait 30
+expect pick 16
+setp 214 1
+setp 216 0
+setp 221 0
+setp 222 1
+wait 30
+tap PLAY
+wait 200
+expect scene 16
+# NEW SHARD: KEYS back to their defaults
+expect p211 1
+expect p212 1
+expect p213 1
+expect p214 0
+expect p216 0
+expect p217 1
+expect p218 0
+expect p220 0
+expect p221 1
+expect p222 0
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K1 1
+wait 30
+tap SAVE
+wait 30
+expect page 61
+expect svinto 0
+tap FX
+tap FX
+wait 30
+# an earlier FRASIL's backup (no OBJ_UPRE): it restores, the player's presets stay, in the flash too
+backup out:ux.frasil
+backup_trim out:ux.frasil 4
+wait 30
+restore out:ux.frasil
+wait 30
+expect popup 2
+tap SEL
+wait 30
+expect upn0 1
+expect upn1 1
+expect upn2 1
+expect used7 1
+reboot
+wait 600
+expect upn1 1
+tap HOME
+wait 30
+# KEYS and METRONOME kept with the settings: a power cut, as they were
+setp 166 0
+wait 30
+tap HOME
+wait 30
+expect page 58
+turn K4 1
+wait 30
+expect p214 1
+press REC
+wait 850
+release REC
+wait 30
+expect p223 0
+prefs
+reboot
+wait 600
+expect p214 1
+expect p223 0
+setp 214 0
+setp 223 1
+wait 30
+# the lights: SEQ flashes on the selected track's own steps, off its pages
+setp 198 0
+setp 205 0
+setp 206 1
+setp 205 1
+setp 206 1
+setp 205 2
+setp 206 1
+setp 205 3
+setp 206 1
+wait 30
+setp 197 1
+wait 30
+expect dqrun 1
+expect seqflashes >-1
+expect arpflashes >-1
+wait 1000
+expect seqflashes >2
+expect arpflashes 0
+turn SELECT 1
+wait 30
+expect seqflashes >-1
+wait 1000
+expect seqflashes 0
+turn SELECT -1
+wait 30
+setp 197 0
+setp 166 1
+setp 123 1
+wait 30
+tapkey 9
+wait 30
+expect arpflashes >-1
+wait 1200
+expect arpflashes >0
+expect seqflashes 0
+setp 166 2
+wait 30
+expect arpflashes >-1
+wait 1000
+expect arpflashes 0
+setp 166 1
+press PLAY
+wait 800
+release PLAY
+wait 30
+setp 166 2
+setp 177 1
+wait 30
+tapkey 9
+wait 30
+expect arpflashes >-1
+wait 1200
+expect arpflashes >0
+press PLAY
+wait 800
+release PLAY
+wait 30
+setp 177 0
+setp 166 0
+wait 30
+# ARP held on DRONE does nothing, SELECT after it nothing undone: from a clean start (no arpeggio held yet this run)
+# ... and after a hold on GLINT, its latch not touched by the same gesture on DRONE
+setp 166 1
+wait 30
+press ARP
+wait 500
+release ARP
+wait 30
+expect arplatch 0
+setp 166 0
+wait 30
+press ARP
+wait 500
+turn SELECT 1
+wait 30
+release ARP
+wait 30
+expect p166 0
+expect arplatch 0
+setp 166 1
+wait 30
+press ARP
+wait 500
+release ARP
+wait 30
+expect arplatch 1
+setp 166 0
+wait 30
+tap HOME
+wait 30
+# COUNT-IN by the time gone, however the input loop runs: 90 BPM, four beats, 2667 ms
+setp 156 60
+gopage 0
+setp 123 0
+setp 177 0
+setp 197 0
+press PLAY
+wait 800
+release PLAY
+wait 500
+loopuneven 1
+tap REC
+wait 2300
+expect counting 1
+wait 400
+expect counting 0
+expect dqrun 1
+loopuneven 0
+tap REC
+tap REC
+wait 30
+expect p203 0
+tap PLAY
+wait 30
+setp 197 0
+wait 30
+# a preset turned after it was taken: INTO starts on it, its name; a factory one or a scene: NEW
+setp 166 1
+wait 30
+tap HOME
+wait 30
+expect upn1 1
+turn PRESET 40
+wait 1500
+tap SEL
+wait 30
+expect upcur1 0
+setp 39 77
+wait 30
+tap SAVE
+wait 30
+turn K1 1
+wait 30
+tap SAVE
+wait 30
+turn K1 2
+wait 30
+expect svinto 1
+turn K2 -1
+wait 30
+expect svinto 0
+tap FX
+tap FX
+wait 30
+# a save that fails: nothing changes, in the lists either
+flash_fail 1
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K1 2
+wait 30
+turn K2 -1
+wait 30
+tap SEL
+wait 30
+turn K4 1
+wait 30
+tap SEL
+wait 30
+expect popup 1
+expect upn1 1
+tap SEL
+wait 30
+flash_fail 0
+setp 39 40
+wait 30
+# SELECT on SAVE's pages: back on the track selected now, the same place
+tap ENV
+wait 30
+expect page 11
+tap SAVE
+wait 30
+turn SELECT 1
+wait 30
+expect p166 2
+tap FX
+wait 30
+expect page 19
+tap EDIT
+wait 30
+tap EDIT
+wait 30
+expect page 18
+tap SAVE
+wait 30
+turn SELECT -2
+wait 30
+expect p166 0
+turn K1 -1
+wait 30
+expect svload 1
+tap SEL
+wait 30
+expect page 43
+tap SAVE
+wait 30
+expect page 1
+turn K1 0
+tap SAVE
+wait 30
+turn K1 1
+wait 30
+tap SEQ
+wait 30
+expect page 54
+tap HOME
+wait 30
+# NOTES on the drone, its SEQUENCE on: still turned (its steps hold chords); on GLINT not; on the bass never
+setp 197 1
+wait 30
+tap HOME
+wait 30
+expect page 58
+turn K2 -1
+wait 30
+expect p212 0
+turn K2 1
+wait 30
+expect p212 1
+setp 197 0
+wait 30
+tap HOME
+wait 30
+tap HOME
+wait 30
+tap HOME
+wait 30
+tap HOME
+wait 30
+expect page 0
+press PLAY
+wait 800
+release PLAY
+wait 30
+expect playing 0
+# what a restore finds open goes with it: a name, a grid, a COUNT-IN
+backup out:ux2.frasil
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+tap SEL
+wait 30
+expect naming 1
+restore out:ux2.frasil
+wait 30
+expect naming 0
+expect popup 2
+tap SEL
+wait 30
+turn PRESET 2
+wait 30
+expect grid_on 1
+tap SEL
+wait 30
+restore out:ux2.frasil
+wait 30
+expect grid_on 0
+tap SEL
+wait 300
+expect p113 3
+setp 197 0
+setp 123 0
+setp 177 0
+press PLAY
+wait 800
+release PLAY
+wait 300
+setp 224 1
+tap REC
+wait 30
+expect counting 1
+restore out:ux2.frasil
+wait 30
+expect counting 0
+tap SEL
+wait 30
+# PLAY stopping a take, RELEASE ALL too: RECORD off (the owner's)
+setp 224 0
+setp 166 1
+wait 170
+tap REC
+wait 300
+expect p163 2
+expect seqrun 1
+tap PLAY
+wait 30
+expect seqrun 0
+expect p163 0
+said STOPPED
+tap REC
+wait 300
+expect p163 2
+press PLAY
+wait 700
+release PLAY
+wait 300
+expect p163 0
+# STEP goes no further than SEQ LENGTH; a shorter sequence brings it back
+setp 123 2
+setp 110 5
+gopage 15
+wait 30
+expect knob1 160
+spin K1 20
+wait 100
+expect p160 5
+gopage 14
+wait 30
+expect knob2 110
+turn K2 -2
+wait 100
+expect p110 3
+expect p160 3
+setp 110 7
+setp 176 3
+setp 166 2
+wait 170
+gopage 45
+wait 30
+spin K1 20
+wait 100
+expect p172 3
+setp 199 5
+setp 166 0
+wait 170
+gopage 55
+wait 30
+spin K1 20
+wait 100
+expect p205 5
+expect knob4 214
+# OCT+, OCT-: the octave large a moment, the page staying; as a hand, undone: not shown
+gopage 1
+wait 1000
+expect octbig 0
+tap OCT+
+wait 60
+expect octbig 1
+expect page 1
+wait 1000
+expect octbig 0
+tap OCT-
+wait 60
+expect octbig 1
+wait 1000
+press OCT-
+wait 30
+expect octbig 1
+turn SELECT 1
+wait 30
+expect octbig 0
+turn SELECT -1
+wait 30
+release OCT-
+wait 300
+# a take lives on the SEQ and ARP pages: leaving them ends it, REC's light out
+setp 224 0
+setp 166 0
+wait 170
+tap REC
+wait 300
+expect p203 2
+tap SEQ
+wait 60
+expect p203 2
+tap HOME
+wait 60
+expect p203 0
+said RECORD
+expect recled 1
+setp 197 0
+wait 30
+# What comes back from a take, from NEW SHARD (the tests above check state: here each take is played back and listened
+# to: the notes of each step, what sounds under the playhead, the keys after REC OFF)
+gopage 43
+wait 30
+spin K1 -20
+wait 100
+expect pick 16
+tap PLAY
+wait 200
+gopage 0
+wait 30
+expect octave -1
+# Finding 3: a chord already latched, tapped while recording, goes in and stays; what comes back is the two steps
+setp 224 0
+setp 166 0
+setp 198 4
+setp 199 3
+setp 204 2
+wait 30
+tapkey 0 90
+wait 100
+expect lit41 1
+tap REC
+wait 300
+expect p203 2
+expect dqn0 0
+tapkey 0 90
+wait 100
+expect lit41 1
+expect dqn0 4
+wait 2400
+expect dqpos 1
+tapkey 0 90
+wait 100
+expect lit41 1
+expect dqn1 4
+expect dqn2 0
+tap REC
+wait 30
+tap REC
+wait 30
+expect p203 0
+# Finding 2: RECORD off lets go of what the take latched; what sounds is the sequence's step
+expect lit41 0
+wait 2600
+expect dqpos 2
+expect dqsnd 0
+expect on41 0
+wait 8000
+expect dqpos 1
+expect dqsnd 4
+expect on41 1
+tap PLAY
+wait 3000
+expect dqsnd 0
+expect on41 0
+setp 197 0
+setp 204 2
+wait 30
+# Finding 2: STEP latches nothing, a chord sounds while down; K1 moved on, the same chord again goes in
+gopage 0
+setp 205 0
+tap REC
+wait 30
+tap REC
+wait 30
+expect p203 1
+key 0 down 90
+wait 60
+expect on41 1
+expect dqn0 4
+key 0 up
+wait 30
+expect lit41 0
+expect on41 0
+turn K1 1
+wait 30
+expect p205 1
+tapkey 0 90
+wait 30
+expect dqn1 4
+expect lit41 0
+expect on41 0
+tap REC
+wait 30
+expect p203 0
+setp 197 0
+setp 204 2
+setp 205 0
+setp 198 6
+wait 30
+# Finding 4: after a take the keys play. BASS: running on its SEQ pages a key is heard, held over the steps, TRANSPOSE
+# as it was; stopped anywhere it plays; running on another page it transposes (the guide's), nothing else does
+setp 224 0
+setp 166 2
+setp 174 2
+setp 176 3
+setp 178 2
+setp 179 14
+wait 30
+tap REC
+wait 300
+expect p175 2
+tapkey 0 90
+wait 200
+tap REC
+wait 30
+tap REC
+wait 30
+expect p175 0
+expect bseqrun 1
+expect page 45
+expect bseq0 >0
+key 7 down 90
+wait 900
+expect bassnote >0
+expect p179 14
+key 7 up
+wait 30
+tap PLAY
+wait 200
+expect bseqrun 0
+expect bassnote -1
+key 7 down 90
+wait 300
+expect bassnote >0
+expect p179 14
+key 7 up
+wait 30
+tapkey 7 90
+wait 30
+expect bassnote -1
+expect p179 14
+gopage 0
+wait 30
+key 5 down 90
+wait 200
+expect bassnote >0
+expect p179 14
+key 5 up
+wait 30
+tapkey 5 90
+wait 30
+expect bassnote -1
+tap PLAY
+wait 300
+expect bseqrun 1
+key 7 down 90
+wait 200
+expect p179 >14
+key 7 up
+wait 100
+tap PLAY
+wait 100
+expect bseqrun 0
+setp 179 14
+wait 30
+gopage 45
+wait 30
+setp 178 2
+setp 177 0
+wait 30
+# GLINT the same
+setp 166 1
+setp 164 2
+setp 112 14
+wait 30
+tap REC
+wait 300
+expect p163 2
+tapkey 0 90
+wait 200
+tap REC
+wait 30
+tap REC
+wait 30
+expect p163 0
+expect page 15
+expect seqrun 1
+expect seqnotes 1
+wait 1000
+key 7 down 90
+wait 60
+expect glintnote >0
+expect glints >0
+expect p112 14
+key 7 up
+wait 30
+tap PLAY
+wait 2000
+expect seqrun 0
+expect glints 0
+key 7 down 90
+wait 60
+expect glints >0
+expect p112 14
+key 7 up
+wait 30
+gopage 0
+wait 2000
+key 7 down 90
+wait 60
+expect glints >0
+expect p112 14
+key 7 up
+wait 30
+tap PLAY
+wait 300
+expect seqrun 1
+key 7 down 90
+wait 800
+expect p112 >14
+key 7 up
+wait 30
+tap PLAY
+wait 30
+setp 112 14
+setp 164 2
+setp 123 2
+setp 166 0
+gopage 0
+wait 200
+# Finding 1: LIVE, STACK off, RATE 1 BAR. A new hand replaces the take's own in that step; a chord past the middle of a
+# long step stays in it; a hand a sixteenth ahead of the next step is that step's; what comes back is each chord on its
+# own step
+setp 224 0
+setp 166 0
+setp 214 0
+setp 197 0
+setp 198 4
+setp 199 3
+setp 204 2
+setp 205 0
+wait 200
+tap REC
+wait 300
+expect p203 2
+expect dqpos 0
+tapkey 0 90
+wait 300
+expect dqn0 4
+expect lit41 1
+tapkey 4 90
+wait 100
+expect dqn0 4
+expect lit41 0
+expect lit45 1
+# (bar 1's end: 2/3 through it, the step under the playhead)
+wait 1100
+expect dqpos 0
+tapkey 7 90
+wait 100
+expect dqpos 0
+expect dqn1 0
+expect dqn0 4
+# (a sixteenth short of the third bar line: the next step's, step 1 stays empty)
+wait 3140
+expect dqpos 1
+tapkey 0 90
+wait 200
+expect dqpos 2
+expect dqn2 4
+expect dqn1 0
+expect dqn0 4
+expect lit41 1
+tap REC
+wait 30
+tap REC
+wait 30
+expect p203 0
+expect lit41 0
+# (it comes back: step 0 the third hand's chord alone; step 2 F's; step 1 silent, nothing latched over them)
+tap PLAY
+wait 900
+tap PLAY
+wait 300
+expect dqrun 1
+expect dqpos 0
+expect dqsnd 4
+expect on48 1
+expect on41 0
+wait 2667
+expect dqpos 1
+expect dqsnd 0
+expect on48 0
+wait 2667
+expect dqpos 2
+expect dqsnd 4
+expect on41 1
+tap PLAY
+wait 200
+setp 197 0
+setp 204 2
+setp 198 6
+wait 30
+# STACK off, an earlier take stays under a new one's first hand; a second hand replaces that hand alone; the loop come round, a
+# hand takes the whole step
+setp 224 0
+setp 166 0
+setp 214 0
+setp 197 0
+setp 198 4
+setp 199 3
+setp 204 2
+setp 205 0
+wait 200
+tap REC
+wait 300
+expect dqpos 0
+tapkey 0 90
+wait 200
+expect dqn0 4
+tap REC
+wait 30
+tap REC
+wait 8000
+# (the same step, overdub: step 0 at 10.7 s)
+wait 2600
+expect dqpos 0
+tap REC
+wait 100
+expect p203 2
+tapkey 4 90
+wait 100
+expect dqn0 >4
+tapkey 9 90
+wait 100
+expect dqn0 >4
+expect lit41 0
+wait 10500
+expect dqpos 0
+tapkey 9 90
+wait 100
+expect dqn0 4
+tap REC
+wait 30
+tap REC
+wait 200
+setp 197 0
+setp 204 2
+setp 198 6
+wait 30
+# Finding 5: a key in the count's last half beat is the take's first step, on all three tracks; played back on the downbeat
+setp 224 1
+setp 166 0
+setp 197 0
+setp 198 4
+setp 204 2
+setp 205 0
+wait 200
+tap REC
+wait 2100
+expect counting 1
+expect dqn0 0
+wait 300
+expect counting 1
+tapkey 0 90
+wait 500
+expect counting 0
+expect dqn0 4
+expect dqpos 0
+expect lit41 1
+tap REC
+wait 30
+tap REC
+wait 200
+expect lit41 0
+setp 197 0
+setp 204 2
+setp 198 6
+wait 30
+# (earlier in the count: it sounds, nothing written)
+setp 166 1
+setp 164 2
+wait 30
+tap REC
+wait 1800
+expect counting 1
+tapkey 0 90
+wait 1300
+expect counting 0
+expect seqnotes 0
+tap REC
+wait 30
+tap REC
+wait 2000
+setp 164 2
+tap PLAY
+wait 30
+# GLINT: heard once, on the key, not again on the downbeat; it comes back at the loop's top
+tap REC
+wait 2400
+expect counting 1
+tapkey 0 90
+wait 300
+expect counting 0
+expect seqnotes 1
+expect seqstep0 >0
+expect seqnote -1
+wait 5280
+expect seqnote >0
+tap REC
+wait 30
+tap REC
+wait 30
+setp 164 2
+setp 123 2
+tap PLAY
+wait 2000
+# BASS: struck in the last half beat and held across the downbeat: the take's from step 0, as long as it was held
+setp 166 2
+setp 174 2
+setp 176 3
+setp 178 2
+wait 30
+tap REC
+wait 2400
+expect counting 1
+key 0 down 90
+wait 1200
+expect counting 0
+expect bassnote >0
+key 0 up
+wait 100
+expect bseq0 >0
+expect blen0 1
+tap REC
+wait 30
+tap REC
+wait 200
+expect bseqrun 1
+setp 178 2
+wait 30
+tap PLAY
+wait 900
+# struck earlier in the count, still down on the downbeat: the same; let go before it, nothing
+tap REC
+wait 1500
+expect counting 1
+key 0 down 90
+wait 1400
+expect counting 0
+key 0 up
+wait 100
+expect bseq0 >0
+tap REC
+wait 30
+tap REC
+wait 30
+setp 178 2
+wait 30
+tap PLAY
+wait 900
+tap REC
+wait 800
+tapkey 0 90
+wait 200
+expect counting 1
+wait 2000
+expect bseq0 0
+tap REC
+wait 30
+tap REC
+wait 200
+setp 177 0
+setp 174 0
+setp 176 15
+setp 166 0
+gopage 0
+wait 200
+# Finding 10: REC from silence counts in after SEQUENCE ON with an empty sequence, on each track
+setp 224 1
+setp 166 1
+setp 164 2
+setp 123 2
+gopage 14
+wait 100
+tap PLAY
+wait 900
+expect seqrun 0
+tap PLAY
+wait 100
+expect seqrun 1
+expect seqnotes 0
+tap REC
+wait 200
+expect counting 1
+tap PLAY
+wait 200
+expect p163 0
+setp 166 2
+setp 178 2
+setp 177 2
+wait 100
+expect bseqrun 1
+tap REC
+wait 200
+expect counting 1
+tap PLAY
+wait 200
+expect p175 0
+setp 177 0
+setp 166 0
+setp 204 2
+setp 197 1
+wait 100
+expect dqrun 1
+tap REC
+wait 200
+expect counting 1
+tap PLAY
+wait 200
+expect p203 0
+setp 197 0
+gopage 0
+wait 30
+# Finding 6: a take begun while another track plays starts in phase with it, the metronome with it
+setp 224 1
+setp 46 5
+setp 110 15
+setp 123 0
+setp 223 1
+setp 166 2
+setp 174 0
+setp 176 15
+setp 178 2
+setp 164 2
+wait 30
+tap REC
+wait 2636
+tapkey 0 90
+wait 1270
+tapkey 7 90
+wait 500
+tap REC
+wait 30
+tap REC
+wait 30
+expect p175 0
+expect bseqrun 1
+setp 166 1
+gopage 15
+wait 1050
+tap REC
+wait 150
+expect p163 2
+expect counting 0
+expect seqpos 2
+expect bseqpos 4
+expect clickgrid 120
+wait 300
+expect seqpos 3
+expect bseqpos 6
+tapkey 12 90
+wait 200
+expect seqstep3 >0
+expect seqnotes 1
+tap REC
+wait 30
+tap REC
+wait 200
+expect p163 0
+expect seqpos 5
+expect bseqpos 10
+# (PLAY from the top: the note on the same bass step it was played on)
+tap PLAY
+wait 900
+expect seqrun 0
+tap PLAY
+wait 1030
+expect seqpos 3
+expect bseqpos 6
+expect seqnote >0
+# (the drone's take over them, each step where the others are)
+setp 166 0
+gopage 55
+setp 198 2
+setp 199 15
+setp 204 2
+wait 600
+tap REC
+wait 100
+expect p203 2
+expect counting 0
+expect dqpos 2
+expect bseqpos 11
+tap REC
+wait 30
+tap REC
+wait 30
+expect p203 0
+tap PLAY
+wait 900
+setp 204 2
+setp 197 0
+setp 198 6
+setp 199 3
+setp 164 2
+setp 123 0
+setp 178 2
+setp 177 0
+setp 174 0
+setp 223 0
+setp 166 0
+gopage 0
+wait 100
+# Finding 12: REC, nothing written, RECORD off: the track's PLAYS as it found them, on each track
+setp 224 0
+setp 166 1
+setp 164 2
+setp 123 1
+wait 30
+expect p123 1
+tap REC
+wait 200
+expect p123 2
+expect p163 2
+tap REC
+wait 30
+tap REC
+wait 30
+expect p163 0
+expect p123 1
+expect seqrun 0
+# (a key arpeggiates again; a take that wrote, whatever way it ends, keeps SEQ)
+gopage 0
+tap REC
+wait 200
+tapkey 0 90
+wait 100
+expect seqnotes 1
+tap REC
+wait 30
+tap REC
+wait 30
+expect p123 2
+setp 164 2
+setp 123 1
+wait 30
+# (ended by PLAY, by leaving the page: the same)
+tap REC
+wait 200
+tap PLAY
+wait 30
+expect p163 0
+expect p123 1
+tap REC
+wait 200
+tap HOME
+wait 30
+expect p163 0
+expect p123 1
+setp 123 0
+setp 166 2
+setp 178 2
+setp 177 1
+wait 30
+tap REC
+wait 200
+expect p177 2
+tap REC
+wait 30
+tap REC
+wait 30
+expect p177 1
+setp 177 0
+setp 166 0
+setp 204 2
+setp 197 0
+wait 30
+tap REC
+wait 200
+expect p197 1
+tap REC
+wait 30
+tap REC
+wait 30
+expect p197 0
+expect dqrun 0
+gopage 0
+wait 30
+# Finding 15: UNDO TAKE again says it brought the take back
+setp 166 1
+setp 123 0
+setp 164 2
+wait 30
+tap REC
+wait 200
+tapkey 0 90
+wait 100
+tap REC
+wait 30
+tap REC
+wait 30
+expect seqnotes 1
+listen
+setp 171 2
+wait 30
+said UNDONE
+expect seqnotes 0
+listen
+setp 171 2
+wait 30
+said REDONE
+expect seqnotes 1
+listen
+setp 171 2
+wait 30
+said UNDONE
+expect seqnotes 0
+setp 123 0
+wait 30
+# a slow REC press (half a second) is a press: METRONOME as it was, the cycle moved
+setp 223 1
+setp 166 0
+setp 204 2
+wait 30
+press REC
+wait 500
+release REC
+wait 30
+expect p223 1
+expect p203 2
+press REC
+wait 500
+release REC
+wait 30
+expect p223 1
+expect p203 1
+tap REC
+wait 30
+expect p203 0
+press REC
+wait 850
+release REC
+wait 30
+expect p223 0
+expect p203 0
+setp 223 0
+setp 197 0
+wait 30
+# K2 NOTE up from a REST: a note of the line, the ROOT without one, on GLINT and the bass
+setp 166 1
+setp 123 2
+setp 164 2
+setp 160 3
+gopage 15
+wait 30
+expect p161 0
+turn K2 1
+wait 30
+expect p161 >35
+turn K2 -1
+wait 30
+expect p161 >35
+turn K2 -40
+wait 30
+setp 161 67
+setp 160 6
+wait 30
+expect p161 0
+turn K2 1
+wait 30
+expect p161 67
+setp 164 2
+setp 160 0
+setp 123 0
+setp 166 2
+setp 177 2
+setp 178 2
+setp 172 2
+gopage 45
+wait 30
+expect p173 0
+turn K2 1
+wait 30
+expect p173 >35
+setp 178 2
+setp 172 0
+setp 177 0
+setp 166 0
+gopage 0
+wait 30
+# a scene with its bass off, loaded during a BASS take: RECORD off, the keys back
+setp 224 0
+setp 166 2
+wait 30
+tap REC
+wait 200
+expect p175 2
+press SAVE
+wait 30
+tapkey w5 90
+wait 30
+release SAVE
+wait 300
+expect p177 0
+expect p175 0
+expect p166 2
+setp 166 0
+gopage 0
+wait 30
+# REC from any page but the SEQ and ARP pages: the selected track's SEQ II, recording; ARP off, SEQUENCE on
+setp 224 0
+setp 166 1
+setp 123 1
+wait 30
+gopage 0
+wait 30
+tap REC
+wait 100
+expect page 15
+expect p163 2
+expect p123 2
+tap REC
+wait 30
+tap REC
+wait 30
+setp 123 1
+gopage 13
+wait 30
+tap REC
+wait 100
+expect page 15
+expect p163 2
+tap REC
+wait 30
+tap REC
+wait 30
+setp 123 0
+# (OCT- held + REC off the SEQ pages: nothing, no take, the octave as it was)
+setp 166 2
+gopage 0
+wait 30
+press OCT-
+wait 30
+tap REC
+wait 30
+release OCT-
+wait 100
+expect p175 0
+expect octave -1
+expect page 0
+expect octbig 0
+# the SEQ pages' LIVE view: what a take asks for, STEP's editor again on STEP
+gopage 45
+wait 30
+expect knob1 172
+tap REC
+wait 200
+expect p175 2
+expect knob1 176
+expect knob2 174
+expect knob3 190
+expect knob4 227
+tap REC
+wait 30
+expect p175 1
+expect knob1 172
+expect knob2 173
+expect knob3 183
+expect knob4 188
+tap REC
+wait 30
+setp 177 0
+setp 166 1
+setp 123 0
+gopage 15
+wait 30
+tap REC
+wait 200
+expect p163 2
+expect knob1 110
+expect knob2 46
+expect knob3 171
+expect knob4 227
+tap REC
+wait 30
+expect knob1 160
+expect knob2 161
+expect knob4 162
+tap REC
+wait 30
+setp 123 0
+setp 166 0
+gopage 55
+wait 30
+tap REC
+wait 200
+expect p203 2
+expect knob1 199
+expect knob2 198
+expect knob3 208
+expect knob4 214
+tap REC
+wait 30
+expect knob1 205
+expect knob2 206
+expect knob4 214
+tap REC
+wait 30
+setp 197 0
+wait 30
+# CLEAR, a gesture: OCT- held + REC, the selected track's, on a SEQ page, in any state; the octave and REC's cycle as they
+# were; UNDO TAKE brings it back; pressed on an empty sequence, UNDO TAKE keeps what it had
+setp 204 2
+setp 166 0
+gopage 56
+wait 30
+tap REC
+wait 200
+tapkey 0 90
+wait 100
+expect dqn0 >2
+listen
+press OCT-
+wait 30
+tap REC
+wait 30
+release OCT-
+wait 30
+said CLEARED
+expect dqn0 0
+expect p203 2
+expect octave -1
+expect octbig 0
+turn K3 1
+wait 30
+turn K3 1
+wait 30
+expect dqn0 >2
+tap REC
+wait 30
+expect p203 1
+press OCT-
+wait 30
+tap REC
+wait 30
+release OCT-
+wait 30
+expect p203 1
+expect dqn0 0
+press OCT-
+wait 30
+tap REC
+wait 30
+release OCT-
+wait 30
+gopage 56
+wait 30
+turn K3 2
+wait 30
+expect dqn0 >2
+tap REC
+wait 30
+expect p203 0
+setp 204 2
+setp 197 0
+wait 30
+# (GLINT, running; the bass, its note let go with its sequence; stopped too)
+setp 166 1
+setp 123 2
+setp 164 2
+setp 160 0
+setp 161 60
+gopage 16
+wait 400
+expect seqrun 1
+expect seqnotes 1
+press OCT-
+wait 30
+tap REC
+wait 30
+release OCT-
+wait 30
+expect seqnotes 0
+expect p163 0
+expect seqrun 1
+turn K3 2
+wait 30
+expect seqnotes 1
+tap PLAY
+wait 900
+press OCT-
+wait 30
+tap REC
+wait 30
+release OCT-
+wait 30
+expect seqnotes 0
+turn K3 2
+wait 30
+expect seqnotes 1
+setp 164 2
+setp 123 0
+setp 166 2
+setp 177 2
+setp 178 2
+setp 172 0
+setp 173 40
+setp 174 4
+gopage 49
+wait 200
+expect bseqrun 1
+expect bassnote >0
+press OCT-
+wait 30
+tap REC
+wait 30
+release OCT-
+wait 100
+expect bseq0 0
+expect bassnote -1
+expect p175 0
+turn K3 2
+wait 30
+expect bseq0 40
+tap PLAY
+wait 900
+setp 178 2
+setp 174 0
+setp 177 0
+wait 30
+# KEYS' NOTES: CHORD always reachable; on GLINT's and the bass's it stays, and is heard when ARP comes back; GLINT on KEYS rings
+# the chord
+setp 166 1
+setp 123 2
+gopage 58
+wait 30
+setp 216 0
+wait 30
+turn K2 1
+wait 30
+expect p216 1
+setp 123 1
+wait 30
+expect p216 1
+tapkey 0 90
+wait 200
+expect arpnotes >2
+setp 123 0
+wait 30
+tapkey 7 90
+wait 200
+expect ringn >2
+tapkey 7 90
+wait 100
+setp 166 2
+gopage 58
+setp 177 0
+setp 220 0
+wait 30
+turn K2 1
+wait 30
+expect p220 1
+setp 177 1
+wait 30
+expect p220 1
+tapkey 0 90
+wait 200
+expect barpnotes >2
+setp 220 0
+setp 177 0
+setp 166 0
+gopage 0
+wait 100
+# NAME IT: SAVE stores, in the flow and after SAVE + REC; SEL too; FX cancels; an empty name stores nothing
+setp 166 0
+gopage 0
+wait 100
+press SAVE
+wait 30
+tap REC
+wait 30
+release SAVE
+wait 200
+expect naming 1
+expect nameflow 0
+expect saveled 3
+expect fxled 3
+expect selled 0
+tap SAVE
+wait 100
+expect naming 0
+press SAVE
+wait 30
+tap REC
+wait 30
+release SAVE
+wait 200
+expect naming 1
+tap SEL
+wait 100
+expect naming 0
+press SAVE
+wait 30
+tap REC
+wait 30
+release SAVE
+wait 200
+expect naming 1
+tap FX
+wait 100
+expect naming 0
+# (the flow: SEL, SEL into NAME IT; a preset's name)
+setp 166 1
+gopage 0
+wait 30
+tap SAVE
+wait 60
+expect page 60
+turn K1 1
+wait 60
+tap SEL
+wait 60
+tap SEL
+wait 100
+expect naming 1
+expect nameflow 1
+expect saveled 3
+expect selled 0
+tap FX
+wait 100
+expect naming 0
+# (a name of spaces in the flow: SAVE and SEL do nothing, the name stays up)
+setp 166 1
+gopage 0
+wait 30
+tap SAVE
+wait 60
+turn K1 1
+wait 60
+tap SEL
+wait 60
+tap SEL
+wait 100
+expect naming 1
+expect upn1 1
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+turn K2 1
+wait 10
+tap OCT+
+wait 10
+wait 30
+tap SAVE
+wait 100
+expect naming 1
+tap SEL
+wait 100
+expect naming 1
+expect upn1 1
+tap FX
+wait 100
+expect naming 0
+# (back from FX on INTO: a real name, SAVE stores it)
+expect page 61
+tap SEL
+wait 100
+expect naming 1
+listen
+tap SAVE
+wait 200
+expect naming 0
+said STORED
+setp 166 0
+gopage 0
+wait 100
+# The drone's RATE: NEW SHARD 1 BAR; a stored scene keeps its own
+gopage 43
+wait 30
+spin K1 -20
+wait 100
+expect pick 16
+tap PLAY
+wait 200
+expect p198 4
+setp 198 6
+wait 30
+gopage 43
+wait 30
+spin K1 -20
+wait 100
+spin K1 8
+wait 100
+expect pick 7
+press SAVE
+wait 30
+tap REC
+wait 30
+release SAVE
+wait 200
+expect naming 1
+tap FX
+wait 100
+gopage 43
+wait 30
+spin K1 -20
+wait 100
+expect pick 16
+tap PLAY
+wait 200
+expect p198 4
+gopage 43
+wait 30
+spin K1 8
+wait 100
+expect pick 7
+tap PLAY
+wait 200
+expect p198 6
+gopage 43
+wait 30
+spin K1 -20
+wait 100
+tap PLAY
+wait 200
+gopage 0
+wait 100
+# GLO held, ALGORITHM turned: MASTER FILTER's CUTOFF, any track, GLO's tap not taken, the octave as it is
+gopage 1
+wait 30
+setp 166 0
+wait 170
+setp 139 60
+setp 31 50
+setp 138 0
+wait 30
+press GLO
+wait 30
+turn ALGO 3
+wait 60
+release GLO
+wait 60
+expect page 1
+expect p138 1
+expect p139 >60
+expect p31 50
+expect octbig 0
+# OCT- held, ALGORITHM: the track's own, as turning it alone
+setp 139 60
+setp 31 50
+wait 30
+press OCT-
+wait 30
+turn ALGO 3
+wait 60
+release OCT-
+wait 60
+expect p139 60
+expect p31 >50
+# an LFO's TARGET: its list by section, a scene's number unchanged; nothing taken till SEL, FX leaves it, the rest wait, only they lit
+gopage 23
+setp 98 0
+wait 30
+turn K1 1
+wait 60
+expect gridp 98
+expect gridv 1
+expect selled 3
+expect fxled 3
+expect saveled 0
+wait 1600
+expect grid_on 1
+expect p98 1
+turn K1 1
+wait 60
+tap SAVE
+wait 60
+expect grid_on 1
+expect page 23
+turn K2 1
+wait 60
+expect grid_on 1
+expect gridp 98
+tap SEL
+wait 60
+expect grid_on 0
+expect p98 2
+expect page 23
+turn K1 3
+wait 400
+expect p98 4
+tap FX
+wait 60
+expect grid_on 0
+expect p98 2
+expect page 23
+turn K1 3
+wait 60
+tap SEL
+wait 60
+expect p98 4
+turn K1 1
+wait 60
+tap OCT+
+wait 60
+tap SEL
+wait 60
+expect p98 6
+turn K1 1
+wait 60
+tap OCT+
+wait 60
+tap SEL
+wait 60
+expect p98 30
+turn K1 1
+wait 60
+tap OCT+
+wait 60
+tap SEL
+wait 60
+expect p98 34
+turn K1 1
+wait 60
+tap OCT-
+wait 60
+tap SEL
+wait 60
+expect p98 30
+turn K1 -40
+wait 60
+tap SEL
+wait 60
+expect p98 0
+# the STACK hint at the foot of the ARP and SEQ pages: the selected track's STACK as SEQ held turns it, drawn again at
+# once (it said OFF whatever STACK was: the footer was not drawn again on SEQ held)
+setp 166 1
+setp 123 1
+setp 218 0
+gopage 13
+wait 100
+expect stacktag 1
+press SEQ
+wait 500
+release SEQ
+wait 100
+expect p218 1
+expect stacktag 2
+press SEQ
+wait 500
+release SEQ
+wait 100
+expect p218 0
+expect stacktag 1
+gopage 14
+wait 100
+expect stacktag 1
+press SEQ
+wait 500
+release SEQ
+wait 100
+expect stacktag 2
+setp 166 2
+setp 177 1
+gopage 48
+wait 100
+expect page 48
+expect stacktag 1
+setp 222 1
+wait 100
+expect stacktag 2
+setp 222 0
+setp 177 0
+setp 166 0
+gopage 0
+wait 100
+expect stacktag 0

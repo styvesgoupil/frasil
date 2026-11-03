@@ -29,13 +29,17 @@ void app_tick(void);
 #define APP_SITE "frasilsynth.com"               /* the logo's screen, up in the sky */
 #define APP_SITE_NOTE "SCENES MANAGER & EDITOR"
 /* the store: the app's objects and the panel calibration (the platform's), and their flash offsets. The scenes'
- * bass sequences apart (OBJ_BSEQ: the sixteen scenes no longer fit one object), in the free pair under the scenes */
-enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_NOBJ };
-#define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDA000u, 0xD8000u}
+ * bass sequences apart (OBJ_BSEQ: the sixteen scenes no longer fit one object), in the free pair under the scenes; their
+ * drone sequences (3.0) apart again (OBJ_DSEQ), in the free pair under that one; the player's presets (OBJ_UPRE, 3.0) in
+ * the next */
+enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NOBJ };
+#define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDA000u, 0xD8000u, 0xD6000u, 0xD4000u}
 /* backup and restore over USB (fm1.toml backup = true: device/backup.c): the settings and the scenes (their bass
- * sequences too), never the panel's calibration (the unit's). The version stays 1 when a record's layout changes:
- * each object carries its own magic, and a restore reloads it as a boot does (an earlier layout made over) */
-#define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SCENES, OBJ_BSEQ}
+ * sequences and their drone sequences too), never the panel's calibration (the unit's). The version stays 1 when a
+ * record's layout changes: each object carries its own magic, and a restore reloads it as a boot does (an earlier
+ * layout made over; a backup of an earlier FRASIL, without OBJ_DSEQ: every scene's drone sequence none; without OBJ_UPRE:
+ * the player's presets stay as they are, app_backup_restored writes them back) */
+#define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE}
 #define APP_BACKUP_MAGIC 0x4B425246u     /* "FRBK" */
 #define APP_BACKUP_VERSION 1u
 #define APP_BACKUP_WHAT "replaces all scenes"

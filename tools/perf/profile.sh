@@ -6,8 +6,8 @@
 cd "$(dirname "$0")/../.."
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
-cc -O2 -fno-inline -fno-vectorize -fno-slp-vectorize -ffp-contract=off -std=c99 -w -DPLAT_HOST -Ibase/include \
-    -Iapp/dsp -o "$W/bench" tools/bench/bench.c app/dsp/*.c -lm
+cc -O2 -fno-inline -fno-vectorize -fno-slp-vectorize -ffp-contract=off -std=c99 -w -DPLAT_HOST -DFRASIL_FS_CONST \
+    -Iengine/dsp -o "$W/bench" tools/bench/bench.c engine/dsp/*.c -lm
 "$W/bench" cost "${1:-voices8b0}" 600 >/dev/null & P=$!
 sleep 1
 /usr/bin/sample $P 8 -file "$W/prof.txt" >/dev/null 2>&1

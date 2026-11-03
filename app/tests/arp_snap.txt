@@ -1,0 +1,394 @@
+# ARP SNAP (GLOBAL's K4, p225): a new chord into an arpeggio taken on the snap grid, its pattern from its lowest note there,
+# the old one playing on till then; keys a little apart one chord; a chord a little late still on the point; latched, STACK
+# off, a legato change a new hand. Each resolution, OFF as before, LATCH off, the bass's arpeggio, the setting kept.
+#   app/build/host/frasil_host app/tests/arp_snap.txt OUTDIR
+# GLINT on ARP, NOTES SINGLE NOTE (a key one note: keys 0 4 7 are 41 45 48, keys 2 5 9 are 43 45 50), STACK off, UP,
+# RATE 1/16, RANGE 1 octave, 120 BPM; a MIDI Start puts the grid's top at t = 0 (beats every 500 ms, sixteenths every 125;
+# each step sounds half a step). The times in the notes are from it.
+keysstay 1
+nogrid 1
+setp 224 0
+expect p225 3
+setp 166 1
+wait 100
+setp 216 0
+setp 218 0
+setp 123 1
+setp 45 0
+setp 46 7
+setp 47 0
+setp 156 90
+wait 400
+midi FA
+# the first chord from silence, keys 10 ms apart: on the arpeggio's next step (125), held back till the hand is in (the last key 20 + 35)
+wait 98
+key 0 down 100
+wait 8
+key 4 down 100
+wait 8
+key 7 down 100
+wait 28
+expect arpsound -1
+wait 15
+expect arpsound 41
+wait 1
+expect arpplay 3
+wait 134
+key 0 up
+key 4 up
+key 7 up
+wait 1572
+expect arpsound 48
+wait 2
+# latched, the next chord 50 .. 15 ms before beat 4 (2000), its high key before its middle one: A plays on till the beat
+wait 70
+key 2 down 100
+wait 13
+key 9 down 100
+wait 18
+key 5 down 100
+wait 3
+expect arpnotes 3
+wait 1
+expect arpplay 3
+wait 9
+# on the beat its step held back till the hand is in (1985 + 35), then B from its lowest, by pitch: 43, 45, 50
+wait 10
+expect arpsound -1
+wait 20
+expect arpsound 43
+wait 105
+expect arpsound 45
+wait 125
+expect arpsound 50
+wait 40
+key 2 up
+key 9 up
+key 5 up
+wait 194
+# a chord 30 .. 50 ms after beat 6 (2500): it lands on it, as if on time (its lowest at once, the next note on 2625)
+wait 20
+expect arpsound 45
+wait 10
+key 0 down 100
+wait 8
+key 4 down 100
+wait 8
+key 7 down 100
+wait 43
+expect arpsound 41
+wait 40
+expect arpsound 45
+wait 55
+key 0 up
+key 4 up
+key 7 up
+wait 4
+# 200 ms after the beat: too late for it, A plays on till beat 7 (3000)
+key 2 down 100
+wait 8
+key 9 down 100
+wait 8
+key 5 down 100
+wait 38
+expect arpsound 48
+wait 125
+expect arpsound 41
+wait 120
+expect arpsound 43
+wait 395
+# legato: A while B's keys are still down, B let go after: A alone (a new hand), not the two
+wait 40
+key 0 down 100
+wait 8
+key 4 down 100
+wait 8
+key 7 down 100
+wait 8
+key 2 up
+key 9 up
+key 5 up
+wait 4
+expect arpnotes 3
+wait 30
+expect arpsound 41
+wait 90
+key 0 up
+key 4 up
+key 7 up
+wait 94
+# DOWN: from the highest
+setp 45 1
+wait 200
+key 2 down 100
+wait 8
+key 9 down 100
+wait 8
+key 5 down 100
+wait 88
+expect arpsound 50
+wait 125
+expect arpsound 45
+wait 125
+expect arpsound 43
+wait 40
+setp 45 0
+key 2 up
+key 9 up
+key 5 up
+# ARP SNAP 1/8: a chord at 4620 is taken on 4750 (an eighth, not a beat)
+setp 225 2
+wait 314
+key 0 down 100
+wait 8
+key 4 down 100
+wait 8
+key 7 down 100
+wait 98
+expect arpnotes 3
+wait 20
+expect arpsound 41
+wait 125
+expect arpsound 45
+wait 15
+key 0 up
+key 4 up
+key 7 up
+wait 94
+# 1/2: a chord at 5120 not on beat 11 (5500), on 6000
+setp 225 4
+wait 120
+key 2 down 100
+wait 8
+key 9 down 100
+wait 8
+key 5 down 100
+wait 368
+expect arpsound 41
+wait 500
+expect arpsound 43
+wait 90
+key 2 up
+key 9 up
+key 5 up
+# 1 BAR: a chord at 6200 not on 7000 (a half), on the bar line at 8000
+setp 225 5
+wait 94
+key 0 down 100
+wait 8
+key 4 down 100
+wait 8
+key 7 down 100
+wait 788
+expect arpsound 50
+wait 1000
+expect arpsound 41
+wait 90
+key 0 up
+key 4 up
+key 7 up
+# 1/16: every step a point; a chord 25 ms after 8125 lands on it (the late window: half a sixteenth here), 45 on 8250
+setp 225 1
+wait 44
+key 2 down 100
+wait 8
+key 9 down 100
+wait 8
+key 5 down 100
+wait 28
+expect arpsound -1
+wait 15
+expect arpsound 43
+wait 45
+expect arpsound 45
+wait 40
+key 2 up
+key 9 up
+key 5 up
+# OFF, as before: keys across a step two sets (8500: two notes, 8625: three, its first note again); a legato change the two chords together
+setp 225 0
+wait 174
+key 0 down 100
+wait 13
+key 4 down 100
+wait 9
+expect arpplay 2
+wait 4
+key 7 down 100
+expect arpsound 41
+wait 123
+expect arpplay 3
+wait 1
+expect arpsound 41
+wait 264
+key 2 down 100
+wait 8
+key 9 down 100
+wait 8
+key 5 down 100
+wait 18
+key 0 up
+key 4 up
+key 7 up
+wait 154
+expect arpnotes 5
+wait 100
+key 2 up
+key 9 up
+key 5 up
+setp 225 3
+wait 94
+# LATCH off (ARP II's): the keys let go, silent from the next step; a chord after it in the same beat waits for the beat (a change), after a silent beat it starts from the step it came on (10625, the late window)
+setp 209 0
+wait 200
+key 0 down 100
+wait 8
+key 4 down 100
+wait 8
+key 7 down 100
+wait 178
+key 0 up
+key 4 up
+key 7 up
+wait 54
+expect arpplay 0
+wait 1
+expect arpsound -1
+wait 39
+key 2 down 100
+wait 8
+key 9 down 100
+wait 8
+key 5 down 100
+wait 58
+expect arpsound -1
+wait 130
+expect arpsound 43
+wait 90
+key 2 up
+key 9 up
+key 5 up
+wait 34
+expect arpplay 0
+wait 490
+key 0 down 100
+wait 8
+key 4 down 100
+wait 8
+key 7 down 100
+wait 48
+expect arpsound 41
+wait 60
+expect arpsound 45
+wait 140
+key 0 up
+key 4 up
+key 7 up
+wait 44
+setp 209 1
+wait 10
+expect arplatch 1
+wait 40
+# the bass's arpeggio (BASS on ARP, RATE 1/16, UP), the same: B over A, 45 .. 25 ms before beat 24 (12000), its step held back till the hand is in (as played: before BASS's OCTAVE)
+setp 166 2
+wait 5
+setp 177 1
+wait 1
+setp 174 0
+wait 1
+setp 184 0
+wait 1
+setp 185 0
+wait 1
+setp 220 0
+wait 1
+setp 222 0
+wait 90
+key 0 down 100
+wait 8
+key 4 down 100
+wait 8
+key 7 down 100
+wait 178
+key 0 up
+key 4 up
+key 7 up
+wait 649
+key 2 down 100
+wait 8
+key 9 down 100
+wait 8
+key 5 down 100
+wait 13
+expect barpnotes 3
+wait 5
+expect barpsound -1
+wait 25
+expect barpsound 43
+wait 115
+expect barpsound 45
+wait 125
+expect barpsound 50
+wait 40
+key 2 up
+key 9 up
+key 5 up
+wait 94
+setp 177 0
+wait 1
+setp 166 1
+wait 300
+# MIDI in on MIDI's clock (21 ms a clock): GLINT's notes (channel 2) into its arpeggio, 41 45 48 just after the Start (on
+# its first step, the late window), held; let go, the next
+# chord's 50 a clock before beat 2 (48 clocks), 43 on it, 45 a clock after: the beat's step held back till they are in,
+# then from 43, by pitch
+setp 166 1
+midi FA
+midi 91 29 64
+midi 91 2D 64
+midi 91 30 64
+clock 2
+expect arpnotes 3
+expect arpsound 41
+clock 4
+expect arpsound 45
+clock 41
+midi 81 29 00
+midi 81 2D 00
+midi 81 30 00
+midi 91 32 64
+clock 1
+midi 91 2B 64
+clock 1
+expect arpsound -1
+midi 91 2D 64
+clock 2
+expect arpnotes 3
+expect arpsound 43
+clock 4
+expect arpsound 45
+clock 6
+expect arpsound 50
+midi 81 32 00
+midi 81 2B 00
+midi 81 2D 00
+wait 600
+# the setting: GLOBAL's K4, the device's; kept with the settings over a power cut
+press PLAY
+wait 800
+release PLAY
+gopage 37
+wait 30
+expect knob4 225
+turn K4 -1
+wait 30
+expect p225 2
+prefs
+wait 100
+reboot
+wait 1500
+expect p225 2
+gopage 37
+turn K4 1
+wait 30
+expect p225 3

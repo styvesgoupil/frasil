@@ -22,6 +22,7 @@
 #define C_ICE RGB(110, 208, 255)         /* cold: the ice (PARTIALS' crystals, GLINT, FREEZE, a choice made) */
 #define C_HAZE RGB(51, 65, 79)
 #define C_SINK RGB(10, 100, 176)         /* SINK's water, a clear blue over the river (C_BG's red) */
+#define C_GLOB RGB(169, 210, 188)         /* an LFO's TARGET that is no track's: the master, the cloud, the effects */
 #define C_RED RGB(255, 56, 56)           /* a setting let go of its LFO (LFO held, a knob turned: NO LFO) */
 
 #define ML 14                            /* margins */
@@ -43,8 +44,9 @@ static struct {
     uint32_t frz_at;                     /* when the freeze last changed (the crystals ease to it) */
     uint8_t frz;
     uint8_t full;
-    uint8_t was_logo, was_map, was_pop;
+    uint8_t was_logo, was_map, was_pop, was_saver;
     uint8_t acts;                        /* the words SCENES' box showed last: 4, 2 on NEW SHARD (the tests) */
+    uint8_t stack;                       /* the STACK hint the footer drew last: 0 none, 1 OFF, 2 ON (the tests) */
     uint32_t help_sig;
     float stillt;                        /* the river's time when it froze */
     float lt, gph, wph;                  /* the logo's last frame's time; how far its granules and its water have gone */
@@ -191,6 +193,7 @@ static void glyph_ink(const felucca_font_t *f, char ch, int32_t *x0, int32_t *x1
 /* the character, drawn twice a pixel apart (bolder; a small disc's smaller), its ink on the pixels round (cx, cy); the
  * disc round the ink's own centre, on a half pixel when the ink is even across or high: centred both ways, exactly,
  * whatever the glyph (its top was a pixel high: the cell's, not the ink's) */
+static uint16_t badge_on;                /* on the header's band: the disc dark, its character this colour */
 static void badge_r(int32_t cx, int32_t cy, char ch, int knob, float r)
 {
     const felucca_font_t *f = r < 6.0f ? &FONT_T : &FONT_XS;
@@ -209,12 +212,12 @@ static void badge_r(int32_t cx, int32_t cy, char ch, int knob, float r)
             float ex = (float)(cx + x) - dx, ey = (float)(cy + y) - dy;
             float c = r + 0.5f - fm_sqrtf(ex * ex + ey * ey);
             c = c < 0.0f ? 0.0f : c > 1.0f ? 1.0f : c;
-            bl(cx + x, cy + y, ui_off ? C_SLATE : knob ? C_ICE : C_LAMP, (int32_t)(32.0f * c));
+            bl(cx + x, cy + y, badge_on ? C_BG : ui_off ? C_SLATE : knob ? C_ICE : C_LAMP, (int32_t)(32.0f * c));
         }
     if (gx1 < 0)
         return;
-    cv_text(ix - gx0 + f->pad, iy - gy0 - oy, f, t, C_BG);
-    cv_text(ix - gx0 + f->pad + 1, iy - gy0 - oy, f, t, C_BG);
+    cv_text(ix - gx0 + f->pad, iy - gy0 - oy, f, t, badge_on ? badge_on : C_BG);
+    cv_text(ix - gx0 + f->pad + 1, iy - gy0 - oy, f, t, badge_on ? badge_on : C_BG);
 }
 
 static void badge(int32_t cx, int32_t cy, char ch, int knob) { badge_r(cx, cy, ch, knob, 6.5f); }
@@ -234,12 +237,12 @@ static void badge_of(int32_t cx, int32_t cy, int p, int enc)
         return;
     }
     for (i = 0; i < 4u; i++)
-        if (PAGES[st.page].p[i] == p) {
+        if (page_knob(fm.page, i) == p) {
             badge(cx, cy, (char)('1' + i), 1);
             return;
         }
     for (i = 0; i < 3u; i++)
-        if (MACRO_OF[i] == p) {
+        if (macro_of(i) == (uint32_t)p) {
             badge(cx, cy, HAND[i], 0);
             return;
         }
@@ -251,7 +254,13 @@ static void value_big(int32_t x, int32_t y, int p, int32_t maxw, const felucca_f
     char t[24], *u = 0;
     int32_t w, uw = 0, i;
     const felucca_font_t *fv = f;
-    value_text(p, (uint8_t)pv_shown(p), t);
+    {
+        int k = list_track((uint32_t)p), un = k >= 0 ? up_in_use((uint32_t)k) : -1;
+        if (un >= 0)                     /* a preset of the player's: its name */
+            up_name((uint32_t)k, (uint32_t)un, t);
+        else
+            value_text(p, (uint8_t)pv_shown(p), t);
+    }
     for (i = 0; t[i]; i++)               /* a unit after the number: S, MS, HZ, CT */
         if (t[i] == ' ' && i > 0 && t[i - 1] >= '0' && t[i - 1] <= '9' && t[i + 1] && (t[i + 2] == 0 || t[i + 3] == 0 ||
                                                                                     t[i + 4] == 0))
@@ -572,6 +581,8 @@ static void river(int32_t top, int32_t bottom, float dim, int labels, float t)
         current(w, top, bottom, dim, tt, fz);
         if (labels) {
             int32_t yc = (int32_t)note_y(w->note, top, bottom);
+            if (yc < R2 + 24)            /* (a high note's: under the river's top row, the harmony's) */
+                yc = R2 + 24;
             if (last_label - yc >= 11 || last_label < 0) {
                 char n[8];
                 uint16_t lc = w->pressure > 0.1f ? C_LAMP : w->gate ? C_MIST : C_SLATE;
@@ -592,7 +603,8 @@ static void river(int32_t top, int32_t bottom, float dim, int labels, float t)
  * arpeggio, the bass's sequence, the LFOs running, SWELL) */
 static void river_status(void)
 {
-    int32_t x = MR, y = R2 + 4, i;
+    int32_t x = MR, y = R2 + 4, i, tr = 1;
+    char t[32];
     if (st.v[P_SWELL] || st.swell_btn > 0.0f) {
         text_r(x, y, &FONT_XS, "SWELL", C_LAMP, 1);
         x -= text_tw(&FONT_XS, "SWELL", 1) + 9;
@@ -608,33 +620,62 @@ static void river_status(void)
         text_r(x - 1, y, &FONT_XS, "LFO", C_MIST, 1);
         x -= text_tw(&FONT_XS, "LFO", 1) + 10;
     }
-    if (st.v[P_BQ_ON]) {                 /* the bass's sequence, in lamp (slate, stopped) */
+    if (st.v[P_DQ_ON]) {                 /* the drone's sequence, in fog (slate, stopped) */
+        const char *w = st.v[P_DQ_REC] ? "DRONE REC" : "DRONE SEQ";
+        text_r(x, y, &FONT_XS, w, st.v[P_DQ_REC] || dq.run ? C_FOG : C_SLATE, 1);
+        x -= text_tw(&FONT_XS, w, 1) + 10;
+    }
+    if (st.v[P_BQ_ON] == SQT_SEQ) {      /* the bass's sequence, in lamp (slate, stopped) */
         const char *w = st.v[P_BQ_REC] ? "BASS REC" : "BASS SEQ";
         text_r(x, y, &FONT_XS, w, st.v[P_BQ_REC] || bq.run ? C_LAMP : C_SLATE, 1);
         x -= text_tw(&FONT_XS, w, 1) + 10;
+    } else if (st.v[P_BQ_ON] == SQT_ARP && barp.n) {   /* its arpeggio (the keys' badge says if it is latched) */
+        text_r(x, y, &FONT_XS, "BASS ARP", barp.paused ? C_SLATE : C_LAMP, 1);
+        x -= text_tw(&FONT_XS, "BASS ARP", 1) + 10;
     }
     if (st.v[P_SQ_TYPE] == SQT_SEQ) {
         const char *w = st.v[P_SQ_REC] ? "REC" : "SEQ";
         text_r(x, y, &FONT_XS, w, st.v[P_SQ_REC] ? C_LAMP : sq.run ? C_ICE : C_SLATE, 1);
+        x -= text_tw(&FONT_XS, w, 1) + 10;
     } else if (st.v[P_SQ_TYPE] == SQT_ARP && arp.n) {
-        text_r(x, y, &FONT_XS, arp.latch ? "ARP LATCH" : "ARP", arp.paused ? C_SLATE : C_ICE, 1);
+        const char *w = arp.latch ? "ARP LATCH" : "ARP";
+        text_r(x, y, &FONT_XS, w, arp.paused ? C_SLATE : C_ICE, 1);
+        x -= text_tw(&FONT_XS, w, 1) + 10;
     }
+    if (!st.v[P_SCALE] && !st.v[P_CHORD])
+        return;
+    t[0] = 0;                            /* the harmony, quietly, at the left in what they leave: closer, then shorter */
+    text_cat(t, NOTE_NAME[st.v[P_ROOT] % 12u]);
+    text_cat(t, " ");
+    text_cat(t, SCALE_NAME[st.v[P_SCALE] % NSCALES]);
+    if (ML + text_tw(&FONT_XS, t, 1) > x)
+        tr = 0;
+    while (t[0] && ML + text_tw(&FONT_XS, t, tr) > x)
+        t[strlen_(t) - 1u] = 0;
+    if (t[0])                            /* (the river's notes go under it, not through it) */
+        cv_rect(ML - 1, y - 1 - oy, text_tw(&FONT_XS, t, tr) + 3, 12, C_BG);
+    text_t(ML, y, &FONT_XS, t, C_MIST, tr);
 }
 
 /* ------------------------------------------------------------ the bands --- */
-static int touched_now(void) { return st.touched_at && plat_ms() - st.touched_at < TOUCH_MS && st.touched < NPARAM; }
+static int touched_now(void) { return fm.touched_at && plat_ms() - fm.touched_at < TOUCH_MS && fm.touched < NPARAM; }
 
-static int is_macro(int p) { return p == P_KB || p == P_DR_PRESET || p == P_DR_FULL; }   /* the three hands' */
+static int is_macro(int p)               /* the three hands' */
+{
+    return p == P_KB || (uint32_t)p == track_preset() || (uint32_t)p == track_algo() || p == P_FL_CUT;
+}
 
 static int is_layer(int p) { return p == P_CHOEUR || p == P_PARTIELS || p == P_SOUFFLE || p == P_CHALEUR; }
 
-/* the large view of one value: on the play page (but its strata show the three layers), and for the drone's two hands
- * anywhere; SELECT's (what the keys play) on the play page only, elsewhere the keys' badge alone tells it */
+static int oct_big(void) { return fm.oct_at && plat_ms() - fm.oct_at < TOUCH_MS && fm.octave == fm.oct_v; }
+
+/* the large view of one value: on the play page (but its strata show the three layers), and for the three hands
+ * anywhere; SELECT's on the play page and on a track's page, the page following (elsewhere the header's colour tells it) */
 static int overlay_on(void)
 {
-    return touched_now() && ((st.page == PG_SON && !is_layer(st.touched)) ||
-                             (is_macro(st.touched) && st.touched != P_KB && st.touched_enc < EN_K1));   /* (BODY on
-                                                                                 * DRONE TONE's K4: its cell) */
+    return touched_now() && ((fm.page == PG_SON && !is_layer(fm.touched)) ||
+                             (fm.touched_enc < EN_K1 && is_macro(fm.touched) &&
+                              (fm.touched != P_KB || PAGES[fm.page].track != T_ANY)));
 }
 
 /* the play page's mix: under the waterline, each layer a stratum drawn as its thing in the river (the current, the
@@ -646,7 +687,7 @@ static void strata(float dim)
     uint32_t i;
     int32_t x, k;
     for (i = 0; i < 4u; i++) {
-        int p = L[i], hot = touched_now() && st.touched == p;
+        int p = L[i], hot = touched_now() && fm.touched == p;
         int32_t y = HZ_HOME + 10 + (int32_t)i * 14, n = (int32_t)st.v[p] * len / 127;   /* (the badges apart) */
         uint16_t c = mix565(C_BG, i == 1u ? C_ICE : hot ? C_FOG : C_MIST, (int32_t)((hot || i == 1u ? 32.0f : 28.0f) * dim));
         uint16_t lc = mix565(C_BG, hot ? C_LAMP : C_MIST, (int32_t)(24.0f * dim));
@@ -687,224 +728,234 @@ static void strata(float dim)
     }
 }
 
-/* the keys' badge, top right: a small keyboard, what the keys play and the octave, in the mode's colour (DRONE white,
- * GLINT ice, BASS lamp), in a rounded frame: solid while the notes latch (the drones and the bass on GLOBAL's KEYS
- * LATCH; GLINT's arpeggio on and latched), dotted while they sound only as long as they are held */
-/* what the keys play, for the badge: DRONE, GLINT or BASS, REC while they write into a sequence (GLINT's in lamp);
- * GLINT's arpeggio drawn as four notes climbing instead of the keyboard (keys_arp) */
-static const char *keys_word(uint16_t *col)
+/* the header: the whole band in the selected track's colour (DRONE fog, GLINT ice, BASS lamp), everything on it dark;
+ * at its right the track, LIVE or STEP while the keys write into its sequence */
+#define C_ONBAND C_BG
+static uint16_t track_col(void) { return st.glint ? C_ICE : st.bass ? C_LAMP : C_FOG; }
+static const char *keys_word(void)
 {
-    *col = st.glint ? C_ICE : st.bass ? C_LAMP : C_FOG;
-    if (st.bass && st.v[P_BQ_ON] && st.v[P_BQ_REC])
-        return "REC";
-    if (!st.glint)
-        return st.bass ? "BASS" : "DRONE";
-    if (seq_keys() && st.v[P_SQ_REC]) {
-        *col = C_LAMP;
-        return "REC";
+    uint32_t r = st.v[st.glint ? P_SQ_REC : st.bass ? P_BQ_REC : P_DQ_REC];
+    if (r)
+        return r == 2u ? "LIVE" : "STEP";
+    return st.glint ? "GLINT" : st.bass ? "BASS" : "DRONE";
+}
+
+/* the header's corner on a SEQ page of the track selected: the title says the track, so the corner says how to clear: the
+ * two keys, each its own small box */
+static int clear_corner(void) { return PAGES[fm.page].button == B_SEQ && PAGES[fm.page].track == st.v[P_KB]; }
+static int32_t small_cap(int32_t x, const char *s)
+{
+    int32_t w = text_tw(&FONT_XS, s, 1) + 7;
+    hline(x, x + w - 1, 5, C_ONBAND);
+    hline(x, x + w - 1, 22, C_ONBAND);
+    cv_rect(x, 5 - oy, 1, 18, C_ONBAND);
+    cv_rect(x + w - 1, 5 - oy, 1, 18, C_ONBAND);
+    text_t(x + 4, 7, &FONT_XS, s, C_ONBAND, 1);
+    return x + w;
+}
+static int32_t clear_w(void)
+{
+    return text_tw(&FONT_XS, "CLEAR", 1) + 6 + text_tw(&FONT_XS, "OCT-", 1) + 7 + 13 + text_tw(&FONT_XS, "REC", 1) + 7;
+}
+
+/* CHORD before the track (CHORD . GLINT), a little paler, while a key of the selected track plays a chord: its KEYS'
+ * NOTES on CHORD and heard (HARMONY on; GLINT not on SEQ, the bass on ARP), not while a take writes (LIVE, STEP), nor on
+ * GLOBAL, whose header keeps its room for the load (CPU) */
+static const char *notes_why(int p);
+static int chord_tag(void)
+{
+    uint32_t t = st.glint ? 1u : st.bass ? 2u : 0u;
+    int p = (int)(P_KY_DR_NOTES + 4u * t);
+    return fm.page != PG_GLOBAL && !st.v[st.glint ? P_SQ_REC : st.bass ? P_BQ_REC : P_DQ_REC] && st.v[p] &&
+           st.v[P_KY_DR_HARM + 4u * t] && !notes_why(p);
+}
+#define CHORD_W (text_tw(&FONT_B, "CHORD", 1) + 1 + 13)
+
+static int32_t track_tag_w(void)
+{
+    return clear_corner() ? clear_w() : text_tw(&FONT_B, keys_word(), 1) + 2 + (chord_tag() ? CHORD_W : 0);
+}
+
+static void track_tag(int32_t x0)
+{
+    if (clear_corner()) {
+        int32_t x = text_t(x0, 7, &FONT_XS, "CLEAR", C_ONBAND, 1) + 6;
+        x = small_cap(x, "OCT-");
+        text_c(x + 6, 7, &FONT_XS, "+", C_ONBAND, 0);
+        small_cap(x + 13, "REC");
+        return;
     }
-    return "GLINT";
-}
-static int keys_arp(void) { return st.glint && !seq_keys() && st.v[P_SQ_TYPE] == SQT_ARP; }
-
-static int32_t keys_badge_w(char *oct)       /* its width; the octave as it writes it */
-{
-    uint16_t col;
-    const char *word = keys_word(&col);
-    oct[0] = 0;
-    if (st.octave > 0)
-        text_cat(oct, "+");
-    int_text(st.octave, oct + strlen_(oct));
-    return 4 + 17 + 4 + text_tw(&FONT_XS, word, 1) + 8 + text_tw(&FONT_XS, oct, 0) + 5;
-}
-
-static void keys_badge(int32_t x0, int32_t w, const char *oct)
-{
-    uint16_t col;
-    const char *word = keys_word(&col);
-    int latched = st.glint ? (st.v[P_SQ_TYPE] == SQT_ARP && arp.latch) : !st.v[P_KEYS] && !(st.bass && st.v[P_BQ_ON]);
-    const int32_t y0 = 6, y1 = 24, r = 4, x1 = x0 + w - 1;
-    int32_t x, y, k, xw;
-    for (y = y0 + 1; y < y1; y++)            /* a breath of its colour inside */
-        for (x = x0 + 1; x < x1; x++)
-            bl(x, y, col, 2);
-    for (k = 0, x = x0 + r; x <= x1 - r; x++, k++)   /* the frame: straight runs, dotted two on two off */
-        if (latched || !(k & 2)) {
-            bl(x, y0, col, 24);
-            bl(x, y1, col, 24);
-        }
-    for (k = 0, y = y0 + r; y <= y1 - r; y++, k++)
-        if (latched || !(k & 2)) {
-            bl(x0, y, col, 24);
-            bl(x1, y, col, 24);
-        }
-    for (y = 0; y < r; y++)                  /* its corners, quarter circles */
-        for (x = 0; x < r; x++) {
-            float d = fm_sqrtf((float)((r - x) * (r - x) + (r - y) * (r - y))) - (float)r, a = 1.0f - fm_fabsf(d);
-            int32_t ai;
-            if (a <= 0.0f || (!latched && (x + y) & 1))
-                continue;
-            ai = (int32_t)(24.0f * a);
-            bl(x0 + x, y0 + y, col, ai);
-            bl(x1 - x, y0 + y, col, ai);
-            bl(x0 + x, y1 - y, col, ai);
-            bl(x1 - x, y1 - y, col, ai);
-        }
-    if (keys_arp()) {                        /* the arpeggio: four notes, one after another, climbing and back */
-        static const int8_t AY[4] = {6, 3, 0, 4};
-        for (k = 0; k < 4; k++) {
-            int32_t ax = x0 + 4 + k * 5, ay = 11 + AY[k];
-            for (y = 0; y < 3; y++)
-                for (x = 0; x < 3; x++)
-                    bl(ax + x, ay + y, col, x == 1 || y == 1 ? 32 : 18);
-        }
-    } else {                                 /* the keyboard: four white keys, three pixels each, two black */
-        int32_t kx = x0 + 4, ky = 11;
-        for (x = 0; x <= 16; x++) {
-            bl(kx + x, ky, col, 28);
-            bl(kx + x, ky + 8, col, 28);
-        }
-        for (k = 0; k <= 16; k += 4)
-            for (y = 1; y < 8; y++)
-                bl(kx + k, ky + y, col, k == 0 || k == 16 ? 28 : 16);
-        for (k = 4; k <= 8; k += 4)
-            for (y = 1; y < 6; y++) {
-                bl(kx + k - 1, ky + y, col, 32);
-                bl(kx + k, ky + y, col, 32);
-                bl(kx + k + 1, ky + y, col, 32);
-            }
+    {
+    const char *word = keys_word();
+    if (chord_tag()) {                   /* (bold as the track, at about 3/4 of its contrast on the band) */
+        uint16_t pale = mix565(track_col(), C_ONBAND, 23);
+        int32_t x = text_t(x0, 8, &FONT_B, "CHORD", pale, 1);
+        text_t(x0 + 1, 8, &FONT_B, "CHORD", pale, 1);
+        cv_rect(x + 6, 14 - oy, 3, 3, pale);
+        x0 += CHORD_W;
     }
-    xw = text_t(x0 + 4 + 17 + 4, 9, &FONT_XS, word, col, 1);
-    for (y = y0 + 5; y <= y1 - 5; y++)       /* a hairline, then the octave */
-        bl(xw + 4, y, col, 10);
-    text_t(xw + 8, 9, &FONT_XS, oct, mix565(C_BG, col, 22), 0);
+    text_t(x0, 8, &FONT_B, word, C_ONBAND, 1);
+    text_t(x0 + 1, 8, &FONT_B, word, C_ONBAND, 1);
+    }
 }
 
-/* where the page is among its button's: a dot each under the title, the page's lit (HOME: SOUND, MIXER, the logo) */
+/* where the page is among its button's: a dot each under the title, the page's dark (HOME: SOUND, KEYS, MIXER, CLOUD
+ * SEND, the logo) */
 static void page_dots(void)
 {
-    uint32_t p, n = 0, i = 0, k;
-    for (p = 0; p < NPAGES; p++)
-        if (PAGES[p].button == PAGES[st.page].button && !page_hidden(p)) {   /* (GLINT's by its SEQ) */
+    uint32_t p, n = 0, i = 0, k, o;
+    uint16_t quiet = mix565(track_col(), C_ONBAND, 16);
+    for (o = 0; o < NPAGES; o++) {
+        p = PAGE_ORDER[o];
+        if (PAGES[p].button == PAGES[fm.page].button && !page_hidden(p)) {
             n++;
-            if (p <= st.page)
+            if (p == fm.page)
                 i = n;
         }
-    if (PAGES[st.page].button == B_HOME) {   /* (its third, the logo) */
-        n = 3;
-        i = st.page == PG_MIXER ? 2u : 1u;
+    }
+    if (PAGES[fm.page].button == B_HOME) {   /* (its last, the logo) */
+        n = 5;
+        i = fm.page == PG_KEYS ? 2u : fm.page == PG_MIXER ? 3u : fm.page == PG_CSEND ? 4u : 1u;
     }
     if (n < 2u)
         return;
-    for (k = 1; k <= n; k++) {
-        int32_t x = ML + 1 + (int32_t)(k - 1u) * 6;
+    for (k = 1; k <= n; k++) {                /* big enough, and the others dark enough, to count them at a glance */
+        int32_t x = ML + 1 + (int32_t)(k - 1u) * 8;
         if (k == i)
-            cv_rect(x, 26 - oy, 3, 3, C_ICE);
+            cv_rect(x - 1, 24 - oy, 5, 5, C_ONBAND);
         else
-            cv_rect(x + 1, 27 - oy, 1, 1, C_SLATE);
+            cv_rect(x, 25 - oy, 4, 4, quiet);
     }
 }
 
-/* a line of progress under the title (a MORPH, PLAY held), in lamp */
+/* a line of progress under the title (a MORPH, PLAY held) */
 static void head_progress(float k)
 {
     int32_t w = MR - ML, n = (int32_t)((k < 0.0f ? 0.0f : k > 1.0f ? 1.0f : k) * (float)w);
-    hline(ML, MR, 27, C_STEEL);
+    hline(ML, MR, 27, mix565(track_col(), C_ONBAND, 11));
     if (n > 0)
-        hline(ML, ML + n - 1, 27, C_LAMP);
+        hline(ML, ML + n - 1, 27, C_ONBAND);
 }
 
-static int32_t title_at(int32_t x, const char *s, uint16_t c, int32_t tr)   /* title()'s, from x, in c */
+static int32_t title_at(int32_t x, const char *s, int32_t tr)   /* a title on the band, from x */
 {
-    text_t(x, 8, &FONT_B, s, c, tr + 1);
-    return text_t(x + 1, 8, &FONT_B, s, c, tr + 1) + 1;
+    text_t(x, 8, &FONT_B, s, C_ONBAND, tr + 1);
+    return text_t(x + 1, 8, &FONT_B, s, C_ONBAND, tr + 1) + 1;
 }
 
 static void header(void)
 {
-    char t[40], oct[8];
+    char t[40];
     uint32_t now = plat_ms();
-    int32_t xt, bw = keys_badge_w(oct), bx = MR - bw + 1, xr = bx - 6;
+    uint16_t band_c = fm.page == PG_SAVEAS ? C_RED : track_col(), soft = mix565(band_c, C_ONBAND, 22);
+    int32_t xt, bw = track_tag_w(), bx = MR - bw + 1, xr = bx - 6;
     float ph = play_holding();
     band(R1, 32);
-    if (cpu_over())                      /* the render ran over its time just now: an amber dot by the badge (its room
-                                          * kept always: the title does not move as it comes and goes) */
-        cv_rect(bx - 7, 13 - oy, 3, 3, C_LAMP);
+    cv_rect(0, 0, 240, 32, band_c);
+    if (fm.page == PG_SAVEAS) {          /* WHAT and INTO: something is about to be written: red, SAVE in white, no track */
+        fit_text(ML, 8, MR - ML, "SAVE", C_WHITE, 1, 1);
+        cv_blit(0, R1);
+        return;
+    }
+    if (cpu_over())                      /* the render ran over its time just now: a dot by the track (its room kept
+                                          * always: the title does not move as it comes and goes) */
+        cv_rect(bx - 7, 13 - oy, 3, 3, C_ONBAND);
     xr -= 8;
     if (ph > 0.0f) {                     /* PLAY held: what it is about to do, counting down */
-        title_at(ML, holding_any() || !rst_valid ? "RELEASE ALL" : "RESTORE", C_LAMP, 0);
+        title_at(ML, holding_any() || !rst_valid ? "RELEASE ALL" : "RESTORE", 0);
         head_progress(ph);
-        keys_badge(bx, bw, oct);
+        track_tag(bx);
         cv_blit(0, R1);
         return;
     }
-    if (now < say.msg_until) {           /* a message for a moment (the badge stays, if there is room) */
-        int32_t x = text_t(ML, 8, &FONT_B, say.msg[0], C_FOG, 1);
-        if (say.msg[1][0] && say.red) {  /* (bold, bright red: twice, a pixel apart, as the titles) */
-            text_t(x + 7, 8, &FONT_B, say.msg[1], C_RED, 1);
-            x = text_t(x + 8, 8, &FONT_B, say.msg[1], C_RED, 1);
+    if (cnt.run) {                       /* COUNT-IN, the beat it is on */
+        int32_t x = title_at(ML, "COUNT-IN", 0);
+        cv_rect(x + 6, 14 - oy, 3, 3, C_ONBAND);
+        t[0] = (char)('0' + (cnt.beat > 4u ? 4u : cnt.beat ? cnt.beat : 1u));
+        t[1] = 0;
+        title_at(x + 15, t, 0);
+        track_tag(bx);
+        cv_blit(0, R1);
+        return;
+    }
+    if (now < say.msg_until) {           /* a message for a moment (the track stays, if there is room) */
+        int32_t x = text_t(ML, 8, &FONT_B, say.msg[0], C_ONBAND, 1);
+        if (say.red == 2u) {             /* (two words alike: ARP ON . SEQ OFF) */
+            text_t(ML + 1, 8, &FONT_B, say.msg[0], C_ONBAND, 1);
+            cv_rect(x + 6, 14 - oy, 3, 3, C_ONBAND);
+            text_t(x + 15, 8, &FONT_B, say.msg[1], C_ONBAND, 1);
+            x = text_t(x + 16, 8, &FONT_B, say.msg[1], C_ONBAND, 1);
+        } else if (say.msg[1][0] && say.red) {   /* (bold, deep red: twice, a pixel apart, as the titles) */
+            text_t(x + 7, 8, &FONT_B, say.msg[1], RGB(170, 16, 16), 1);
+            x = text_t(x + 8, 8, &FONT_B, say.msg[1], RGB(170, 16, 16), 1);
         } else if (say.msg[1][0])
-            x = text_t(x + 7, 9, &FONT_XS, say.msg[1], C_MIST, 1);
+            x = text_t(x + 7, 9, &FONT_XS, say.msg[1], soft, 1);
         if (x + 8 <= bx)
-            keys_badge(bx, bw, oct);
+            track_tag(bx);
         cv_blit(0, R1);
         return;
     }
-    if (mo.on && (st.page == PG_SON || st.page == PG_SCENES)) {   /* a MORPH: an arrow, the scene it goes to, how
+    if (mo.on && (fm.page == PG_SON || fm.page == PG_SCENES)) {   /* a MORPH: an arrow, the scene it goes to, how
                                                                     * far (elsewhere: the progress under the page) */
         int32_t i;
         for (i = 0; i < 9; i++)
-            bl(ML + i, 16, C_LAMP, 32);
+            bl(ML + i, 16, C_ONBAND, 32);
         for (i = 1; i <= 3; i++) {
-            bl(ML + 8 - i, 16 - i, C_LAMP, 32);
-            bl(ML + 8 - i, 16 + i, C_LAMP, 32);
+            bl(ML + 8 - i, 16 - i, C_ONBAND, 32);
+            bl(ML + 8 - i, 16 + i, C_ONBAND, 32);
         }
-        title_at(ML + 15, mo.name, C_WHITE, 1);
+        title_at(ML + 15, mo.name, 1);
         head_progress((float)(now - mo.t0) / (float)mo.dur);
-        keys_badge(bx, bw, oct);
+        track_tag(bx);
         cv_blit(0, R1);
         return;
     }
     if (st.compare) {                    /* EDIT held: the scene as it was saved */
-        int32_t x = title_at(ML, "COMPARE", C_LAMP, 0);
-        text_t(x + 8, 9, &FONT_XS, "AS SAVED", C_MIST, 1);
-        keys_badge(bx, bw, oct);
+        int32_t x = title_at(ML, "COMPARE", 0);
+        text_t(x + 8, 9, &FONT_XS, "AS SAVED", soft, 1);
+        track_tag(bx);
         cv_blit(0, R1);
         return;
     }
-    /* the title first, the keys' badge at the right; between them, by priority while they fit: on GLOBAL the load,
+    /* the title first, the track at the right; between them, by priority while they fit: on GLOBAL the load,
      * FREEZE; last, beside the title, the key; under the title, where the page is among its button's */
-    if (st.page == PG_SON) {             /* the scene: its name, as large as it fits (sixteen characters), a lamp dot
-                                          * while the sound differs; FREEZE's tag if there is room left (else a flake) */
+    if (fm.page == PG_SON) {             /* the scene: its name, as large as it fits (sixteen characters), a dot while
+                                          * the sound differs; FREEZE's tag if there is room left (else a flake) */
         scene_t sc;
         char nt[SC_NAME + 1];
         int32_t room = xr - ML - (st.dirty ? 8 : 0), wf = text_tw(&FONT_XS, "FREEZE", 1) + 8 + 6;
-        scene_get(st.scene, &sc);
+        scene_get(fm.scene, &sc);
         name_text(&sc, nt);
         if (st.v[P_FREEZE])
             room -= text_tw(&FONT_B, nt, 2) + 1 + wf <= room ? wf : 13;
-        xt = fit_text(ML, 8, room, nt, C_WHITE, 1, 2);
+        xt = fit_text(ML, 8, room, nt, C_ONBAND, 1, 2);
         if (st.dirty) {
-            cv_rect(xt + 4, 12 - oy, 3, 3, C_LAMP);
+            cv_rect(xt + 4, 12 - oy, 3, 3, C_ONBAND);
             xt += 8;
         }
-    } else if (st.page == PG_SCENES) {
-        xt = title("SCENES", 2);
+    } else if (fm.page == PG_SCENES) {
+        xt = title_at(ML, "SCENES", 2);
         if (st.dirty && xt + 8 + text_tw(&FONT_XS, "CHANGED", 1) <= xr)
-            xt = text_t(xt + 8, 9, &FONT_XS, "CHANGED", C_LAMP, 1);
-    } else {
-        xt = title(PAGES[st.page].name, 0);
+            xt = text_t(xt + 8, 9, &FONT_XS, "CHANGED", soft, 1);
+    } else {                             /* (SAVE's first: as K1 has it) */
+        t[0] = 0;
+        if (clear_corner() && st.v[st.glint ? P_SQ_REC : st.bass ? P_BQ_REC : P_DQ_REC]) {   /* (a take: the title says which) */
+            text_cat(t, st.glint ? "GLINT " : st.bass ? "BASS " : "DRONE ");
+            text_cat(t, keys_word());
+        }
+        xt = fit_text(ML, 8, xr - ML, t[0] ? t : fm.page == PG_SAVE && !sv.load ? "SAVE" : PAGES[fm.page].name,
+                      C_ONBAND, 1, 1);
     }
     page_dots();
     if (mo.on) {
         int32_t w = (int32_t)((float)(now - mo.t0) / (float)mo.dur * (float)(MR - ML));
-        hline(ML, MR, 30, C_STEEL);
+        hline(ML, MR, 30, mix565(band_c, C_ONBAND, 11));
         if (w > 0)
-            hline(ML, ML + (w > MR - ML ? MR - ML : w), 30, C_LAMP);
+            hline(ML, ML + (w > MR - ML ? MR - ML : w), 30, C_ONBAND);
     }
-    keys_badge(bx, bw, oct);
+    track_tag(bx);
     t[0] = 0;
-    if (st.page == PG_GLOBAL) {          /* the load, for the first tests on a device */
+    if (fm.page == PG_GLOBAL) {          /* the load, for the first tests on a device */
         uint32_t n;
         text_cat(t, "CPU ");
         int_text((int32_t)plat_cpu_pct(), t + strlen_(t));
@@ -916,56 +967,49 @@ static void header(void)
         if (xr - text_tw(&FONT_XS, t, 0) < xt + 30)
             t[n] = 0;                    /* short of room: the load alone */
         if (xr - text_tw(&FONT_XS, t, 0) >= xt + 8) {
-            text_r(xr, 9, &FONT_XS, t, C_MIST, 0);
+            text_r(xr, 9, &FONT_XS, t, soft, 0);
             xr -= text_tw(&FONT_XS, t, 0) + 6;
         }
     }
-    if (st.v[P_FREEZE]) {                /* FREEZE: an ice tag */
+    if (st.v[P_FREEZE]) {                /* FREEZE: a dark tag */
         int32_t wf = text_tw(&FONT_XS, "FREEZE", 1) + 8;
         if (xr - wf + 1 >= xt + 6) {
-            cv_rect(xr - wf + 1, 7, wf, 16, C_ICE);
-            text_t(xr - wf + 5, 9, &FONT_XS, "FREEZE", C_BG, 1);
+            cv_rect(xr - wf + 1, 7, wf, 16, C_ONBAND);
+            text_t(xr - wf + 5, 9, &FONT_XS, "FREEZE", C_ICE, 1);
             xr -= wf + 7;
-        } else if (st.page == PG_SON) {  /* (a long name: a flake of ice) */
+        } else if (fm.page == PG_SON) {  /* (a long name: a flake) */
             int32_t k, cx = xr - 4;
             for (k = 1; k <= 4; k++) {
                 int32_t dy = (k * 4 + 3) / 7, a = 32 - k * 4;
-                bl(cx, 15 - k, C_ICE, a);
-                bl(cx, 15 + k, C_ICE, a);
+                bl(cx, 15 - k, C_ONBAND, a);
+                bl(cx, 15 + k, C_ONBAND, a);
                 if (k < 4) {
-                    bl(cx + k, 15 - dy, C_ICE, a);
-                    bl(cx - k, 15 + dy, C_ICE, a);
-                    bl(cx + k, 15 + dy, C_ICE, a);
-                    bl(cx - k, 15 - dy, C_ICE, a);
+                    bl(cx + k, 15 - dy, C_ONBAND, a);
+                    bl(cx - k, 15 + dy, C_ONBAND, a);
+                    bl(cx + k, 15 + dy, C_ONBAND, a);
+                    bl(cx - k, 15 - dy, C_ONBAND, a);
                 }
             }
-            bl(cx, 15, C_WHITE, 32);
+            bl(cx, 15, C_ONBAND, 32);
             xr -= 13;
-        }
-    }
-    t[0] = 0;
-    if (st.page == PG_SON) {
-        if (st.v[P_SCALE] || st.v[P_CHORD]) {   /* the harmony, quietly */
-            text_cat(t, NOTE_NAME[st.v[P_ROOT] % 12u]);
-            text_cat(t, " ");
-            text_cat(t, SCALE_NAME[st.v[P_SCALE] % NSCALES]);
-            if (xt + 12 + text_tw(&FONT_XS, t, 1) <= xr)
-                text_t(xt + 12, 9, &FONT_XS, t, C_SLATE, 1);
         }
     }
     cv_blit(0, R1);
 }
 
-/* a choice among a few: a dot for each, the chosen one lit */
+/* a choice among a few: a dot for each, the chosen one lit; close together under the value, ten pixels apart, three
+ * quarters of the cell at most, so that the last of a cell's is never read as the first of the next cell's */
 static void steps(int32_t x, int32_t y, int32_t w, uint32_t n, uint32_t i)
 {
-    uint32_t k;
+    uint32_t k, span = (n - 1u) * 10u, most = (uint32_t)w * 3u / 4u;
+    if (span > most)
+        span = most;
     for (k = 0; k < n; k++) {
-        int32_t px = x + (int32_t)(k * (uint32_t)(w - 2) / (n - 1u));
+        int32_t px = x + (int32_t)(k * span / (n - 1u));
         if (k == i)
             cv_rect(px - 1, y - 1 - oy, 3, 3, ui_off ? C_SLATE : C_ICE);
         else
-            cv_rect(px, y - oy, 1, 1, C_SLATE);
+            cv_rect(px, y - oy, 1, 1, ui_off ? C_SLATE : C_MIST);
     }
 }
 
@@ -975,21 +1019,46 @@ static uint16_t tgt_col(uint32_t t)
     uint32_t p = LFO_TGT[t % NLFO_TGT];
     if (p >= NPARAM)
         return C_MIST;
+    if (p == P_FL_CUT || p == P_FL_RESO || p == P_GX_BLUR || p == P_GX_SINK || p == P_PN_CLOUD)
+        return C_GLOB;
     if (p == P_GL_LEVEL || p == P_GL_BRIGHT || p == P_GL_PING || p == P_GL_SPACE || p == P_MX_GLINT || p == P_ARP_CHANCE ||
-        p == P_SQ_LEN || p == P_GX_SPARK || p == P_PN_GLINT)
+        p == P_SQ_LEN || p == P_GX_SPARK || p == P_PN_GLINT || p == P_GL_ATTACK || p == P_GL_DECAY || p == P_GL_SUSTAIN ||
+        p == P_GL_RELEASE)
         return C_ICE;
-    if (p == P_BS_FILTER || p == P_BS_RESO || p == P_BS_DRIVE || p == P_MX_BASS || p == P_PN_BASS)
+    if (p == P_BS_FILTER || p == P_BS_RESO || p == P_BS_DRIVE || p == P_MX_BASS || p == P_PN_BASS || p == P_BS_ATTACK ||
+        p == P_BS_DECAY || p == P_BS_SUSTAIN || p == P_BS_RELEASE)
         return C_LAMP;
     return C_FOG;
+}
+
+/* a setting's name on its page: CLOUD SEND's are each a SPACE, whose it says */
+static const char *cell_name(int p)
+{
+    if (fm.page == PG_CSEND)
+        return p == P_ESPACE ? "DRONE" : p == P_GL_SPACE ? "GLINT" : "BASS";
+    return PD[p].name;
 }
 
 static void cell_w(int32_t x, int32_t y, int p, int32_t w);
 static void cell(int32_t x, int32_t y, int p) { cell_w(x, y, p, 96); }
 
+/* KEYS' NOTES on CHORD where the keys play one note all the same (eng_key_down): why, under the value; else 0 */
+static const char *notes_why(int p)
+{
+    if ((p != P_KY_GL_NOTES && p != P_KY_BS_NOTES) || !st.v[p])
+        return 0;
+    if (p == P_KY_BS_NOTES)
+        return st.v[P_BQ_ON] == SQT_ARP ? 0 : "(ARP ONLY)";
+    return st.v[P_SQ_TYPE] == SQT_SEQ ? "(NOT ON SEQ)" : 0;
+}
+
 /* a setting whose effect is off: MASTER FILTER's with its TYPE OFF, MASTER EQ's bands with its PRESET OFF, LOFI
  * TAPE's with TAPE OFF (still turned: slate, its name too, so the page reads off) */
 static int param_off(int p)
 {
+    if (p >= P_KY_DR_HARM && p <= P_KY_BS_STACK && ((uint32_t)(p - P_KY_DR_HARM) & 3u) == 1u)   /* NOTES: HARMONY off, or
+                                                                                                 * CHORD not heard here */
+        return !st.v[P_KY_DR_HARM + 4u * ((uint32_t)(p - P_KY_DR_HARM) / 4u)] || notes_why(p) != 0;
     return ((p == P_FL_CUT || p == P_FL_RESO || p == P_FL_TRACKS) && !st.v[P_FL_TYPE]) ||
            (p >= P_EQ_LOW && p <= P_EQ_HIGHF && !st.v[P_EQ_PRESET]) ||
            (p >= P_TP_SAT && p <= P_TP_TRACKS && !st.v[P_TP_ON]);
@@ -999,15 +1068,25 @@ static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its
                                                               * choices, w wide */
 {
     int hot, f;
+    if (p == (int)K_ARP || p == (int)K_SEQ) {   /* ARP's and SEQ's ON, OFF */
+        int on = ways_on(PAGES[fm.page].track, p == (int)K_ARP ? SQT_ARP : SQT_SEQ);
+        badge_of(x + 7, y + 7, p, -1);
+        text_t(x + BADGE_W, y, &FONT_XS, p == (int)K_ARP ? "ARP" : "SEQUENCE", C_MIST, 1);
+        cv_text(x, y + 15 - oy, &FONT_M, on ? "ON" : "OFF", on ? C_ICE : C_MIST);
+        steps(x + 1, y + 41, w, 2u, (uint32_t)on);
+        return;
+    }
     if (p >= NPARAM)                     /* an empty slot (GLOBAL II) */
         return;
-    hot = touched_now() && st.touched == p;
+    hot = touched_now() && fm.touched == p;
     f = PD[p].fmt;
     ui_off = (uint8_t)param_off(p);
     badge_of(x + 7, y + 7, p, -1);
-    text_t(x + BADGE_W, y, &FONT_XS, PD[p].name, ui_off ? (hot ? C_MIST : C_SLATE) : hot ? C_LAMP : C_MIST, 1);
-    value_big(x, y + 15, p, w + 4, &FONT_M, ui_off ? C_SLATE : pv.on && pv.p == (uint8_t)p ? C_LAMP
+    text_t(x + BADGE_W, y, &FONT_XS, cell_name(p), ui_off ? (hot ? C_MIST : C_SLATE) : hot ? C_LAMP : C_MIST, 1);
+    value_big(x, y + 15, p, w + 4, &FONT_M, ui_off ? C_SLATE : ng.on && ng.pick && ng.p == (uint8_t)p ? C_LAMP
                                             : f == F_LTGT ? tgt_col(st.v[p]) : C_FOG, 0);   /* (picked under OCT-: lamp) */
+    if (notes_why(p))
+        text_t(x + 22, y + 36, &FONT_XS, notes_why(p), C_MIST, 1);
     if (f == F_LTGT) {                   /* (a TARGET: a name, in its track's colour, no scale) */
         ui_off = 0;
         return;
@@ -1015,7 +1094,9 @@ static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its
     if (PD[p].max <= 16u && f != F_PCT)
         steps(x + 1, y + 41, w, PD[p].max + 1u, pv_shown(p));
     else
-        gauge(x, y + 41, w, (float)pv_shown(p) / (float)PD[p].max, ui_off ? C_SLATE : hot ? C_LAMP : C_MIST);
+        gauge(x, y + 41, w, step_len_p(p) >= 0 ? (st.v[step_len_p(p)] ? (float)st.v[p] / (float)st.v[step_len_p(p)] : 0.0f)
+                                               : (float)pv_shown(p) / (float)PD[p].max,
+              ui_off ? C_SLATE : hot ? C_LAMP : C_MIST);
     ui_off = 0;
     if (p < NSOUND && mod[p] != 0.0f && PD[p].max > 16u) {   /* an LFO on it: where it is now, in ice */
         float u = br_clamp01(((float)st.v[p] + mod[p]) / (float)PD[p].max);
@@ -1060,103 +1141,29 @@ static void rec_band(int32_t xa, int32_t xb, int32_t y0, int32_t y1, uint16_t c)
     }
 }
 
-/* GLINT's sequence, a constellation across the strip (16 steps wide while SEQ LENGTH is 16 or less, else 32): a star
- * a step, as high as its note (the steps' lowest to highest, at least an octave), larger with ACCENT; a tied step, a
- * line on from the last; a rest, a dot; past SEQ LENGTH, slate. The step playing, white, a line of light down through
- * it; the step on K1, an amber tick under it; RECORD on LIVE, an amber light in the corner. Recording, the strip
- * ruled, each step a column, the one recorded into lit in ice */
-static void seq_scope(void)
+/* a sequence across the strip, GLINT's in ice, the bass's in lamp, one picture: only its SEQ LENGTH's steps, the strip's
+ * scale by blocks of four (a step as wide from 5 to 8 steps, from 9 to 12...), what is left of the strip bare. A NOTE is a line at its note's height (the lowest to highest, at least an octave), a mark where it
+ * starts (taller with ACCENT), stretched on through its TIEs (the bass's HOLDs), the water under it down to the bed, as
+ * in the river (bass_bed); a rest, nothing; TIEs at its start, the note its last steps leave sounding, round. The one
+ * playing bright; the playhead going along; the step on K1, a line under it; RECORD on LIVE, a lamp light in the corner,
+ * and a bass take's note down drawn bright as it is held, from where it went down to the playhead; off SEQ, the steps
+ * slate. Recording, the strip ruled, each step a column, the one recorded into lit */
+static void seq_scope(int bs)
 {
-    uint32_t len = seq_len(), i, cur = st.v[P_SQ_STEP] % SC_SEQ, ns = st.v[P_SQ_LEN] < 16u ? 16u : SC_SEQ;   /* (the
-                                                                       * width from SEQ LENGTH as set; SEQ LENGTH as
-                                                                       * it plays) */
-    int32_t top = 40, bot = 80, lo = 127, hi = 0, py = -1, px = 0;
-    int on = st.v[P_SQ_TYPE] == SQT_SEQ;
-    for (i = 0; i < SC_SEQ; i++) {
-        int32_t n = seq[i] & 127;
-        if (n != (int32_t)SQ_REST && n != (int32_t)SQ_TIE) {
-            lo = n < lo ? n : lo;
-            hi = n > hi ? n : hi;
-        }
-    }
-    if (hi < lo) {
-        lo = 60;
-        hi = 72;
-    }
-    if (hi - lo < 12) {                  /* at least an octave tall */
-        int32_t m = (hi + lo) / 2;
-        lo = m - 6;
-        hi = m + 6;
-    }
-    if (on && st.v[P_SQ_REC]) {          /* recording: a column a step, the one recorded into lit */
-        int32_t e[SC_SEQ + 1], r = st.v[P_SQ_REC] == 1u ? (int32_t)(cur % (st.v[P_SQ_LEN] + 1u)) : sq.run ? sq.pos : -1;
-        for (i = 0; i <= ns; i++)        /* (its edges: halfway between two steps, the strip's ends) */
-            e[i] = i == 0 ? ML : i == ns ? MR
-                               : ML + 4 + (int32_t)(2u * i - 1u) * (MR - ML - 8) / (2 * (int32_t)(ns - 1u));
-        if (r >= 0 && r < (int32_t)ns)
-            rec_band(e[r], e[r + 1], top - 4, bot + 4, C_ICE);
-        for (i = 0; i <= ns; i++)
-            step_line(e[i], top - 4, bot + 4);
-        pitch_lines(ML, MR, top, bot, lo, hi);
-    }
-    hline(ML, MR, bot + 5, C_STEEL);
-    for (i = 0; i < ns; i++) {
-        int32_t x = ML + 4 + (int32_t)i * (MR - ML - 8) / (int32_t)(ns - 1u), n = seq[i] & 127, y, j;
-        int in = i < len, play = on && sq.run && sq.pos == (int32_t)i && sq.sounding >= 0;
-        uint16_t col = in ? C_ICE : C_SLATE;
-        if (on && sq.run && sq.pos == (int32_t)i)   /* the playhead */
-            cv_rect(x, top - 4 - oy, 1, bot - top + 9, mix565(C_BG, C_ICE, 7));
-        if (i == cur && st.page == PG_SEQ)          /* the step on K1 */
-            cv_rect(x - 1, bot + 7 - oy, 3, 2, C_LAMP);
-        if (n == (int32_t)SQ_REST) {
-            bl(x, bot + 5, col, in ? 24 : 10);
-            py = -1;
-            continue;
-        }
-        if (n == (int32_t)SQ_TIE) {      /* on from the last note */
-            if (py >= 0)
-                for (j = px; j <= x; j++)
-                    bl(j, py, col, in ? 18 : 8);
-            px = x;
-            continue;
-        }
-        y = bot - (n - lo) * (bot - top) / (hi - lo);
-        {
-            int32_t arm = seq[i] & SQ_ACC ? 5 : 3, a = play ? 32 : in ? 26 : 10;
-            for (j = 1; j <= arm; j++) {
-                int32_t aj = a * (arm + 1 - j) / (arm + 1);
-                bl(x + j, y, col, aj);
-                bl(x - j, y, col, aj);
-                bl(x, y + j, col, aj * 3 / 4);
-                bl(x, y - j, col, aj * 3 / 4);
-            }
-            bl(x, y, play ? C_WHITE : in ? C_FOG : C_SLATE, play ? 32 : a);
-        }
-        py = y;
-        px = x;
-    }
-    if (st.v[P_SQ_REC] == 2u)            /* LIVE */
-        for (i = 0; i < 9u; i++)
-            bl(MR - 3 + (int32_t)(i % 3u) - 1, top - 3 + (int32_t)(i / 3u) - 1, C_LAMP, i == 4u ? 32 : 16);
-}
-
-/* the bass's sequence, a line of time across the strip: each step as wide as it is long (the SEQ STEPS it plays, and
- * the one on K1 past them, after a dotted end). A NOTE is a line at its note's height (the lowest to highest, at least an
- * octave), a mark where it starts, on through its HOLDs, the water under it down to the bed, as the bass's in the
- * river (bass_bed); a CUT, nothing; HOLDs at its start, the note its last steps leave sounding, round. In lamp, the
- * one playing bright; the playhead going along; the step on K1, a lamp line under it; RECORD on LIVE, a lamp light in
- * the corner, and the take's note down drawn bright as it is held, from where it went down to the playhead; SEQUENCE
- * off, the steps slate. Recording, the strip ruled, each step a column as wide, the one recorded into lit in lamp */
-static void bseq_scope(void)
-{
-    uint32_t steps = st.v[P_BQ_STEPS] + 1u, cur = st.v[P_BQ_STEP] % SC_BSEQ, n = cur >= steps ? cur + 1u : steps;
-    uint32_t i, total = 0, at = 0, loop = 0;
+    const uint8_t *q = bs ? bnote : seq;
+    uint16_t lit = bs ? C_LAMP : C_ICE;
+    uint32_t steps = bs ? st.v[P_BQ_STEPS] + 1u : seq_len(), cur = st.v[bs ? P_BQ_STEP : P_SQ_STEP] % SC_SEQ;
+    uint32_t set_n = bs ? steps : st.v[P_SQ_LEN] + 1u;   /* (the width from SEQ LENGTH as set; SEQ LENGTH as it plays) */
+    uint32_t n = set_n > steps ? set_n : steps, cols = (n + 3u) / 4u * 4u, w = bs ? bseq_ticks() : ARP_TICKS[st.v[P_ARP_RATE] % 10u];
+    uint32_t i, total = cols * w, at = 0, loop = steps * w;
     int32_t top = 44, bot = 76, bed = 86, lo = 127, hi = 0, y = -1, play = 0, x0, x1, x, j;
-    int on = st.v[P_BQ_ON], held = on && bq.tn >= 0 && bseq_playing();
+    int32_t end = ML + (int32_t)(n * (uint32_t)(MR - ML) / cols);   /* (where its steps end) */
+    int32_t pos = bs ? bq.pos : sq.pos, rec = st.v[bs ? P_BQ_REC : P_SQ_REC];
+    int on = st.v[bs ? P_BQ_ON : P_SQ_TYPE] == SQT_SEQ, run = on && (bs ? bq.run : sq.run);
+    int sounding = bs ? bass_note >= 0 : sq.sounding >= 0, held = bs && on && bq.tn >= 0 && bseq_playing();
+    float into = bs ? bq.t : seq_grid(grid.tick) - (float)sq.n * (float)w;   /* (clocks into the step playing) */
     for (i = 0; i < n; i++) {
-        int32_t b = bnote[i] & 127;
-        total += bseq_ticks((int32_t)i);
-        loop += i < steps ? bseq_ticks((int32_t)i) : 0u;
+        int32_t b = q[i] & 127;
         if (b != (int32_t)SQ_REST && b != (int32_t)SQ_TIE) {
             lo = b < lo ? b : lo;
             hi = b > hi ? b : hi;
@@ -1167,45 +1174,45 @@ static void bseq_scope(void)
         hi = bq.tn > hi ? bq.tn : hi;
     }
     if (hi < lo) {
-        lo = 36;
-        hi = 48;
+        lo = bs ? 36 : 60;
+        hi = lo + 12;
     }
     if (hi - lo < 12) {                  /* at least an octave tall */
         int32_t m = (hi + lo) / 2;
         lo = m - 6;
         hi = m + 6;
     }
-    if (st.v[P_BQ_REC]) {                /* recording: a column a step, the one recorded into lit */
-        int32_t r = st.v[P_BQ_REC] == 1u ? (int32_t)(cur % steps) : bq.run ? bq.pos : -1;
+    if (on && rec) {                     /* recording: a column a step, the one recorded into lit */
+        int32_t r = rec == 1 ? (int32_t)(cur % set_n) : run ? pos : -1;
         for (i = 0; i < n; i++) {
             x0 = ML + (int32_t)(at * (uint32_t)(MR - ML) / total);
-            at += bseq_ticks((int32_t)i);
+            at += w;
             x1 = ML + (int32_t)(at * (uint32_t)(MR - ML) / total);
             if (r == (int32_t)i)
-                rec_band(x0, x1, top - 6, bed - 1, C_LAMP);
+                rec_band(x0, x1, top - 6, bed - 1, lit);
             step_line(x0, top - 6, bed - 1);
         }
-        step_line(MR, top - 6, bed - 1);
-        pitch_lines(ML, MR, top, bot, lo, hi);
+        step_line(end, top - 6, bed - 1);
+        pitch_lines(ML, end, top, bot, lo, hi);
         at = 0;
     }
-    hline(ML, MR, bed, C_STEEL);         /* the bed */
-    if ((bnote[0] & 127u) == SQ_TIE) {   /* HOLDs first: the note its last steps leave sounding, round its end */
-        for (i = steps; i > 1u && (bnote[i - 1u] & 127u) == SQ_TIE; i--)
+    hline(ML, end, bed, C_STEEL);        /* the bed */
+    if ((q[0] & 127u) == SQ_TIE) {       /* TIEs first: the note its last steps leave sounding, round its end */
+        for (i = steps; i > 1u && (q[i - 1u] & 127u) == SQ_TIE; i--)
             ;
-        if (i > 1u && (bnote[i - 1u] & 127u) != SQ_REST) {
+        if (i > 1u && (q[i - 1u] & 127u) != SQ_REST) {
             uint32_t e;
-            for (e = 1; e < steps && (bnote[e] & 127u) == SQ_TIE; e++)
+            for (e = 1; e < steps && (q[e] & 127u) == SQ_TIE; e++)
                 ;
-            y = bot - ((int32_t)(bnote[i - 1u] & 127u) - lo) * (bot - top) / (hi - lo);
-            play = on && bq.run && bq.pos >= 0 && (uint32_t)bq.pos < e;
+            y = bot - ((int32_t)(q[i - 1u] & 127u) - lo) * (bot - top) / (hi - lo);
+            play = run && sounding && pos >= 0 && (uint32_t)pos < e;
         }
     }
     for (i = 0; i < n; i++) {
-        int32_t b = bnote[i] & 127, in = on && i < steps;
+        int32_t b = q[i] & 127, in = on && i < steps;
         uint16_t col;
         x0 = ML + (int32_t)(at * (uint32_t)(MR - ML) / total);
-        at += bseq_ticks((int32_t)i);
+        at += w;
         x1 = ML + (int32_t)(at * (uint32_t)(MR - ML) / total);
         if (i == steps && n > steps)     /* the end of what plays, dotted */
             for (j = top - 4; j <= bed; j += 2)
@@ -1216,16 +1223,18 @@ static void bseq_scope(void)
             y = -1;
             continue;
         }
-        if (b != (int32_t)SQ_TIE) {      /* a NOTE: a line from here (HOLD carries it on), bright while it plays */
+        if (b != (int32_t)SQ_TIE) {      /* a NOTE: a line from here (a TIE carries it on), bright while it plays */
             uint32_t e;
             y = bot - (b - lo) * (bot - top) / (hi - lo);
-            for (e = i + 1u; e < n && (bnote[e] & 127u) == SQ_TIE; e++)
+            for (e = i + 1u; e < n && (q[e] & 127u) == SQ_TIE; e++)
                 ;
-            play = on && bq.run && bq.pos >= 0 && (uint32_t)bq.pos >= i && (uint32_t)bq.pos < e;
+            play = run && sounding && pos >= 0 && (uint32_t)pos >= i && (uint32_t)pos < e;
         }
-        if (y < 0)                       /* (a HOLD after nothing: nothing) */
+        if (y < 0)                       /* (a TIE after nothing: nothing) */
             continue;
-        col = in ? C_LAMP : C_SLATE;
+        if (i == steps)                  /* (past what plays: none of it playing) */
+            play = 0;
+        col = in ? lit : C_SLATE;
         for (x = x0 + (b != (int32_t)SQ_TIE); x < x1; x++) {   /* (a pixel apart from the one before) */
             int32_t a = play ? 32 : in ? 22 : 12, yy;
             bl(x, y, col, a);
@@ -1233,12 +1242,17 @@ static void bseq_scope(void)
             for (yy = y + 2; yy < bed; yy++) {   /* the water under it, fading down to the bed */
                 int32_t d = (bed - yy) * 16 / (bed - y);
                 if ((x + yy) & 1)
-                    bl(x, yy, play ? mix565(C_HAZE, C_LAMP, 8) : C_HAZE, (play ? 18 : 12) * d * d / 256);
+                    bl(x, yy, play ? mix565(C_HAZE, lit, 8) : C_HAZE, (play ? 18 : 12) * d * d / 256);
             }
         }
-        if (b != (int32_t)SQ_TIE)       /* where it starts */
-            for (j = y - 2; j <= y + 3; j++)
+        if (b != (int32_t)SQ_TIE) {      /* where it starts; ACCENT, taller and twice as wide */
+            int32_t ac = (q[i] & SQ_ACC) != 0;
+            for (j = y - 2 - 2 * ac; j <= y + 3 + 2 * ac; j++) {
                 bl(x0 + 1, j, play ? C_WHITE : col, j == y ? 32 : play ? 20 : in ? 14 : 8);
+                if (ac)
+                    bl(x0 + 2, j, play ? C_WHITE : col, j == y ? 32 : play ? 20 : in ? 14 : 8);
+            }
+        }
     }
     if (held) {                          /* the take's note down, bright: from where it went down to the playhead
                                           * (round the loop's end; held a whole turn, all of it) */
@@ -1270,21 +1284,17 @@ static void bseq_scope(void)
     }
     at = 0;
     for (i = 0; i < n; i++) {            /* the playhead; the step on K1 */
-        uint32_t w = bseq_ticks((int32_t)i);
         x0 = ML + (int32_t)(at * (uint32_t)(MR - ML) / total);
         x1 = ML + (int32_t)((at + w) * (uint32_t)(MR - ML) / total);
-        if (on && bq.run && bq.pos == (int32_t)i) {
-            float f = bq.t / (float)w;
-            x = x0 + (int32_t)((f > 1.0f ? 1.0f : f) * (float)(x1 - x0));
-            cv_rect(x, top - 6 - oy, 1, bed - top + 6, mix565(C_BG, C_LAMP, 9));
+        if (run && pos == (int32_t)i) {
+            float f = into / (float)w;
+            x = x0 + (int32_t)((f < 0.0f ? 0.0f : f > 1.0f ? 1.0f : f) * (float)(x1 - x0));
+            cv_rect(x, top - 6 - oy, 1, bed - top + 6, mix565(C_BG, lit, 9));
         }
-        if (i == cur && st.page == PG_BSEQ)
+        if (i == cur && rec != 2 && fm.page == (bs ? PG_BSEQ2 : PG_SEQ2))
             cv_rect(x0 + 1, bed + 4 - oy, x1 - x0 > 2 ? x1 - x0 - 1 : 2, 2, C_LAMP);
         at += w;
     }
-    if (st.v[P_BQ_REC] == 2u)            /* LIVE */
-        for (i = 0; i < 9u; i++)
-            bl(MR - 3 + (int32_t)(i % 3u) - 1, top - 5 + (int32_t)(i / 3u) - 1, C_LAMP, i == 4u ? 32 : 16);
 }
 
 /* BASS ADSR's and GLINT ADSR's strip: the envelope as one draws it, up to the top over ATTACK, down to SUSTAIN's level
@@ -1369,7 +1379,7 @@ static void adsr_note(const adsr_t *A, int held, int attacking, float t, float t
 static void adsr_scope(int glint)
 {
     static const char *const PART[4] = {"A", "D", "S", "R"};
-    const uint8_t *P = PAGES[st.page].p;
+    const uint8_t *P = PAGES[fm.page].p;
     uint16_t col = glint ? C_ICE : C_LAMP;
     adsr_t A;
     int32_t x, py = 0, k, lit = -1, w[4];
@@ -1387,7 +1397,7 @@ static void adsr_scope(int glint)
         A.x[k + 1] = A.x[k] + w[k];
     if (touched_now())
         for (k = 0; k < 4; k++)
-            if (P[k] == st.touched)
+            if (P[k] == fm.touched)
                 lit = k;
     hline(ML, MR, ADSR_BED, C_STEEL);    /* the bed: silence */
     for (k = 0; k < 4; k++) {            /* each part: its curve, the water under it, its letter */
@@ -1456,7 +1466,7 @@ static float biquad_db(const float *c, float hz)
 /* a band's or the corner's badge on the curve: its knob, larger while it turns */
 static void rs_badge(float hz, int32_t y, int p, char ch)
 {
-    int lit = touched_now() && st.touched == p;
+    int lit = touched_now() && fm.touched == p;
     badge_r(rs_x(hz), y < RS_TOP + 2 ? RS_TOP + 2 : y > RS_BED - 2 ? RS_BED - 2 : y, ch, 1, lit ? 6.5f : 5.0f);
 }
 
@@ -1481,7 +1491,7 @@ static void eq_scope(void)
     const int32_t zero = (RS_TOP + RS_BED) / 2;
     float lo[5], mid[5], hi[5], flo, fmid, fhi;
     uint8_t now[8];
-    int32_t x, py = 0, k, eq2 = st.page == PG_EQ2, off = !st.v[P_EQ_PRESET];
+    int32_t x, py = 0, k, eq2 = fm.page == PG_EQ2, off = !st.v[P_EQ_PRESET];
     for (k = 0; k < 7; k++)
         now[k] = st.v[P_EQ_LOW + k];
     now[7] = 0;
@@ -1885,7 +1895,7 @@ static void mixer(void)
     uint32_t i;
     frasil_meters(m);
     for (i = 0; i < 4u; i++) {
-        int p = PAGES[PG_MIXER].p[i], hot = touched_now() && st.touched == p;
+        int p = PAGES[PG_MIXER].p[i], hot = touched_now() && fm.touched == p;
         int32_t x = mix_x(i), h = MIX_BOT - MIX_TOP, y, dx, yl = MIX_BOT - (int32_t)st.v[p] * h / 127;
         int32_t yu = MIX_BOT - 100 * h / 127, ym;
         uint16_t c = mix_col(i);
@@ -1904,7 +1914,7 @@ static void mixer(void)
             bl(x + 16, y, c, 30);
         }
         {                                         /* its PAN above it: a short scale, the centre ticked, a dot */
-            int pp = P_PN_DRONE + (int)i, ph = touched_now() && st.touched == pp;
+            int pp = P_PN_DRONE + (int)i, ph = touched_now() && fm.touched == pp;
             int32_t xp = x + ((int32_t)st.v[pp] - 50) * 11 / 50;
             for (dx = -11; dx <= 11; dx++)
                 bl(x + dx, 38, C_STEEL, 32);
@@ -1919,8 +1929,8 @@ static void mixer_footer(void)
 {
     uint32_t i;
     for (i = 0; i < 4u; i++) {
-        int pans = b_held(B_OCTDN) || (touched_now() && st.touched >= P_PN_DRONE && st.touched <= P_PN_CLOUD);
-        int q = PAGES[PG_MIXER].p[i], p = pans ? P_PN_DRONE + (int)i : q, hot = touched_now() && st.touched == p;
+        int pans = b_held(B_OCTDN) || (touched_now() && fm.touched >= P_PN_DRONE && fm.touched <= P_PN_CLOUD);
+        int q = PAGES[PG_MIXER].p[i], p = pans ? P_PN_DRONE + (int)i : q, hot = touched_now() && fm.touched == p;
         int32_t x = mix_x(i), w = 15 + text_tw(&FONT_XS, PD[q].name, 0), x0 = x - w / 2;
         badge(x0 + 6, 189, (char)('1' + i), 1);
         text_t(x0 + 15, 182, &FONT_XS, PD[q].name, hot ? C_LAMP : C_MIST, 0);   /* (the track: its level, or its
@@ -1976,12 +1986,12 @@ static void gr_meter(void)
 #define SC_BOX 150                        /* the actions' box: its top */
 static void scenes_list(void)
 {
-    int32_t first = (st.pick >= NSCENES ? 0 : (int32_t)st.pick + 1) - 2, i;   /* (the lines: NEW SHARD's 0, a slot's
+    int32_t first = (fm.pick >= NSCENES ? 0 : (int32_t)fm.pick + 1) - 2, i;   /* (the lines: NEW SHARD's 0, a slot's
                                                                                * its number) */
     first = first < 0 ? 0 : first > (int32_t)NSCENES - 4 ? (int32_t)NSCENES - 4 : first;
     for (i = 0; i < 5; i++) {
         uint32_t s = first + i ? (uint32_t)(first + i - 1) : SC_NEW, used = s < NSCENES && (scn.used >> s & 1u);
-        int32_t y = 36 + i * SC_ROW, pick = s == st.pick, x, wn, xn = ML + 27;
+        int32_t y = 36 + i * SC_ROW, pick = s == fm.pick, x, wn, xn = ML + 27;
         uint16_t fc = s == SC_NEW ? C_LAMP : C_ICE;
         scene_t sc;
         char n[4], t[24], nt[SC_NAME + 1];
@@ -2007,33 +2017,33 @@ static void scenes_list(void)
             text_cat(t, "START FRESH");
         } else if (!used) {
             text_cat(t, s < NFACTORY ? "FACTORY" : "EMPTY");
-        } else if (sc.nch || sc.narp || sc.bass >= 0) {   /* what it plays */
+        } else if (sc.nch || sc.narp || sc.nbarp || sc.bass >= 0) {   /* what it plays */
             if (sc.nch) {
                 int_text(sc.nch, t);
                 text_cat(t, " DR");
             }
             if (sc.narp)
                 text_cat(t, t[0] ? " ARP" : "ARP");
-            if (sc.bass >= 0)
+            if (sc.bass >= 0 || sc.nbarp)
                 text_cat(t, t[0] ? " BS" : "BASS");
         } else {
             text_cat(t, "SOUND");
         }
         x = MR + 1;                      /* from the right: NOW, then what it holds, if the name leaves room */
-        if (s == st.scene)
+        if (s == fm.scene)
             x -= text_tw(&FONT_XS, "NOW", 1) + 8;
         wn = text_tw(&FONT_B, nt, 1);
         if (xn + wn + 8 <= x - text_tw(&FONT_XS, t, 1) - 8) {
             x -= text_tw(&FONT_XS, t, 1) + 8;
             text_t(x + 8, y + 4, &FONT_XS, t, used && t[0] != 'S' ? C_ICE : pick && s == SC_NEW ? C_LAMP : C_SLATE, 1);
         }
-        if (s == st.scene)               /* the one loaded: NOW */
+        if (s == fm.scene)               /* the one loaded: NOW */
             text_t(MR + 1 - text_tw(&FONT_XS, "NOW", 1), y + 4, &FONT_XS, "NOW", C_LAMP, 1);
         fit_text(xn, y + 2, x - 8 - xn, nt, pick ? C_WHITE : used || s < NFACTORY || s == SC_NEW ? C_FOG : C_SLATE, 0, 1);
     }
     {                                    /* the two actions, in their box: PLAY LOAD, SAVE + REC STORE */
         static const char *const W[4] = {"PLAY", "LOAD", "SAVE + REC", "STORE"};
-        int32_t w = 0, x, k, y = SC_BOX, h = 22, nw = st.pick < NSCENES ? 4 : 2;   /* (NEW SHARD: nothing to store) */
+        int32_t w = 0, x, k, y = SC_BOX, h = 22, nw = fm.pick < NSCENES ? 4 : 2;   /* (NEW SHARD: nothing to store) */
         uint16_t fill = mix565(C_BG, C_ICE, 6);
         ui.acts = (uint8_t)nw;
         for (k = 0; k < nw; k++)
@@ -2156,9 +2166,9 @@ static void choir_scope(float t)
             tx = X;
         }
     }
-    if (st.page == PG_CHOEUR3) {         /* SOFT's badge on the wave's top */
+    if (fm.page == PG_CHOEUR3) {         /* SOFT's badge on the wave's top */
         badge_r(tx, top - 2 < RS_TOP + 2 ? RS_TOP + 2 : top - 2, '1', 1,
-                touched_now() && st.touched == P_CH_SOFT ? 6.5f : 5.0f);
+                touched_now() && fm.touched == P_CH_SOFT ? 6.5f : 5.0f);
         return;
     }
     edge = (a > 0.05f ? 1.0f - w : 0.0f) - ph0;   /* SHAPE's edge in the first turn: the shifted saw's jump, else the saw's */
@@ -2166,63 +2176,296 @@ static void choir_scope(float t)
     edge += edge < 0.0f ? 1.0f : 0.0f;
     ex = ML + (int32_t)(edge * 0.5f * (float)RS_N + 0.5f);
     badge_r(ex, zero - half - 2 < RS_TOP + 2 ? RS_TOP + 2 : zero - half - 2, '1', 1,
-            touched_now() && st.touched == P_CH_SHAPE ? 6.5f : 5.0f);
+            touched_now() && fm.touched == P_CH_SHAPE ? 6.5f : 5.0f);
 }
+
+/* NOT AVAILABLE FOR DRONE, in the middle of the page */
+static void no_arp(void)
+{
+    text_c(120, 104, &FONT_B, "NOT AVAILABLE", C_MIST, 2);
+    text_c(120, 126, &FONT_XS, "FOR DRONE", C_SLATE, 2);
+}
+
+/* ARP's strip: the arpeggio's notes in the order they play, a bar each as tall as it is high, the one sounding bright; off,
+ * empty outlines */
+static void arp_scope(int bs)
+{
+    const arp_t *a = bs ? &barp : &arp;
+    uint16_t c = bs ? C_LAMP : C_ICE;
+    int on = ways_on(bs ? 2u : 1u, SQT_ARP);
+    uint32_t n = on && a->pn ? (a->pn > 16u ? 16u : a->pn) : 0u, i, s = n ? n : 4u;
+    int32_t lo = 127, hi = 0, w = (MR - ML) / (int32_t)(s < 8u ? 8u : s), bot = 88;
+    static const int8_t OUT[4] = {10, 18, 26, 18};
+    for (i = 0; i < n; i++) {
+        lo = a->play[i] < lo ? a->play[i] : lo;
+        hi = a->play[i] > hi ? a->play[i] : hi;
+    }
+    hline(ML, MR, bot + 1, C_STEEL);
+    for (i = 0; i < s; i++) {
+        int32_t x = ML + (int32_t)i * w, h = n ? 10 + (a->play[i] - lo) * 34 / (hi - lo > 0 ? hi - lo : 1) : OUT[i], y;
+        if (!n) {
+            for (y = bot - h; y <= bot; y += 2) {
+                bl(x, y, C_SLATE, 24);
+                bl(x + w - 7, y, C_SLATE, 24);
+            }
+            hline(x, x + w - 7, bot - h, C_STEEL);
+            continue;
+        }
+        cv_rect(x, bot - h + 1 - oy, w - 6, h, a->sounding >= 0 && a->src == a->play[i] ? c : mix565(C_BG, c, 8));
+    }
+}
+
+/* DRONE SEQ's strip: a column a step, the step's notes at their heights, a tie carrying the one before on; only its SEQ
+ * LENGTH's steps, the scale by blocks of four as the others'; the step playing lit; STEP's underlined on SEQ II */
+static void dseq_scope(void)
+{
+    uint32_t len = st.v[P_DQ_LEN] + 1u, cur = st.v[P_DQ_STEP] % SC_DSEQ, cols = (len + 3u) / 4u * 4u, i, j;
+    int32_t lo = 127, hi = 0, top = 42, bot = 86, on = st.v[P_DQ_ON] != 0;
+    const uint8_t *last = 0;
+    for (i = 0; i < len; i++)
+        for (j = 0; j < DQ_NOTES && dnote[i][j] && dnote[i][j] != DQ_TIE; j++) {
+            lo = dnote[i][j] < lo ? dnote[i][j] : lo;
+            hi = dnote[i][j] > hi ? dnote[i][j] : hi;
+        }
+    if (hi < lo) {
+        lo = 48;
+        hi = 72;
+    }
+    if (hi - lo < 24) {
+        int32_t m = (hi + lo) / 2;
+        lo = m - 12;
+        hi = m + 12;
+    }
+    hline(ML, ML + (int32_t)(len * (uint32_t)(MR - ML) / cols), bot + 2, C_STEEL);
+    for (i = 0; i < len; i++) {
+        int32_t x0 = ML + (int32_t)(i * (uint32_t)(MR - ML) / cols), x1 = ML + (int32_t)((i + 1u) * (uint32_t)(MR - ML) / cols);
+        int in = on && i < len, play = in && dq.run && dq.pos == (int32_t)i, tie = dnote[i][0] == DQ_TIE;
+        uint16_t c = play ? C_WHITE : in ? C_FOG : C_SLATE;
+        const uint8_t *q = tie ? last : dnote[i];
+        if (play)
+            cv_rect(x0 + 1, top - 2 - oy, x1 - x0 - 2, bot - top + 3, mix565(C_BG, C_FOG, 3));
+        if (dnote[i][0] && !tie)
+            last = dnote[i];
+        else if (!tie)
+            last = 0;
+        bl(x0, bot + 1, C_SLATE, 32);
+        bl(x0, bot + 3, C_SLATE, 32);
+        for (j = 0; q && j < DQ_NOTES && q[j] && q[j] != DQ_TIE; j++) {
+            int32_t y = bot - ((int32_t)q[j] - lo) * (bot - top) / (hi - lo);
+            hline(tie ? x0 : x0 + 2, x1 - 2, y, c);
+        }
+        if (i == cur && fm.page == PG_DSEQ2 && st.v[P_DQ_REC] != 2u)
+            cv_rect(x0 + 1, bot + 5 - oy, x1 - x0 - 2, 2, C_LAMP);
+    }
+}
+
+/* the SEQ pages and the arpeggios': the selected track's STACK (what holding SEQ turns), on or off, and how to turn
+ * it, centred at the foot of the screen, a little dimmer than a value (amber ON, mist OFF) */
+static void stack_tag(void)
+{
+    int on = st.v[P_KY_DR_STACK + 4u * st.v[P_KB]] != 0;
+    const char *w = on ? "STACK ON (HOLD SEQ)" : "STACK OFF (HOLD SEQ)";
+    text_c(120, 226, &FONT_XS, w, mix565(C_BG, on ? C_LAMP : C_MIST, 25), 1);
+    ui.stack = (uint8_t)(on ? 2 : 1);
+}
+
+/* KEYS' strip: an octave of keys, what a key does now. The scale's notes dotted with HARMONY ON (none: chromatic); with
+ * CHORD, the notes of the chord on the root, lit; a solid outline for LATCH, dotted for HOLD; NOTES or CHORDS for what
+ * STACK piles up */
+static void keys_scope(void)
+{
+    static const uint8_t WH[7] = {0, 2, 4, 5, 7, 9, 11}, BL[5] = {1, 3, 6, 8, 10};
+    uint32_t t = st.v[P_KB], k;
+    const uint8_t *v = &st.v[P_KY_DR_HARM + 4u * t];
+    uint16_t bits = v[0] ? SCALE_BITS[st.v[P_SCALE] % NSCALES] : 0xFFFu, c = track_col();
+    int r = st.v[P_ROOT] % 12, chord = v[0] && v[1] && !notes_why((int)(P_KY_DR_NOTES + 4u * t));
+    chord_t ch;
+    int root;
+    uint32_t lit12 = 0;
+    const int32_t x0 = 62, w = 16, y0 = 42, h = 44, x1 = x0 + 7 * w;
+    int32_t x, y, i;
+    chord_build(60 + r, st.v, &ch, &root);
+    for (i = 0; chord && i < (int32_t)ch.k; i++)
+        lit12 |= 1u << ((ch.n[i] % 12 + 12) % 12);
+    for (k = 0; k < 7u; k++) {
+        x = x0 + (int32_t)k * w;
+        if (k)
+            for (y = y0 + 1; y < y0 + h; y++)
+                bl(x, y, C_SLATE, 16);
+        if (lit12 >> WH[k] & 1u)
+            cv_rect(x + 3, y0 + h - 14 - oy, w - 5, 10, c);
+        else if (v[0] && (bits >> ((WH[k] - r + 12) % 12) & 1u))
+            cv_rect(x + 7, y0 + h - 9 - oy, 3, 3, C_MIST);
+    }
+    for (k = 0; k < 5u; k++) {
+        static const uint8_t AT[5] = {1, 2, 4, 5, 6};
+        x = x0 + (int32_t)AT[k] * w - 5;
+        cv_rect(x, y0 + 1 - oy, 10, h / 2 + 4, C_STEEL);
+        if (lit12 >> BL[k] & 1u)
+            cv_rect(x + 2, y0 + h / 2 - 7 - oy, 6, 8, c);
+        else if (v[0] && (bits >> ((BL[k] - r + 12) % 12) & 1u))
+            cv_rect(x + 4, y0 + h / 2 - 3 - oy, 3, 3, C_MIST);
+    }
+    for (x = x0; x <= x1; x++)           /* LATCH: the outline solid; HOLD: dotted */
+        if (v[2] || !((x - x0) & 2)) {
+            bl(x, y0, c, 28);
+            bl(x, y0 + h, c, 28);
+        }
+    for (y = y0; y <= y0 + h; y++)
+        if (v[2] || !((y - y0) & 2)) {
+            bl(x0, y, c, 28);
+            bl(x1, y, c, 28);
+        }
+    text_t(ML, y0 + 2, &FONT_T, v[2] ? "LATCH" : "HOLD", C_MIST, 1);
+    if (v[3])
+        text_t(ML, y0 + 14, &FONT_T, v[1] && chord ? "CHORDS" : "NOTES", C_MIST, 1);
+}
+
+static void keycap(int32_t xr, int32_t y, const char *s, int on, int here);
+/* the flow's foot: SAVE, what it does next, and FX, back; only those lit (app.c) */
+static void flow_foot(const char *next)
+{
+    keycap(ML + text_tw(&FONT_B, "SEL", 1) + 15, 204, "SEL", 0, 0);
+    text_t(ML + text_tw(&FONT_B, "SEL", 1) + 25, 209, &FONT_XS, next, C_MIST, 1);
+    keycap(MR - text_tw(&FONT_XS, "BACK", 1) - 10, 204, "FX", 0, 0);
+    text_r(MR, 209, &FONT_XS, "BACK", C_MIST, 1);
+}
+
+/* SAVE's first page: K1, LOAD or SAVE, two tiles, the one chosen framed in the track's colour */
+static void save_tiles(void)
+{
+    uint32_t i;
+    uint16_t c = track_col();
+    badge(ML + 7, 56, '1', 1);
+    for (i = 0; i < 2u; i++) {
+        int32_t x = ML + (int32_t)i * 110, on = (int32_t)(i == 0u) == sv.load, w = 102, y = 72, h = 76;
+        cv_rect(x, y - oy, w, h, on ? mix565(C_BG, c, 4) : C_BG);
+        hline(x, x + w - 1, y, on ? c : C_STEEL);
+        hline(x, x + w - 1, y + h - 1, on ? c : C_STEEL);
+        cv_rect(x, y - oy, 1, h, on ? c : C_STEEL);
+        cv_rect(x + w - 1, y - oy, 1, h, on ? c : C_STEEL);
+        text_c(x + w / 2, y + 28, &FONT_M, i ? "SAVE" : "LOAD", on ? C_WHITE : C_SLATE, 1);
+    }
+}
+
+/* INTO's words: a slot and what is in it; for a preset NEW, or the player's it replaces */
+static void into_text(char *t)
+{
+    t[0] = 0;
+    if (!sv.what) {
+        scene_t sc;
+        char nt[SC_NAME + 1];
+        t[0] = (char)('0' + (sv.into + 1u) / 10u);
+        t[1] = (char)('0' + (sv.into + 1u) % 10u);
+        t[2] = ' ';
+        t[3] = 0;
+        if ((scn.used >> sv.into & 1u) || sv.into < NFACTORY) {
+            scene_get(sv.into, &sc);
+            text_cat(t, name_text(&sc, nt));
+        } else {
+            text_cat(t, "EMPTY");
+        }
+    } else if (!sv.into) {
+        text_cat(t, "NEW");
+    } else {
+        up_name(sv.what - 1u, sv.into - 1u, t);
+    }
+}
+
+static void save_what(void)
+{
+    static const char *const W[4] = {"SCENE", "DRONE PRESET", "GLINT PRESET", "BASS PRESET"};
+    char t[SC_NAME + 8];
+    badge(ML + 7, 49, '1', 1);
+    text_t(ML + BADGE_W, 42, &FONT_XS, "WHAT", C_MIST, 1);
+    text_t(ML, 58, &FONT_M, W[sv.what & 3u], C_FOG, 0);
+    badge(ML + 7, 113, '2', 1);
+    text_t(ML + BADGE_W, 106, &FONT_XS, "INTO", C_MIST, 1);
+    into_text(t);
+    if (text_w(&FONT_M, t) <= MR - ML)
+        cv_text(ML, 122 - oy, &FONT_M, t, C_FOG);
+    else
+        fit_text(ML, 123, MR - ML, t, C_FOG, 0, 0);
+}
+
 
 static void middle(float t)
 {
     band(R2, 144);
     if (overlay_on()) {                  /* the value large, over a dimmed river */
-        int p = st.touched;
-        river(R2, st.page == PG_SON ? HZ_HOME : HZ, 0.35f, 0, t);
-        if (st.page == PG_SON)
+        int p = fm.touched;
+        river(R2, fm.page == PG_SON ? HZ_HOME : HZ, 0.35f, 0, t);
+        if (fm.page == PG_SON)
             strata(0.5f);
         {
             int32_t w = BADGE_W + text_tw(&FONT_XS, PD[p].name, 3), x0 = 120 - w / 2;
-            badge_of(x0 + 7, 43, p, st.touched_enc);
+            badge_of(x0 + 7, 43, p, fm.touched_enc);
             text_t(x0 + BADGE_W, 36, &FONT_XS, PD[p].name, C_MIST, 3);
         }
         value_big(120, 52, p, 200, &FONT_L, C_FOG, 1);
         gauge(60, 92, 120, (float)pv_shown(p) / (float)PD[p].max, C_LAMP);
-    } else if (st.page == PG_SON) {
+    } else if (fm.page == PG_SON) {
         river(R2, HZ_HOME, 1.0f, 1, t);
         river_status();
         strata(1.0f);
-    } else if (st.page == PG_MIXER) {
+    } else if (fm.page == PG_MIXER) {
         mixer();
     } else {                             /* an edit page: the river as a strip above the grid */
-        if (st.page == PG_MASTER)
+        if (fm.page == PG_MASTER)
             gr_meter();
-        else if (st.page >= PG_LFO1 && st.page <= PG_LFO3T)
-            lfo_scope(st.page >= PG_LFO3 ? 2u : st.page >= PG_LFO2 ? 1u : 0u);
-        else if (st.page >= PG_SEQ && st.page <= PG_SEQ3)
-            seq_scope();
-        else if (st.page == PG_BSEQ || st.page == PG_BSEQ2)
-            bseq_scope();
-        else if (st.page == PG_BASS3 || st.page == PG_GLINT3)
-            adsr_scope(st.page == PG_GLINT3);
-        else if (st.page == PG_EQ || st.page == PG_EQ2)
+        else if (fm.page >= PG_LFO1 && fm.page <= PG_LFO3T)
+            lfo_scope(fm.page >= PG_LFO3 ? 2u : fm.page >= PG_LFO2 ? 1u : 0u);
+        else if (fm.page >= PG_SEQ && fm.page <= PG_SEQ3)
+            seq_scope(0);
+        else if (fm.page == PG_BSEQ || fm.page == PG_BSEQ2 || fm.page == PG_BSEQ3)
+            seq_scope(1);
+        else if (fm.page == PG_DSEQ || fm.page == PG_DSEQ2 || fm.page == PG_DSEQ3)
+            dseq_scope();
+        else if (fm.page == PG_ARP || fm.page == PG_ARP2 || fm.page == PG_BARP || fm.page == PG_BARP2)
+            arp_scope(fm.page == PG_BARP || fm.page == PG_BARP2);
+        else if (fm.page == PG_KEYS)
+            keys_scope();
+        else if (fm.page == PG_NOARP)
+            no_arp();
+        else if (fm.page == PG_BASS3 || fm.page == PG_GLINT3)
+            adsr_scope(fm.page == PG_GLINT3);
+        else if (fm.page == PG_EQ || fm.page == PG_EQ2)
             eq_scope();
-        else if (st.page == PG_FILTER)
+        else if (fm.page == PG_FILTER)
             filter_scope();
-        else if (st.page == PG_CHOEUR2 || st.page == PG_CHOEUR3)
+        else if (fm.page == PG_CHOEUR2 || fm.page == PG_CHOEUR3)
             choir_scope(t);
-        else if (st.page == PG_TAPE)
+        else if (fm.page == PG_TAPE)
             tape_scope();
-        else if (st.page == PG_ROUTING)
+        else if (fm.page == PG_ROUTING)
             routing_scope();
-        else if (st.page == PG_SCREEN) {   /* why one would turn ANIMATIONS (the user's words) */
+        else if (fm.page == PG_SCREEN) {   /* why one would turn ANIMATIONS (the user's words) */
             text_t(ML, 50, &FONT_XS, "REDUCE ANIMATIONS TO SAVE", C_MIST, 1);
             text_t(ML, 62, &FONT_XS, "CPU IN HEAVY SCENES", C_MIST, 1);
         }
-        else if (st.page != PG_SCENES)
+        else if (fm.page != PG_SCENES && fm.page != PG_SAVE && fm.page != PG_SAVEAS)
             river(R2, 86, 0.45f, 0, t);
-        if (st.page == PG_SCENES) {
+        if (fm.page == PG_SAVE) {
+            save_tiles();
+        } else if (fm.page == PG_SAVEAS) {
+            save_what();
+        } else if (fm.page == PG_SCENES) {
             scenes_list();
         } else {
-            cell(ML, 100, PAGES[st.page].p[0]);
-            cell(130, 100, PAGES[st.page].p[1]);
+            cell(ML, 100, page_knob(fm.page, 0u));
+            cell(130, 100, page_knob(fm.page, 1u));
         }
+    }
+    if (oct_big()) {                     /* OCT+, OCT-: the octave large a moment, over the strip, the page as it is */
+        char o[8];
+        o[0] = 0;
+        if (fm.octave > 0)
+            text_cat(o, "+");
+        int_text(fm.octave, o + strlen_(o));
+        cv_rect(0, 33 - oy, 240, 62, C_BG);
+        text_c(120, 36, &FONT_XS, "OCTAVE", C_MIST, 3);
+        text_c(120, 50, &FONT_L, o, C_FOG, 0);
+        steps(95, 90, 52, 6u, (uint32_t)(fm.octave + 3));
     }
     cv_blit(0, R2);
 }
@@ -2230,23 +2473,16 @@ static void middle(float t)
 static void footer(void)
 {
     band(R3, 64);
-    if (overlay_on() || st.page == PG_SON) {   /* the three hands, as the three encoders on the left sit: KEYS, the
-                                              * drone's PRESET (its number among them for its label, CUSTOM's PRESET),
-                                              * BODY */
-        static const uint8_t M[3] = {P_KB, P_DR_PRESET, P_DR_FULL};   /* A B C, as the badges read */
-        char nb[8] = {0};
+    ui.stack = 0;
+    if (overlay_on() || fm.page == PG_SON) {   /* the three hands, as the three encoders on the left sit: TRACK, its
+                                              * PRESET (the bass's MODEL), its
+                                              * TIMBRE, BRIGHT or FILTER */
+        const uint32_t M[3] = {P_KB, track_preset(), track_algo()};   /* A B C, as the badges read */
         const char *lb[3];
         int32_t w[3], tr = 1, bx;
         uint32_t i;
         for (i = 0; i < 3u; i++)
             lb[i] = PD[M[i]].name;
-        if (st.v[P_DR_PRESET]) {         /* B's label: its number, "07/24" */
-            nb[0] = (char)('0' + st.v[P_DR_PRESET] / 10u);
-            nb[1] = (char)('0' + st.v[P_DR_PRESET] % 10u);
-            text_cat(nb, "/");
-            int_text((int32_t)NDPRESET, nb + 3);
-            lb[1] = nb;
-        }
         for (;;) {                       /* the labels as they fit, closer if they must */
             for (i = 0; i < 3u; i++)
                 w[i] = BADGE_W + text_tw(&FONT_XS, lb[i], tr);
@@ -2256,27 +2492,31 @@ static void footer(void)
         }
         bx = ML + w[0] + (MR - w[2] - (ML + w[0]) - w[1]) / 2;   /* B: in the middle of what A and C leave */
         for (i = 0; i < 3u; i++) {
-            int on = !overlay_on() || st.touched == M[i] || !is_macro(st.touched);
+            int on = !overlay_on() || fm.touched == M[i] || !is_macro(fm.touched);
             uint16_t lc = mix565(C_BG, C_MIST, on ? 32 : 16), vc = mix565(C_BG, C_FOG, on ? 32 : 13);
             int32_t x0 = i == 0 ? ML : i == 1u ? bx : MR - w[2];
-            badge_of(x0 + 7, 199, M[i], -1);
+            badge(x0 + 7, 199, i == 0u ? 'A' : i == 1u ? 'B' : 'C', 0);
             text_t(x0 + BADGE_W, 192, &FONT_XS, lb[i], lc, tr);
             if (i == 0)
-                value_big(ML, 207, M[i], 44, &FONT_M, vc, 0);
+                value_big(ML, 207, (int)M[i], 44, &FONT_M, vc, 0);
             else if (i == 1)
-                value_big(120, 207, M[i], 92, &FONT_M, vc, 1);
+                value_big(120, 207, (int)M[i], 92, &FONT_M, vc, 1);
             else
-                value_big(MR, 207, M[i], 60, &FONT_M, vc, 2);
+                value_big(MR, 207, (int)M[i], 60, &FONT_M, vc, 2);
         }
-    } else if (st.page == PG_MIXER) {
+    } else if (fm.page == PG_SAVE || fm.page == PG_SAVEAS) {
+        flow_foot("NEXT");
+    } else if (fm.page == PG_MIXER) {
         mixer_footer();
-    } else if (st.page == PG_SCENES) {   /* MORPH, LOAD and K4's place, empty: three, narrower */
+    } else if (fm.page == PG_SCENES) {   /* MORPH, LOAD and K4's place, empty: three, narrower */
         cell_w(ML, 180, PAGES[PG_SCENES].p[1], 60);
         cell_w(ML + 75, 180, PAGES[PG_SCENES].p[2], 60);
         cell_w(ML + 150, 180, PAGES[PG_SCENES].p[3], 60);
     } else {
-        cell(ML, 180, PAGES[st.page].p[2]);
-        cell(130, 180, PAGES[st.page].p[3]);
+        cell(ML, 180, page_knob(fm.page, 2u));
+        cell(130, 180, page_knob(fm.page, 3u));
+        if (PAGES[fm.page].button == B_SEQ || (PAGES[fm.page].button == B_ARP && fm.page != PG_NOARP))
+            stack_tag();
     }
     cv_blit(0, R3);
 }
@@ -2550,19 +2790,16 @@ typedef struct {
 } help_t;
 static const char *const HELP_TITLE[HELP_PAGES] = {"BUTTONS", "BUTTONS", "BUTTONS", "ENCODERS", "KEYS"};
 static const help_t HELP[HELP_PAGES][4] = {
-    {{H_BTN, B_FX, "GENERATIVE FX", "FX", "AGAIN: CLOUD, PUMP / HOLD: FREEZE"}, {H_BTN, B_SEL, "HARMONY", "SEL", "HOLD + KEY: SINGLE NOTE"},
-     {H_BTN, B_ENV, "DRONE SHAPE", "ENV", "HOLD: SWELL"}, {H_BTN, B_LFO, "DRONE MOTION", "LFO", "AGAIN: LFO 1-3 / HOLD+K: ROUTE"}},
-    {{H_BTN, B_EDIT, "DRONE, LAYERS", "EDIT", "AGAIN: LAYERS / OCT- +: COMPARE"}, {H_BTN, B_GLO, "GLOBAL", "GLO", "AGAIN: MIDI / HOLD + CC: LEARN"},
-     {H_BTN, B_HOME, "PLAY / MIXER", "HOME", "AGAIN: MIXER, LOGO / HOLD: HELP"}, {H_BTN, B_SAVE, "SCENES", "SAVE", "HOLD + KEY: LOAD / + REC: STORE"}},
-    {{H_BTN, B_ARP, "GLINT PAGES", "ARP", "HOLD: ARP LATCH"}, {H_BTN, B_SEQ, "BASS PAGES", "SEQ", ""},
-     {H_BTN, B_PLAY, "START, STOP", "PLAY", "TWICE OR HOLD: RELEASE ALL"}, {H_BTN, B_REC, "RECORD LIVE", "REC", "AGAIN: OFF / HOLD: METRONOME"}},
-    {{H_ENC, 'A', "KEYS", "SELECT", "HOLD A PAGE BUTTON: ITS PAGES"}, {H_ENC, 'B', "PRESET", "PRESETS", ""},
-     {H_ENC, 'C', "BODY", "ALGORITHM", ""}, {H_ENC, 0, "OCTAVE", "OCT- OCT+", "BOTH: RESET"}},
+    {{H_BTN, B_FX, "GENERATIVE FX", "FX", "AGAIN: CLOUD, PUMP / HOLD: FREEZE"}, {H_BTN, B_SEL, "HARMONY", "SEL", "HOLD + KEY: ADD A SINGLE NOTE"},
+     {H_BTN, B_ENV, "ENVELOPE", "ENV", "HOLD: SWELL"}, {H_BTN, B_LFO, "LFO 1, 2, 3", "LFO", "AGAIN: NEXT PAGE / HOLD + K: ROUTE"}},
+    {{H_BTN, B_EDIT, "SOUND PAGES", "EDIT", "HOLD + KEY: JUMP / OCT- +: COMPARE"}, {H_BTN, B_GLO, "GLOBAL", "GLO", "AGAIN: MIDI / HOLD + CC: LEARN"},
+     {H_BTN, B_HOME, "KEYS, MIXER", "HOME", "AGAIN: NEXT PAGE / HOLD: HELP"}, {H_BTN, B_SAVE, "LOAD, SAVE", "SAVE", "HOLD + KEY: LOAD / + REC: STORE"}},
+    {{H_BTN, B_ARP, "ARPEGGIO", "ARP", "HOLD: LATCH"}, {H_BTN, B_SEQ, "SEQUENCE", "SEQ", "HOLD: STACK"},
+     {H_BTN, B_PLAY, "START, STOP", "PLAY", "TWICE OR HOLD: RELEASE ALL"}, {H_BTN, B_REC, "RECORD", "REC", "AGAIN: STEP, OFF / HOLD: METRONOME"}},
+    {{H_ENC, 'A', "TRACK", "SELECT", "OCT- +: THE KEYS ALONE"}, {H_ENC, 'B', "PRESET", "PRESETS", "OCT- +: PICK UNHEARD"},
+     {H_ENC, 'C', "FILTER", "ALGORITHM", "GLO +: MASTER FILTER"}, {H_ENC, 0, "OCTAVE", "OCT- OCT+", "BOTH: RESET"}},
     {{H_GEST, 0, "LIGHT A DRONE", "TAP", "A CHORD WITH HARMONY"}, {H_GEST, 0, "LET IT GO", "TAP AGAIN", ""},
-     {H_GEST, 0, "SWELL IT", "PRESS IN", "HOLD THE KEY, PRESS HARDER"}, {H_GEST, 0, "ONE NOTE", "SEL + KEY", "OVER A CHORD"}},
-};
-static const char *const HELP_TRACK[HELP_PAGES][4] = {   /* the track a line's control plays on, if only one */
-    [3] = {0, "DRONE", "DRONE", 0},
+     {H_GEST, 0, "SWELL IT", "PRESS IN", "HOLD THE KEY, PRESS HARDER"}, {H_GEST, 0, "ADD A NOTE", "SEL + KEY", "OVER WHAT IS HELD"}},
 };
 
 static void keycap(int32_t xr, int32_t y, const char *s, int on, int here)   /* right edge xr */
@@ -2581,7 +2818,7 @@ static void keycap(int32_t xr, int32_t y, const char *s, int on, int here)   /* 
 static void help_screen(void)
 {
     int32_t b, i;
-    uint32_t pg = st.help_page % HELP_PAGES;
+    uint32_t pg = fm.help_page % HELP_PAGES;
     for (b = 0; b < 2; b++) {
         band(b ? 144 : 0, b ? 96 : 144);
         {                                /* the header: HELP, the page's name, its dots, SELECT's badge */
@@ -2597,14 +2834,12 @@ static void help_screen(void)
             const help_t *h = &HELP[pg][i];
             int32_t y = 36 + i * 50;
             text_t(ML, y + 3, &FONT_M, h->does, C_WHITE, 0);
-            if (h->held[0])
-                text_t(ML, y + 30, &FONT_XS, h->held, C_LAMP, 1);
-            else if (HELP_TRACK[pg][i])  /* (the keys' badge's colour for the drones) */
-                text_t(ML, y + 30, &FONT_XS, HELP_TRACK[pg][i], C_FOG, 1);
+            if (h->held[0])              /* (closer if it must: inside the margin) */
+                text_t(ML, y + 30, &FONT_XS, h->held, C_LAMP, text_tw(&FONT_XS, h->held, 1) <= MR - ML ? 1 : 0);
             if (h->kind == H_BTN) {
-                int on = (h->b == B_REC && (st.v[P_SQ_REC] || st.v[P_BQ_REC])) || (h->b == B_ARP && arp.latch) ||
-                         (h->b == B_FX && st.v[P_FREEZE]);
-                keycap(MR, y + 4, h->control, on, PAGES[st.page].button == h->b);
+                int on = (h->b == B_REC && rec_any()) ||
+                         (h->b == B_ARP && (st.bass || st.glint) && (st.bass ? barp.latch : arp.latch)) || (h->b == B_FX && st.v[P_FREEZE]);
+                keycap(MR, y + 4, h->control, on, PAGES[fm.page].button == h->b);
             } else if (h->kind == H_ENC && h->b) {
                 badge_r(MR - 10, y + 15, (char)h->b, 0, 9.0f);
                 text_r(MR - 26, y + 9, &FONT_XS, h->control, C_MIST, 1);
@@ -2688,36 +2923,64 @@ void app_backup_ask_screen(void)
             int32_t d = x - 120 < 0 ? 120 - x : x - 120;
             bl(x, 102, C_FOG, 22 - d * 18 / (MR - 120));
         }
-        text_t(ML, 116, &FONT_S, "IT REPLACES ALL SCENES", C_FOG, 0);
-        text_t(ML, 137, &FONT_S, "AND THE SETTINGS.", C_FOG, 0);
+        text_t(ML, 116, &FONT_S, "IT REPLACES ALL SCENES,", C_FOG, 0);
+        text_t(ML, 137, &FONT_S, "THE SETTINGS AND ITS PRESETS.", C_FOG, 0);
         ask_button(ML - 2, 190, 96, "NO", "FX", C_SLATE);
         ask_button(MR - 108, 190, 112, "YES", "SEL", C_ICE);
         cv_blit(0, (uint32_t)oy);
     }
 }
 
-/* app.c's name: STORED and the slot, small, by an ice light; the sixteen places of the name, the cursor's framed in
- * ice; how to write it (OCT- OCT+ the cursor, K4 the letters, K3 the digits); FX to leave it as stored, and the one to
- * store it, framed in ice, SEL (OK, as everywhere; FX no, as everywhere) */
+/* app.c's name: where it goes, small, by an ice light; the sixteen places of the name, the cursor's framed in ice; how
+ * to write it (OCT- OCT+ the cursor, K4 the letters, K3 the digits); FX, and the one to store it, framed in ice: SEL for
+ * STORE's (SAVE + REC, stored already), SAVE for the flow's */
 static void name_screen(void)
 {
     int32_t b, i, k, x;
-    char t[24], ch[2] = {0, 0};
-    int32_t wk = text_tw(&FONT_B, "SEL", 1) + 16, w = 20 + text_tw(&FONT_B, "STORE", 2) + 14 + wk + 8, h = 38;
-    int32_t x0 = 120 - w / 2, y0 = 192;
+    char t[SC_NAME + 16], ch[2] = {0, 0};
+    int32_t w = text_tw(&FONT_B, "SAVE", 1) + 16 + 18, h = 38;
+    int32_t x0 = MR - w + 1, y0 = 188;
     t[0] = 0;
-    text_cat(t, "STORED IN ");
-    t[10] = (char)('0' + (nm.slot + 1u) / 10u);
-    t[11] = (char)('0' + (nm.slot + 1u) % 10u);
-    t[12] = 0;
+    if (nm.flow && sv.what) {
+        static const char *const W[3] = {"DRONE PRESET", "GLINT PRESET", "BASS PRESET"};
+        text_cat(t, W[(sv.what - 1u) % 3u]);
+        if (!sv.into)
+            text_cat(t, " NEW");
+        else {
+            k = (int32_t)strlen_(t);
+            t[k] = ' ';
+            t[k + 1] = (char)('0' + sv.into / 10u);
+            t[k + 2] = (char)('0' + sv.into % 10u);
+            t[k + 3] = 0;
+        }
+    } else if (nm.flow) {
+        text_cat(t, "SCENE ");
+        k = (int32_t)strlen_(t);
+        t[k] = (char)('0' + (sv.into + 1u) / 10u);
+        t[k + 1] = (char)('0' + (sv.into + 1u) % 10u);
+        t[k + 2] = 0;
+    } else {
+        text_cat(t, "STORED IN ");
+        t[10] = (char)('0' + (nm.slot + 1u) / 10u);
+        t[11] = (char)('0' + (nm.slot + 1u) % 10u);
+        t[12] = 0;
+    }
     for (b = 0; b < 2; b++) {
         band(b ? 144 : 0, b ? 96 : 144);
-        for (k = 0; k < 49; k++) {       /* the light */
-            int32_t dx = k % 7 - 3, dy = k / 7 - 3, d = dx * dx + dy * dy;
-            bl(ML + 3 + dx, 18 + dy, C_ICE, d <= 2 ? 32 : d <= 5 ? 12 : d <= 9 ? 4 : 0);
+        if (nm.flow) {                   /* the flow's: the header in the track's colour, what it stores under it */
+            int32_t tw = track_tag_w();
+            cv_rect(0, 0 - oy, 240, 32, track_col());
+            title_at(ML, "NAME IT", 1);
+            track_tag(MR - tw + 1);
+            text_t(ML, 42, &FONT_XS, t, C_MIST, 1);
+        } else {
+            for (k = 0; k < 49; k++) {   /* the light */
+                int32_t dx = k % 7 - 3, dy = k / 7 - 3, d = dx * dx + dy * dy;
+                bl(ML + 3 + dx, 18 + dy, C_ICE, d <= 2 ? 32 : d <= 5 ? 12 : d <= 9 ? 4 : 0);
+            }
+            text_t(ML + 13, 12, &FONT_XS, t, C_MIST, 1);
+            text_t(ML, 28, &FONT_M, "NAME IT", C_WHITE, 2);
         }
-        text_t(ML + 13, 12, &FONT_XS, t, C_MIST, 1);
-        text_t(ML, 28, &FONT_M, "NAME IT", C_WHITE, 2);
         for (i = 0; i < (int32_t)SC_NAME; i++) {   /* the places, 13 px each: a line under each, the cursor's framed */
             int32_t cx = 16 + i * 13, cur = i == (int32_t)nm.cur, cw;
             ch[0] = nm.name[i];
@@ -2736,29 +2999,222 @@ static void name_screen(void)
                 text_t(cx + 8 - cw / 2, 70, &FONT_B, ch, cur ? C_ICE : C_WHITE, 0);
             }
         }
-        x = ML + text_tw(&FONT_B, "OCT-", 1) + 15;   /* how: OCT- OCT+ the cursor, K4 letters, K3 digits, FX cancels */
-        keycap(x, 110, "OCT-", 0, 0);
-        x += 6 + text_tw(&FONT_B, "OCT+", 1) + 16;
-        keycap(x, 110, "OCT+", 0, 0);
-        text_t(x + 10, 115, &FONT_XS, "MOVE", C_MIST, 1);
-        badge(ML + 7, 147, '4', 1);
-        x = text_t(ML + 19, 141, &FONT_XS, "LETTERS", C_MIST, 1);
-        badge(x + 18, 147, '3', 1);
-        text_t(x + 30, 141, &FONT_XS, "DIGITS", C_MIST, 1);
-        x = ML + text_tw(&FONT_B, "FX", 1) + 15;
-        keycap(x, 160, "FX", 0, 0);
-        text_t(x + 10, 165, &FONT_XS, "CANCEL", C_MIST, 1);
-        cv_rect(x0 + 1, y0 + 1 - oy, w - 2, h - 2, mix565(C_BG, C_ICE, 3));   /* STORE, SEL's key in it, framed */
+        x = ML + text_tw(&FONT_B, "OCT", 1) + 15;   /* every control, in knob order: OCT, or K1, the cursor */
+        keycap(x, 106, "OCT", 0, 0);
+        text_t(x + 8, 110, &FONT_B, "/", C_MIST, 0);
+        badge(x + 29, 117, '1', 1);
+        text_t(x + 41, 111, &FONT_XS, "MOVE CURSOR", C_MIST, 1);
+        badge(ML + 7, 147, '2', 1);              /* K2 a space, K3 digits, K4 letters */
+        x = text_t(ML + 18, 141, &FONT_XS, "SPACE", C_MIST, 1);
+        badge(x + 16, 147, '3', 1);
+        x = text_t(x + 27, 141, &FONT_XS, "DIGITS", C_MIST, 1);
+        badge(x + 16, 147, '4', 1);
+        text_t(x + 27, 141, &FONT_XS, "LETTERS", C_MIST, 1);
+        x = text_t(ML, y0 + 13, &FONT_B, "CANCEL", C_MIST, 1) + 8;   /* FX cancels; SAVE stores: the main thing, framed */
+        keycap(x + text_tw(&FONT_B, "FX", 1) + 15, y0 + 8, "FX", 0, 0);
+        cv_rect(x0 + 1, y0 + 1 - oy, w - 2, h - 2, mix565(C_BG, C_ICE, 3));
         for (k = 0; k < 2; k++) {
             hline(x0 + 1 + k, x0 + w - 2 - k, y0 + k, C_ICE);
             hline(x0 + 1 + k, x0 + w - 2 - k, y0 + h - 1 - k, C_ICE);
             cv_rect(x0 + k, y0 + 1 + k - oy, 1, h - 2 - 2 * k, C_ICE);
             cv_rect(x0 + w - 1 - k, y0 + 1 + k - oy, 1, h - 2 - 2 * k, C_ICE);
         }
-        text_t(x0 + 20, y0 + 11, &FONT_B, "STORE", C_WHITE, 2);
-        keycap(x0 + w - 9, y0 + 8, "SEL", 0, 0);
+        keycap(x0 + w - 9, y0 + 8, "SAVE", 0, 1);
         cv_blit(0, (uint32_t)oy);
     }
+}
+
+/* the grid of names (app.c): the header in the track's colour, the setting's name and where it is, n / total; two columns
+ * of ten, down the left one then down the right; the choice framed in ice (picked under OCT-, in lamp); a dash a page at
+ * the foot */
+static void round_box(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
+{
+    hline(x + 3, x + w - 4, y, c);
+    hline(x + 3, x + w - 4, y + h - 1, c);
+    cv_rect(x, y + 3 - oy, 1, h - 6, c);
+    cv_rect(x + w - 1, y + 3 - oy, 1, h - 6, c);
+    cv_rect(x + 1, y + 1 - oy, 2, 1, c);
+    cv_rect(x + w - 3, y + 1 - oy, 2, 1, c);
+    cv_rect(x + 1, y + h - 2 - oy, 2, 1, c);
+    cv_rect(x + w - 3, y + h - 2 - oy, 2, 1, c);
+    cv_rect(x + 1, y + 2 - oy, 1, 1, c);
+    cv_rect(x + w - 2, y + 2 - oy, 1, 1, c);
+    cv_rect(x + 1, y + h - 3 - oy, 1, 1, c);
+    cv_rect(x + w - 2, y + h - 3 - oy, 1, 1, c);
+}
+
+/* an LFO's TARGET: each section a rounded box, column by column, from its name to its last */
+static void tgt_boxes(uint32_t first)
+{
+    static const uint16_t HC[8] = {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB};
+    uint32_t c, r;
+    for (c = 0; c < 2u; c++) {
+        int32_t top = -1, last = -1;
+        uint16_t col = C_FOG;
+        for (r = 0; r <= NG_ROWS; r++) {
+            int32_t sl = r < NG_ROWS ? TGT_SLOTS[first + c * NG_ROWS + r] : TH_NONE;
+            if (sl < TH_NONE && top < 0) {
+                top = (int32_t)r;
+                col = HC[-sl - 2];
+            }
+            if (top >= 0 && sl >= 0)
+                last = (int32_t)r;
+        }
+        if (top >= 0)
+            round_box(6 + (int32_t)c * 114, 34 + top * 19, 112, (last - top + 1) * 19 + 4, mix565(C_BG, col, 11));
+    }
+}
+
+static void grid_screen(void)
+{
+    int tg = PD[ng.p].fmt == F_LTGT;     /* (an LFO's TARGET: its pages by section, TGT_SLOTS) */
+    uint32_t p = ng.p, n = list_n(p), page = tg ? tgt_page(ng.v) : ng.v / NG_PER;
+    uint32_t pages = tg ? NG_TPAGES : (n + NG_PER - 1u) / NG_PER, i, first = page * NG_PER, at_t = 0;
+    int none = p == P_DR_PRESET || p == P_EQ_PRESET || PD[p].fmt == F_LTGT;   /* (its first: no choice, not counted) */
+    uint16_t c = track_col(), fc = ng.pick ? C_LAMP : C_ICE;
+    char t[24], at[12];
+    int32_t b, x;
+    at[0] = 0;
+    int_text((int32_t)ng.v + (none ? 0 : 1), at);
+    text_cat(at, " / ");
+    int_text((int32_t)n - (none ? 1 : 0), at + strlen_(at));
+    for (b = 0; b < 2; b++) {
+        band(b ? 144 : 0, b ? 96 : 144);
+        cv_rect(0, 0 - oy, 240, 32, c);
+        badge_on = c;
+        if (ng.enc >= EN_K1)
+            badge(ML + 6, 16, (char)('1' + ng.enc - EN_K1), 1);
+        else
+            badge(ML + 6, 16, ng.enc == EN_PRESET ? 'B' : 'C', 0);
+        badge_on = 0;
+        title_at(ML + BADGE_W, PD[p].name, 0);
+        if (grid_asks()) {               /* (no delay: SEL says so) */
+            int32_t tw = text_tw(&FONT_XS, "SELECT", 1);
+            small_cap(MR - tw - 6 - (text_tw(&FONT_XS, "SEL", 1) + 7), "SEL");
+            text_r(MR, 7, &FONT_XS, "SELECT", C_ONBAND, 1);
+        } else {
+            text_r(MR, 9, &FONT_XS, at, C_ONBAND, 1);
+        }
+        if (tg) {
+            tgt_boxes(first);
+            for (i = 0, at_t = 0; i < first; i++)
+                at_t += TGT_SLOTS[i] >= 0;
+        }
+        for (i = 0; i < NG_PER && (tg || first + i < n); i++) {
+            int32_t cx = 8 + (int32_t)(i / NG_ROWS) * 114, cy = 37 + (int32_t)(i % NG_ROWS) * 19, w = 110, on;
+            int32_t sl = tg ? TGT_SLOTS[first + i] : 0;
+            uint16_t col;
+            if (sl == TH_NONE)
+                continue;
+            if (sl < TH_NONE) {          /* a section's name, in its colour */
+                static const uint16_t HC[8] = {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB};
+                text_t(cx + 6, cy + 2, &FONT_XS, TGT_HEAD[-sl - 2], HC[-sl - 2], 2);
+                continue;
+            }
+            on = tg ? at_t == ng.v : first + i == ng.v;
+            if (tg) {                    /* (inside its box) */
+                cx += 2;
+                w -= 4;
+            }
+            list_name(p, tg ? at_t : first + i, t);
+            col = tg ? tgt_col((uint32_t)sl) : first + i > PD[p].max ? C_FOG : C_MIST;
+            at_t++;
+            if (on) {
+                cv_rect(cx, cy - oy, w, 17, mix565(C_BG, fc, 7));
+                hline(cx, cx + w - 1, cy, fc);
+                hline(cx, cx + w - 1, cy + 16, fc);
+                cv_rect(cx, cy - oy, 1, 17, fc);
+                cv_rect(cx + w - 1, cy - oy, 1, 17, fc);
+            }
+            fit_text(cx + (tg ? 4 : 6), cy + 1, w - 10, t, on ? C_WHITE : col, 0, 0);
+        }
+        if (pages > 1u) {
+            x = 120 - (int32_t)pages * 9;
+            for (i = 0; i < pages; i++, x += 18)
+                cv_rect(x, 234 - oy, 14, 2, i == page ? C_FOG : C_STEEL);
+        }
+        cv_blit(0, (uint32_t)oy);
+    }
+}
+
+/* -------------------------------------------------------- the screensaver --- */
+/* app.c's saver: the screen black, the logo (the screen's own, smaller: SAVER_PX) drifting a pixel a step on both axes,
+ * a step every SAVER_STEP_MS (20 a second: smooth, and slow, ~20 pixels a second); at an edge it turns back and takes
+ * FRASIL's next colour (and, now and then, a corner). Its letters in the logo's two tones, the lower half paler and a
+ * little toward the sea, at 3/4 of their light (a dark room). A step draws its old box and its new one together, one
+ * small canvas (~2.5 k pixels: the river's band is 35 k, twenty times a second); the first, the screen black */
+#define SAVER_STEP_MS 50u
+#define SAVER_MAXX ((int32_t)(240u - SAVER_W))
+#define SAVER_MAXY ((int32_t)(240u - SAVER_H))
+static const uint16_t SAVER_COL[] = {C_FOG, C_ICE, C_LAMP, C_GLOB, C_SEA};
+#define SAVER_NCOL (sizeof SAVER_COL / sizeof SAVER_COL[0])
+
+static uint32_t saver_px(uint32_t x, uint32_t y)   /* the small logo's intensity, 0..15 */
+{
+    uint8_t b = SAVER_PX[(y * SAVER_W + x) >> 1];
+    return (x & 1u) ? (b & 15u) : (b >> 4);
+}
+
+static void saver_draw(int32_t ox, int32_t oy0)   /* the logo where it is now, its box at (ox, oy0) cleared */
+{
+    int32_t x0 = ox < saver.x ? ox : saver.x, y0 = oy0 < saver.y ? oy0 : saver.y;
+    int32_t ax = saver.x - x0, ay = saver.y - y0;
+    uint32_t w = SAVER_W + (uint32_t)(ox > saver.x ? ox - saver.x : saver.x - ox);
+    uint32_t h = SAVER_H + (uint32_t)(oy0 > saver.y ? oy0 - saver.y : saver.y - oy0), x, y;
+    uint16_t top = SAVER_COL[saver.col % SAVER_NCOL], low = mix565(top, C_SEA, 10);
+    cv_begin(w, h, C_BLACK);
+    for (y = 0; y < SAVER_H; y++)
+        for (x = 0; x < SAVER_W; x++) {
+            uint32_t i = saver_px(x, y);
+            if (i)
+                cv_px[(y + (uint32_t)ay) * w + x + (uint32_t)ax] =
+                    swap16(mix565(C_BLACK, y <= SAVER_CUT ? top : low, (int32_t)(i * 24u / 15u)));
+        }
+    cv_blit((uint32_t)x0, (uint32_t)y0);
+#if defined PLAT_HOST && !defined PLAT_WEB
+    ui_cost.draws++;
+    ui_cost.px += w * h;
+#endif
+}
+
+static void saver_screen(void)
+{
+    uint32_t now = plat_ms(), n;
+    int32_t ox = saver.x, oy0 = saver.y;
+    if (!saver.drawn) {
+        lcd_fill(0, 0, 240, 240, C_BLACK);
+        saver.drawn = 1;
+        saver.step_at = now;
+        saver_draw(ox, oy0);
+        return;
+    }
+    n = (now - saver.step_at) / SAVER_STEP_MS;
+    if (!n)
+        return;
+    saver.step_at = n > 4u ? now : saver.step_at + n * SAVER_STEP_MS;   /* (after a long pass, no leap) */
+    for (n = n > 4u ? 4u : n; n; n--) {
+        int b = 0;
+        if (saver.x + saver.dx < 0 || saver.x + saver.dx > SAVER_MAXX) {
+            saver.dx = (int8_t)-saver.dx;
+            b = 1;
+        }
+        if (saver.y + saver.dy < 0 || saver.y + saver.dy > SAVER_MAXY) {
+            saver.dy = (int8_t)-saver.dy;
+            b = 1;
+        }
+        saver.x = (int16_t)(saver.x + saver.dx);
+        saver.y = (int16_t)(saver.y + saver.dy);
+        saver.steps++;
+#if defined PLAT_HOST && !defined PLAT_WEB
+        saver_out += saver.x < 0 || saver.x > SAVER_MAXX || saver.y < 0 || saver.y > SAVER_MAXY;
+#endif
+        if (b) {
+            saver.bounces++;
+            saver.col = (uint8_t)((saver.col + 1u) % SAVER_NCOL);
+        }
+    }
+    saver_draw(ox, oy0);
+    ui.frames++;
 }
 
 /* -------------------------------------------------------------- frames --- */
@@ -2773,6 +3229,7 @@ static void ui_init(void)
     }
     lcd_fill(0, 0, 240, 240, C_BG);
     ui.full = 1;
+    ui.was_saver = 0;
 }
 
 /* what a band shows, as a number: it is drawn again when that changes */
@@ -2782,6 +3239,17 @@ static void ui_frame(void)
 {
     uint32_t now = plat_ms(), s1 = 2166136261u, s3 = 2166136261u, i;
     int ov = overlay_on();
+    if (saver.on) {                      /* the screensaver: over everything, what was there kept */
+        saver_screen();
+        ui.was_saver = 1;
+        return;
+    }
+    if (ui.was_saver) {                  /* woken: what was there, all of it again (a pop-up, a name, the help, the logo) */
+        ui.was_saver = 0;
+        ui.was_pop = ui.was_map = ui.was_logo = 0;
+        ui.full = 1;
+        ui.help_sig = ~0u;
+    }
     if (pop.on) {                        /* a pop-up: over everything, drawn once */
         if (!pop.drawn || !ui.was_pop)
             popup_screen();
@@ -2796,15 +3264,23 @@ static void ui_frame(void)
         ui.was_pop = 1;
         return;
     }
+    if (ng.on) {                         /* the grid of names: the same */
+        if (!ng.drawn || !ui.was_pop)
+            grid_screen();
+        ng.drawn = 1;
+        ui.was_pop = 1;
+        return;
+    }
     if (ui.was_pop) {                    /* closed: back where we were, all of it (the help too) */
         ui.was_pop = 0;
         ui.full = 1;
         ui.was_logo = 0;
         ui.help_sig = ~0u;
     }
-    if (st.help) {                       /* the help: drawn again when its page or a mode changes */
-        uint32_t hs = st.help_page | (uint32_t)st.bass << 4 | (uint32_t)st.glint << 5 | (uint32_t)arp.latch << 6 |
-                      (uint32_t)(st.v[P_SQ_REC] || st.v[P_BQ_REC]) << 7 | (uint32_t)st.page << 8 |
+    if (fm.help) {                       /* the help: drawn again when its page or a mode changes */
+        uint32_t hs = fm.help_page | (uint32_t)st.bass << 4 | (uint32_t)st.glint << 5 |
+                      (uint32_t)(st.bass ? barp.latch : arp.latch) << 6 |
+                      (uint32_t)rec_any() << 7 | (uint32_t)fm.page << 8 |
                       (uint32_t)st.v[P_FREEZE] << 16;
         if (!ui.was_map || hs != ui.help_sig)
             help_screen();
@@ -2817,9 +3293,9 @@ static void ui_frame(void)
         ui.full = 1;
         ui.was_logo = 0;
     }
-    if (st.logo && st.logo_until && now >= st.logo_until)
-        st.logo = 0;
-    if (st.logo) {                       /* the logo's screen, alive: 20 frames a second, 12 while the sound takes
+    if (fm.logo && fm.logo_until && now >= fm.logo_until)
+        fm.logo = 0;
+    if (fm.logo) {                       /* the logo's screen, alive: 20 frames a second, 12 while the sound takes
                                           * most of the processor (it moves slowly; the keys stay quick) */
         if (!ui.was_logo || (!st.v[P_ANIM] && now - ui.field_at >= (plat_cpu_pct() > 75u ? 80u : 50u))) {
             ui.field_at = now;           /* (ANIMATIONS LOW: drawn once, still) */
@@ -2834,38 +3310,48 @@ static void ui_frame(void)
         ui.full = 1;
     }
     /* the header: the page, the freeze, the keys' mode, the octave, a message, the harmony, the load */
-    s1 = sig_add(s1, st.page | (uint32_t)st.v[P_FREEZE] << 8 | (uint32_t)st.glint << 9 | (uint32_t)(now < say.msg_until) << 10 |
+    s1 = sig_add(s1, fm.page | (uint32_t)st.v[P_FREEZE] << 8 | (uint32_t)st.glint << 9 | (uint32_t)(now < say.msg_until) << 10 |
                          (uint32_t)arp.latch << 11 | (uint32_t)(st.v[P_SQ_TYPE] != 0) << 12 | (uint32_t)st.bass << 13 |
                          (uint32_t)st.v[P_KEYS] << 14 | (uint32_t)st.v[P_SQ_TYPE] << 15 | (uint32_t)st.v[P_SQ_REC] << 17 |
                          (uint32_t)st.dirty << 19 | (uint32_t)st.compare << 20 | (uint32_t)cpu_over() << 21 |
-                         (uint32_t)mo.on << 22 | (uint32_t)st.scene << 23 | (uint32_t)st.v[P_BQ_ON] << 28 |
-                         (uint32_t)st.v[P_BQ_REC] << 29);
+                         (uint32_t)mo.on << 22 | (uint32_t)fm.scene << 23);
+    s1 = sig_add(s1, st.v[P_BQ_ON] | (uint32_t)st.v[P_BQ_REC] << 2 | (uint32_t)barp.latch << 4 | (uint32_t)st.v[P_DQ_REC] << 5 |
+                         (uint32_t)st.v[P_DQ_ON] << 7 | (uint32_t)cnt.run << 8 | (uint32_t)cnt.beat << 9 |
+                         (uint32_t)sv.load << 12);
     s1 = sig_add(s1, (uint32_t)(play_holding() * 32.0f) | (mo.on ? (now - mo.t0) * 64u / (mo.dur ? mo.dur : 1u) : 0u) << 8);
-    s1 = sig_add(s1, (uint32_t)(st.octave + 8));
+    s1 = sig_add(s1, (uint32_t)(fm.octave + 8) | (uint32_t)chord_tag() << 8);   /* (CHORD . the track) */
+    s1 = sig_add(s1, (uint32_t)oct_big());
     s1 = sig_add(s1, say.msg_until);
     s1 = sig_add(s1, st.v[P_ROOT] | st.v[P_SCALE] << 4 | (uint32_t)st.v[P_CHORD] << 8);
-    for (i = 0; i < SC_NAME && st.scene < NSCENES; i++)   /* (the scene's name, as it may change: NAME IT, a
+    for (i = 0; i < SC_NAME && fm.scene < NSCENES; i++)   /* (the scene's name, as it may change: NAME IT, a
                                                            * restore; NEW SHARD's never does) */
-        s1 = sig_add(s1, (uint8_t)scn.s[st.scene].name[i] | (scn.used >> st.scene & 1u) << 8);
-    if (st.page == PG_GLOBAL)
+        s1 = sig_add(s1, (uint8_t)scn.s[fm.scene].name[i] | (scn.used >> fm.scene & 1u) << 8);
+    if (fm.page == PG_GLOBAL)
         s1 = sig_add(s1, plat_cpu_pct() << 8 | ui.fps);
     /* the footer: the page, the overlay, the values */
-    s3 = sig_add(s3, st.page | (uint32_t)ov << 8 | (uint32_t)st.dirty << 9 | (uint32_t)st.pick << 10);
-    s3 = sig_add(s3, touched_now() ? st.touched : 255u);
+    s3 = sig_add(s3, fm.page | (uint32_t)ov << 8 | (uint32_t)st.dirty << 9 | (uint32_t)fm.pick << 10 |
+                         (uint32_t)sv.load << 15 | (uint32_t)sv.what << 16 | (uint32_t)sv.into << 18);
+    s3 = sig_add(s3, (uint32_t)(up_cur[0] + 1) | (uint32_t)(up_cur[1] + 1) << 8 | (uint32_t)(up_cur[2] + 1) << 16);
+    s3 = sig_add(s3, touched_now() ? fm.touched : 255u);
     for (i = 0; i < 4u; i++) {           /* (and where an LFO has them) */
-        uint8_t p = PAGES[st.page].p[i];
+        uint8_t p = page_knob(fm.page, i);
+        s3 = sig_add(s3, p);
         s3 = sig_add(s3, p < NPARAM ? st.v[p] : 0u);
         s3 = sig_add(s3, p < NSOUND ? (uint32_t)(int32_t)(mod[p] * 2.0f) : 0u);
     }
-    s3 = sig_add(s3, st.v[P_KB] | st.v[P_DR_PRESET] << 8 | (uint32_t)st.v[P_DR_FULL] << 16);   /* (the three hands) */
-    if (st.page == PG_MIXER)             /* (the pans, and OCT- held: the footer shows them) */
+    s3 = sig_add(s3, st.v[P_KB] | (uint32_t)st.v[track_preset()] << 8 | (uint32_t)st.v[track_algo()] << 16 |
+                         (uint32_t)st.v[P_SQ_TYPE] << 24 | (uint32_t)st.v[P_BQ_ON] << 26 | (uint32_t)st.v[P_DQ_ON] << 28);   /* (the three
+                                                                                  * hands; ARP's and SEQ's ON, OFF) */
+    s3 = sig_add(s3, st.v[P_KY_DR_STACK + 4u * st.v[P_KB]]);   /* (the STACK hint, as SEQ held turns it) */
+    if (fm.page == PG_MIXER)             /* (the pans, and OCT- held: the footer shows them) */
         s3 = sig_add(s3, st.v[P_PN_DRONE] | st.v[P_PN_BASS] << 7 | (uint32_t)st.v[P_PN_GLINT] << 14 |
                              (uint32_t)st.v[P_PN_CLOUD] << 21 | (uint32_t)b_held(B_OCTDN) << 28);
     if (ui.full || s1 != ui.sig1) {
         ui.sig1 = s1;
         header();
     }
-    if (ui.full || (st.v[P_ANIM] ? s3 != ui.sig3 || now - ui.field_at >= 250u : now - ui.field_at >= 50u)) {
+    if (ui.full || ((fm.page == PG_SAVE || fm.page == PG_SAVEAS) ? s3 != ui.sig3
+                    : st.v[P_ANIM] ? s3 != ui.sig3 || now - ui.field_at >= 250u : now - ui.field_at >= 50u)) {
         ui.field_at = now;               /* the river moves: 20 frames a second; ANIMATIONS LOW: still (its time
                                           * stopped), drawn again as a value changes and four times a second (what
                                           * tells: meters, playheads) */

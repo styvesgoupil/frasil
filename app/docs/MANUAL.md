@@ -1,15 +1,14 @@
 # FRASIL
 
 FRASIL turns the M-VAVE FM-1 into an instrument for ambient drones and textures. The drones are the notes
-you light, and they never change. GLINT's arpeggiator plays the keys you hold and its sequencer the steps you write;
-chance comes in only where you let it (CHANCE skips steps, RANDOM and DRIFT pick the arpeggio's order, SPARKLE lets
-glints fall on the notes your drones hold). A tap latches a drone, and pressing makes it
-swell. The timbre drifts and ebbs slowly on its own; the drones' notes never change. Everything flows into a large reverb
-with shimmer and freeze. Above the drones, GLINT plays small icy FM bells, by hand, through an arpeggiator or a
-32-step sequencer. Under
-them, BASS holds one deep note, or plays a line of sixteen steps.
+you light, and they never change. A tap latches a drone, and pressing makes it swell. The timbre drifts and ebbs
+slowly on its own. Everything flows into a large reverb with shimmer and freeze. Above the drones, GLINT plays small
+icy FM bells, by hand, through an arpeggiator or a 32-step sequencer. Under them, BASS holds one deep note, or plays
+its own arpeggio or a line of up to 32 steps. The drone has a sequence of its own too: its chords, a step at a time.
+Chance comes in only where you let it (CHANCE skips steps, RANDOM and DRIFT pick an arpeggio's order, SPARKLE lets
+glints fall on the notes your drones hold).
 
-![The play page: the scene (NEW SHARD) with an amber dot, the sound changed, and the keys' badge (DRONE, octave -1) in the header; three voices as currents of ice in the river; the drone's mix and WARMTH as four strata under the waterline; KEYS (DRONE), the drone's PRESET (CUSTOM) and BODY (50) at the bottom](img/screen-play.png "The play page, three voices sounding")
+![The play page: the white header with the scene, NEW SHARD, a dot by its name (the sound changed), the track at its right; the key, A PHRYGIAN, at the river's top left; three voices as currents of ice in the river; the drone's mix and WARMTH as four strata under the waterline; TRACK, PRESET and TIMBRE at the bottom](img/screen-play.png "The play page, three voices sounding")
 
 ---
 
@@ -18,16 +17,17 @@ them, BASS holds one deep note, or plays a line of sixteen steps.
 1. Install
 2. How FRASIL works
 3. The screen
-4. Playing drones
-5. Harmony
+4. Playing
+5. Harmony and the keys
 6. GLINT
 7. BASS
-8. The pages
-9. Scenes
-10. MIDI
-11. PERFORM
-12. The lights
-13. Troubleshooting
+8. DRONE SEQ
+9. The pages
+10. Scenes and presets
+11. MIDI
+12. PERFORM
+13. The lights
+14. Troubleshooting
 
 ---
 
@@ -44,54 +44,68 @@ repository.
 **Back to the official firmware:** install M-VAVE's V15 from the installer or from The FM-1 Firmware Hub. If the
 FM-1 no longer starts, hold OCT− while you switch it on: it waits for an update over USB.
 
-FRASIL keeps its scenes and settings in the FM-1's flash, in its own format. Another firmware may not read them,
-and may overwrite them: back them up first (section 9, Backing up).
+FRASIL keeps its scenes, your presets and its settings in the FM-1's flash, in its own format. Another firmware may
+not read them, and may overwrite them: back them up first (section 10, Backing up).
 
 ---
 
 ## 2. How FRASIL works
 
-The keys play one set of notes. Every note you light is a **voice** (up to 8), and every voice has three layers:
+FRASIL plays three tracks, each an instrument of its own: the **DRONE**, **GLINT** and **BASS**. Turn **SELECT**
+(the screen calls it TRACK) to choose one. The keys play it, the header at the top of the screen takes its colour
+(DRONE white, GLINT ice blue, BASS orange), and **EDIT**, **ENV**, **ARP**, **SEQ** and **REC** act on it: its sound,
+its envelope, its arpeggio, its sequence, its recording. PRESETS (B) and ALGORITHM (C) turn its preset and its
+brightness. What the other two play goes on.
+
+**The drone.** Every note you light is a **voice** (up to 8), and every voice sounds three layers of the drone:
 
 - **CHOIR:** three detuned saws (or pulses) through a low-pass filter that follows the note. Warm, wide, vocal.
 - **PARTIALS:** 8 additive harmonics, each drifting on its own in level and tuning. Bright or dark, odd, stretched
   into bells, with a formant.
 - **BREATH:** noise (a hiss or sparse grains) through three resonators tuned to the note, from air to glass.
 
-Each layer has two pages on EDIT: the first its level and main character, the second (CHOIR II, PARTIALS II,
-BREATH II) its source and what shapes it after; CHOIR has a third, CHOIR III (SOFT). Before them, **DRONE TONE**
-shapes the whole drone: TIMBRE (all three layers brighter or darker), SPACE (how much of it goes to the reverb), MOTION
-(how far it drifts) and BODY. At 100 % BODY leaves the drone as its settings make it. Turned down, it thins it out
-without changing them: the choir closer and quieter, fewer partials, little breath, narrower, less warmth, its low body
-taken off.
-**ALGORITHM** (C) turns it too, on any page, and the presets leave it where it is. An LFO can move it.
+With the DRONE selected, EDIT opens **DRONE TONE**, then **DRONE MOTION**, then two pages for each of the drone's
+layers: the first its level and main character, the second (CHOIR II, PARTIALS II, BREATH II) its source and what
+shapes it after; CHOIR has a third, CHOIR III (SOFT). DRONE TONE shapes the whole drone: its PRESET, TIMBRE (all three layers brighter or
+darker), SPACE (how much of it goes to the reverb) and BODY. At 100 % BODY leaves the drone as its settings make it.
+Turned down, it thins it out without changing them: the choir closer and quieter, fewer partials, little breath,
+narrower, less warmth, its low body taken off. The presets leave it where it is. An LFO can move it. **ALGORITHM**
+(C) turns TIMBRE, on any page, while the DRONE is selected. How far the drone drifts is on EDIT's second page, DRONE
+MOTION: MOTION, its RATE, TIDE and its PERIOD.
 
-**The drone's presets.** Turn **PRESETS** (B), on any page: 24 drones, each setting the three layers (their levels,
-all their pages) and the drone's own (DRONE TONE but BODY, DRONE SHAPE's ATTACK and RELEASE, DRONE MOTION).
-The cloud, PRESSURE and VELOCITY stay as they are. MIST, CATHEDRAL, GLACIER, ABYSS, AURORA, EMBER, TIDE, DUST, WIND,
-ORGAN, HOLLOW, VOWEL, SHIMMER, CHANTER, ENSEMBLE, BELLS, NOCTURNE, HAZE, PULSE, RIME, DEEP, SPECTRAL, RUST, STILL.
-Before them, **CUSTOM**: your own. Turn any of those settings and the drone becomes CUSTOM, from where it was.
-Another preset doesn't lose it: turn back to CUSTOM and it is there. A scene keeps its CUSTOM, and the preset chosen
-over it.
+**The presets.** Turn **PRESETS** (B), on any page: the selected track's preset. The names fill the screen while you
+turn (the name grid, section 3). For the DRONE, 36 drones, each setting the three layers (their levels, all their
+pages) and the drone's own (DRONE TONE but BODY, DRONE SHAPE's ATTACK and RELEASE, DRONE MOTION). The cloud,
+PRESSURE and VELOCITY stay as they are. MIST, CATHEDRAL, GLACIER, ABYSS, AURORA, EMBER, TIDE, DUST, WIND, ORGAN,
+HOLLOW, VOWEL, SHIMMER, CHANTER, ENSEMBLE, BELLS, NOCTURNE, HAZE, PULSE, RIME, DEEP, SPECTRAL, RUST, STILL, VELVET,
+CHROME, SWARM, FOGHORN, SOLAR, CAVE, GLASS HARP, MONK, STATIC, LULLABY, STORM, PRISM. Before them, **CUSTOM**: your
+own. Turn any of those settings and the drone becomes CUSTOM, from where it was. Another preset doesn't lose it: turn
+back to CUSTOM and it is there. A scene keeps its CUSTOM, and the preset chosen over it. GLINT's 23 presets are in
+section 6, the bass's eight MODELs in section 7. The presets you store yourself come after the factory ones
+(section 10).
 
-You don't choose a layer per note: all three play every note, and you mix and shape them. Then WARMTH (a soft
+You don't choose a drone layer per note: all three play every note, and you mix and shape them. Then WARMTH (a soft
 saturation) feeds **CLOUD**, the reverb: an 8-line modulated network with diffusion in its loop, a pre-delay, a
 pitch-shifted **shimmer** inside the loop, and **FREEZE**. Its tail runs from 0.4 to 60 seconds.
 
 Your drones' notes never change. What moves on its own is the sound: **MOTION** is a slow random drift of each
-partial, detune and resonance; **TIDE** is a slow swell of the timbre over minutes. Chance comes into GLINT's notes only
-where you let it: **CHANCE** skips steps, RANDOM and DRIFT pick the arpeggio's order, **SPARKLE** plays glints of its
+partial, detune and resonance; **TIDE** is a slow swell of the timbre over minutes. Chance comes into the notes only
+where you let it: **CHANCE** skips steps, RANDOM and DRIFT pick an arpeggio's order, **SPARKLE** plays glints of its
 own on the notes the drones hold.
 
-**GLINT** is a separate layer on top: 4 voices of clean FM, played from the keys when you switch them over
-(**SELECT**, KEYS: DRONE, GLINT, BASS; or a page: ARP's pages put them on GLINT). GLINT notes are never latched: each one rings and fades like a bell. The
+**GLINT** is a track above: 4 voices of clean FM. Each note rings and fades like a bell, or sings on as a lead. The
 drones keep sounding while you play GLINT.
 
-**BASS** is a third thing the keys can play (SELECT on BASS, or SEQ's pages): one deep note at a time, held like a drone, under
-everything, or its own step sequencer. It stays out of the reverb, but for a little SPACE.
+**BASS** is a track under everything: one deep note at a time, held like a drone. It stays out of the reverb, but for
+its SPACE.
+
+**Arpeggios and sequences.** GLINT and BASS each play their keys as they come, through an arpeggiator (**ARP**), or
+from a sequence (**SEQ**): one at a time, turned ON on its button's first page. Each track has its own sequence, the
+drone's included: up to 32 steps, each track on its own RATE, all three on one beat, started and stopped together by
+**PLAY**. **REC** records what you play into the selected track's sequence.
 
 **GENERATIVE FX** (FX's first page) acts on everything at once: SWELL swells every voice, SPARKLE scatters glints over
-the drones' notes, BLUR dissolves the drone into the cloud, SINK takes the whole mix under a low-pass (section 8).
+the drones' notes, BLUR dissolves the drone into the cloud, SINK takes the whole mix under a low-pass (section 9).
 
 ---
 
@@ -114,151 +128,205 @@ FRASIL's screen is a river at night. Pitch is height above the waterline. Each v
 Under the waterline, four strata show the drone's mix: CHOIR, PARTIALS and BREATH, each drawn as its own thing in
 the river, and WARMTH, as embers in lamp light. K1–K4 set them. The one you turn lights up.
 
-At the top right of the river, only what is on, out of sight elsewhere: **SEQ** (ice while the sequence runs, slate
-while it is stopped) or **REC** (lamp, while it records); **ARP**, or **ARP LATCH**, while the arpeggio has notes
-(slate while it waits); **BASS SEQ** (lamp while the bass's sequence runs, slate while it is stopped) or **BASS REC**
-while it records; **LFO** and three dots, one for each, ice while it runs; **SWELL** (lamp) while it swells.
+At the top left of the river, on the play page, the key: its root and scale (A PHRYGIAN), once you set a scale or a
+chord. It shortens when the tags at its right crowd it, and gives way when they take the whole row.
 
-At the bottom, the three left encoders, the same on every page: **KEYS** (SELECT: what the keys play), the
-drone's **PRESET** (PRESETS: its number among the 24 over it, CUSTOM's PRESET) and **BODY** (ALGORITHM).
+At the top right of the river, only what is on, out of sight elsewhere: **SEQ** (ice while GLINT's sequence runs,
+slate while it is stopped) or **REC** (lamp, while it records); **ARP**, or **ARP LATCH**, while GLINT's arpeggio has
+notes (slate while it waits); **BASS SEQ** (lamp while the bass's sequence runs, slate while it is stopped) or
+**BASS REC** while it records; **BASS ARP** while the bass's arpeggio plays; **DRONE SEQ** (white while the drone's
+sequence runs, slate while it is stopped) or **DRONE REC** while it records; **LFO** and three dots, one for each, ice
+while it runs; **SWELL** (lamp) while it swells.
+
+**The header** is the selected track's. The whole band at the top of the screen is filled with its colour, DRONE white,
+GLINT ice blue, BASS orange, and the page's name and the track's name are written dark on it: wherever you are, you
+see which track the buttons act on. On the play page the title is the scene's name, as large as it fits (a long one
+smaller: its sixteen characters always fit), with a dot while the sound differs from the scene's. Elsewhere, the
+page's name; SCENES adds CHANGED while the sound differs. FRASIL's name stays on the logo screen. Under the title, a
+dot for each page of its button, the one on screen larger and darkest; a button with one page has none, an ARP or a SEQ that is OFF
+among them. At the right: the track's name, CHORD before it a little paler while its keys play chords (CHORD · GLINT:
+KEYS' NOTES on CHORD, and heard; not on GLOBAL); LIVE or STEP in its place while that track records. On the track's SEQ
+pages the title already says the track, so the corner says how to clear its sequence, CLEAR [OCT−] + [REC], and
+during a take the title says the take: GLINT LIVE, DRONE STEP. The octave isn't in the header: OCT+ or OCT− shows it
+large over the strip for a moment, the page staying. Beside them: FREEZE while the cloud is held
+(on the play page a flake, when the name leaves it no room); a small dot for 3 seconds after the engine lightened the
+sound (section 14, Crackles); on GLOBAL, the processor's load. When it is full, the least important items step aside.
+A long title is drawn smaller beside CHORD · DRONE.
+
+![GLINT I, CHORD · GLINT at the right of the header: GLINT's keys play chords](img/screen-head-chord-glint.png "KEYS' NOTES on CHORD")
+
+For a moment the header gives way to a message (STORED 09 ABYSS, FILTER > LFO 2, ARP ON · SEQ OFF); to PLAY held
+(RELEASE ALL or RESTORE, a line of progress under it); on the play page and SCENES, to a scene's MORPH (an arrow, the
+scene's name, a line for how far it has come; elsewhere, only the line, under the page's name); while OCT− and EDIT
+are held, to COMPARE · AS SAVED; and while a recording counts in, to COUNT-IN and its beat (COUNT-IN · 2).
+
+At the bottom of the play page, the three left encoders: **TRACK** (SELECT: DRONE, GLINT, BASS), the track's
+**PRESET** (PRESETS: its name under PRESET; the bass's MODEL under MODEL) and what ALGORITHM turns for it: the drone's
+TIMBRE, GLINT's BRIGHT, the bass's FILTER.
 
 **The badges.** Every setting on screen wears the badge of the control that turns it. A blue disc numbered 1–4 is
 K1–K4, the four encoders at the top right. An orange disc A, B or C is SELECT, PRESETS or ALGORITHM, the three
-encoders on the left. Turning PRESETS or ALGORITHM shows its value large for a moment, on any page; SELECT shows it
-large on the play page, and elsewhere only the keys' badge changes.
+encoders on the left. Turning ALGORITHM shows its value large for a moment, on any page; SELECT shows the track large
+over the river on the play page and on a track's own pages. Elsewhere the header's colour says it.
 
-![PRESETS turned: EMBER large over the river, 06/24 at the bottom](img/screen-overlay.png "A left encoder turned")
+**The name grid.** A setting with a long list of names (the drone's PRESET, GLINT's PRESET, the bass's MODEL, an
+LFO's TARGET, SCALE, CHORD and the like: eight choices or more) shows them all while you turn it. The page gives way
+to a grid of the names, down the left column, then down the right, ten rows to a screen, more screens if they need
+them (dashes at the foot); the choice framed in ice, your presets a little brighter; the header says the setting's
+name. **OCT+** and **OCT−**, while the grid is open, move the choice a screen on or back (with OCT− held to pick
+unheard, only OCT+ does); the octave doesn't move. The sound follows a moment after you stop turning (about a quarter
+of a second), so a quick turn through the drones doesn't play each of them.
 
-**The header.** On the play page: the scene's name, as large as it fits (a long one smaller: its sixteen characters
-always fit), an amber dot while the sound differs from the scene's, then the key (D MINOR), once you set a scale or a
-chord and if there is room. Elsewhere, the page's name; SCENES adds CHANGED, in lamp, while the sound differs. FRASIL's
-name stays on the logo screen. Under the title, a dot for each page of its button (those GLINT's SEQ hides not counted),
-the one on screen ice; HOME's three are SOUND, MIXER and the logo.
+- **A track's preset, an LFO's TARGET:** the header says [SEL] SELECT. **SEL** keeps what you hear; **FX** brings back
+  the sound as it was before the grid opened. Only those two are lit; the grid stays until you press one, the other
+  buttons and the knobs waiting.
+- **SCALE, CHORD, MASTER EQ's PRESET and the like:** the header says where you are (5 / 12). The grid closes 1.2
+  seconds after the last turn, or at once on any button, which then does its own job.
 
-At the right, the keys' badge: a small keyboard, what the keys play and the octave, in the track's colour: DRONE white,
-GLINT ice blue, BASS orange. REC, in orange, takes the word's place while the keys write into a sequence (in GLINT's, in
-the lamp's colour). With GLINT's arpeggiator on (SEQ on ARP, the keys feeding the arpeggio), the keyboard gives way to
-four dots climbing. Its frame is solid while the notes latch, dotted while they sound only as long as their key is
-held: for DRONE and BASS, GLOBAL's KEY MODE (LATCH or HOLD; dotted while the bass's sequence is on); for GLINT, the
-arpeggio (SEQ on ARP and latched, or not). Beside it: FREEZE while the cloud is held (a flake of ice beside a long
-name), a small amber dot for 3 seconds after the engine lightened the sound (section 13, Crackles), and on GLOBAL the processor's load. When
-it is full, the least important items step aside.
+An LFO's TARGET opens on four screens, one a section, each in a box: DRONE and CHOIR; PARTIALS and BREATH; GLINT; BASS
+and GLOBAL. The names are in their track's colour, GLOBAL's in green. OCT+ and OCT− turn the sections.
 
-For a moment the header gives way to a message (STORED 09 ABYSS, FILTER > LFO 2); to PLAY held (RELEASE ALL or
-RESTORE, a line of progress under it); on the play page and SCENES, to a scene's MORPH (an arrow, the scene's name, a
-line for how far it has come; elsewhere, only the line, under the page's name); and, while OCT− and EDIT are held, to
-COMPARE · AS SAVED.
+![The name grid: PRESET, the drones down two columns, EMBER framed in ice; SEL SELECT in the header; dashes at the foot for its two screens](img/screen-grid.png "PRESETS turned")
+
+![An LFO's TARGET: its first screen, OFF, then DRONE and CHOIR in their boxes, CH SOFT framed; four dashes at the foot](img/screen-grid-lfo.png "LFO, twice, then K1")
+
+![ALGORITHM turned: TIMBRE 55 large over the river, the strata dimmed](img/screen-overlay.png "ALGORITHM turned")
 
 **Pop-ups and questions.** A warning takes the whole screen until you press **SEL**: something did not happen, or
 wants your hand (STOP FIRST, NOT RESTORED, NOT STORED, MIDI LEARN: TURN ONE FIRST), or what a restore from USB did
 (RESTORED). Its one button, OK, is SEL, the only light left on. SEL only closes it: you are back where you were, the
 lights too. Meanwhile the keys and MIDI play; the other buttons and the encoders wait. Everywhere a question is
-asked, **SEL** is yes (OK, store, restore) and **FX** is no (cancel), and only the buttons that answer are lit.
+asked, **SEL** is yes (OK, restore) and **FX** is no (cancel), and only the buttons that answer are lit. Saving too:
+SEL goes on, FX goes back (section 10).
 
-**The mixer.** Press HOME on the play page: a fader for each track, DRONE, BASS, GLINT, and CLOUD, the reverb's
-return, each in its colour, with the track's meter beside it, live. K1–K4 move them. 100 is the level as it is (a mark
-on the track), up to 127. The faders are the tracks' levels in the mix, after their own sound: DRONE and GLINT take what
-they send into the cloud down with them. Hold **OCT−** and turn K1–K4: each track's PAN (DRONE, BASS, GLINT, CLOUD), L50 to C to R50 (a balance), kept in
-each scene; a small scale above each fader shows it (a dot, lit while turned), the footer shows the pans instead of the
-levels while OCT− is held, and the octave does not change. The page's foot says it: PAN: HOLD OCT− AND K, OCT− drawn as
-a key. An LFO can move each pan (TARGET's DRONE PAN, BASS PAN, GLINT PAN, CLOUD PAN, on the LFO's page: LFO held and a
-knob turned on MIXER routes the level under it). HOME again opens the logo screen.
+**HOME's pages.** Tap HOME for the play page, then again: KEYS (how the keys play the selected track, section 5),
+MIXER, CLOUD SEND, the logo screen, and back to the play page.
 
-**The logo screen.** HOME's third screen: the logo, alive, the version at the top right, the sky over two thirds of
-the screen, FRASIL's site up in it (frasilsynth.com: its River backs up and edits your scenes). Over the waterline, granules of frasil drift like stars: they follow what plays (faster with MOTION),
-pressure warms them, GLINT notes sparkle among them. Under it, the water: night blue, slow swells of light passing
-through it, the sky's light on it in short strokes that come and go, and the letters in it, deep blue, swaying. FREEZE
-stills it all. PLAY and the octave buttons leave it open, so you can play from it. HOME again goes back to the
-play page.
+**The mixer.** A fader for each track, DRONE, BASS, GLINT, and CLOUD, the reverb's return, each in its colour, with
+the track's meter beside it, live. K1–K4 move them. 100 is the level as it is (a mark on the fader), up to 127. The
+faders are the tracks' levels in the mix, after their own sound: DRONE and GLINT take what they send into the cloud
+down with them. Hold **OCT−** and turn K1–K4: each track's PAN (DRONE, BASS, GLINT, CLOUD), L50 to C to R50 (a
+balance), kept in each scene; a small scale above each fader shows it (a dot, lit while turned), the footer shows the
+pans instead of the levels while OCT− is held, and the octave does not change. The page's foot says it: PAN: HOLD
+OCT− AND K, OCT− drawn as a key. An LFO can move each pan (TARGET's DRONE PAN, BASS PAN, GLINT PAN, CLOUD PAN, on the
+LFO's page: LFO held and a knob turned on MIXER routes the level under it).
 
-![MIXER: the four faders and their meters](img/screen-mixer.png "HOME on the play page")
+**CLOUD SEND** gathers what each track sends into the cloud: DRONE (DRONE TONE's SPACE), GLINT (GLINT DELAY's SPACE)
+and BASS (BASS II's SPACE), on K1–K3. The same settings as on their own pages.
 
-![The logo screen](img/screen-logo.png "HOME on the MIXER")
+**The logo screen.** HOME's last screen: the logo, alive, the version at the top right, the sky over two thirds of
+the screen, FRASIL's site up in it (frasilsynth.com: its River backs up and edits your scenes). Over the waterline,
+granules of frasil drift like stars: they follow what plays (faster with MOTION), pressure warms them, GLINT notes
+sparkle among them. Under it, the water: night blue, slow swells of light passing through it, the sky's light on it in
+short strokes that come and go, and the letters in it, deep blue, swaying. FREEZE stills it all. PLAY and the octave
+buttons leave it open, so you can play from it. HOME again goes back to the play page.
+
+![MIXER: the four faders and their meters](img/screen-mixer.png "HOME, three times")
+
+![The logo screen](img/screen-logo.png "HOME, five times")
 
 **Help.** Hold HOME: the help screen opens and stays, on the page with the button of the page you were on. Turn
 SELECT for its five pages: the buttons in the panel's order (three pages), the encoders, the keys. Each line gives a
 control's job, then the control, and under it, in amber, what it does again, held, or with something else. Tap HOME
 to close it and go back where you were.
 
-![Help, its first page: GENERATIVE FX on FX (again: CLOUD, PUMP; hold: FREEZE), HARMONY on SEL (hold and a key: a single note), DRONE SHAPE on ENV (hold: SWELL), DRONE MOTION on LFO (again: LFO 1-3; hold and a K: route)](img/screen-help-1.png "Hold HOME")
+![Help, its first page: GENERATIVE FX on FX (again: CLOUD, PUMP; hold: FREEZE), HARMONY on SEL (hold and a key: add a single note), ENVELOPE on ENV (hold: SWELL), LFO 1, 2, 3 on LFO (again: next page; hold and a K: route)](img/screen-help-1.png "Hold HOME")
 
 ---
 
-## 4. Playing drones
+## 4. Playing
+
+The DRONE selected (SELECT all the way left):
 
 | Gesture | What happens |
 | --- | --- |
 | **Tap a key** | lights the note, or a chord (see Harmony). It rises over ATTACK and stays |
 | **Tap a lit key** | it fades over RELEASE |
+| **Tap another key** | it takes the place of what is lit, which fades over RELEASE; keys pressed together stay together. With KEYS' STACK ON, it joins them (section 5) |
 | **Hold a key and press** | the voice swells and opens (PRESSURE sets how much). Let go: it stays lit |
-| **Hold ENV** | SWELL: after 0.4 s, every drone voice swells together (1.5 s up, 1.5 s down once let go); ENV is lit while it lasts |
+| **Hold ENV** | SWELL: after 0.4 s, every drone voice swells together (1.5 s up, 1.5 s down once let go); ENV is lit while it lasts. Whatever track is selected |
 | **SWELL** (FX, GENERATIVE FX's K1) | held where you leave it: every voice swells as far as it is turned (with ENV's and CC 11's, the most of them) |
-| **Turn SELECT** | KEYS, what the keys play: DRONE, GLINT, BASS (it stops at each end). They stay until you come to a page from another section, which sets them too (below). On SCENES it picks the slot, as K1 does, and leaves KEYS as they are |
-| **Hold a page button, turn SELECT** | that button's pages, one a detent, both ways, round (FX, SEL, ENV, LFO, EDIT, GLO, HOME, ARP, SEQ; not SAVE); from another section's page, the first detent sets KEYS as a tap would |
-| **Turn PRESETS** | the drone's preset (CUSTOM, then the 24) |
-| **Turn ALGORITHM** | BODY: at 100 % the drone as set; down, thinner (section 2) |
-| **Hold SEL, tap a key** | a single note, even when CHORD makes chords: a note over a chord |
-| **OCT− / OCT+** | octave −3 to +2. Both together: back to −1, where the keys run F2 to G4 |
-| **Hold OCT−, turn a sound's preset** | GLINT I's PRESET (K1), BASS's MODEL (K1) or PRESETS (B): picked unheard, the value in amber, the sound going on as it is; let OCT− go and it is taken (the octave unchanged) |
-| **Hold PLAY** | after 0.6 s, RELEASE ALL: the drones, the bass, the glints, the arpeggio and the sequences; the beat begins there (below). From 0.2 s the header says RELEASE ALL, a line counting down under it: let go then, before 0.6 s, and nothing happens |
-| **Hold PLAY again** | with nothing playing: RESTORE, the scene again (RESTORED): what the last RELEASE ALL let go, else the scene's own notes as saved (at power-on, say): its latched drones, the arpeggio's notes, the bass; and every sequence that is on, from its first step; the beat begins there |
-| **Tap PLAY** | with nothing playing at all: the scene, its three tracks, as held (RESTORE). Else the transport (sections 6 and 7): GLINT's sequence and the bass's stop together, or start together from their first steps, at once, the beat beginning there; the arpeggio waits, or goes on from the top. A stop leaves the beat going. With GLINT's SEQ and the bass's SEQUENCE OFF, it only says HOLD PLAY · RELEASE ALL |
+| **Hold SEL, tap a key** | a single note over what is lit, even when CHORD makes chords, whatever KEYS' STACK says (on the bass it takes the note's place: it has one voice) |
+
+With KEYS' LATCH OFF (HOME, KEYS, K3), notes sound only while their key is held (section 5).
+
+On any track:
+
+| Gesture | What happens |
+| --- | --- |
+| **Turn SELECT** | the track: DRONE, GLINT, BASS (it stops at each end). The keys play it, the header takes its colour, and on EDIT, ENV, ARP and SEQ the page follows it (below). On SCENES it picks the slot, as K1 does, and leaves the track as it is |
+| **Hold OCT−, turn SELECT** | the track changes and the page stays: play the drones while the bass's page is on screen. The header follows the track, the page doesn't. The octave doesn't move |
+| **Hold a page button, turn SELECT** | that button's pages, one a detent, both ways, round (FX, SEL, ENV, LFO, EDIT, GLO, HOME, ARP, SEQ; not SAVE) |
+| **Turn PRESETS** | the track's preset, in the name grid: the drone's (CUSTOM, then the 36, then yours), GLINT's, the bass's MODEL. You hear each as you stop on it; SEL keeps it, FX goes back to the sound before |
+| **Hold OCT−, turn PRESETS** | picked unheard: the grid's choice framed in amber, the sound going on as it is; let OCT− go and it is taken (the octave unchanged) |
+| **Turn ALGORITHM** | the track's brightness: the drone's TIMBRE, GLINT's BRIGHT, the bass's FILTER |
+| **Hold GLO, turn ALGORITHM** | MASTER FILTER's CUTOFF (FX), whatever the track; with the filter OFF, it turns on, LOW PASS |
+| **OCT− / OCT+** | octave −3 to +2, shown large over the strip a moment. Both together: back to −1, where the keys run F2 to G4. While the name grid is open, its screens instead |
+| **Hold EDIT** | the key map: three black keys light (below) |
+| **Hold PLAY** | after 0.6 s, RELEASE ALL: the drones, the bass, the glints, the arpeggios and the sequences; the beat begins there (below). From 0.2 s the header says RELEASE ALL, a line counting down under it: let go then, before 0.6 s, and nothing happens |
+| **Hold PLAY again** | with nothing playing: RESTORE, the scene again (RESTORED): what the last RELEASE ALL let go, else the scene's own notes as saved (at power-on, say): its latched drones, the arpeggios' notes, the bass; and every sequence that is on, from its first step; the beat begins there |
+| **Tap PLAY** | with nothing playing at all: the scene, its three tracks, as held (RESTORE). Else the transport: every sequence that is on stops, or they all start together from their first steps, at once, the beat beginning there; an arpeggio waits, or goes on from the top. A stop leaves the beat going. With no sequence or arpeggio on, it only says HOLD PLAY · RELEASE ALL |
 | **Tap PLAY twice** | quick, while anything plays: RELEASE ALL, as held (the first tap stops the sequences, the second lets everything else go); hold PLAY then for RESTORE. On SCENES each tap loads |
 | **Hold OCT−, press PLAY** | CUT: every sound gone at once, the cloud's tail, GLINT's echoes and the tape's loop too (RELEASE ALL lets them ring out): a 6 ms fade, then silence (CUT · ALL SOUND). The sequences stop, as RELEASE ALL stops them, and the beat begins there; the octave doesn't move. PLAY then, tapped or held: RESTORE |
-| **REC** | into GLINT's sequencer, recording what you play (section 6); with the keys on BASS, into the bass's (section 7); again: RECORD OFF, the keys back to what they played before REC |
+| **REC** | records into the selected track's sequence, from any page: its SEQ II opens, LIVE; again STEP, again OFF (section 6, Recording) |
+| **Hold SEQ** | the selected track's STACK on or off (KEYS, section 5), from any page |
+| **Hold OCT−, press REC** | on the track's SEQ pages: CLEAR, its sequence emptied (UNDO TAKE brings it back) |
+| **Hold SAVE, press REC** | STORE: the current scene into its slot, in one gesture (section 10) |
 | **Hold FX** (or CLOUD's K4) | FREEZE: the cloud holds what is in it, without end and without darkening. Nothing more goes in: what you play next sounds dry over it. Off: it thaws, and fades over DECAY. The page stays; FX stays bright while it is on |
 
-With GLOBAL › KEY MODE on HOLD, notes sound only while their key is held.
-
 **The buttons.** A press shows, a hold acts. Every button does its job when you let it go, but OCT− and OCT+, which
-act at once. Held 0.4 s (PLAY 0.6 s), it does its other thing instead. A button used with something else (SEL with a
-key, SAVE with a key or REC, LFO with an encoder, GLO with a CC, a page button with SELECT) does nothing more when
-you let it go.
+act at once. Held 0.4 s (PLAY 0.6 s, REC 0.8 s), it does its other thing instead. A button used with something else
+(SEL with a key, SAVE with a key or REC, LFO with an encoder, GLO with a CC or ALGORITHM, EDIT with a key, a page button
+with SELECT) does nothing more when you let it go.
+
+**The track and the pages.** EDIT, ENV, ARP, SEQ and REC act on the selected track; FX, SEL, LFO, GLO, HOME and SAVE
+are the same whatever it is. Turn SELECT on one of the track's pages and the page follows: ENV, ARP and SEQ go to the
+same page of the new track (GLINT ADSR to BASS ADSR, GLINT SEQ II to DRONE SEQ II; to the first page if that one is
+not there), EDIT to its first page, and the track shows large over the river for a moment. On the other pages only
+the track changes. Hold OCT− as you turn SELECT and the page stays where it is, whatever it is; the header goes with
+the track, so a white band can say BASS ADSR: the knobs are that page's, the buttons and the keys the new track's.
+What plays goes on: a latched drone or bass stays latched, and a key held down while the track changes ends as it
+began. While a recording runs, SELECT waits: the header says RECORDING, and REC: OFF smaller beside it.
+
+**EDIT held: the key map.** Hold EDIT: the three leftmost black keys (F♯, G♯ and A♯ of the lowest octave) light,
+every other key goes dark. Press one, EDIT still held, to jump to a group of the track's pages; its key lights. On the
+DRONE: F♯ CHOIR, G♯ PARTIALS, A♯ BREATH, the same key again the group's next page, round (CHOIR, CHOIR II, CHOIR III).
+On GLINT: GLINT I, GLINT II, GLINT DELAY; on BASS: BASS I, BASS II, BASS TONE. Those keys sound nothing; the others are
+silent while EDIT is held. Let EDIT go: the page stays, the keys' lights come back. A tap on EDIT opens its first page,
+as ever. With OCT− held, EDIT is COMPARE instead (section 10).
 
 **PLAY restarts the beat.** When PLAY starts the transport (a tap), when it is held (RELEASE ALL, and again,
-RESTORE), and at a CUT, the grid starts again from its top at that moment, as a MIDI Start does: a beat and a bar begin there.
-Everything on the grid starts with it: OCT's blink, REC's flash and the metronome, the LFOs on the grid (from the top of
-their turn), PUMP, the arpeggio (from the top of its pattern), GLINT's sequence and the bass's (from their first steps,
-at once) and PULSE's divisions. While a MIDI clock comes in, the beat is the clock's: PLAY leaves it where it is, and
-the sequences start on its next step (MIDI Start resets it). A tap that stops the transport changes nothing. A scene
-loaded with its notes (LOAD on SND+NOTES) starts the beat there too, as PLAY does (section 9).
+RESTORE), and at a CUT, the grid starts again from its top at that moment, as a MIDI Start does: a beat and a bar
+begin there. Everything on the grid starts with it: OCT's blink, REC's flash and the metronome, the LFOs on the grid
+(from the top of their turn), PUMP, the arpeggios (from the top of their patterns), the three sequences (from their
+first steps, at once) and PULSE's divisions. While a MIDI clock comes in, the beat is the clock's: PLAY leaves it
+where it is, and the sequences start on its next step (MIDI Start resets it). A tap that stops the transport changes
+nothing. A scene loaded with its notes (LOAD on SND+NOTES) starts the beat there too, as PLAY does (section 10).
 
-**A page button and SELECT.** Hold a page button and turn SELECT: its pages, one a detent, in the order its taps go (the
-pages GLINT's SEQ hides skipped), round; from another button's page, its first (turned back, its last). The page shows
-at once; that first detent, come from another section, sets KEYS as a tap would (below), the next ones leave them. Let
-go: nothing more, no next page, no hold. If the hold acted before SELECT moved (held past 0.4 s), the first detent
-undoes it: FREEZE and the arpeggio's LATCH back as they were (its notes too, and GLINT's SEQ if LATCH on turned it to
-ARP: its sequence and RECORD as they were), COMPARE and SWELL over. HOME is the exception: once its help is up, SELECT
-turns the help's pages.
-
-**KEYS follow the section.** When you come to a page from another section (another button's pages), the keys go
-to its track, however you come (its button, a page button held and SELECT, HOME): ARP's pages put them on GLINT,
-SEQ's (BASS to BASS SEQ II) on BASS, EDIT's, ENV's DRONE SHAPE and HOME's (the play page, MIXER, the logo) on DRONE.
-The other sections leave them as they are: FX's, GLO's, SEL's HARMONY, LFO's (DRONE MOTION, the three LFOs and their
-targets), SAVE's SCENES. Within a section they never change (ARP again for GLINT II, SELECT with ARP held, HOME to
-MIXER and the logo): KEYS you set by hand with SELECT stay until you come from another section. SAVE back from SCENES
-is a return: you come back as you left. When they change, the keys' badge at the top right shows it, with no words over the page's name. While a
-recording has the keys (REC, or RECORD on STEP or LIVE), pages leave them alone: RECORD OFF gives them back. What
-plays goes on: a latched drone or bass stays latched, and a key held down while the keys change ends as it began.
+**A page button and SELECT.** Hold a page button and turn SELECT: its pages, one a detent, in the order its taps go
+(an ARP or SEQ that is OFF has only its first), round; from another button's page, its first (turned back, its last).
+The page shows at once. Let go: nothing more, no next page, no hold. If the hold acted before SELECT moved (held past
+0.4 s), the first detent undoes it: FREEZE and the arpeggio's LATCH back as they were, COMPARE and SWELL over, EDIT's
+key map closed. HOME is the exception: once its help is up, SELECT turns the help's pages.
 
 | Button | Tap | Hold | Held, with |
 | --- | --- | --- | --- |
 | **FX** | GENERATIVE FX; again: CLOUD, CLOUD II, CLOUD III, MASTER FILTER, LOFI TAPE, PUMP, PUMP II | FREEZE on or off | SELECT turned: its pages |
 | **SEL** | HARMONY | | a key: a single note · SELECT: its page |
-| **ENV** | DRONE SHAPE | SWELL, while held | SELECT: its page |
-| **LFO** | DRONE MOTION; again: the three LFOs and their targets | | K1–K4 turned: that setting onto an LFO (section 8) · SELECT: its pages |
-| **EDIT** | DRONE TONE; again: the layers' pages | with OCT− held, COMPARE: the scene as saved (section 9) | SELECT: its pages |
-| **GLO** | GLOBAL; again: MIDI, MASTERING, MASTER EQ, MASTER EQ II, ROUTING, SCREEN | | a CC from a controller: MIDI learn (section 10) · SELECT: its pages |
-| **HOME** | the play page; again: MIXER, the logo | help, on the page with this page's button | SELECT: the play page, MIXER |
-| **SAVE** | SCENES; again: back to the page you came from | | a white key: that scene · REC: STORE (section 9) |
-| **ARP** | GLINT's pages | the arpeggio's LATCH (on: SEQ on ARP too) | SELECT: its pages |
-| **SEQ** | BASS's pages | | SELECT: its pages |
-| **PLAY** | start (the beat from there; with nothing playing, the scene's three tracks), stop the sequences (GLINT's, the bass's) or the arpeggio; twice quick: RELEASE ALL; on SCENES: load (with nothing playing, it plays at once) | RELEASE ALL; with nothing playing: RESTORE, the scene again (the beat from there) | pressed with OCT− held: CUT, every sound gone at once |
-| **REC** | record LIVE (GLINT's sequence; the bass's, the keys on BASS); again: RECORD OFF | the metronome on or off | |
+| **ENV** | the track's envelope: DRONE SHAPE, GLINT ADSR, BASS ADSR | SWELL of the drone, while held | SELECT: its page |
+| **LFO** | LFO 1; again: its targets, LFO 2, its targets, LFO 3, its targets | | K1–K4 turned: that setting onto an LFO (section 9) · SELECT: its pages |
+| **EDIT** | the track's sound: DRONE TONE, DRONE MOTION and the drone's layers (9 pages), GLINT I, II, DELAY, or BASS I, II, TONE | the key map: F♯, G♯, A♯ jump to the track's groups | with OCT− held, COMPARE: the scene as saved (section 10) · SELECT: its pages |
+| **GLO** | GLOBAL; again: MIDI, MASTERING, MASTER EQ, MASTER EQ II, ROUTING, SCREEN, RECORD | | a CC from a controller: MIDI learn (section 11) · SELECT: its pages |
+| **HOME** | the play page; again: KEYS, MIXER, CLOUD SEND, the logo | help, on the page with this page's button | SELECT: its pages |
+| **SAVE** | LOAD or SAVE: the scenes, or storing a scene or a preset (section 10) | | a white key: that scene · REC: STORE the current scene |
+| **ARP** | the track's arpeggio: its ON/OFF first, its pages while ON. On the DRONE: NOT AVAILABLE FOR DRONE | the track's arpeggio LATCH (on: ARP ON too); nothing on the DRONE | SELECT: its pages |
+| **SEQ** | the track's sequence: its ON/OFF first, its pages while ON | the track's STACK, on or off | SELECT: its pages |
+| **PLAY** | start (the beat from there; with nothing playing, the scene's three tracks), stop the sequences and arpeggios; twice quick: RELEASE ALL; on SCENES: load (with nothing playing, it plays at once) | RELEASE ALL; with nothing playing: RESTORE, the scene again (the beat from there) | pressed with OCT− held: CUT, every sound gone at once |
+| **REC** | record into the track's sequence, from any page (its SEQ II opens): LIVE; again STEP; again OFF | 0.8 s: the metronome off, or on again | pressed with OCT− held, on the track's SEQ pages: CLEAR |
 
 ---
 
-## 5. Harmony
+## 5. Harmony and the keys
 
 SEL opens HARMONY. You set a key once, then every key you tap plays something that belongs to it.
 
@@ -266,7 +334,7 @@ SEL opens HARMONY. You set a key once, then every key you tap plays something th
 | --- | --- | --- | --- |
 | ROOT: C to B | SCALE | CHORD | VOICING |
 
-![HARMONY: D, MINOR, TRIAD, CLOSE](img/screen-harmony.png "SEL")
+![HARMONY: A, PHRYGIAN, SUS4, OPEN](img/screen-harmony.png "SEL")
 
 **Scales:** CHROMATIC, MAJOR, MINOR, DORIAN, PHRYGIAN, LYDIAN, MIXOLYDIAN, LOCRIAN, HARMONIC, MELODIC,
 PENTA MAJ, PENTA MIN. A key outside the scale plays the scale's note just below it. The scale's keys glow faintly.
@@ -282,43 +350,88 @@ the scale's own notes. In D MINOR with SEVENTH, D plays Dm7, E plays Em7♭5 and
 - **OPEN:** D3 A3 F4, the second note an octave up. More air.
 - **WIDE:** D2 F3 A3, the root an octave down. A bass under the chord.
 
+**KEYS** (HOME, second page) says how the keys play the selected track. Each track keeps its own four:
+
+| K1 | K2 | K3 | K4 |
+| --- | --- | --- | --- |
+| HARMONY (OFF, ON) | NOTES (SINGLE NOTE, CHORD) | LATCH (OFF, ON) | STACK (OFF, ON) |
+
+- **HARMONY:** ON, the keys follow HARMONY: in the scale, and chords if NOTES says so. OFF, each key plays its own
+  note, chromatic.
+- **NOTES:** SINGLE NOTE, one note a key; CHORD, the chord CHORD builds on it. CHORD needs HARMONY ON: with HARMONY OFF
+  it stays in slate, and turning NOTES to CHORD turns HARMONY ON too. CHORD can always be chosen; where the keys still
+  play one note, it is in slate and says why under it: on GLINT with SEQUENCE ON, (NOT ON SEQ); on the bass, which plays one
+  note at a time, (ARP ONLY), its chords heard only through its arpeggio. The drone's turns, its sequence on or off.
+- **LATCH:** ON, a tap holds the note until you tap it again; OFF, it sounds while the key is down. On GLINT, LATCH
+  holds four notes at most; with ARP ON, the arpeggio's own LATCH (ARP II) holds them instead. Turned OFF, it lets that
+  track's latched notes go at once, under a finger too, so it changes only on a second detent the same way within 2
+  seconds (LATCH, TURN AGAIN smaller beside it).
+- **STACK:** ON, a new key or chord joins what is latched (on GLINT, the fifth note takes the oldest's place); OFF, it
+  takes its place, keys pressed together staying together. Hold **SEQ** to turn it from any page; the SEQ and ARP
+  pages say it at their foot, STACK ON (HOLD SEQ) in amber, or STACK OFF (HOLD SEQ).
+
+A choice that doesn't apply stays where it is, in slate. The strip above draws an octave of keys as a key plays now:
+the scale's dots with HARMONY ON, a chord's notes with CHORD, a solid outline for LATCH, a dotted one for HOLD, the word
+beside it, and under the word NOTES or CHORDS while STACK is ON.
+
+![KEYS on the DRONE: HARMONY ON, NOTES CHORD, LATCH ON, STACK OFF; the strip, a chord lit on its keys, the outline solid](img/screen-keys.png "HOME, twice")
+
+![KEYS on GLINT: HARMONY OFF, CHORD in slate, LATCH OFF; the strip without the scale's dots, its outline dotted, HOLD beside it](img/screen-keys-glint-hold.png "HOME, twice, on GLINT")
+
+At first, and on NEW SHARD:
+
+| Track | HARMONY | NOTES | LATCH | STACK | Plays |
+| --- | --- | --- | --- | --- | --- |
+| DRONE | ON | CHORD | ON | OFF | SEQUENCE OFF |
+| GLINT | ON | SINGLE NOTE | ON | OFF | ARP ON |
+| BASS | ON | SINGLE NOTE | ON | OFF | SEQUENCE OFF |
+
+KEYS are the FM-1's, not a scene's: kept with the settings through power-off, and a scene you load leaves them as
+they are. Only NEW SHARD puts them back to these. ARP and SEQUENCE are the scene's. MIDI takes only HARMONY and NOTES,
+on the drones' channel (section 11). LATCH takes over from the KEY MODE of earlier FRASILs: its LATCH or HOLD becomes
+the drone's and the bass's LATCH.
+
 ---
 
 ## 6. GLINT
 
-Press **ARP** (come from another section, its pages put the keys on GLINT), or turn **SELECT** to GLINT: the keys
-play GLINT (the badge turns blue and says GLINT, or REC in orange). On to BASS, or back to
-DRONE, the same way. A key plays an icy FM bell in the scale, OCTAVE octaves up (two by default, from +0 to +3).
-Pressing it makes it louder (up to +8 dB) and makes it ring longer.
+Turn **SELECT** to GLINT: the keys play GLINT, the header turns ice blue. Each note is an icy FM bell in the scale,
+OCTAVE octaves up (two by default, from +0 to +3). Pressing a key makes it louder (up to +8 dB) and makes it ring
+longer. At first a key plays its note through the arpeggiator (KEYS' SINGLE NOTE, ARP ON); KEYS' CHORD makes it a chord. With ARP OFF, KEYS' LATCH holds
+four notes; LATCH OFF, each rings out on its own (section 5).
 
-**VIBRATO** (GLINT II, K4): once your finger has pressed in, wiggling it bends the glint's pitch, both ways around
+**VIBRATO** (GLINT II, K3): once your finger has pressed in, wiggling it bends the glint's pitch, both ways around
 its note, like a string player's finger. A steady press stays in tune. Up to 25 cents at 100; about 10 at its
-default; OFF at 0.
+default; OFF at 0. **AUTO VIB** (GLINT II, K4) is a vibrato of its own on every glint, whatever plays it: some five
+times a second, coming in as the note settles, up to 50 cents at 100. OFF at 0, its default.
 
 ![GLINT notes shining above the river](img/screen-glints.png "SELECT on GLINT, then a few keys")
 
-**Its pages:** tap **ARP**, then ARP again for the next page: GLINT I, GLINT II, GLINT ADSR and GLINT DELAY,
-always the fourth. Then SEQ (GLINT I, K2) decides: GLINT ARP while it is on ARP, the sequencer's three pages while it
-is on SEQ, neither on OFF (four pages). If the page on screen goes (SEQ turned, a scene loaded), you land on GLINT I.
+**Its pages.** GLINT selected, **EDIT** opens its sound, three pages; **ENV** its envelope; **ARP** its arpeggiator;
+**SEQ** its sequencer.
 
-| Page | K1 | K2 | K3 | K4 |
-| --- | --- | --- | --- | --- |
-| GLINT I | PRESET | SEQ (OFF, ARP, SEQ) | LEVEL | BRIGHT (FM index) |
-| GLINT II | OCTAVE (+0 to +3: every glint) | RATIO (×0.5 to ×13.6) | PING (strike or ring) | VIBRATO (OFF, the wiggle's depth) |
-| GLINT ADSR | ATTACK (2 ms to 1.5 s) | DECAY (80 ms to 6 s) | SUSTAIN (0 to 100 %, the level held) | RELEASE (20 ms to 6 s) |
-| GLINT DELAY | TIME (1/32 to 1/2, triplet and dotted; always ping-pong) | FEEDBACK | MIX | SPACE (GLINT's reverb send) |
-| GLINT ARP (SEQ on ARP) | MODE (UP, DOWN, UPDOWN, RANDOM, DRIFT) | RATE (1/1 to 1/32, triplets) | RANGE (1 to 3 octaves) | CHANCE |
-| GLINT SEQ, II, III (SEQ on SEQ) | the sequencer's (below) | | | |
+| Button | Page | K1 | K2 | K3 | K4 |
+| --- | --- | --- | --- | --- | --- |
+| EDIT | GLINT I | PRESET | LEVEL | BRIGHT (FM index) | RATIO (×0.5 to ×13.6) |
+| EDIT | GLINT II | OCTAVE (+0 to +3: every glint) | PING (strike or ring) | VIBRATO (OFF, the wiggle's depth) | AUTO VIB |
+| EDIT | GLINT DELAY | TIME (1/32 to 1/2, triplet and dotted; always ping-pong) | FEEDBACK | MIX | SPACE (GLINT's reverb send) |
+| ENV | GLINT ADSR | ATTACK (2 ms to 1.5 s) | DECAY (80 ms to 6 s) | SUSTAIN (0 to 100 %, the level held) | RELEASE (20 ms to 6 s) |
+| ARP | GLINT ARP | ARP (OFF, ON) | MODE (UP, DOWN, UPDOWN, RANDOM, DRIFT) | RATE (1/1 to 1/32, triplets) | RANGE (1 to 3 octaves) |
+| ARP | GLINT ARP II (ARP ON) | CHANCE | LATCH (OFF, ON) | | |
+| SEQ | GLINT SEQ | SEQUENCE (OFF, ON) | SEQ LENGTH (1 to 32 steps) | RATE (the arpeggiator's) | GATE (a note's length) |
+| SEQ | GLINT SEQ II (SEQUENCE ON) | STEP (1 to SEQ LENGTH) | NOTE (REST, a note, TIE) | LENGTH (the note's, in steps) | ACCENT (OFF, ON) |
+| SEQ | GLINT SEQ II, recording LIVE | SEQ LENGTH | RATE | UNDO TAKE (turn twice) | |
+| SEQ | GLINT SEQ III (SEQUENCE ON) | CHANCE (the arpeggiator's) | TRANSPOSE (−14 to +14 steps of the scale) | UNDO TAKE (turn twice) | |
 
-**SEQ** (GLINT I, K2) is how the keys play GLINT: OFF, each key its own glint; ARP, through the arpeggiator; SEQ,
-through the sequencer (on its own pages, RECORD OFF, each key its own glint again: below).
+With GLINT selected, ALGORITHM (C) turns BRIGHT and PRESETS (B) its PRESET, on any page.
 
-![GLINT I: the SINE preset, SEQ on ARP](img/screen-glint-params.png "ARP")
+![GLINT I: the SINE preset](img/screen-glint-params.png "SELECT on GLINT, then EDIT")
 
 **Presets:** ICE, BELL, BLIP, GLASS, CHIME, DROP, FROST, CELESTA, SINE (the default), KALIMBA, MARIMBA, MUSIC BOX,
-VIBES, HARP, PIPE, BOWED, six leads: WARM LEAD, BRASS, SQUARE, SUB LEAD, STRINGS, REED, and PIANO, a lofi upright piano: the hammer's brightness falls fast, a long dark ring. A preset sets GLINT's
-sound, its RELEASE too (all but VIBRATO and the delay's TIME, FEEDBACK and MIX). Turn RATIO, BRIGHT and the rest from
-there.
+VIBES, HARP, PIPE, BOWED, six leads: WARM LEAD, BRASS, SQUARE, SUB LEAD, STRINGS, REED, and PIANO, a lofi upright
+piano: the hammer's brightness falls fast, a long dark ring. A preset sets GLINT's sound, its RELEASE too (all but
+VIBRATO, AUTO VIB and the delay's TIME, FEEDBACK and MIX). Turn RATIO, BRIGHT and the rest from there. Your own GLINT
+presets come after these (section 10).
 
 **The envelope** (GLINT ADSR, in its usual order): ATTACK, how long a glint takes to rise; DECAY, how long it then
 takes to die away to silence, or, while its key is down, to SUSTAIN's level; SUSTAIN, the level it holds while the
@@ -337,98 +450,120 @@ plateau, RELEASE down to nothing, each part as wide as its knob is turned (the p
 across it, A D S R under it. The part whose knob you turn is lit. Each glint sounding, up to four, is a little ice-blue
 glint riding the curve: it waits at the end of the plateau while its key is held, then goes down RELEASE once let go.
 
-![GLINT ADSR: WARM LEAD's envelope, a glint just struck at its top, two let go on its RELEASE](img/screen-glint-adsr.png "ARP three times")
+![GLINT ADSR: WARM LEAD's envelope, a glint just struck at its top, two let go on its RELEASE](img/screen-glint-adsr.png "SELECT on GLINT, then ENV")
 
 **OCTAVE** (GLINT II, K1) is GLINT's own: it moves every glint GLINT plays, a key's, a MIDI note's, the arpeggio's,
 the sequence's. Turned, it moves the glints sounding at once, without striking them again. The arpeggio and the
 sequence keep their notes without it, and play them with it.
 
-**The arpeggiator** (SEQ on ARP) plays the held GLINT keys one at a time, at RATE, over RANGE octaves. CHANCE
-decides whether each step plays. It follows MIDI clock when one comes in, and TEMPO (GLOBAL, K1) otherwise. It stays
-on the grid: a new chord, an added or a lifted note takes effect on the next RATE step, and the pattern starts again
-from its first note. MIDI Start resets the grid.
+**ARP and SEQ: ON or OFF.** ARP and SEQ each open on their ON/OFF (K1). OFF, that page is all there is: only its
+ON/OFF, the other cells empty, no dots under the title; ARP or SEQ again stays there. Turned ON, its other pages
+appear, and the track's other one turns OFF: GLINT plays its keys through the arpeggiator, or from its sequence, never
+both. The header says so for a moment (ARP ON · SEQ OFF). Both OFF, the keys play GLINT as KEYS says. The page on screen
+stays where it is as the other one turns off. A scene keeps which one is on.
 
-**Latch:** hold **ARP**. With LATCH on (the default), the arpeggio keeps playing after you lift your hands, even back
-on the drones. A new hand replaces the chord. Hold ARP again to turn it off. Turned on, LATCH puts SEQ (GLINT I, K2)
-on ARP too if it was OFF or on SEQ, as turning it there would (a sequence playing stops; the header says ARP LATCH · ON,
-SEQ ON ARP); turned off, it leaves SEQ as it is. Tap **PLAY** and the arpeggio waits, its
-notes kept (ARPEGGIO · WAITING); tap it again and it goes on from the top, the beat beginning there. Hold PLAY to let
-it go with everything else.
+![GLINT ARP with ARP OFF: its ON/OFF alone, the strip's bars dotted](img/screen-arp-off.png "SELECT on GLINT, ARP")
 
-![GLINT ARP: UPDOWN, eighths, over two octaves](img/screen-glint-arp.png "SEQ on ARP, then ARP five times")
+**The arpeggiator** (ARP ON) plays the notes of the held GLINT keys one at a time, at RATE, over RANGE octaves. CHANCE (GLINT ARP
+II) decides whether each step plays. It follows MIDI clock when one comes in, and TEMPO (GLOBAL, K1) otherwise. It
+stays on the grid: a new chord, an added or a lifted note waits for the next point of **ARP SNAP** (GLOBAL, K4: 1/4 at
+first, the next beat) and starts the pattern there from its lowest note; the old one plays on until then. Keys a little
+apart are one chord, and a chord up to 80 ms late lands on the point it just missed. ARP SNAP OFF: the next RATE step.
+The bass's arpeggio does the same. MIDI Start resets the grid.
 
-**The sequencer:** set SEQ (GLINT I, K2) to **SEQ**, or tap REC (below). In place of the arpeggio, a 32-step sequence
-plays GLINT, on the same grid: RATE, MIDI clock or TEMPO, CHANCE for each step (the arpeggiator's RATE and CHANCE, on
-GLINT SEQ II too). It plays on without end while the sequencer is on. **PLAY** stops it, and starts it again from its
-first step, at once, the beat beginning there. MIDI Start starts it from the top too.
+**Latch:** hold **ARP**, or turn LATCH (GLINT ARP II, K2). With LATCH on (the default), the arpeggio keeps playing
+after you lift your hands, even with another track selected. A new hand replaces the chord (with KEYS' STACK ON, it joins it). Hold ARP again to turn it
+off. Turned on, LATCH turns ARP ON too, and the sequence OFF if it was on (a sequence playing stops; the header says
+ARP LATCH, ON, ARP ON); turned off, it leaves ARP as it is. Tap **PLAY** and the arpeggio waits, its notes kept (ARPEGGIO ·
+WAITING); tap it again and it goes on from the top, the beat beginning there. Hold PLAY to let it go with everything
+else.
 
-| Page | K1 | K2 | K3 | K4 |
-| --- | --- | --- | --- | --- |
-| GLINT SEQ | STEP (1 to 32) | NOTE (REST, a note, TIE) | ACCENT (OFF, ON) | RECORD (OFF, STEP, LIVE) |
-| GLINT SEQ II | SEQ LENGTH (1 to 32 steps) | RATE (the arpeggiator's) | GATE (a note's length) | CHANCE (the arpeggiator's) |
-| GLINT SEQ III | TRANSPOSE (−14 to +14 steps of the scale) | CLEAR (turn twice) | NEW TAKE (turn twice) | UNDO TAKE (turn twice) |
+![GLINT ARP: ARP ON, MODE UPDOWN, RATE 1/8, RANGE 2 OCT](img/screen-glint-arp.png "SELECT on GLINT, ARP, ARP ON")
 
-**REC** takes you straight in: the sequencer on, the keys on GLINT, RECORD on LIVE, GLINT SEQ on screen, the sequence
-started if it was stopped. Play, and what you play goes in. REC again, on LIVE or STEP: RECORD OFF, and the page
-stays. REC keeps the sequence as it was before the take, for UNDO TAKE.
+**The sequencer** (SEQUENCE ON, or tap REC: below). In place of the arpeggio, a 32-step sequence plays GLINT, on the
+same grid: RATE, MIDI clock or TEMPO, CHANCE for each step (the arpeggiator's RATE and CHANCE, on GLINT SEQ and SEQ
+III too). It plays on without end while it is on. **PLAY** stops it, and starts it again from its first step, at once,
+the beat beginning there, with the other tracks' sequences. MIDI Start starts it from the top too.
 
-While RECORD is on, STEP or LIVE (however you turned it on: REC, K4, NEW TAKE), the keys play GLINT; RECORD OFF gives
-them back to what they played before (RECORD OFF · DRONE).
+- **STEP** (GLINT SEQ II, K1) is the step the other three show and change: its **NOTE** (as it sounds, OCTAVE on it;
+  REST all the way down, TIE all the way up, the last note held on through it), the note's **LENGTH** in steps (its
+  step and the TIEs after it; turned, it writes them, to SEQ LENGTH's end; – on a step with no note) and its
+  **ACCENT**.
+- **GATE** (GLINT SEQ, K4) is how long each note sounds, from a twentieth of its step to all of it. A TIE holds a note
+  on, legato; with SUSTAIN up, GLINT's leads then sing through.
+- **CLEAR:** hold **OCT−** and press **REC**, on any of GLINT's SEQ pages: every step a rest (SEQUENCE CLEARED; on an
+  empty one, SEQUENCE EMPTY, and nothing changes). The octave doesn't move, and REC starts nothing. The corner of the
+  header says it on every SEQ page: CLEAR [OCT−] + [REC].
+- **UNDO TAKE** (GLINT SEQ III): turned twice: the sequence as it was before the last take or CLEAR. Again: back to
+  the one after.
+- **RECORD OFF, the sequence stopped, or on GLINT SEQ's pages:** the keys play GLINT as KEYS says, to try a line before
+  you record it. The sequence goes on as it was, TRANSPOSE and the steps untouched.
+- **RECORD OFF, the sequence playing, on any other page:** the keys transpose it. A key moves it from its first note to
+  that key's, along the scale, so it stays in the key. TRANSPOSE shows how far, and turns it back. The sequence also
+  starts again from its first step, on the nearest beat of the grid (MIDI clock or TEMPO): a key in the first half of a
+  beat, from the beat just gone, transposed at once (it catches up: the step it would be on now sounds now); in the
+  second half, it goes on as it was until the next beat, then starts from its first step there, transposed from then.
+  A sequence with no note in the steps it plays has nothing to transpose: the keys play GLINT.
 
-**The metronome** ticks while RECORD is on LIVE, counting the sequence's own beats from its first step: a tick each
-beat, the higher one as the sequence comes round to its first step. A sequence that is not a whole number of beats
-long starts its beats again from its first step each time round (SEQ LENGTH 5 at 1/16, a beat and a quarter: the
-high tick, a tick a beat later, the high one again a quarter beat after). REC flashes on the same beats, twice as
-quick as OCT. On STEP the metronome is silent and REC stays lit. Hold REC to turn the metronome off, or on again; it
-is kept with the settings.
+**Recording.** **REC** records into the selected track's sequence, GLINT's, the bass's or the drone's, from any page.
+It takes you straight in: that track's SEQUENCE ON (its ARP OFF), its SEQ II on screen, RECORD on LIVE. REC again:
+STEP. Once more: OFF, and the page stays. A take lives on the track's SEQ and ARP pages: leave them, stop the
+sequences with PLAY, or hold PLAY, and RECORD is OFF. Each take keeps the sequence as it was before it, for UNDO TAKE;
+a take that wrote nothing leaves the track as it found it. To record over nothing, CLEAR first, then REC.
 
-- **RECORD on STEP:** a GLINT key (or a note on GLINT's MIDI channel) writes its note on STEP, then STEP moves on to
-  the next, round SEQ LENGTH. A hard strike writes an accent. K2 and K3 change the step on STEP: its NOTE (as it
-  sounds, OCTAVE on it; REST all the way down, TIE all the way up, the last note held on through it) and its ACCENT.
-- **RECORD on LIVE:** play while it runs. Each note sounds and goes into the step nearest the playhead.
-- **RECORD OFF, on GLINT SEQ's pages** (SEQ, II, III): the keys play GLINT as with SEQ OFF, each key its own glint,
-  to try a line before you record it. The sequence goes on as it was, TRANSPOSE and the steps untouched; the badge
-  says GLINT.
-- **RECORD OFF, on any other page:** the keys transpose the sequence. A key moves it from its first note to that
-  key's, along the scale, so it stays in the key. TRANSPOSE shows how far, and turns it back. Playing, the sequence
-  also starts again from its first step, on the nearest beat of the grid (MIDI clock or TEMPO): a key in the first half
-  of a beat, from the beat just gone, transposed at once (it catches up: the step it would be on now sounds now); in
-  the second half, it goes on as it was until the next beat, then starts from its first step there, transposed from
-  then. Stopped, a key only transposes it: nothing starts. A sequence with no note in the steps it plays has nothing
-  to transpose: the keys play GLINT as with SEQ OFF, each key its own glint, and the badge says GLINT.
-- **GATE** is how long each note sounds, from a twentieth of its step to all of it. A TIE holds a note on, legato;
-  with SUSTAIN up, GLINT's leads then sing through.
-- **CLEAR:** turn it once (AGAIN), then once more: every step a rest.
-- **NEW TAKE:** turned twice the same way: every step a rest, RECORD on LIVE, the sequence started if it was stopped
-  (NEW TAKE · RECORDING). Play it in again from nothing.
-- **UNDO TAKE:** turned twice: the sequence as it was before the last take (REC, NEW TAKE) or CLEAR. Again: back to the
-  one after.
+- **COUNT-IN.** With no sequence and no arpeggio running (a latched drone doesn't count, nor a sequence with no
+  notes), REC on LIVE counts you in for a bar: the title says COUNT-IN and the beat (COUNT-IN · 2), REC flashes on the
+  four counts, then every sequence that is on starts with the take, from its first step. A note in the count's last
+  half beat goes into the first step. While a sequence plays, LIVE records at once, over what is there (overdub), and
+  the track's sequence joins the one playing where it is, in time with it. COUNT-IN (GLO › RECORD, K2) OFF: no count,
+  the take starts at once.
+- **LIVE:** play while it runs. Each note sounds and goes into the step nearest the playhead, as it sounds (TRANSPOSE
+  taken back off it, so it plays as you played it). SEQ II is no step editor then: K1 SEQ LENGTH, K2 RATE, K3 UNDO
+  TAKE (K4, on the DRONE, STACK). The title says GLINT LIVE.
+- **STEP:** SEQ II's steps, as ever. A GLINT key (or a note on GLINT's MIDI channel) writes its note on STEP, a step
+  long; STEP stays where it is: K1 moves it, never the keys. A hard strike writes an accent. K2 changes the step's NOTE,
+  K3 its LENGTH, K4 its ACCENT. The metronome is silent and REC stays lit. The title says GLINT STEP.
+- While a recording runs, the keys play that track and SELECT waits (RECORDING, REC: OFF smaller beside it).
 
-The screen draws the sequence as a constellation: a star a step, as high as its note, larger with an accent; a line
-for a tie, a dot for a rest. The step playing is white, with a line of light through it; the step on STEP has an
-amber mark under it. While RECORD is on, the strip is ruled, faintly: a line each whole tone, so a note sits on a line
-or between two (fewer lines when the notes span more than the strip has room for, the Cs a touch brighter), and a
-column each step. The column being recorded into is lit in ice: on STEP, the one the next key writes; on LIVE, the one
-playing. RECORD OFF, the rules go. The keys light the note playing. Each scene keeps its own sequence.
+![GLINT LIVE: SEQ II while it records, SEQ LENGTH 16, RATE 1/8, UNDO TAKE; the strip ruled, the column playing lit; STACK OFF (HOLD SEQ) at the foot](img/screen-seq-live.png "REC, GLINT's sequence playing")
 
-![GLINT SEQ: sixteen steps, an accent on each beat; RECORD OFF, the keys' badge says GLINT](img/screen-glint-seq.png "SEQ on SEQ (GLINT I), then ARP five times")
+![COUNT-IN · 2 as the title, CLEAR [OCT−] + [REC] beside it, over DRONE SEQ II on LIVE: SEQ LENGTH 4, RATE 1 BAR, UNDO TAKE, STACK ON; three steps of chords](img/screen-count-in.png "REC, from silence")
 
-**The delay** is GLINT's alone. TIME runs from 1/32 to 1/2, with triplets and dotted values (twelve), always ping-pong; a scene from
-before keeps its time, a mono one becomes ping-pong. Its time follows MIDI clock, or TEMPO. Its echoes go into the
-cloud with GLINT: SPACE, on the same page, is how much.
+**The metronome** (GLO › RECORD, K1): **REC**, it ticks while you record LIVE and through the count-in; **ALWAYS**,
+on every beat, recording or not; **OFF**, never. Hold REC 0.8 s to turn it off, or back to the last value it had on. It
+counts the sequence's own beats from its first step: a tick each beat, the higher one as the sequence comes round to
+its first step. A sequence that is not a whole number of beats long starts its beats again from its first step each
+time round (SEQ LENGTH 5 at 1/16, a beat and a quarter: the high tick, a tick a beat later, the high one again a
+quarter beat after). REC flashes on the same beats, twice as quick as OCT. Both settings are kept with the settings,
+not the scenes.
+
+The screen draws the sequence as a line of time, SEQ LENGTH's steps alone, as wide as the next block of four (5 to 8
+steps take a step as wide): each note a line at its note's height, a mark where it starts (taller with an accent), on
+through its TIEs, the water under it down to the bed; a rest, nothing. STEP stops at SEQ LENGTH. The note playing is
+bright, a line of light going along; the step on STEP has an amber line under it (none on LIVE). While RECORD is on, the
+strip is ruled, faintly: a line each whole tone, so a note sits on a line or between two (fewer lines when the notes
+span more than the strip has room for, the Cs a touch brighter), and a column each step. The column being recorded
+into is lit in ice: on STEP, the one the next key writes; on LIVE, the one playing. RECORD OFF, the rules go. The keys
+light the note playing. Each scene keeps its own sequence.
+
+![GLINT SEQ II: STEP 1, NOTE D4, LENGTH 1 STEP, ACCENT ON; over it sixteen steps, the playhead going along; CLEAR [OCT−] + [REC] in the header, STACK OFF (HOLD SEQ) at the foot](img/screen-glint-seq.png "SELECT on GLINT, SEQ, SEQUENCE ON, then SEQ")
+
+**The delay** is GLINT's alone. TIME runs from 1/32 to 1/2, with triplets and dotted values (twelve), always
+ping-pong; a scene from before keeps its time, a mono one becomes ping-pong. Its time follows MIDI clock, or TEMPO.
+Its echoes go into the cloud with GLINT: SPACE, on the same page, is how much.
 
 ---
 
 ## 7. BASS
 
-Press **SEQ** (come from another section, its pages put the keys on BASS), or turn **SELECT** all the way, to BASS:
-the keys play BASS (the badge turns orange). One note at a time, deep and
-steady: one of eight MODELs, DRIVE into a soft clip, through a resonant low-pass. None of it goes into the reverb.
+Turn **SELECT** all the way, to BASS: the keys play BASS, the header turns orange. One note at a time, deep and
+steady: one of eight MODELs, DRIVE into a soft clip, through a resonant low-pass. Only its SPACE goes into the reverb.
 
 **Models:** SINE (pure), TRIANGLE (soft, a little hollow), SQUARE (hollow, woody), SAW (bright, buzzing), REESE (two
 saws ten cents apart, beating slowly), SUB (the sine and its octave below), ORGAN (three drawbars: the note, its
 octave and its twelfth), FM (a sine modulating itself: round, growling). Turning MODEL while the bass sounds crosses
-over in a few milliseconds, without a click.
+over in a few milliseconds, without a click. PRESETS (B) turns MODEL, on any page; your own bass presets come after
+the eight (section 10).
 
 ![The bass under three drones: a slow swell across the river, D2 on the right](img/screen-bass.png "SELECT on BASS, then a key")
 
@@ -438,22 +573,36 @@ over in a few milliseconds, without a click.
 | **Tap another key** | the bass glides to its note (GLIDE), without a gap: it rises to the top again from where it is (with SUSTAIN at 100 %, it simply goes on); with PULSE on, PULSE strikes it on its next division (below) |
 | **Tap the bass's key** | it lets go, over RELEASE |
 | **Hold its key and press** | louder, and its filter opens. Let go: it stays |
+| **Hold SEL, tap a key** | as a tap: the bass has one voice, so the note takes the place of what it holds (with ARP ON, it joins the arpeggio's notes) |
 
-With GLOBAL › KEY MODE on HOLD, the bass sounds while its key is down. Holding PLAY lets it go with everything else. It
-stays when you switch the keys back to drones or GLINT: SEQ, or SELECT to BASS again, comes back to it.
+With KEYS' LATCH OFF (section 5), the bass sounds while its key is down. Holding PLAY lets it go with everything
+else. It stays when you select another track.
 
-**Its pages:** tap **SEQ**, then SEQ again for the next: BASS, BASS II, BASS ADSR, then its sequencer's two, BASS SEQ
-and BASS SEQ II.
+**Its pages.** BASS selected, **EDIT** opens its sound, three pages; **ENV** its envelope; **ARP** its arpeggiator;
+**SEQ** its sequencer.
 
-| Page | K1 | K2 | K3 | K4 |
-| --- | --- | --- | --- | --- |
-| BASS | MODEL (SINE, TRIANGLE, SQUARE, SAW, REESE, SUB, ORGAN, FM) | DRIVE (clean to soft-clipped) | FILTER (40 Hz to 5 kHz) | RESONANCE (Q 0.5 to 6) |
-| BASS II | LEVEL | OCTAVE (−2, −1, 0: every note the bass plays) | GLIDE (OFF to 2 s) | PULSE (OFF, 1/8 BEAT to 4 BEATS) |
-| BASS ADSR | ATTACK (5 ms to 5 s) | DECAY (10 ms to 10 s) | SUSTAIN (0 to 100 %) | RELEASE (30 ms to 15 s) |
-| BASS SEQ | STEP (1 to 16) | NOTE (CUT, a note, HOLD) | STEP LENGTH (1/16 to 16 BARS) | RECORD (OFF, STEP, LIVE) |
-| BASS SEQ II | SEQ STEPS (1 to 16) | SEQUENCE (OFF, ON) | CLEAR (turn twice) | TRANSPOSE (−14 to +14 steps of the scale) |
+| Button | Page | K1 | K2 | K3 | K4 |
+| --- | --- | --- | --- | --- | --- |
+| EDIT | BASS I | MODEL (SINE, TRIANGLE, SQUARE, SAW, REESE, SUB, ORGAN, FM) | LEVEL | FILTER (40 Hz to 5 kHz) | RESONANCE (Q 0.5 to 6) |
+| EDIT | BASS II | OCTAVE (−2, −1, 0: every note the bass plays) | GLIDE (OFF to 2 s) | PULSE (OFF, 1/8 BEAT to 4 BEATS) | SPACE (the bass's reverb send) |
+| EDIT | BASS TONE | DRIVE (clean to soft-clipped) | WEIGHT | PUNCH | BITE |
+| ENV | BASS ADSR | ATTACK (5 ms to 5 s) | DECAY (10 ms to 10 s) | SUSTAIN (0 to 100 %) | RELEASE (30 ms to 15 s) |
+| ARP | BASS ARP | ARP (OFF, ON) | MODE (UP, DOWN, UPDOWN, RANDOM, DRIFT) | RATE (the sequence's) | RANGE (1 to 3 octaves) |
+| ARP | BASS ARP II (ARP ON) | CHANCE | LATCH (OFF, ON) | | |
+| SEQ | BASS SEQ | SEQUENCE (OFF, ON) | SEQ LENGTH (1 to 32 steps) | RATE (1/16 to 16 BARS) | GATE |
+| SEQ | BASS SEQ II (SEQUENCE ON) | STEP (1 to SEQ LENGTH) | NOTE (CUT, a note, HOLD) | LENGTH (the note's, in steps) | ACCENT (OFF, ON) |
+| SEQ | BASS SEQ II, recording LIVE | SEQ LENGTH | RATE | UNDO TAKE (turn twice) | |
+| SEQ | BASS SEQ III (SEQUENCE ON) | CHANCE | TRANSPOSE (−14 to +14 steps of the scale) | UNDO TAKE (turn twice) | |
 
-![BASS](img/screen-bass-page.png "SEQ")
+With BASS selected, ALGORITHM (C) turns FILTER, on any page.
+
+![BASS I: MODEL SUB, LEVEL 71, FILTER 146 HZ, RESONANCE 8](img/screen-bass-page.png "SELECT on BASS, then EDIT")
+
+**BASS TONE** keeps the bass in its place in the mix. At 0, each leaves the bass as it is. **DRIVE** pushes it into a
+soft clip. **WEIGHT** adds a sine an octave under the note (at the note itself when that is too low to hear), into a
+soft clip whose harmonics carry it on a small speaker. **PUNCH** opens the filter and lifts the level as each note is
+struck, falling back within some 50 ms. **BITE** adds an edge, the wave clipped hard through a band of 700 Hz to 3 kHz:
+what cuts through the drones.
 
 **The envelope** (BASS ADSR, in its usual order): ATTACK, how long a note takes to rise to the top; DECAY, how long
 it then takes, while the note is held, to come down to SUSTAIN's level; SUSTAIN, the level it holds while the note is
@@ -466,125 +615,162 @@ plateau, RELEASE down to nothing, each part as wide as its knob is turned (the p
 across it, A D S R under it. The part whose knob you turn is lit. The bass's note is a little glint of lamp light
 riding the curve: it waits at the end of the plateau while the note is held, then goes down RELEASE once let go.
 
-![BASS ADSR: the envelope, the held note's glint waiting at the end of the SUSTAIN plateau](img/screen-bass-adsr.png "SEQ three times")
+![BASS ADSR: the envelope, the held note's glint waiting at the end of the SUSTAIN plateau](img/screen-bass-adsr.png "SELECT on BASS, then ENV")
 
-**PULSE** (BASS II, K4) makes the held note pulse on the grid (MIDI clock, else TEMPO, from the beat): OFF, 1/8 BEAT,
+**PULSE** (BASS II, K3) makes the held note pulse on the grid (MIDI clock, else TEMPO, from the beat): OFF, 1/8 BEAT,
 1/4 BEAT, 1/2 BEAT, 1 BEAT, 2 BEATS or 4 BEATS. On each, the note is let go for a moment and played again: it fades
 over RELEASE through a short gap, then rises over ATTACK and settles over DECAY to SUSTAIN once more, the same note at
 the same velocity, without gliding; pressing into it carries on. The gap is a quarter of the division, 8 ms at least
 and 60 ms at most: at 120 BPM, 16 ms on 1/8 BEAT, 31 ms on 1/4 BEAT, 60 ms from 1/2 BEAT on. A short RELEASE and a low
 SUSTAIN make a hard, gated pulse; a long RELEASE, a gentle swell on each beat. It pulses whatever plays the bass: a
-key, a latched note, MIDI or the sequencer, inside its NOTEs only: never in a CUT, and a step that begins with a NOTE
-is that division's attack itself.
+key, a latched note, MIDI, the arpeggio or the sequence, inside its NOTEs only: never in a CUT, and a step that
+begins with a NOTE is that division's attack itself.
 
 PULSE keeps the beat. While the bass sounds, a note changed by hand (a key, a MIDI note) is not struck off the grid:
 the bass goes to it (gliding, as GLIDE says) and PULSE strikes it on its next division. From silence, a key strikes
 at once.
 
-**OCTAVE** (BASS II, K2) is the bass's own: it moves every note the bass plays, a key's, a MIDI note's, the
-sequence's (C1 the lowest). Turned, it moves the note sounding at once, gliding as GLIDE says.
+**OCTAVE** (BASS II, K1) is the bass's own: it moves every note the bass plays, a key's, a MIDI note's, the
+arpeggio's, the sequence's (C1 the lowest). Turned, it moves the note sounding at once, gliding as GLIDE says.
 
-A pure sine this low barely reaches the FM-1's small speaker: DRIVE, or a richer MODEL, gives it the harmonics that
-let you hear it there. In headphones or a mixer, SINE with DRIVE at 0 is a clean sub.
+A pure sine this low barely reaches the FM-1's small speaker: DRIVE, WEIGHT or a richer MODEL gives it the harmonics
+that let you hear it there. In headphones or a mixer, SINE with DRIVE at 0 is a clean sub.
 
-**The sequencer:** turn SEQUENCE (BASS SEQ II, K2) ON, or tap REC with the keys on BASS (below). Sixteen steps play
-the bass one after the other, on GLINT's grid: MIDI clock when one comes in, else TEMPO. Each step is a **NOTE**, a
-**CUT** or a **HOLD**, and has its own **STEP LENGTH**: 1/16, 1/8, 1/4 (a beat), 1/4D (a beat and a half), 1/2, 1/2D, 1
-BAR, 1.5 BARS, 2 BARS, 3 BARS, 4 BARS, 8 BARS or 16 BARS. As a step begins, a NOTE plays its note (gliding from the
-last, as GLIDE says), a CUT stops the bass (it fades over RELEASE), a HOLD changes nothing: a note lasts until the next
-NOTE or CUT. **SEQ STEPS** (BASS SEQ II, K1) is how many of the sixteen play; a turn lasts as long as their lengths
-together.
+**The arpeggiator** (ARP ON) plays the held bass keys one at a time, on the bass's RATE, over RANGE octaves, as
+GLINT's does (section 6), its CHANCE and LATCH its own. ARP and SEQ: one or the other, as on GLINT.
+
+**The sequencer** (SEQUENCE ON, or REC with BASS selected). Up to 32 steps play the bass one after the other, all as
+long as **RATE**: 1/16, 1/8, 1/4 (a beat), 1/2, 1 BAR, 2 BARS, 4 BARS, 8 BARS or 16 BARS (the arpeggio's too), on the
+same grid as the others: MIDI clock when one comes in, else TEMPO. Each step is a **NOTE**, a **CUT** or a **HOLD**. As
+a step begins, a NOTE plays its note (gliding from the last, as GLIDE says), a CUT stops the bass (it fades over
+RELEASE), a HOLD changes nothing: a note lasts until the next NOTE or CUT, or as far into its last step as **GATE**
+says (at 100 %, on to the next NOTE or CUT). **LENGTH** (BASS SEQ II, K3) is the note on STEP's: its step and the
+HOLDs after it, written as you turn it. An **ACCENT** strikes the note at full velocity, pressed in: brighter and
+louder. **SEQ LENGTH** is how many of the 32 play.
 
 The steps keep their notes as the keys play them, without OCTAVE (BASS II): turning OCTAVE moves the whole sequence.
 Two NOTEs of the same pitch in a row are one note held on (with SUSTAIN under 100 %, the second rises to the top
 again): a CUT between them makes two.
 
-**PLAY** is both sequencers' transport: it stops GLINT's sequence and the bass's together, and starts them again
-together from their first steps, at once, the beat beginning there (following a MIDI clock: on GLINT's next step,
-else the next sixteenth, the clock's beats kept). Turned on, the sequence starts on GLINT's next step (else the next
-sixteenth); MIDI Start starts it from its first step. Hold PLAY: RELEASE ALL stops it with everything else; hold it
+PLAY starts and stops it with the other tracks' sequences (section 4). Turned on, the sequence starts on the grid's
+next step; MIDI Start starts it from its first step. Hold PLAY: RELEASE ALL stops it with everything else; hold it
 again, RESTORE starts it again from its first step. Both start the beat there too.
 
-- **RECORD OFF:** the keys transpose the sequence. A key moves it from its first NOTE to that key's, along the scale.
-  TRANSPOSE (BASS SEQ II, K4) shows how far, and turns it back. The keys sound nothing themselves. A sequence with no
-  NOTE in its SEQ STEPS has nothing to transpose: the keys play the bass, as with SEQUENCE OFF, and its CUTs leave it
-  sounding.
-- **RECORD on STEP:** the keys turn to BASS at once (RECORD OFF gives them back). A key (or a note on BASS's MIDI
-  channel) writes its note on STEP, with the STEP LENGTH you set last, then STEP moves on, round SEQ STEPS; it sounds
-  while the key is down. So a run of notes all take the same length, until you turn STEP LENGTH again. While RECORD is
-  on STEP, STEP LENGTH (K3) shows the length the next key will write, which starts as the length of the step STEP was
-  on: turned, it sets that step at once, and the steps after it. K2 changes the step on STEP's note alone (as the bass
-  plays it, OCTAVE on it; CUT all the way down, HOLD all the way up). With RECORD OFF, K3 is the step on STEP's own
-  length again.
-- **RECORD on LIVE:** play while it runs: a take. Each note sounds as you play it and goes in as you played it, its
-  start and its length to the nearest sixteenth (a sixteenth at least), whatever the steps were: the sequence is
-  written again around it, each stretch in as few steps as the STEP LENGTHs make it, the longest first (a note 5/16
-  long, a NOTE of 1/4 and a HOLD of 1/16; a 1/2, one NOTE). A key pressed while another is down ends that one where it
-  begins (legato); let go, the one still down takes over. While a key is down the sequence's own steps under it are
-  silent, the bass playing one note at a time: what you hear is what the loop will hold.
-- **LIVE, over a sequence:** the take records within its loop, round and round, and the loop keeps its length (SEQ
-  STEPS follows the steps it takes). A note replaces the time it covers and nothing else. A note it cuts short does not
-  sound on after it from its middle: a CUT, up to that note's next NOTE or CUT.
-- **LIVE, on an empty sequence** (no NOTE in the steps it plays): the take makes the loop. It starts at the bar of the
-  first note you play (bars counted from the sequence's first step, as the metronome counts them; a note played just
-  before a bar line belongs to the next bar), a CUT before the note in its bar. The loop grows a bar at a time as it
-  reaches its end, and the metronome's higher tick marks each bar line. REC again (or RECORD off, or PLAY) ends the
-  take: the loop runs to the bar line nearest the moment you stopped (a little late or a little early, the same bar),
-  never before the start of the last note, with a CUT to its end, and SEQ STEPS is set. A note still down then holds
-  on to that line.
-- **LIVE, sixteen steps at most:** a note that needs more goes in legato if that makes it fit: the silence after it
-  held by it, else the one before it held by the note before, else both (BASS SEQ FULL · JOINED LEGATO). If it still
-  does not fit, it is not recorded (BASS SEQ FULL · NOT RECORDED): the notes already in stay, and later ones still go
-  in where they fit. A take on an empty sequence with no room for another bar ends its loop there (BASS SEQ FULL · LOOP
-  CLOSED) and goes on round it, as over a sequence.
-- **CLEAR:** turn it once (AGAIN), then once more: every step a CUT, a sixteenth long. Recording LIVE, the next note
-  starts a new take, as on an empty sequence.
+- **RECORD OFF, the sequence stopped, or on BASS SEQ's pages:** the keys play the bass as KEYS says, to try a line.
+  Over a sequence running, a key sounds while it is down, latching nothing, the steps silent under it.
+- **RECORD OFF, the sequence playing, on any other page:** the keys transpose it. A key moves it from its first NOTE
+  to that key's, along the scale. TRANSPOSE (BASS SEQ III, K2) shows how far, and turns it back. The keys sound
+  nothing themselves. A sequence with no NOTE in its SEQ LENGTH has nothing to transpose: the keys play the bass, as
+  with SEQUENCE OFF, and its CUTs leave it sounding.
+- **RECORD on STEP** (REC twice): a key (or a note on BASS's MIDI channel) writes its note on STEP, a step long; it
+  sounds while the key is down. K3 (LENGTH) then draws it out, its HOLDs after it. STEP stays where it is: K1 moves it.
+  K2 changes the note on STEP (as the bass plays it, OCTAVE on it; CUT all the way down, HOLD all the way up).
+- **RECORD on LIVE** (REC): play while it runs: a take, counted in as GLINT's (section 6, Recording); BASS SEQ II
+  shows SEQ LENGTH, RATE and UNDO TAKE. Each note sounds
+  as you play it and goes in as you played it, its start and its length to the step (a step at least), over what was
+  there: a NOTE, then HOLDs as long as you held it. The loop keeps its SEQ LENGTH. A key pressed while another is down
+  ends that one where it begins (legato); let go, the one still down takes over. While a key is down the sequence's
+  own steps under it are silent, the bass playing one note at a time: what you hear is what the loop will hold.
+- **CLEAR:** hold OCT− and press REC, on BASS's SEQ pages: every step a CUT (BASS SEQUENCE CLEARED), as GLINT's.
+- **UNDO TAKE:** turned twice: the sequence as it was before the last take or CLEAR. Again: back to the one after.
 
-**REC**, with the keys on BASS, takes you straight in: SEQUENCE on, RECORD on LIVE, BASS SEQ on screen, the sequence
-started if it was stopped. REC again, on LIVE or STEP: RECORD OFF, and the page stays. As with GLINT's, while RECORD
-is on the keys play BASS; on LIVE the metronome counts the bass sequence's own beats from its first step, the higher
-tick as it comes round to it (a sequence that is not a whole number of beats long, its beats again from the top each
-time round; a take on an empty sequence, on each bar line too), and REC flashes on them; on STEP the metronome is
-silent and REC stays lit.
+The screen draws the sequence as a line of time, SEQ LENGTH's steps alone, as GLINT's: each NOTE a line at its note's
+height, on through its HOLDs, the water under it down to the bed, as the bass's in the river; a CUT, nothing. The note
+playing is bright, the playhead a line of lamp light going along; the step on STEP has a lamp line under it (none on
+LIVE). While RECORD is on, the strip is ruled, faintly: a line each whole tone (fewer when the notes span more),
+a column each step; the column being recorded into is lit in lamp: on STEP, the one the next key writes, on LIVE, the
+one playing. On LIVE, the note you hold is drawn bright as you hold it, from where you pressed it to the playhead; let
+go, it is written in. With SEQUENCE OFF, it is all slate. The keys light the note playing.
 
-The screen draws the sequence as a line of time: each step as wide as it is long; a NOTE a line at its note's height,
-on through its HOLDs, the water under it down to the bed, as the bass's in the river; a CUT, nothing. The note
-playing is bright, the playhead a line of lamp light going along; the step on STEP has a lamp line under it, and a
-lamp light in the corner says RECORD is on LIVE. While RECORD is on, the strip is ruled, faintly: a line each whole
-tone (fewer when the notes span more), a column each step, as wide as it is long; the column being recorded into is
-lit in lamp: on STEP, the one the next key writes, on LIVE, the one playing. On LIVE, the note you hold is drawn
-bright as you hold it, from where you pressed it to the playhead; let go, it is written in. With SEQUENCE OFF, it is
-all slate. The keys light the note playing.
+![BASS SEQ II: STEP 6, NOTE HOLD, LENGTH 2 STEPS, ACCENT OFF; over it a line of notes and HOLDs, a CUT in the middle, the playhead after it; CLEAR [OCT−] + [REC] in the header](img/screen-bass-seq.png "SELECT on BASS, SEQ, SEQUENCE ON, then SEQ")
 
-![BASS SEQ: eight steps of different lengths, a HOLD after the first, a CUT before the last; the fifth playing](img/screen-bass-seq.png "SEQUENCE on, then SEQ four times")
-
-Each scene keeps its own bass sequence: its notes, their lengths, and its SEQUENCE, SEQ STEPS and TRANSPOSE, as
-GLINT's sequence its SEQ setting, SEQ LENGTH and TRANSPOSE: a scene loaded plays its own, or none, from its first
-step. While SEQUENCE is on, notes on BASS's MIDI channel go into the sequencer as the keys do.
+Each scene keeps its own bass sequence: its notes, its RATE, SEQ LENGTH, GATE and TRANSPOSE, and whether ARP or SEQ is
+on. A scene loaded plays its own, or none, from its first step. While SEQUENCE is on, notes on BASS's MIDI channel go
+into the sequencer as the keys do.
 
 ---
 
-## 8. The pages
+## 8. DRONE SEQ
 
-Press a page's button again for its next page (EDIT ×8, LFO ×7: DRONE MOTION and the three LFOs, ARP ×4 to ×7 as
-GLINT's SEQ has them, SEQ ×5, FX ×8, GLO ×7: GLOBAL, MIDI, MASTERING, MASTER EQ, MASTER EQ II, ROUTING, SCREEN;
-HOME: SOUND, MIXER, the logo). A button opens its page when you let it go, because holding it may do something else
-(section 4, the buttons). The dots under the page's name say where you are among them.
+The drone has a sequence of its own: its chords, a step at a time. Each step holds the notes the drone plays there
+(up to eight: a chord as HARMONY builds it, single notes stacked over it), a rest, or a tie. Select the DRONE and press
+**SEQ**: DRONE SEQ, its ON/OFF first. The drone has no arpeggiator: **ARP** on the DRONE opens a page, DRONE ARP, that
+only says NOT AVAILABLE FOR DRONE, and holding it does nothing.
+
+![DRONE ARP: NOT AVAILABLE FOR DRONE, nothing else](img/screen-noarp.png "SELECT on DRONE, ARP")
+
+| Page | K1 | K2 | K3 | K4 |
+| --- | --- | --- | --- | --- |
+| DRONE SEQ | SEQUENCE (OFF, ON) | SEQ LENGTH (1 to 32 steps; 4 at first) | RATE (1/16 to 16 BARS; 1 BAR at first) | GATE |
+| DRONE SEQ II (SEQUENCE ON) | STEP (1 to SEQ LENGTH) | NOTES (REST, its notes, TIE) | LENGTH (the chord's, in steps) | STACK (KEYS', OFF, ON) |
+| DRONE SEQ II, recording LIVE | SEQ LENGTH | RATE | UNDO TAKE (turn twice) | STACK |
+| DRONE SEQ III (SEQUENCE ON) | CHANCE | TRANSPOSE (−14 to +14 steps of the scale) | UNDO TAKE (turn twice) | |
+
+As a step begins, its notes sound on the drone as a held chord does, every layer of it, each voice on its own
+envelope (DRONE SHAPE's ATTACK and RELEASE). They are let go as the next step begins, or as far into the step as
+GATE says (100 %, the default: all of it); a TIE holds them on. A note a latched chord holds already sounds once.
+**NOTES** (DRONE SEQ II, K2) shows the step on STEP: REST, how many notes (3 NOTES), or TIE; turned, it makes it a
+rest or a tie. **LENGTH** is the chord's: its step and the ties after it. RATE runs from 1/16 to 16 BARS, as the
+bass's: the default, 1 BAR a step over SEQ LENGTH 4, is four bars round. **STACK** (K4) is KEYS' own for the drone,
+at hand: it says whether a new hand replaces a step or joins it.
+
+It plays on the beat with GLINT's and the bass's, from the top with them: PLAY, a scene loaded, MIDI Start. TRANSPOSE
+moves it along the scale. CHANCE may leave a step out.
+
+The strip draws a column a step, SEQ LENGTH's steps alone, each note a line at its height; a tie carries the step
+before on. The step playing is lit, and on DRONE SEQ II the step on STEP has a line under it (none on LIVE).
+
+![DRONE SEQ II: STEP 2, NOTES 8 NOTES, LENGTH 1 STEP, STACK ON; over it three steps of chords, the second underlined; STACK ON (HOLD SEQ) at the foot, in amber](img/screen-drone-seq-ii.png "SELECT on DRONE, SEQ, SEQUENCE ON, then SEQ")
+
+**Recording.** With the DRONE selected, **REC** records into its sequence: LIVE, then STEP, then OFF, as GLINT's
+(section 6): DRONE SEQ II on screen, SEQUENCE ON, counted in from silence.
+
+- **LIVE:** what the drone's keys sound goes into the step under the playhead (the nearest at quicker RATEs), as it
+  sounds (TRANSPOSE taken back off it): a key, a chord latched or tapped again, a note on the drones' MIDI channel.
+  STACK OFF, your first hand on a step joins what an earlier take left there, another hand in the same turn takes its
+  place, and once the loop comes round, a hand takes the whole step. STACK ON, every hand joins the step (none twice,
+  eight notes at most). The keys latch as ever; RECORD OFF lets go of what the take latched.
+- **STEP:** a chord held goes into STEP's step, sounding while its keys are down: nothing latches, so what you hear
+  after is the sequence. STACK OFF, a new hand takes the step's place; STACK ON, it joins it. STEP stays: K1 moves it.
+- **RECORD OFF:** the keys play chords over the sequence, as ever.
+
+Each scene keeps its drone sequence.
+
+---
+
+## 9. The pages
+
+Press a page's button again for its next page. A button opens its page when you let it go, because holding it may do
+something else (section 4, the buttons). The dots under the page's name say where you are among them.
+
+- **Whatever the track:** FX ×8, SEL ×1, LFO ×6 (the three LFOs and their targets), GLO ×8 (GLOBAL, MIDI,
+  MASTERING, MASTER EQ, MASTER EQ II, ROUTING, SCREEN, RECORD), HOME ×5 (SOUND, KEYS, MIXER, CLOUD SEND, the logo),
+  SAVE (section 10).
+- **The selected track's:** EDIT (the DRONE ×9, GLINT ×3, BASS ×3), ENV ×1, ARP (×1 while OFF, ×2 while ON; the DRONE
+  none), SEQ (×1 while OFF, ×3 while ON).
 
 | Button | Page | K1 | K2 | K3 | K4 |
 | --- | --- | --- | --- | --- | --- |
 | HOME | SOUND | CHOIR | PARTIALS | BREATH | WARMTH (soft saturation) |
+| HOME | KEYS | HARMONY (OFF, ON) | NOTES (SINGLE NOTE, CHORD) | LATCH (OFF, ON: two detents) | STACK (OFF, ON) |
 | HOME | MIXER | DRONE | BASS | GLINT | CLOUD (each 0 to 127, 100 as it is; with OCT− held, the PAN: L50 to C to R50) |
-| EDIT | DRONE TONE | TIMBRE (all three layers' brightness) | SPACE (the reverb's share) | MOTION (the drift's depth) | BODY (100 %: as set; down: thinner) |
-| EDIT | CHOIR | CHOIR (level) | DETUNE (0 to 40 cents) | FILTER (follows the note) | WARMTH |
-| EDIT | CHOIR II | SHAPE (SAW, SQUARE in the middle, then narrower pulses) | INTERVAL (the centre saw: UNISON, −12, +7, +12) | RESONANCE (the filter's peak, Q 0.5 to 20) | TYPE (LOW, BAND, HIGH) |
-| EDIT | CHOIR III | SOFT (the wave softened: 50 %, a square becomes a triangle; 100 %, near a sine) | | | |
-| EDIT | PARTIALS | PARTIALS (level) | TILT (bright to dark) | ODD (odd harmonics) | STRETCH (toward a bell) |
-| EDIT | PARTIALS II | EVOLVE (their levels wander, deeper and quicker) | BEAT (each one pulses at its own pace) | FORMANT (its place, H1 to H8) | PEAK (up to that harmonic alone) |
-| EDIT | BREATH | BREATH (level) | RESONANCE (air to glass) | COLOR (harmonic, odd, bell) | SPREAD (the voices' width) |
-| EDIT | BREATH II | GRAIN (a hiss to sparse grains) | PITCH (the resonators: −12, UNISON, +12, +19, +24) | TONE (the noise darker or brighter) | AIR (the noise itself, beside them) |
-| ENV | DRONE SHAPE | ATTACK (5 ms to 30 s) | RELEASE (50 ms to 60 s) | PRESSURE (its effect) | VELOCITY |
-| LFO | DRONE MOTION | MOTION (the drift's depth) | RATE (20 s to 0.5 s) | TIDE (a swell of the timbre) | PERIOD (5 min to 10 s) |
+| HOME | CLOUD SEND | DRONE | GLINT | BASS | |
+| EDIT (DRONE) | DRONE TONE | PRESET (CUSTOM, the 36, yours) | TIMBRE (all three layers' brightness) | SPACE (the reverb's share) | BODY (100 %: as set; down: thinner) |
+| EDIT (DRONE) | DRONE MOTION | MOTION (the drift's depth) | RATE (20 s to 0.5 s) | TIDE (a swell of the timbre) | PERIOD (5 min to 10 s) |
+| EDIT (DRONE) | CHOIR | CHOIR (level) | DETUNE (0 to 40 cents) | FILTER (follows the note) | WARMTH |
+| EDIT (DRONE) | CHOIR II | SHAPE (SAW, SQUARE in the middle, then narrower pulses) | INTERVAL (the centre saw: UNISON, −12, +7, +12) | RESONANCE (the filter's peak, Q 0.5 to 20) | TYPE (LOW, BAND, HIGH) |
+| EDIT (DRONE) | CHOIR III | SOFT (the wave softened: 50 %, a square becomes a triangle; 100 %, near a sine) | | | |
+| EDIT (DRONE) | PARTIALS | PARTIALS (level) | TILT (bright to dark) | ODD (odd harmonics) | STRETCH (toward a bell) |
+| EDIT (DRONE) | PARTIALS II | EVOLVE (their levels wander, deeper and quicker) | BEAT (each one pulses at its own pace) | FORMANT (its place, H1 to H8) | PEAK (up to that harmonic alone) |
+| EDIT (DRONE) | BREATH | BREATH (level) | RESONANCE (air to glass) | COLOR (harmonic, odd, bell) | SPREAD (the voices' width) |
+| EDIT (DRONE) | BREATH II | GRAIN (a hiss to sparse grains) | PITCH (the resonators: −12, UNISON, +12, +19, +24) | TONE (the noise darker or brighter) | AIR (the noise itself, beside them) |
+| EDIT (GLINT) | GLINT I, II, DELAY | section 6 | | | |
+| EDIT (BASS) | BASS I, II, TONE | section 7 | | | |
+| ENV (DRONE) | DRONE SHAPE | ATTACK (5 ms to 30 s) | RELEASE (50 ms to 60 s) | PRESSURE (its effect) | VELOCITY |
+| ENV (GLINT, BASS) | GLINT ADSR, BASS ADSR | ATTACK | DECAY | SUSTAIN | RELEASE |
+| ARP (GLINT, BASS) | ARP, ARP II | ARP (OFF, ON) · CHANCE | MODE · LATCH | RATE | RANGE |
+| SEQ | SEQ, SEQ II, SEQ III | SEQUENCE (OFF, ON) · STEP · CHANCE | SEQ LENGTH · NOTE · TRANSPOSE | RATE · LENGTH · UNDO TAKE | GATE · ACCENT (the DRONE: STACK) · – |
+| SEQ | SEQ II, recording LIVE | SEQ LENGTH | RATE | UNDO TAKE | the DRONE: STACK |
 | LFO | LFO 1, LFO 2, LFO 3 | SHAPE (SINE, TRIANGLE, SAW, RAMP, SQUARE, RANDOM, DRIFT) | RATE (200 s to 10 Hz, then 16 BARS to 1/16) | DEPTH (0: off) | POLARITY (BIPOLAR, UP, DOWN) |
 | LFO | LFO 1, 2, 3 TARGETS | TARGET 1 | TARGET 2 | TARGET 3 | TARGET 4 (each OFF or a setting) |
 | SEL | HARMONY | ROOT | SCALE | CHORD | VOICING |
@@ -596,21 +782,28 @@ HOME: SOUND, MIXER, the logo). A button opens its page when you let it go, becau
 | FX | LOFI TAPE | TAPE (OFF, ON) | SATURATION | WOBBLE (wow, flutter, hiccups) | TRACKS (as MASTER FILTER's) |
 | FX | PUMP | RATE (OFF, 4 BARS, 2 BARS, 1 BAR, 1/2, 1/4, 1/8) | DRONE (its depth) | BASS | GLINT |
 | FX | PUMP II | RELEASE (10 to 100 % of the period) | ATTACK (1 to 300 ms) | OFFSET (0 to 100 % of the period) | |
-| GLO | GLOBAL | TEMPO (30 to 240 BPM) | LOW CUT (20 to 500 Hz) | TUNE (±50 cents) | KEY MODE (LATCH, HOLD: two detents) |
+| GLO | GLOBAL | TEMPO (30 to 240 BPM) | LOW CUT (20 to 500 Hz) | TUNE (±50 cents) | ARP SNAP (OFF, 1/16, 1/8, 1/4, 1/2, 1 BAR) |
 | GLO | MIDI | DRONE CH | GLINT CH | BASS CH (each OFF, 1 to 16, OMNI) | CLOCK (AUTO, INTERNAL) |
 | GLO | MASTERING | THRESHOLD (−40 to 0 dB) | RATIO (OFF, 1.5:1 to 20:1) | RELEASE (30 ms to 1.5 s) | GAIN (0 to +18 dB) |
 | GLO | MASTER EQ | PRESET (OFF, CUSTOM, then the seven) | LOW | MID | HIGH (each −12 to +12 dB) |
 | GLO | MASTER EQ II | LOW FREQ (a shelf, 30 to 600 Hz) | MID FREQ (a bell, 80 Hz to 12 kHz) | Q (the bell's width, 0.4 to 8) | HIGH FREQ (a shelf, 1.5 to 16 kHz) |
 | GLO | ROUTING | FILTER (POST CLOUD, PRE CLOUD) | TAPE (POST CLOUD, PRE CLOUD) | CLOUD PUMP (ON, OFF) | SPK/JACK (ON, OFF) |
-| GLO | SCREEN | ANIMATIONS (NORMAL, LOW) | | | |
+| GLO | SCREEN | ANIMATIONS (NORMAL, LOW) | SCREENSAVER (ON, OFF) | | |
+| GLO | RECORD | METRONOME (OFF, REC, ALWAYS) | COUNT-IN (OFF, 1 BAR) | | |
 | SAVE | SCENES | the slot, 1 to 16, or NEW SHARD above | MORPH (CUT, 1 S to 2:00) | LOAD (SND+NOTES, SND ONLY) | |
 
-GLINT's pages are under ARP (section 6: its sound, its delay, the arpeggiator or the sequencer), BASS's five under
-SEQ (section 7: its sound and its sequencer).
+GLINT's pages are in section 6, BASS's in section 7, the DRONE's sequence in section 8.
 
-**GLOBAL** (GLO): TEMPO, the grid's when no MIDI clock comes in (the arpeggiator, the sequencers, GLINT's delay, PUMP,
-the LFOs on the grid), each scene its own (section 9); LOW CUT; TUNE; KEY MODE. KEY MODE lets every note go, so it
-changes only on a second detent the same way within 2 seconds: the first says KEY MODE · TURN AGAIN.
+**GLOBAL** (GLO): TEMPO, the grid's when no MIDI clock comes in (the arpeggiators, the sequences, GLINT's delay, PUMP,
+the LFOs on the grid), each scene its own (section 10); LOW CUT; TUNE; ARP SNAP, where a new chord joins an arpeggio
+(section 6), kept through power-off.
+
+![GLOBAL: TEMPO 90 BPM, LOW CUT 83 HZ, TUNE 0 CT, ARP SNAP 1/4; the processor's load in the header](img/screen-global.png "GLO")
+
+**RECORD** (GLO, last page): METRONOME and COUNT-IN, for recording (section 6, Recording). Both are kept with the
+settings.
+
+![RECORD: METRONOME REC, COUNT-IN OFF](img/screen-record.png "GLO, eight times")
 
 **GENERATIVE FX** is FX's first page, to perform with, on the whole sound:
 
@@ -631,16 +824,19 @@ A scene keeps SPARKLE, BLUR and SINK. An LFO can move them.
 
 **MASTER FILTER** (FX, fifth page) is a low-pass or a high-pass, 12 dB an octave, on the tracks you choose: TYPE (OFF,
 LOW PASS, HIGH PASS), CUTOFF (20 Hz to 20 kHz), RESONANCE (its peak), TRACKS (ALL, DRONE with its CLOUD, GLINT with its
-echoes, BASS, or two of them). An LFO can move CUTOFF and RESO. The page draws the filter's response: the resonance's
-peak, what passes as water under the curve, CUTOFF's badge at the corner.
+echoes, BASS, or two of them). An LFO can move CUTOFF and RESO. On any page, hold GLO and turn ALGORITHM (C): CUTOFF;
+with TYPE OFF, the filter turns on, LOW PASS.
+The page draws the filter's response: the resonance's peak, what passes as water under the curve, CUTOFF's badge at
+the corner.
 
 **LOFI TAPE** (FX, sixth page) puts the tracks you choose on tape: TAPE (OFF, ON), SATURATION (the tape's; the output
 stays about as loud as what goes in, so it changes the colour and the density, not the volume, and duller as it grows,
 from 16 kHz down to 6 kHz), WOBBLE (wow, up to about 3 % at 100 with a slow drift under it, and flutter; now and then,
 more often as it grows, the tape drags: slower for a tenth of a second to well over a second, up to 8 % at 100, its
-level dipping, then it catches up), TRACKS (as MASTER FILTER's). The page shows a cassette's reels, turning anticlockwise as the tape
-runs, the right one filling as the left empties, with a quick rewind at the end: a wow sways them, a drag nearly stops them. The tape runs round two rollers and over the head; WOBBLE loosens and
-sways it, SATURATION warms it and lights a glow round the head.
+level dipping, then it catches up), TRACKS (as MASTER FILTER's). The page shows a cassette's reels, turning
+anticlockwise as the tape runs, the right one filling as the left empties, with a quick rewind at the end: a wow sways
+them, a drag nearly stops them. The tape runs round two rollers and over the head; WOBBLE loosens and sways it,
+SATURATION warms it and lights a glow round the head.
 
 When MASTER FILTER's TYPE or LOFI TAPE's TAPE is OFF, the page's other settings are grey; they still turn.
 
@@ -683,7 +879,7 @@ its return, and quiets the FM-1's own output.
   back clean, untaped. POST CLOUD (as before): after the cloud; on DRONE the cloud's return is taped with it.
 - **CLOUD PUMP** (ON, OFF): ON (as before), PUMP ducks the cloud's return with the drone. OFF, the return is not ducked.
 - **SPK/JACK** (ON, OFF): OFF quiets the FM-1's own output, the speaker and the headphone jack (one output serves both),
-  while the USB audio goes on (section 10). A setting of the FM-1, kept through power-off, not in the scenes.
+  while the USB audio goes on (section 11). A setting of the FM-1, kept through power-off, not in the scenes.
 
 The strip draws the chain: the tracks, the cloud on a lane below (its share down, its return up), FILTER and TAPE before
 or after it, slate when off; a small saw on the return for CLOUD PUMP; a speaker at the end, crossed out when SPK/JACK
@@ -691,14 +887,17 @@ is OFF.
 
 **SCREEN** (GLO, seventh page): ANIMATIONS, NORMAL or LOW, kept through power-off. LOW, what only decorates stands
 still (the river and its particles, the tape's reels, the logo screen); the screen is drawn again when a value changes,
-and four times a second for what informs (the meters, the playheads).
+and four times a second for what informs (the meters, the playheads). SCREENSAVER, ON or OFF (ON at first), kept
+through power-off: ON, after ten minutes without a touch of a button, a knob or a key, the screen goes black and the
+logo drifts across it; the sound goes on as it was, and MIDI does not wake it. Any control wakes it, and only wakes it:
+that touch changes nothing.
 
-A scene keeps MASTER FILTER, LOFI TAPE and MASTER EQ, as it keeps MASTERING, and ROUTING's FILTER, TAPE and CLOUD PUMP; one made by an earlier FRASIL comes in with
-the three off.
+A scene keeps MASTER FILTER, LOFI TAPE and MASTER EQ, as it keeps MASTERING, and ROUTING's FILTER, TAPE and CLOUD
+PUMP; one made by an earlier FRASIL comes in with the three off.
 
 ![MASTER EQ on LOUD: its curve, each band's badge on it](img/screen-eq.png "GLO, four times")
 
-**The layers' second pages.**
+**The drone's second pages.**
 
 - **CHOIR II.** SHAPE takes each saw toward a square, reached in the middle: hollow, woody, the even harmonics
   gone. Past it, the pulse narrows: brighter, nasal. Its width sways on its own, as an old synthesizer's pulse width
@@ -724,8 +923,8 @@ the three off.
 They all start where the sound was before them. SHAPE, RESONANCE, TYPE, BEAT and AIR take more of the processor.
 With many voices and several of them up, FRASIL thins out the partials, then the voices, to keep the sound going.
 
-**LFO 1, LFO 2 and LFO 3** move the sound on their own. Tap LFO again after DRONE MOTION: LFO 1, its targets, LFO 2,
-its targets, LFO 3, its targets.
+**LFO 1, LFO 2 and LFO 3** move the sound on their own. Tap LFO: LFO 1, then its targets, LFO 2, its targets, LFO 3,
+its targets.
 
 - **SHAPE:** SINE, TRIANGLE, SAW (up), RAMP (down), SQUARE, RANDOM (a new value each turn, held) or DRIFT (a new
   value each turn, glided to).
@@ -734,15 +933,18 @@ its targets, LFO 3, its targets.
   the top of their turn.
 - **DEPTH:** 0 is off. Up, it reaches the whole range of each target.
 - **POLARITY:** BIPOLAR moves a setting both ways around where you set it, UP only above, DOWN only below.
-- **TARGET 1–4:** each OFF or a setting: TIMBRE, SPACE, MOTION, WARMTH, CHOIR, PARTIALS, BREATH, DETUNE, FILTER,
-  SHAPE, CH RESO (CHOIR's), TILT, ODD, STRETCH, EVOLVE, BEAT, FORMANT, PEAK, BR RESO and BR TONE (BREATH's), COLOR,
-  GRAIN, AIR, SPREAD, GL LEVEL, GL BRIGHT, GL PING, GL SPACE (GLINT's), BS FILTER, BS RESO, BS DRIVE (BASS's: they
-  glide, so a FILTER swept by an LFO is a smooth wobble), DRONE LVL, GLINT LVL and BASS LVL (the MIXER's), BODY,
-  GL CHANCE (the arpeggiator's and the sequencer's CHANCE), SEQ LEN (GLINT's SEQ LENGTH), SPARKLE, BLUR, SINK,
-  CUTOFF and RESO (MASTER FILTER's), DRONE PAN, BASS PAN, GLINT PAN and CLOUD PAN (the MIXER's pans: chosen here, the
-  MIXER's knobs being the levels), SOFT (CHOIR III's). Each is written in its track's colour, as the keys' badge has
-  them: GLINT's ice blue (the GL ones, GLINT LVL, SEQ LEN, SPARKLE, GLINT PAN), BASS's orange (the BS ones, BASS LVL,
-  BASS PAN), the drone's and the whole mix's white.
+- **TARGET 1–4:** each OFF or one of 55 settings, as the screen writes them: TIMBRE, SPACE, MOTION, WARMTH, CHOIR,
+  PARTIALS, BREATH; CHOIR's CH DETUNE, CH FILTER, CH SHAPE, CH RESO, CH SOFT; PARTIALS' PA TILT, PA ODD, PA STRETCH,
+  PA EVOLVE, PA BEAT, PA FORMANT, PA PEAK; BREATH's BR RESO, BR COLOR, BR GRAIN, BR TONE, BR AIR, BR SPREAD; GLINT's
+  GL LEVEL, GL BRIGHT, GL PING, GL SPACE, GL CHANCE (the arpeggiator's and the sequencer's CHANCE), SEQ LEN (its SEQ
+  LENGTH), GL ATTACK, GL DECAY, GL SUSTAIN, GL RELEASE; the bass's BS FILTER, BS RESO, BS DRIVE (they glide, so a
+  FILTER swept by an LFO is a smooth wobble), BS ATTACK, BS DECAY, BS SUSTAIN, BS RELEASE; DRONE LVL, GLINT LVL and
+  BASS LVL (the MIXER's), BODY, SPARKLE, BLUR, SINK, MS CUTOFF and MS RESO (MASTER FILTER's), DRONE PAN, BASS PAN,
+  GLINT PAN and CLOUD PAN (the MIXER's pans: chosen here, the MIXER's knobs being the levels). Each is written in its
+  track's colour: GLINT's ice blue (the GL ones, GLINT LVL, SEQ LEN, SPARKLE, GLINT PAN), BASS's orange (the BS ones,
+  BASS LVL, BASS PAN), the drone's white, the whole mix's green (MS CUTOFF, MS RESO, BLUR, SINK, CLOUD PAN). TARGET's
+  list opens in the name grid, in its four sections (section 3): you hear a target as you stop on it, SEL keeps it,
+  FX goes back to the one before.
 
 An LFO runs freely and without end while it is on, with DEPTH up and a target set; a key does not start or restart
 it. Its four targets move together, by the same amount, and LFOs on one setting add up. The setting keeps the
@@ -753,66 +955,95 @@ them changes the next notes. The engine glides between the LFO's steps, so a SQU
 
 **LFO held and an encoder.** On any page, hold LFO and turn K1, K2, K3 or K4: the setting under that encoder goes
 onto LFO 1, then LFO 2, LFO 3, then none (turned back, the other way), into that LFO's first free TARGET. An LFO's
-DEPTH at 0 comes up to 25 %. The header says where it went: FILTER > LFO 2, FILTER > NO LFO (in bold red), LFO 2 FULL (its four
-TARGETs taken), or NOT AN LFO TARGET. Let LFO go without turning anything and it opens its pages, as ever.
+DEPTH at 0 comes up to 25 %. The header says where it went: FILTER > LFO 2, FILTER > NO LFO (in bold, deep red), LFO 2 FULL
+(its four TARGETs taken), or NOT AN LFO TARGET. Let LFO go without turning anything and it opens its pages, as ever.
 
-![LFO 1: a sine, its shape drawn, a glint where it is](img/screen-lfo.png "LFO, twice")
+![LFO 1: a sine, its shape drawn, a glint where it is](img/screen-lfo.png "LFO")
 
-![LFO 1's targets in their tracks' colours: FILTER and TIMBRE white, GL LEVEL ice blue, BS FILTER orange](img/screen-lfo-targets.png "LFO, three times")
+![LFO 1's targets in their tracks' colours: CH SHAPE and CH DETUNE white, GL LEVEL ice blue, BS FILTER orange](img/screen-lfo-targets.png "LFO, twice")
 
 ---
 
-## 9. Scenes
+## 10. Scenes and presets
 
-Press **SAVE** for SCENES; SAVE again goes back to the page you came from. The page lists five lines around the one
-K1 picks (framed in ice; SELECT scrolls it the same way, both ways, and leaves KEYS as they are; a page button held
-with it still turns that button's pages): NEW SHARD first, then the sixteen slots, each its number, its name and what it holds (what
-it plays, FACTORY, EMPTY; a long name takes its room), NOW by the one loaded. Under them, in a box of their own, the
-page's two actions: PLAY LOAD, SAVE + REC STORE. K2 and K3 are MORPH and LOAD.
+A **scene** is the whole sound with what plays: the three tracks and their settings, the latched drones (up to 8
+chords), the arpeggios' notes, the bass's note, the three sequences, the effects, the LFOs, TEMPO. A **preset** is one
+track's sound alone: a drone, a GLINT sound, a bass. Sixteen scene slots; your presets come after the factory ones.
+
+**SAVE** opens a page of two: **LOAD** and **SAVE**, on K1, SAVE at first, then your last choice until power-off. Its
+title follows K1: SCENES on LOAD, SAVE on SAVE. As every question: **SEL** goes on with the one chosen, **FX** goes back
+where you were, and those two are lit. **SAVE** again goes straight to saving: SAVE twice opens WHAT and INTO. The other
+buttons still work, dark: they leave SAVE.
+
+![LOAD and SAVE, two tiles on K1, SAVE chosen; SEL NEXT and FX BACK at the foot](img/screen-save.png "SAVE")
+
+**LOAD** opens SCENES. The page lists five lines around the one K1 picks (framed in ice; SELECT scrolls it the same
+way, both ways, and leaves the track as it is; a page button held with it still turns that button's pages): NEW SHARD
+first, then the sixteen slots, each its number, its name and what it holds (what it plays, FACTORY, EMPTY; a long name
+takes its room), NOW by the one loaded. Under them a box says what the buttons do: PLAY LOAD, and SAVE + REC STORE
+(on NEW SHARD, PLAY LOAD alone). K2 and K3 are MORPH and LOAD. **PLAY** loads the slot K1 points at. SAVE goes back
+where you were; FX here opens FX's pages.
 
 - **NEW SHARD**, above slot 01 (turn K1 below slot 1): not a slot, a sound to start a new shard from, fresh. Its line
-  has a plus for a number and says START FRESH; K1 on it, it is framed in lamp, and the box says PLAY LOAD alone:
-  nothing is stored into it. PLAY loads it as any scene (MORPH, LOAD); it is then the current scene: the play page's
-  header says NEW SHARD, SAVE lights while the sound differs from it, COMPARE plays it. It plays nothing: tap a key.
-  A new FM-1, with nothing stored yet, starts on it.
+  has a plus for a number and says START FRESH; K1 on it, it is framed in lamp. PLAY loads it as any scene (MORPH,
+  LOAD); it is then the current scene: the play page's header says NEW SHARD, SAVE lights while the sound differs from
+  it, COMPARE plays it. It puts KEYS back to their first values (section 5). It plays nothing: tap a key. A new FM-1, with nothing stored yet, starts on it.
+- **Load:** with nothing playing, the scene plays at once: its own notes (not those a RELEASE ALL kept for RESTORE)
+  and its sequences from their first steps, the beat beginning there. Only power-on stays quiet. On any page, hold
+  **SAVE** and press a white key: the 16 white keys are the 16 scenes, F2's key the first. That key sounds nothing, and
+  the page stays. While SAVE is held, the white keys light: the current scene's bright, the slots that hold a scene
+  faintly. MIDI Program Change loads them too (section 11). Every load comes in as MORPH and LOAD say.
 
-- **Load:** on SCENES, **PLAY** loads the slot K1 points at. With nothing playing, the scene plays at once: its own
-  notes (not those a RELEASE ALL kept for RESTORE) and its sequences from their first steps, the beat beginning there.
-  Only power-on stays quiet. On any page, hold **SAVE** and press a white key: the 16
-  white keys are the 16 scenes, F2's key the first. That key sounds nothing, and the page stays. While SAVE is held,
-  the white keys light: the current scene's bright, the slots that hold a scene faintly. MIDI Program Change loads
-  them too (section 10). Every load comes in as MORPH and LOAD say.
-- **Store:** hold **SAVE** and press **REC**: the sound goes into the slot K1 points at on SCENES, into the current
-  scene anywhere else, with the latched drones (up to 8 chords), GLINT's arpeggio notes and its sequence, the bass's
-  note and its sequence, and TEMPO. Into a free slot (8 to 16) with a drone preset on, the scene takes the preset's
-  name; else it is SCENE and its number. With K1 on NEW SHARD, nothing is stored (the header: STORE · CHOOSE A SLOT). NEW SHARD loaded,
-  STORE from another page goes into the first EMPTY slot (8 to 16; a factory scene stays), then NAME IT; with none
-  empty, SCENES opens on slot 16 to choose one (CHOOSE A SLOT).
-- **Name:** right after STORE, its name takes the screen (NAME IT): **OCT−** and **OCT+** move the cursor, **K4**
-  turns its letter (a space before A), **K3** its digit (then - and .). Press **SEL** to store the name
-  (the button says STORE), changed or not; **FX** leaves it as it was stored. Sixteen characters at most.
+![SCENES: NEW SHARD loaded (NOW), slot 02, LUMIERE NOCTURNE, picked, between the factory scenes; the box PLAY LOAD, SAVE + REC STORE; MORPH CUT, LOAD SND+NOTES](img/screen-scenes.png "SAVE, LOAD, SAVE")
 
-![SCENES: NEW SHARD loaded (NOW), slot 02, LUMIERE NOCTURNE, picked, between the factory scenes; PLAY LOAD and SAVE + REC STORE in their box; MORPH CUT, LOAD SND+NOTES](img/screen-scenes.png "SAVE")
+**SAVE** stores, in three steps. On WHAT and INTO the header turns red: something is about to be written.
 
-**MORPH** (K2) is how the sound comes in: CUT, at once, or over 1 S, 2 S, 4 S, 8 S, 15 S, 30 S, 60 S or 2:00. Over a
-time, the settings that glide go from where they are to the scene's; the choices (the presets, MODEL, ROOT, SCALE,
-CHORD, RATIO, TYPE, GLINT's SEQ, the TARGETs, INTERVAL, the rates, TIME, SEQ LENGTH, TRANSPOSE, TUNE) switch at once. A
-setting you turn during the morph leaves it: your hand wins (a preset, all it sets). On the play page and SCENES, the
-header shows an arrow, the scene's name and a line for how far it has come; on the other pages, only the line, under the
-page's name. A new load starts from the values as they are.
+1. **WHAT** (K1): SCENE, DRONE PRESET, GLINT PRESET or BASS PRESET.
+2. **INTO** (K2): for a scene, its slot, 01 to 16. It starts on the current scene's slot if that scene is yours, else
+   (a factory scene, NEW SHARD) on the first empty slot, or 01 if none is empty. For a preset, NEW, or one of your
+   presets of that track, which it replaces. It starts on the one of yours you took or stored last, changed since or
+   not; a factory preset or another scene ends that, and it starts on NEW. SEL: on to its name; FX: back.
+3. **NAME IT:** the name, written in place of the old one, which it starts from. The page writes its controls:
+   **OCT** or **K1** move the cursor, **K2** puts a space, **K3** turns a digit (then - and .), **K4** a letter (a space
+   before A). Sixteen characters at most. **SAVE** stores it (STORED 09 ABYSS), SEL too; **FX**, CANCEL, goes back a
+   step. Only SAVE and FX are lit, OCT half. A name of spaces alone: nothing is stored, the name stays up.
 
-**LOAD** (K3) is what a load brings. SND+NOTES: the sound, its TEMPO and its notes: everything is let go, then the
-scene's notes play (its drones, the bass, GLINT's arpeggio and sequence, the bass's sequence), if it has any. Its
-sequences start from their first steps, and the beat begins there, as PLAY starts it (following a MIDI clock: on its
-next step, its beats kept); PULSE falls on the bass's NOTEs, none of them doubled. SND ONLY: the sound alone; what
-plays goes on (the drones, the bass and its sequence, GLINT's arpeggio and sequence, with its SEQ setting and the
-settings that play it: MODE, RATE, RANGE, CHANCE, SEQ LENGTH, GATE, TRANSPOSE), and TEMPO stays as it is.
+![SAVE's second page, its header red: WHAT SCENE, INTO 08 EMPTY; SEL NEXT and FX BACK](img/screen-save-what.png "SAVE, SAVE")
+
+![NAME IT: GLINT PRESET NEW, the name WARM LEAD, its first letter under the cursor; OCT / 1 MOVE CURSOR, 2 SPACE, 3 DIGITS, 4 LETTERS; CANCEL FX, and SAVE framed](img/screen-save-name.png "SAVE, SAVE, GLINT PRESET, SEL")
+
+**SAVE + REC** is the quick STORE: hold **SAVE** and press **REC**, on any page. No WHAT, no INTO: the current scene
+goes into its slot, then NAME IT, where SAVE or SEL keeps the name and FX leaves it as stored. On SCENES, it goes into the slot
+K1 points at (on NEW SHARD, the header says STORE, CHOOSE A SLOT). NEW SHARD loaded, it goes into the first empty slot;
+none empty, SCENES opens to choose one.
+
+A scene stored keeps the sound and what plays, as above, and TEMPO. Into a free slot (8 to 16) with a drone preset on,
+the scene's name starts as the preset's; else as SCENE and its number. A preset keeps that track's sound: the
+drone's, everything a factory drone sets; GLINT's, everything its presets set, VIBRATO and AUTO VIB too; the bass's,
+its pages' settings but LEVEL and OCTAVE. It comes after the factory ones in PRESETS' grid and its page's PRESET (or
+MODEL): CUSTOM, the 36, then yours. Your presets are the FM-1's, whatever scene is loaded, and go into its backups.
+Each track holds 16. Then INTO has no NEW: a seventeenth takes the place of one of them. A preset can't be deleted, only
+stored over.
+
+**MORPH** (SCENES' K2) is how the sound comes in: CUT, at once, or over 1 S, 2 S, 4 S, 8 S, 15 S, 30 S, 60 S or 2:00.
+Over a time, the settings that glide go from where they are to the scene's; the choices (the presets, MODEL, ROOT,
+SCALE, CHORD, RATIO, TYPE, ARP and SEQUENCE, the TARGETs, INTERVAL, the rates, TIME, SEQ LENGTH, TRANSPOSE, TUNE)
+switch at once. A setting you turn during the morph leaves it: your hand wins (a preset, all it sets). On the play page
+and SCENES, the header shows an arrow, the scene's name and a line for how far it has come; on the other pages, only
+the line, under the page's name. A new load starts from the values as they are.
+
+**LOAD** (SCENES' K3) is what a load brings. SND+NOTES: the sound, its TEMPO and its notes: everything is let go, then
+the scene's notes play (its drones, the bass, the arpeggios and the three sequences), if it has any. Its sequences
+start from their first steps, and the beat begins there, as PLAY starts it (following a MIDI clock: on its next step,
+its beats kept); PULSE falls on the bass's NOTEs, none of them doubled. SND ONLY: the sound alone; what plays goes on
+(the drones, the bass, the arpeggios and the sequences, with whether ARP or SEQ is on and the settings that play them:
+MODE, RATE, RANGE, CHANCE, SEQ LENGTH, GATE, TRANSPOSE), and TEMPO stays as it is.
 
 MORPH is back on CUT at every power-on. LOAD is kept with the settings (SND+NOTES at first), not in the scenes.
 
 **COMPARE:** hold **OCT−**, then **EDIT**. As long as EDIT stays down, the scene sounds as it was saved or last
 loaded, whatever you have turned since; the header says COMPARE · AS SAVED. Let go of EDIT: the sound as it is now.
-EDIT held alone does not compare.
+EDIT held alone opens its key map instead (section 4).
 
 Slots 1 to 7 hold the factory scenes. Each plays something once loaded with its notes (LOAD on SND+NOTES), at its own
 TEMPO. The first four were made on the FM-1 by FRASIL's author, and are kept whole:
@@ -831,25 +1062,29 @@ NEW SHARD is a calm drone in A minor, SEVENTH open (A on the keys: Am7), at 90 B
 a slow drift; the choir soft, a little PARTIALS and BREATH, some WARMTH; slow to come (3.6 S) and to go (7.6 S); a lush
 cloud (DECAY 10 S, SPACE 52), its low end cut (LOW CUT 83 HZ). The three LFOs on, slow sines, each on two settings:
 LFO 1 on TIMBRE and BREATH (23 S), LFO 2 on SPACE and SPREAD (37 S), LFO 3 on GLINT's BRIGHT and the bass's FILTER
-(16 S). GLINT: SINE, BRIGHT 25, SEQ on ARP. BASS: SUB, DRIVE and FILTER low, slow to come. No notes.
+(16 S). GLINT: SINE, BRIGHT 25, ARP ON. BASS: SUB, DRIVE and FILTER low, slow to come. No notes.
 
 Slots 8 to 16 are free: an empty one loads as NEW SHARD, named SCENE and its number. While the sound differs from the
-one last loaded or saved (its TEMPO too), SAVE lights, the SCENES page says CHANGED and the play page's header has an
-amber dot beside the scene's name (back to it, they go). Storing also keeps the settings: at power-on FRASIL comes back
+one last loaded or saved (its TEMPO too), SAVE lights, the SCENES page says CHANGED and the play page's header has a
+dot beside the scene's name (back to it, they go). Storing also keeps the settings: at power-on FRASIL comes back
 with the sound you stored last, silent. Nothing plays until you play: tap PLAY and the scene plays, its three tracks
-and its sequences from their first steps, the beat beginning there. A new FM-1, with nothing stored yet, starts on NEW SHARD. Scenes saved by an earlier FRASIL come back as they were, the settings
-added since at their defaults (the bass's sequence empty), their TEMPO the one the settings had. The arpeggiator's old
-MODE (OFF, the five modes, SEQ) becomes GLINT's SEQ and MODE, the delay's TIME and MODE one TIME, and the arpeggio's and
-the sequence's notes lose the OCTAVE they were kept with (it is put on as they play now).
+and its sequences from their first steps, the beat beginning there. A new FM-1, with nothing stored yet, starts on
+NEW SHARD. Scenes saved by an earlier FRASIL come back as they were, the settings added since at their defaults (the
+drone's sequence empty and OFF), their TEMPO the one the settings had. A bass sequence whose steps each had a length of
+their own comes in on the one grid, sounding as it did: its RATE the longest that divides every step, each step its
+NOTE and HOLDs. The arpeggiator's old MODE (OFF, the five modes, SEQ) becomes ARP or SEQUENCE ON and MODE, the delay's
+TIME and MODE one TIME, and the arpeggio's and the sequence's notes lose the OCTAVE they were kept with (it is put on
+as they play now).
 
-**Backing up** (FRASIL 1.1 and later): the scenes and the settings go to a file over USB, and come back from it.
+**Backing up** (FRASIL 1.1 and later): the scenes, your presets and the settings go to a file over USB, and come
+back from it.
 
 - **The River** (https://river.frasilsynth.com/, Chrome or Edge): **Back up** reads the FM-1 and shows each slot as a
-  card, a *shard*: its drone, what plays, GLINT's sequence or arpeggio, every page's settings as the screen writes
-  them. Download everything (a `.frasil` file) or the shards you select (a `.frasilscenes` package). Open a file to see it
-  without the FM-1. Put a backup back whole, or shards into the slots you choose, several at once: the River reads
-  the FM-1 first, and the other slots and the settings stay as they are. Shards go into the slots of an FM-1 that
-  runs FRASIL 2.0 (an earlier FRASIL is asked to update first); a shard keeps its scene's TEMPO.
+  card, a *shard*: its drone, what plays, the sequences and arpeggios, every page's settings as the screen writes
+  them. Download everything (a `.frasil` file) or the shards you select (a `.frasilscenes` package). Open a file to see
+  it without the FM-1. Put a backup back whole, or shards into the slots you choose, several at once: the River reads
+  the FM-1 first, and the other slots and the settings stay as they are. Shards go into the slots of an FM-1 that runs
+  FRASIL 3.0; an earlier FRASIL is asked to update first (UPDATE FRASIL). A shard keeps its scene's TEMPO.
 - **A terminal:** `python3 base/tools/fm1_backup.py backup scenes.frasil --magic FRBK`, then
   `python3 base/tools/fm1_backup.py restore scenes.frasil`; `info` shows what a file holds.
 
@@ -858,12 +1093,14 @@ everything go first (it sends MIDI's All Sound Off); from a terminal, hold **PLA
 or the screen says STOP FIRST. A key held down still waits. The FM-1 receives the whole file and checks it before
 anything changes, then asks: RESTORE FROM USB? **SEL** yes, **FX** no (a minute, then no). Restoring everything
 brings back the settings too, the sound at power-on with them; never the panel's calibration, which is your FM-1's.
-A backup from an earlier FRASIL restores: its scenes are brought up to date. While a backup is sent, STORE doesn't
+A backup from an earlier FRASIL restores: its scenes are brought up to date. Your presets on the FM-1 stay, unless the
+backup holds presets: then it replaces them (a backup from before 3.0 holds none). The question says so, IT REPLACES ALL
+SCENES, THE SETTINGS AND ITS PRESETS, and the result, THE SCENES, THE SETTINGS AND ITS PRESETS ARE BACK. While a backup is sent, saving doesn't
 happen (NOT STORED, a pop-up). Back up before you switch firmwares.
 
 ---
 
-## 10. MIDI
+## 11. MIDI
 
 FRASIL takes MIDI over USB and the TRS input. Each track has its own channel, whatever the keys play: the drones on 1,
 GLINT on 2, BASS on 3 by default. Press GLO twice for the MIDI page: DRONE CH, GLINT CH and BASS CH, each OFF, 1 to 16
@@ -873,12 +1110,14 @@ and Start that come in not taken (a device sending a clock you don't want). Kept
 headphone jack (one output serves both), while the USB audio goes on as ever: for recording into a computer or a phone
 without the room hearing it. It is kept through power-off.
 
-- **The drones' notes** go through the harmony, so a sequencer's single note plays a chord. Sustain (CC 64) holds
-  them. Channel pressure swells them all (SWELL).
-- **GLINT's notes** play as they come, no scale, with GLINT's OCTAVE on them as on a key's. While the arpeggiator or
-  the sequencer is on, they go into it, as held keys would.
+- **The drones' notes** go through the harmony, as the DRONE's HARMONY and NOTES say (KEYS, section 5): at first a
+  sequencer's single note plays a chord. Sustain (CC 64) holds
+  them. Channel pressure swells them all (SWELL). While the drone's sequence records, they go into it.
+- **GLINT's notes** play as they come, no scale, with GLINT's OCTAVE on them as on a key's. While its arpeggiator or
+  its sequence is on, they go into it, as held keys would.
 - **BASS's notes** play as they come too, the bass's OCTAVE on them, one at a time: the last one sounds, and letting
-  it go brings back the one still held under it. While the bass's sequence is on, they go into it, as the keys would.
+  it go brings back the one still held under it. While the bass's arpeggiator or sequence is on, they go into it, as
+  the keys would.
 
 Notes sound only while held. Polyphonic aftertouch swells a note; channel pressure, the whole track. The CCs below
 come in on the drones' channel (sustain too); 123 releases the notes of the track whose channel it comes on, 120 (All
@@ -895,23 +1134,24 @@ sends it before it sends to the FM-1).
 | 17 · 18 · 19 | the MIXER's DRONE · GLINT · BASS | 80 | FREEZE (64 and up) |
 | 120 | all sound off, any channel: everything let go, the sequences stopped (PLAY held again: RESTORE) | 123 | release the notes of the track on that channel |
 
-**Program Change** 0 to 15, on the drones' channel, loads scenes 1 to 16, as SCENES' MORPH and LOAD say (NEW SHARD, no slot, has none).
+**Program Change** 0 to 15, on the drones' channel, loads scenes 1 to 16, as SCENES' MORPH and LOAD say (NEW SHARD,
+no slot, has none).
 
 **MIDI learn:** turn a setting, hold GLO, and move a knob on your controller (a CC on the drones' channel): from then
 on that CC turns that setting (CC 21 · SINK). FRASIL learns 8 at most, the oldest replaced, and keeps them with the
 settings. A learned CC comes before the table's (SWELL's 11 and FREEZE's 80 too), but for 64, 120 and 123, which keep
 their jobs.
 
-MIDI clock drives GLINT's arpeggiator, its sequencer and its delay, and the bass's sequencer (with CLOCK on AUTO, the
-MIDI page's K4: on INTERNAL it is not taken, nor Start). Start resets the grid, and starts the sequences from their
-first steps. With no clock coming in, PLAY does the same when it starts the
-transport, or is held (section 4); while one comes in, PLAY leaves its beats as they are.
+MIDI clock drives the arpeggiators, the three sequences and GLINT's delay (with CLOCK on AUTO, the MIDI page's K4: on
+INTERNAL it is not taken, nor Start). Start resets the grid, and starts the sequences from their first steps. With no
+clock coming in, PLAY does the same when it starts the transport, or is held (section 4); while one comes in, PLAY
+leaves its beats as they are.
 
-A PERFORM page (section 11) talks with the FM-1 in SysEx over USB. Without one, the FM-1 sends none of it.
+A PERFORM page (section 12) talks with the FM-1 in SysEx over USB. Without one, the FM-1 sends none of it.
 
 ---
 
-## 11. PERFORM
+## 12. PERFORM
 
 **PERFORM** (https://perform.frasilsynth.com/, Chrome or Edge) shows your play on a large screen as it goes: a
 projector on a stage, a filmed performance. Plug the FM-1 into the computer by USB, open the page and press F for full
@@ -935,9 +1175,9 @@ off, lit a moment while you turn one of their settings.
   and changing the scene.
 
 **The header**, at the top: the logo, the scene's name, and at the right the transport: DR, GL and BS, the three
-tracks, each a glowing play triangle while it plays (the drones: a chord latched or held; GLINT: its arpeggio going
-or its sequence running; the bass: its note or its sequence), a dim square while it is stopped. Under each, where its
-notes come from: ARP or SEQ (GLINT's SEQ), SEQ (the bass's SEQUENCE), else the KEY MODE, LATCH or HOLD.
+tracks, each a glowing play triangle while it plays (the drones: a chord latched or held, or their sequence running;
+GLINT: its arpeggio going or its sequence running; the bass: its note, its arpeggio or its sequence), a dim square
+while it is stopped. Under each, where its notes come from: ARP or SEQ, else LATCH or HOLD (KEYS' LATCH).
 
 | Key | What it does |
 | --- | --- |
@@ -955,61 +1195,77 @@ PERFORM).
 
 ---
 
-## 12. The lights
+## 13. The lights
 
 | Light | Means |
 | --- | --- |
 | Keys, bright | the roots of the latched drones, and the keys held |
 | Keys, faint | the scale's notes |
 | Keys, GLINT with the arpeggio on | faint: the arpeggio's notes. Bright: the one sounding, for as long as it sounds |
-| Keys, GLINT with the sequencer on | bright: the note playing. Faint: the scale's notes |
+| Keys, a sequence on | bright: the note playing. Faint: the scale's notes |
 | Keys, BASS | bright: the bass's note. Faint: the scale's notes |
 | Keys, SAVE held | the white keys, the scenes: bright, the current one; faint, the slots that hold a scene |
+| Keys, EDIT held | F♯, G♯ and A♯ of the lowest octave at half light, the group on screen bright; every other key dark |
 | The function buttons, faint | always: their names stay readable in the dark |
 | The page's button, bright | the page on screen |
 | SAVE, bright | the sound differs from the scene's (SCENES says CHANGED) |
 | LFO | faint as the others while an LFO runs; fainter, as PLAY, while none does |
-| ARP, a flash | each step GLINT's arpeggio or sequence plays, while GLINT's pages are not on screen |
-| PLAY | faint; bright while it plays: while a sequence runs (or the arpeggio plays) when one is on, else while anything is held. It goes out the moment you stop, the sound fading on as it does |
-| REC | the faintest, as PLAY (brighter, red, it read as recording); while a sequencer records, GLINT's or the bass's: lit with RECORD on STEP, flashing on the sequence's beats (as the metronome counts them, from its first step), twice as quick as OCT, with RECORD on LIVE |
+| ARP, a flash | each step the selected track's arpeggio plays, while its ARP pages are not on screen |
+| ARP, fainter | the DRONE selected: it has no arpeggio |
+| SEQ, a flash | each step the selected track's sequence plays (the drone's too), while its SEQ pages are not on screen |
+| PLAY | faint; bright while it plays: while a sequence runs (or an arpeggio plays) when one is on, else while anything is held. It goes out the moment you stop, the sound fading on as it does |
+| REC | the faintest, as PLAY (brighter, red, it read as recording); while a sequence records: lit on STEP, flashing on the sequence's beats (as the metronome counts them, from its first step), twice as quick as OCT, on LIVE; flashing on the four counts of COUNT-IN |
 | OCT− and OCT+ | faint, a little brighter on the beat: MIDI clock when one comes in, else TEMPO (GLOBAL, K1) |
 | FX, bright | one of FX's pages is on screen, or FREEZE is on |
-| ENV, bright | DRONE SHAPE, and SWELL while you hold it (until it has come back down) |
-| SEQ, bright | BASS's pages |
-| SEQ, a flash | each NOTE the bass's sequence plays, while BASS's pages are not on screen |
+| ENV, bright | the track's envelope on screen, and SWELL while you hold it (until it has come back down) |
 
 ---
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
-**No sound:** turn MASTER up, and tap a key: drones need a tap to start. Check the layers' levels (HOME, K1–K3).
-If the keys' badge (top right) says BASS, or in blue GLINT, or REC, the keys play BASS or GLINT: turn
-SELECT back to DRONE (or press HOME from another section's page).
+**No sound:** turn MASTER up, and tap a key: drones need a tap to start. Check the drone's mix (HOME, K1–K3) and the
+MIXER. Look at the header's colour: orange, the keys play BASS; ice blue, GLINT. Turn SELECT back to DRONE.
+
+**The buttons open another track's pages:** EDIT, ENV, ARP, SEQ and REC follow the track SELECT picks; the header's
+colour says which. Turn SELECT, or hold OCT− and turn it to change the keys without leaving the page: the header then
+says the keys' track over the other's page, a white band titled BASS ADSR.
+
+**ARP says NOT AVAILABLE FOR DRONE:** the drone has no arpeggiator. Select GLINT or BASS, or use the drone's sequence
+(SEQ).
+
+**ARP or SEQ shows only its ON/OFF:** it is OFF. Turn K1 ON and its pages appear; the other one turns OFF.
 
 **Everything went silent:** PLAY held, or tapped twice quick, lets everything go; OCT− held and PLAY (CUT) silences
 it at once. Hold PLAY again, or tap it, before you play anything else: RESTORE brings back what it let go. A single
-tap while something plays does not let the drones go: it starts and stops the sequences (GLINT's, the bass's) or the
-arpeggio.
+tap while something plays does not let the drones go: it starts and stops the sequences and the arpeggios.
 
-**KEY MODE doesn't change:** it lets every note go, so it takes a second detent the same way within 2 seconds (KEY
-MODE · TURN AGAIN).
+**LATCH doesn't change:** turned OFF it lets that track's notes go, so it takes a second detent the same way within 2
+seconds (LATCH, TURN AGAIN smaller beside it).
 
-**A CC from a controller moves another setting than the table's:** it was learned (section 10). Learn it again onto
+**SELECT doesn't move:** a recording is running (RECORDING, REC: OFF beside it). Tap REC until it is OFF, or leave the
+track's SEQ and ARP pages.
+
+**No CLEAR on SEQ III:** it is OCT− held and REC, on the track's SEQ pages.
+
+**A CC from a controller moves another setting than the table's:** it was learned (section 11). Learn it again onto
 the setting you want.
 
 **Crackles or a voice dropping out:** when the load passes 82 %, or a render runs over its time, FRASIL lightens the
 sound one step (fewer drone partials, then fewer voices, each faded out, not cut), and gives a step back after a calm
-that doubles each time it fails (4 s, 8, 16, up to 64 s) and while the load is at most 75 %. A small amber dot by the
-keys' badge, for 3 seconds, says it did. GLOBAL's header shows the load. Fewer voices, or SHIMMER at 0, give it room.
+that doubles each time it fails (4 s, 8, 16, up to 64 s) and while the load is at most 75 %. A small dot by the track's
+name, for 3 seconds, says it did. GLOBAL's header shows the load. Fewer voices, or SHIMMER at 0, give it room.
 If the screen lags with a heavy scene, ANIMATIONS LOW (GLO, SCREEN) keeps it quick (the sound comes first either way:
 it takes no load from it).
 
 **The installer doesn't find the FM-1:** use Chrome or Edge, allow MIDI when asked, and close other programs that
 use the FM-1's MIDI port.
 
-**PERFORM doesn't find the FM-1:** as for the installer; for COMPUTER AUDIO, allow the audio input too. NO ANSWER: the FM-1
-needs FRASIL 2.5 or later. THIS COMPUTER PLAYS THROUGH THE FM-1: the computer's sound output is the FM-1 itself, and
-COMPUTER AUDIO would play back into it: pick the computer's own speakers as its output, or choose FM-1 AUDIO.
+**PERFORM doesn't find the FM-1:** as for the installer; for COMPUTER AUDIO, allow the audio input too. NO ANSWER: the
+FM-1 needs FRASIL 2.5 or later. THIS COMPUTER PLAYS THROUGH THE FM-1: the computer's sound output is the FM-1 itself,
+and COMPUTER AUDIO would play back into it: pick the computer's own speakers as its output, or choose FM-1 AUDIO.
+
+**The River says UPDATE FRASIL:** shards made for 3.0 go only into an FM-1 that runs FRASIL 3.0. Install it (section
+1), then send again.
 
 **The FM-1 doesn't start after an install:** hold OCT− while you switch it on, then install again, or put the
 official firmware back.

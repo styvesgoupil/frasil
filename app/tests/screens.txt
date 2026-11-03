@@ -1,4 +1,10 @@
 # FRASIL's screens, for review, the manual and the README: tools/screens.sh
+keysstay 1
+nogrid 1
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
 master 3000
 wait 1500
 shot screen-logo.png
@@ -18,8 +24,8 @@ wait 1200
 shot screen-pressure.png
 key 9 up
 wait 400
-# a hand turned: SPACE large over the river
-turn PRESET 6
+# a hand turned: TIMBRE large over the river
+turn ALGO 6
 wait 120
 shot screen-overlay.png
 wait 1200
@@ -42,7 +48,6 @@ shot screen-harmony.png
 # LFO 1: a slow sine on FILTER, TIMBRE, GLINT's LEVEL and BASS's FILTER (the targets in their track's colours), its
 # targets, then its own page; then off again
 tap LFO
-tap LFO
 turn K2 10
 turn K3 90
 tap LFO
@@ -52,7 +57,6 @@ turn K3 25
 turn K4 31
 wait 900
 shot screen-lfo-targets.png
-tap LFO
 tap LFO
 tap LFO
 tap LFO
@@ -68,22 +72,31 @@ turn K2 -1
 turn K3 -25
 turn K4 -31
 wait 300
-# GLINT: the keys to it (SELECT), GLINT I (ARP's first), SEQ on ARP; its arpeggiator page (after GLINT DELAY),
+# GLINT: the keys to it (SELECT), GLINT I (ARP's first), PLAYS on ARP; its arpeggiator page (after GLINT DELAY),
 # two keys held on the play page (HOME has the keys on DRONE: SELECT to GLINT again)
 turn SELECT 1
 wait 1500
-tap ARP
-turn K2 1
+wait 80
+gopage 9
+nudge 123 1
+wait 80
 wait 200
 shot screen-glint-params.png
-tap ARP
-tap ARP
-tap ARP
-tap ARP
-turn K1 2
+wait 80
+gopage 10
+wait 80
+gopage 11
+wait 80
+gopage 12
+wait 80
+setp 123 1
+wait 30
+gopage 13
+turn K2 2
 wait 200
 shot screen-glint-arp.png
 tap HOME
+setp 166 0
 turn SELECT 1
 wait 1500
 key 18 down 110
@@ -92,39 +105,66 @@ wait 700
 shot screen-glints.png
 key 18 up
 key 22 up
-# the sequencer on (GLINT I's SEQ), sixteen steps written (GLINT SEQ: RECORD on STEP, an accent on each
-# beat), then playing
-tap ARP
-turn K2 1
-tap ARP
-tap ARP
-tap ARP
-tap ARP
-turn K4 1
+# the sequencer on (GLINT I's PLAYS), sixteen steps written (GLINT SEQ: REC twice, STEP, an accent on each beat), then
+# playing
+wait 80
+gopage 9
+nudge 123 1
+wait 80
+wait 80
+gopage 10
+wait 80
+gopage 11
+wait 80
+gopage 12
+wait 80
+gopage 15
+tap REC
+tap REC
 tapkey 9 115
+spin K1 1
 tapkey 13 80
+spin K1 1
 tapkey 16 80
+spin K1 1
 tapkey 20 80
+spin K1 1
 tapkey 16 115
+spin K1 1
 tapkey 13 80
+spin K1 1
 tapkey 18 80
+spin K1 1
 tapkey 22 80
+spin K1 1
 tapkey 9 115
+spin K1 1
 tapkey 11 80
+spin K1 1
 tapkey 16 80
+spin K1 1
 tapkey 13 80
+spin K1 1
 tapkey 20 115
+spin K1 1
 tapkey 18 80
+spin K1 1
 tapkey 16 80
+spin K1 1
 tapkey 11 80
-turn K4 -1
-turn K1 -11
+tap REC
+spin K1 -15
 wait 2600
 shot screen-glint-seq.png
 tap HOME
-tap ARP
-turn K2 -1
+setp 166 0
+wait 80
+setp 166 1
+gopage 9
+nudge 123 -1
+wait 80
 tap HOME
+setp 166 0
 wait 300
 # BASS: SELECT all the way (HOME has the keys on DRONE), a deep D under the drones; its page (SEQ)
 turn SELECT 2
@@ -132,60 +172,122 @@ wait 200
 tapkey 9 100
 wait 2500
 shot screen-bass.png
-tap SEQ
+wait 80
+gopage 17
 wait 300
 shot screen-bass-page.png
-# its sequence (SEQ three times more: BASS SEQ): RECORD on STEP, eight keys (D D A C D F G A); then K1 to each step,
-# K2 a HOLD and a CUT, K3 the lengths; STEPS 8 (BASS SEQ II); PLAY, PLAY: from the top (apart: twice quick lets all go)
-tap SEQ
-tap SEQ
-tap SEQ
-turn K4 1
+# its sequence, PLAYS on SEQ (SEQ three times more: BASS SEQ, once more: II): RATE 1/8 (K2), back on BASS SEQ, REC twice:
+# STEP. K3 what the next key writes: D three steps; A one; C and D two; a step left a CUT; F two; G one; A four
+nudge 177 2
+wait 160
+wait 80
+gopage 18
+wait 80
+gopage 19
+wait 80
+gopage 45
+wait 80
+gopage 44
+spin K3 1
+wait 80
+gopage 49
+wait 80
+gopage 50
+wait 80
+gopage 17
+wait 80
+gopage 18
+wait 80
+gopage 19
+wait 80
+gopage 45
+tap REC
+wait 200
+tap REC
+wait 200
 tapkey 9
-tapkey 9
+wait 200
+spin K3 2
+wait 200
+spin K1 3
+wait 200
 tapkey 16
+wait 200
+spin K3 -2
+wait 200
+spin K1 1
+wait 200
 tapkey 7
+wait 200
+spin K3 1
+wait 200
+spin K1 2
+wait 200
 tapkey 9
+wait 200
+spin K3 1
+wait 200
+spin K3 -1
+wait 200
+spin K1 2
+wait 200
+spin K1 1
+wait 200
 tapkey 12
+wait 200
+spin K3 1
+wait 200
+spin K3 -1
+wait 200
+spin K1 2
+wait 200
 tapkey 14
+wait 200
+spin K3 -1
+wait 200
+spin K1 1
+wait 200
 tapkey 16
-turn K4 -1
-spin K1 -20
-spin K3 2
-spin K1 1
-spin K2 127
-spin K3 1
-spin K1 1
+wait 200
 spin K3 3
-spin K1 1
-spin K3 1
-spin K1 1
-spin K3 4
-spin K1 1
-spin K3 1
-spin K1 1
-spin K2 -127
-spin K3 1
-spin K1 1
-spin K3 2
-spin K1 -3
-tap SEQ
-spin K1 -8
+wait 200
+tap REC
+wait 200
+spin K1 -7
+wait 80
+gopage 44
 tap PLAY
 wait 400
 tap PLAY
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-wait 2620
+wait 80
+gopage 49
+wait 80
+gopage 50
+wait 80
+gopage 17
+wait 80
+gopage 18
+wait 80
+gopage 19
+wait 80
+gopage 45
+wait 2460
 shot screen-bass-seq.png
-# SEQUENCE off again (BASS SEQ II), the D held as before
-tap SEQ
-spin K2 -1
+# PLAYS on KEYS again (BASS I), the D held as before
+wait 80
+gopage 44
+wait 80
+gopage 49
+wait 80
+gopage 50
+wait 80
+gopage 17
+nudge 177 -2
+wait 160
 tapkey 9 100
 wait 300
 tap HOME
+setp 166 0
 turn SELECT -2
 wait 1500
 # freeze: FX held (or CLOUD's K4)
@@ -199,7 +301,8 @@ wait 500
 release FX
 wait 1500
 # scenes
-tap SAVE
+wait 80
+gopage 43
 turn K1 2
 wait 300
 shot screen-scenes.png
@@ -208,6 +311,7 @@ tap GLO
 wait 300
 shot screen-global.png
 # the mixer: HOME, HOME again; again, the logo; and again, the river
+tap HOME
 tap HOME
 tap HOME
 wait 600
@@ -258,12 +362,18 @@ shot screen-eq.png
 turn K1 -7
 tap HOME
 tap HOME
+tap HOME
 press HOME
 wait 500
 release HOME
 turn SELECT -1
 wait 100
 shot screen-help-1.png
+turn SELECT 1
+wait 100
+shot screen-help-2.png
+turn SELECT -1
+wait 100
 turn SELECT 2
 wait 100
 shot screen-help-3.png
@@ -283,9 +393,12 @@ release PLAY
 wait 1500
 turn SELECT 2
 wait 100
-tap SEQ
-tap SEQ
-tap SEQ
+wait 80
+gopage 17
+wait 80
+gopage 18
+wait 80
+gopage 19
 spin K2 -8
 wait 30
 spin K3 -75
@@ -295,13 +408,17 @@ wait 2600
 shot screen-bass-adsr.png
 tapkey 9
 wait 1500
-turn SELECT -1
+setp 166 1
+wait 80
 wait 100
-tap ARP
+wait 80
+gopage 9
 turn K1 8
 wait 30
-tap ARP
-tap ARP
+wait 80
+gopage 10
+wait 80
+gopage 11
 wait 1200
 key 10 down 100 0
 wait 60
@@ -314,3 +431,273 @@ wait 150
 shot screen-glint-adsr.png
 key 14 up
 key 17 up
+wait 300
+# 3.0's pages
+press PLAY
+wait 800
+release PLAY
+wait 2000
+tap HOME
+wait 30
+# EDIT on each track
+setp 166 0
+gopage 1
+wait 300
+shot screen-drone-tone.png
+setp 166 1
+gopage 9
+wait 300
+shot screen-glint-i.png
+gopage 10
+wait 300
+shot screen-glint-ii.png
+setp 166 2
+gopage 17
+wait 300
+shot screen-bass-i.png
+gopage 18
+wait 300
+shot screen-bass-ii.png
+# ARP: OFF, ON, ARP II; NOT AVAILABLE FOR DRONE
+setp 166 1
+setp 123 0
+gopage 13
+wait 300
+shot screen-arp-off.png
+turn K1 1
+key 9 down 90
+wait 80
+key 12 down 90
+wait 80
+key 16 down 90
+wait 500
+shot screen-arp-on.png
+gopage 52
+wait 300
+shot screen-arp-ii.png
+key 9 up
+key 12 up
+key 16 up
+wait 100
+setp 123 2
+wait 30
+gopage 13
+wait 200
+turn K1 1
+wait 100
+shot screen-arp-seq-off.png
+setp 123 0
+wait 300
+setp 166 0
+gopage 57
+wait 1800
+shot screen-noarp.png
+# SEQ: GLINT's steps
+setp 166 1
+setp 123 2
+gopage 14
+wait 1800
+shot screen-seq-i.png
+gopage 16
+wait 300
+shot screen-seq-iii.png
+setp 123 0
+# the drone's sequence
+setp 166 0
+gopage 54
+wait 300
+shot screen-drone-seq-off.png
+turn K1 1
+wait 30
+gopage 55
+tap REC
+tap REC
+wait 30
+key 9 down 90
+key 13 down 90
+key 16 down 90
+wait 60
+key 9 up
+key 13 up
+key 16 up
+wait 60
+spin K1 1
+key 11 down 90
+key 16 down 90
+key 19 down 90
+wait 60
+key 11 up
+key 16 up
+key 19 up
+wait 60
+spin K1 1
+key 7 down 90
+key 14 down 90
+wait 60
+key 7 up
+key 14 up
+wait 60
+tap REC
+wait 1500
+spin K1 -1
+wait 300
+shot screen-drone-seq-ii.png
+gopage 54
+wait 200
+shot screen-drone-seq.png
+gopage 56
+wait 200
+shot screen-drone-seq-iii.png
+setp 224 1
+setp 197 0
+setp 123 0
+setp 177 0
+press PLAY
+wait 800
+release PLAY
+wait 500
+gopage 55
+tap REC
+wait 1100
+shot screen-count-in.png
+tap REC
+tap REC
+wait 1500
+setp 197 0
+setp 224 0
+gopage 0
+wait 200
+# KEYS, each track
+setp 214 0
+setp 216 1
+setp 217 1
+setp 34 2
+wait 1500
+tap HOME
+wait 300
+shot screen-keys.png
+turn SELECT 1
+wait 1300
+shot screen-keys-glint.png
+turn K3 -1
+wait 100
+turn K3 -1
+wait 2100
+turn K1 -1
+wait 1300
+shot screen-keys-glint-hold.png
+turn K1 1
+turn K3 1
+wait 300
+setp 217 1
+turn SELECT 1
+wait 1000
+shot screen-keys-bass.png
+turn SELECT -2
+wait 30
+# GLO > RECORD
+gopage 59
+wait 300
+shot screen-record.png
+# the grid of names, both pages; BASS's, GLINT's in their colours
+gopage 0
+wait 30
+nogrid 0
+turn PRESET 6
+wait 100
+shot screen-grid.png
+turn PRESET 18
+wait 100
+shot screen-grid-2.png
+tap FX
+wait 1000
+wait 1500
+turn SELECT 1
+wait 30
+turn PRESET 5
+wait 100
+shot screen-grid-glint.png
+tap FX
+wait 1000
+wait 1500
+turn SELECT 1
+wait 30
+turn PRESET 3
+wait 100
+shot screen-grid-bass.png
+tap FX
+wait 1000
+wait 1500
+turn SELECT -2
+wait 30
+gopage 28
+wait 30
+turn K2 2
+wait 100
+shot screen-grid-scale.png
+wait 1500
+gopage 23
+wait 30
+turn K1 12
+wait 100
+shot screen-grid-lfo.png
+tap FX
+wait 1000
+gopage 0
+wait 30
+# SAVE's steps
+tap SAVE
+wait 300
+shot screen-save.png
+turn K1 -1
+wait 200
+shot screen-save-load.png
+turn K1 1
+wait 100
+tap SAVE
+wait 300
+shot screen-save-what.png
+turn K1 2
+wait 200
+shot screen-save-what-preset.png
+tap SEL
+wait 300
+shot screen-save-name.png
+tap FX
+tap FX
+tap FX
+wait 200
+gopage 43
+wait 300
+shot screen-scenes-3.png
+gopage 0
+# the header while a key plays a chord (KEYS' NOTES on CHORD): CHORD . GLINT on GLINT I (ARP on); CHORD . BASS on
+# BASS I, its arpeggio on (the bass plays chords only through it)
+setp 166 1
+setp 215 1
+setp 216 1
+setp 123 1
+gopage 9
+wait 300
+shot screen-head-chord-glint.png
+setp 166 2
+setp 219 1
+setp 220 1
+setp 177 1
+gopage 17
+wait 300
+shot screen-head-chord-bass.png
+setp 177 0
+setp 220 0
+setp 166 0
+gopage 0
+wait 100
+# REC over GLINT's sequence playing: SEQ II's LIVE view (SEQ LENGTH, RATE, UNDO TAKE), the header LIVE
+setp 166 1
+setp 123 2
+wait 300
+tap PLAY
+wait 1500
+tap REC
+wait 1600
+shot screen-seq-live.png
