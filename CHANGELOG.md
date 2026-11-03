@@ -21,7 +21,7 @@
 - **BASS TONE**: DRIVE, WEIGHT, PUNCH, BITE.
 - **ARP SNAP**: a new chord joins an arpeggio on the beat, the hand gathered first (GLO, GLOBAL; 1/4 at first, OFF as before).
 - **STACK**: hold SEQ, and new notes and chords join what is held instead of replacing it.
-- **The name grid**: presets, an LFO's targets and scales as a list while you turn; SEL keeps, FX goes back.
+- **Better UX to browse long lists**: presets, an LFO's targets and scales on one screen while you turn, heard as you stop on one; SEL keeps, FX goes back.
 - **CHORD in the header**: CHORD · GLINT while a track's keys play chords.
 - **AUTO VIB**: a vibrato of its own on every glint.
 - **EDIT held**: three black keys jump to the track's pages.
