@@ -140,7 +140,8 @@ while it runs; **SWELL** (lamp) while it swells.
 
 **The header** is the selected track's. The whole band at the top of the screen is filled with its colour, DRONE white,
 GLINT ice blue, BASS orange, and the page's name and the track's name are written dark on it: wherever you are, you
-see which track the buttons act on. On the play page the title is the scene's name, as large as it fits (a long one
+see which track the buttons act on (GLO > SCREEN's HEADER on DARK turns it round: the band dark, its words in the
+track's colour, section 9). On the play page the title is the scene's name, as large as it fits (a long one
 smaller; one that still does not fit rolls slowly along and back), with a dot while the sound differs from the scene's. Elsewhere, the
 page's name; SCENES adds CHANGED while the sound differs. FRASIL's name stays on the logo screen. Under the title, a
 dot for each page of its button, the one on screen larger and darkest; a button with one page has none, an ARP or a SEQ that is OFF
@@ -262,7 +263,7 @@ On any track:
 | **Turn ALGORITHM** | the track's brightness: the drone's TIMBRE, GLINT's BRIGHT, the bass's FILTER |
 | **Hold GLO, turn ALGORITHM** | MASTER FILTER's CUTOFF (FX), whatever the track; with the filter OFF, it turns on, LOW PASS |
 | **OCT− / OCT+** | octave −3 to +2, shown large over the strip a moment; at power-on −1, where the keys run F2 to G4. While the name grid is open, its screens instead |
-| **OCT− + OCT+** | ANCHOR: the scene as it sounds now kept, the octave with it (ANCHOR SET), a violet frame round the screen, breathing, while it is. Press them again: MORPH, the sound gliding back over 8 s, the values on the screen gliding with it, its choices (a preset, ROOT, a TYPE, PLAYS, the steps) switching halfway, the frame erasing counter-clockwise from the top as it goes. Hold them a moment: BACK, every setting as it was, at once. What plays plays on. Loading a scene lets the anchor go. Nothing is stored: it is gone at power-off. (Held past 7 s, the two count down to UPDATE MODE, entered at 10 s: let go.) |
+| **OCT− + OCT+** | ANCHOR: the scene as it sounds now kept, the octave with it (ANCHOR SET), a violet frame round the screen, breathing, while it is. Change anything. Press them again: MORPH (MORPH TO ANCHOR), the sound gliding back over 8 s, SWELL with it, the values on the screen gliding with it, its choices (a preset, ROOT, a TYPE, PLAYS, the steps) switching halfway, the frame erasing counter-clockwise from the top as it goes. Hold them a moment: BACK (BACK TO ANCHOR), every setting as it was, at once; pressed again during the MORPH, there at once too. What plays plays on. Loading a scene lets the anchor go. Nothing is stored: it is gone at power-off. (Held past 7 s, the two count down to UPDATE MODE, entered at 10 s: let go.) |
 | **Hold EDIT** | the key map: three black keys light (below) |
 | **Hold PLAY** | after 0.6 s, RELEASE ALL: the drones, the bass, the glints, the arpeggios and the sequences; the beat begins there (below). From 0.2 s the header says RELEASE ALL, a line counting down under it: let go then, before 0.6 s, and nothing happens |
 | **Hold PLAY again** | with nothing playing: RESTORE, the scene again (RESTORED): what the last RELEASE ALL let go, else the scene's own notes as saved (at power-on, say): its latched drones, the arpeggios' notes, the bass; and every sequence that is on, from its first step; the beat begins there |
@@ -843,15 +844,12 @@ them, a drag nearly stops them. The tape runs round two rollers and over the hea
 SATURATION warms it and lights a glow round the head.
 
 **LOFI TAPE II** (FX, right after LOFI TAPE) is the tape's other four settings: TAPE SPEED (the whole sound slowed
-down or sped up, as a tape played slower or faster: ×0.25 to ×2.00, ×1.00 in the middle, the knob stopping there as it
-passes; ×0.50 is an octave lower and half as fast, ×2.00 an octave higher and twice as fast, ×0.25 two octaves lower and
-four times slower. A detent is 0.01 from ×0.48 to ×1.58, then a half-tone down to ×0.25 and up to ×2.00; when the
-speed lands on a whole number of half-tones the page shows the tones between the reels (-1.5 TONES at ×0.84, -1 TONE
-at ×0.89, +3.5 TONES at ×1.50).
-It moves every voice's pitch, the grid's tempo (the arpeggios, the sequences, DRONE SEQ), the LFOs'
-rates, the envelopes' times and the tape's own wow and flutter; CLOUD and the delays stay in real time, as if the tape
-came before them. With a MIDI clock coming in, the tempo stays the clock's and only the pitch moves. A change glides
-briefly, as a tape slowing down. The flutter itself runs at 5 Hz), TONE (how dull or bright the
+down or sped up, as a tape played slower or faster: ×0.25 to ×2.00, ×1.00 in the middle; ×0.50 is an octave lower and
+half as fast, ×2.00 an octave higher and twice as fast, ×0.25 two octaves lower and four times slower. It moves every
+voice's pitch, the grid's tempo (the arpeggios, the sequences, DRONE SEQ), the LFOs' rates, the envelopes' times and
+the tape's own wow and flutter; CLOUD and the delays stay in real time, as if the tape came before them. With a MIDI
+clock coming in, the tempo stays the clock's and only the pitch moves. A change glides briefly, as a tape slowing
+down. On a half-tone, the page shows the change in tones between the reels: -1.5 TONES, -1 TONE, +3.5 TONES), TONE (how dull or bright the
 tape is: the pole SATURATION sets, from a quarter of its cutoff to four times, the middle leaving it where it was),
 NOISE (the tape's hiss, up from nothing: it has no low end, and TONE dulls it too) and DROPOUT (now and then, more
 often as it grows, up to about twice a second, the level dips for a tenth of a second or so, as a bad patch of tape
@@ -914,7 +912,7 @@ through power-off: ON, after IDLE TIME without a touch of a button, a knob or a 
 too; slate while SCREENSAVER is OFF), the screen goes black and the logo drifts across it; the sound goes on as it was, and MIDI does not wake it. Any control wakes it, and only wakes it:
 that touch changes nothing. HEADER, INVERT or DARK (INVERT at first), kept through power-off: INVERT, the band at the top
 in the selected track's colour, its words and marks dark; DARK, the band dark, its words and marks in the track's colour,
-a thin line of it under the band.
+no line under it.
 
 A scene keeps MASTER FILTER, LOFI TAPE (LOFI TAPE II's four too) and MASTER EQ, as it keeps MASTERING, and ROUTING's
 FILTER, TAPE and CLOUD PUMP; one made by an earlier FRASIL comes in with the three off, and one made before LOFI TAPE II
@@ -1121,7 +1119,7 @@ back from it.
   them. Download everything (a `.frasil` file) or the shards you select (a `.frasilscenes` package). Open a file to see
   it without the FM-1. Put a backup back whole, or shards into the slots you choose, several at once: the River reads
   the FM-1 first, and the other slots and the settings stay as they are. Shards go into the slots of an FM-1 that runs
-  FRASIL 3.0; an earlier FRASIL is asked to update first (UPDATE FRASIL). A shard keeps its scene's TEMPO and its
+  FRASIL 3.1; an earlier FRASIL is asked to update first (UPDATE FRASIL). A shard keeps its scene's TEMPO and its
   whole name, 32 characters.
 - **A terminal:** `python3 base/tools/fm1_backup.py backup scenes.frasil --magic FRBK`, then
   `python3 base/tools/fm1_backup.py restore scenes.frasil`; `info` shows what a file holds.
@@ -1135,6 +1133,10 @@ A backup from an earlier FRASIL restores: its scenes are brought up to date. You
 backup holds presets: then it replaces them (a backup from before 3.0 holds none). The question says so, IT REPLACES ALL
 SCENES, THE SETTINGS AND ITS PRESETS, and the result, THE SCENES, THE SETTINGS AND ITS PRESETS ARE BACK. While a backup is sent, saving doesn't
 happen (NOT STORED, a pop-up). Back up before you switch firmwares.
+
+FRASIL 3.1 saves its scenes in a new layout. Scenes, shards and backups from earlier versions load as before, the new
+settings at their defaults. A 3.1 backup does not restore on 3.0: `python3 tools/backup_for_3_0.py IN.frasil
+OUT.frasil` writes a copy that does (`--3.0.1` for 3.0.1).
 
 ---
 
@@ -1302,7 +1304,7 @@ use the FM-1's MIDI port.
 FM-1 needs FRASIL 2.5 or later. THIS COMPUTER PLAYS THROUGH THE FM-1: the computer's sound output is the FM-1 itself,
 and COMPUTER AUDIO would play back into it: pick the computer's own speakers as its output, or choose FM-1 AUDIO.
 
-**The River says UPDATE FRASIL:** shards made for 3.0 go only into an FM-1 that runs FRASIL 3.0. Install it (section
+**The River says UPDATE FRASIL:** shards go only into an FM-1 that runs FRASIL 3.1. Install it (section
 1), then send again.
 
 **The FM-1 doesn't start after an install:** hold OCT− while you switch it on, then install again, or put the

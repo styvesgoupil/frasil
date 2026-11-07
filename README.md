@@ -24,7 +24,7 @@ arpeggio's order, SPARKLE lets glints fall on the notes your drones hold).
 
 FRASIL is designed as one voice in a larger setup. It takes MIDI notes, pressure, CCs and clock over USB and TRS.
 
-> **FRASIL 3.0.** Install at your own risk: the installer can always put M-VAVE's firmware back. FRASIL is not
+> **FRASIL 3.1.** Install at your own risk: the installer can always put M-VAVE's firmware back. FRASIL is not
 > affiliated with M-VAVE.
 
 ## Install
@@ -65,7 +65,7 @@ When you switch firmwares:
 - **Back up your scenes before you switch firmwares.** FRASIL 1.1 and later back up the 16 scenes, your presets and the
   settings to a file over USB, and put them back:
   - **in the browser**: [the River](https://river.frasilsynth.com/) (Chrome or Edge). Back up, download everything or the
-    scenes you select, then put a backup back whole, or, with FRASIL 3.0 on the FM-1, scenes into the slots you choose,
+    scenes you select, then put a backup back whole, or, with FRASIL 3.0 or later on the FM-1, scenes into the slots you choose,
     several at once;
   - **from a terminal**: `python3 base/tools/fm1_backup.py backup scenes.frasil --magic FRBK`, then
     `python3 base/tools/fm1_backup.py restore scenes.frasil` (`info` shows what a file holds).
