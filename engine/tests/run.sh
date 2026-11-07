@@ -15,6 +15,11 @@
 #   MASTER FILTER's 3 dB point, MASTER EQ's MID FREQ).
 # - a stream joined at any place (engine/tests/skip: frasil_stream's player, a skip's messages against a render's, every
 #   factory scene, with the controls that must differ);
+# - a stream from before ARP SNAP as its engine played it (engine/tests/old_streams: engine/tests/old-streams/'s takes, made
+#   on the engine just before it, bit for bit from the top and joined; a newer one with its own ARP SNAP); 3.0.2-b5's,
+#   "FRS{" (engine/tests/old-streams-3.0.2/), the same;
+# - ANCHOR (engine/tests/anchor: set, BACK and MORPH bit for bit, a hand, a STORE and a scene during it; a take with it
+#   journaled and played on air, every sample the live one's, joined inside its MORPH), also under ASan and UBSan;
 # - ENERGY, FRASIL STREAM's measure of a piece (engine/tools/test.sh: the drones alone calm, a busy sequence high, the
 #   same piece the same numbers);
 #   engine/tests/run.sh [OUT_DIR]
@@ -56,7 +61,10 @@ ${CC:-cc} $CF $SAN -o "$OUT/api-san" engine/tests/api.c engine/frasil_engine.c $
 ${CC:-cc} $CF $SAN -o "$OUT/inside-san" engine/tests/inside.c $DSP -lm
 ${CC:-cc} $CF -fsanitize=thread -g -o "$OUT/threads" engine/tests/threads.c engine/frasil_engine.c $DSP -lm -lpthread
 ${CC:-cc} $CF -DFRASIL_EV_LOG=skip_log -o "$OUT/skip" engine/tests/skip.c engine/frasil_stream.c engine/frasil_engine.c $DSP -lm
-for t in api api-c11 inside api-san inside-san rate threads skip; do
+${CC:-cc} $CF -o "$OUT/old_streams" engine/tests/old_streams.c engine/frasil_stream.c engine/frasil_engine.c $DSP -lm
+${CC:-cc} $CF -o "$OUT/anchor" engine/tests/anchor.c engine/frasil_stream.c engine/frasil_engine.c $DSP -lm
+${CC:-cc} $CF $SAN -o "$OUT/anchor-san" engine/tests/anchor.c engine/frasil_stream.c engine/frasil_engine.c $DSP -lm
+for t in api api-c11 inside api-san inside-san rate threads skip old_streams anchor anchor-san; do
     "$OUT/$t" > "$OUT/$t.txt" 2>&1 || { cat "$OUT/$t.txt"; echo "run.sh: $t failed"; exit 1; }
     tail -1 "$OUT/$t.txt"
 done

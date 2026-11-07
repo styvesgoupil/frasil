@@ -1,12 +1,12 @@
 {
-  "r0": 184.46,
-  "r98": 511.08,
+  "r0": 141.22,
+  "r98": 455.81,
   "weights": [
     1,
-    1.5,
+    0.8,
     0.5,
     4
   ],
-  "pieces": 13,
+  "pieces": 16,
   "made": "engine/tools/energy_catalogue.py: the River's public shards, the test takes, the factory scenes"
 }

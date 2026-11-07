@@ -671,6 +671,33 @@ int main(int argc, char **argv)
             frasil_set(&p);
             frasil_bass_on(33, 0.8f);
         }
+        if (strchr(a, 'm')) {            /* voicesN...m: ANCHOR's MORPH the whole time: the sound's floats, each other one,
+                                         * from this sound to another and back, 3.5 s a way (smoothstep), pushed every
+                                         * other block (morph_run's hundred a second); its choices as they are */
+            frasil_params_t q = p;
+            uint32_t w, nw = (uint32_t)(sizeof p / 4u);
+            float *pf = (float *)&p, *qf = (float *)&q, *xf;
+            frasil_params_t x;
+            q.choir *= 0.4f, q.partials = 0.2f, q.souffle = 0.6f, q.drive = 0.7f, q.detune = 0.6f, q.cutoff = 0.15f;
+            q.tilt = 0.8f, q.eq_low = -6.0f, q.eq_high = 5.0f, q.fl_cut = 300.0f, q.tp_sat = 0.1f, q.tp_wobble = 0.9f;
+            q.pan[0] = -0.6f, q.pan[1] = 0.6f, q.pan[2] = -0.4f, q.pan[3] = 0.3f, q.mix = 0.6f;
+            q.bass.filter = 0.1f, q.bass.drive = 0.8f, q.glint.bright = 0.9f, q.glint.decay = 0.2f;
+            xf = (float *)&x;
+            for (i0 = 0; i0 + BLK <= n; i0 += BLK) {
+                if (!(i0 / BLK & 1u)) {
+                    float t = (float)(i0 % (2u * 154350u)) / 154350.0f, k = t > 1.0f ? 2.0f - t : t;
+                    k = k * k * (3.0f - 2.0f * k);
+                    x = p;
+                    for (w = 0; w < nw; w++)
+                        if (memcmp(&pf[w], &qf[w], 4))   /* (only what differs: a float; the ints never do) */
+                            xf[w] = pf[w] + (qf[w] - pf[w]) * k;
+                    frasil_set(&x);
+                }
+                frasil_render(lr, BLK, 1.0f);
+            }
+            printf("%d\n", lr[0]);
+            return 0;
+        }
         for (i0 = 0; i0 + BLK <= n; i0 += BLK)
             frasil_render(lr, BLK, 1.0f);
         printf("%d\n", lr[0]);
@@ -681,7 +708,8 @@ int main(int argc, char **argv)
                                                   * at 1 KHZ, Q 1), the filter on everything (lp, hp: 500 HZ, Q 0.71)
                                                   * or the tape (tape: SATURATION and WOBBLE at half, or as
                                                   * TP_SAT and TP_WOB have them, 0..1); eqknob: LOW turned as a
-                                                  * knob is, half a dB a step every 12 ms, 0 to +12 to -12 */
+                                                  * knob is, half a dB a step every 12 ms, 0 to +12 to -12
+                                                  * (eqknobmid, eqknobhigh: MID, HIGH) */
         const char *w = argv[2];
         int mix = !strncmp(w, "mix", 3);   /* mixall: RUST's (below) with PUMP, MASTERING, the pans, SINK, the
                                             * metronome and the EQ; mixfx: and the filter and the tape on some tracks */
@@ -746,7 +774,7 @@ int main(int argc, char **argv)
             p.tp_sat = (float)atof(getenv("TP_SAT"));
         if (getenv("TP_WOB"))
             p.tp_wobble = (float)atof(getenv("TP_WOB"));
-        if (!strcmp(w, "eqknob"))
+        if (!strncmp(w, "eqknob", 6u))  /* (eqknobmid, eqknobhigh: MID or HIGH turned so) */
             p.eq_on = 1;
         if (!strncmp(w, "tp", 2u))     /* (tptracks, tpon, tpsat, tpwob: the tape on, its settings stepped) */
             p.tp_on = 1;
@@ -812,9 +840,15 @@ int main(int argc, char **argv)
                 if (hit)
                     frasil_set(&p);
             }
-            if (!strcmp(w, "eqknob") && i0 >= 44100u) {   /* from 1 s: a step every 12 ms (two blocks) */
+            if (!strncmp(w, "eqknob", 6u) && i0 >= 44100u) {   /* from 1 s: a step every 12 ms (two blocks) */
                 uint32_t k = (i0 - 44100u) / (2u * BLK);
-                p.eq_low = k <= 24u ? 0.5f * (float)k : k <= 72u ? 12.0f - 0.5f * (float)(k - 24u) : -12.0f;
+                float db = k <= 24u ? 0.5f * (float)k : k <= 72u ? 12.0f - 0.5f * (float)(k - 24u) : -12.0f;
+                if (!strcmp(w, "eqknobmid"))
+                    p.eq_mid = db;
+                else if (!strcmp(w, "eqknobhigh"))
+                    p.eq_high = db;
+                else
+                    p.eq_low = db;
                 frasil_set(&p);
             }
             frasil_render(lr, BLK, 1.0f);

@@ -5,16 +5,23 @@
  *   G  GLINT's strikes                          B  the bass's notes, retunes and pulses
  *   D  the drones' note-ons (chord changes)     H  a stream's gestures (its events: no MIDI clock, no note-off, a slider's
  *                                                  drag one gesture)
- * each per minute, a note its layer struck in its strike before (a repetition, a pulse) counted 1/2. BPM: frs_view's tempo
- * each second, averaged.
- *   changes = G + 1.5 B + 0.5 D;  raw = changes x sqrt(BPM / 90) + 4 H;
+ * each per minute, a note its layer struck in its strike before (a repetition, a pulse) counted 1/2; a GLINT strike or a
+ * bass note (or pulse) also as sharp as its layer's ATTACK is then, 1 / (1 + (ATTACK / 200 ms)^2): 1 to about 50 ms, a
+ * half at 200 ms, near none from a second (a bowed GLINT swelling in, a bass fading up: heard as calm). BPM: frs_view's
+ * tempo each second, averaged.
+ *   changes = G + 0.8 B + 0.5 D;  raw = changes x BPM / 90 + 4 H;
  *   energy  = 1000 ln(1 + raw / r0) / ln(1 + r98 / r0), 0 .. 1000 (r0, r98: the catalogue's median and 98th percentile)
+ * (Refit on the owner's listening, ROADMAP card #4: WHITEOUT above LUMIERE NOCTURNE, THE WITCHINGHOUR above LONG NIGHT;
+ * NORTH RIVER and RESILIENCE close, BLACKHOLLOW just above WHITEOUT, THE WITCHINGHOUR above SUNRISE kept. Before it:
+ * B 1.5, the tempo's square root, every strike 1.)
  * A piece: a scene (a shard: FRS_SCENE_BYTES, or an earlier layout frs_scene_over knows), played alone as the radio plays it
  * (programme.py's shard_stream: the scene, nothing played on it), or a .frstream; "-" reads it from stdin.
- *   energy [--len MS] [--in MS] [--out MS] [--r0 X --r98 Y] [--w G,B,D,H] [--factory I] FILE|-
+ *   energy [--len MS] [--in MS] [--out MS] [--r0 X --r98 Y] [--w G,B,D,H] [--factory I] [--bins N] FILE|-
  *     --len  a shard's time on air (180000: SHARD LENGTH 3:00)      --in, --out  a stream's part on air (all of it)
- *     --r0, --r98  the calibration (energy-calibration.json's; built in below)   --w  the weights (1,1.5,0.5,4)
+ *     --r0, --r98  the calibration (energy-calibration.json's; built in below)   --w  the weights (1,0.8,0.5,4)
  *     --factory I  factory scene I as a shard (no FILE)
+ *     --bins N  also "bins": what it played, N bins over [in, out): a GLINT strike or a bass note 1, a drone note-on 1.6 (a
+ *               chord change, a taller mark), a repetition half (FRASIL STREAM's density strip for a shard: programme.py)
  * One JSON line on stdout. Exit 0; 1 the arguments; 2 not a piece (unreadable, damaged, a size it doesn't know); 3 a
  * stream of another scene layout (this engine can't play it); 4 the engine would not open.
  *   engine/tools/build.sh (cc, -DFRASIL_EV_LOG=energy_log, as engine/tests/run.sh builds skip) */
@@ -25,8 +32,8 @@
 #include "../frasil_engine.h"
 #include "../frasil_stream.h"
 
-#define R0 184.46                         /* energy-calibration.json's (engine/tools/test.sh checks they agree) */
-#define R98 511.08
+#define R0 141.22                         /* energy-calibration.json's (engine/tools/test.sh checks they agree) */
+#define R98 455.81
 
 /* engine/dsp/frasil.c's events (its enum, in that order) */
 enum { EV_ON = 1, EV_SPON = 5, EV_BON = 8, EV_BPUL = 11, EV_BRET = 13 };
@@ -35,8 +42,23 @@ enum { EV_ON = 1, EV_SPON = 5, EV_BON = 8, EV_BPUL = 11, EV_BRET = 13 };
 typedef struct { uint32_t prev[4], cur[4], ms; int any; double n; long raw; } layer_t;
 static layer_t lay[3];                   /* 0 the drones, 1 GLINT, 2 the bass */
 static int counting, bass_note;
+#define MAXBINS 256
+static double bins[MAXBINS];             /* (--bins: what it played, bin by bin) */
+static int nbins;
+static long bin_in, bin_len;
 
-static void strike(layer_t *l, int note, int repeat)
+/* how sharp a strike starts: its layer's ATTACK now (engine/params.c's curves: GLINT 2 ms .. 1.5 s, the bass 5 ms .. 5 s).
+ * The setting, not what is heard: in a stream's MORPH to a scene of another ATTACK, the one it goes to from the start (a
+ * shard has no morph); an LFO on it not seen either. */
+#define ONSET 0.2
+static double sharp(uint32_t p)
+{
+    double u = (double)frs_param_get(p) / 127.0;
+    double s = p == P_GL_ATTACK ? 0.002 * pow(750.0, u) : 0.005 * pow(1000.0, u);
+    return 1.0 / (1.0 + (s / ONSET) * (s / ONSET));
+}
+
+static void strike(layer_t *l, int note, int repeat, double w)
 {
     uint32_t ms = frs_ms(), b = (uint32_t)(note & 127);
     if (!l->any || ms != l->ms) {
@@ -48,8 +70,13 @@ static void strike(layer_t *l, int note, int repeat)
     if (repeat < 0)
         repeat = (int)(l->prev[b >> 5] >> (b & 31u) & 1u);
     l->cur[b >> 5] |= 1u << (b & 31u);
-    l->n += repeat ? 0.5 : 1.0;
+    l->n += (repeat ? 0.5 : 1.0) * w;
     l->raw++;
+    if (nbins && bin_len > 0) {
+        long k = ((long)ms - bin_in) * nbins / bin_len;
+        if (k >= 0 && k < nbins)
+            bins[k] += (repeat ? 0.5 : 1.0) * (l == &lay[0] ? 1.6 : 1.0);
+    }
 }
 
 void energy_log(uint8_t type, int note, float v);
@@ -59,13 +86,15 @@ void energy_log(uint8_t type, int note, float v)
     if (!counting)
         return;
     if (type == EV_ON)
-        strike(&lay[0], note, -1);
+        strike(&lay[0], note, -1, 1.0);
     else if (type == EV_SPON)
-        strike(&lay[1], note, -1);
-    else if (type == EV_BON || type == EV_BRET)
-        strike(&lay[2], bass_note = note, -1);
+        strike(&lay[1], note, -1, sharp(P_GL_ATTACK));
+    else if (type == EV_BON)
+        strike(&lay[2], bass_note = note, -1, sharp(P_BS_ATTACK));
+    else if (type == EV_BRET)            /* (a legato step: the pitch moves, no attack) */
+        strike(&lay[2], bass_note = note, -1, 1.0);
     else if (type == EV_BPUL)            /* (the note held, struck again) */
-        strike(&lay[2], bass_note, 1);
+        strike(&lay[2], bass_note, 1, sharp(P_BS_ATTACK));
 }
 
 /* a stream's gestures in [in, out): a slider's (or a CC's) events less than GAP ms apart are one drag */
@@ -91,7 +120,7 @@ static long gestures(const fst_file *f, uint32_t in, uint32_t out)
                 k = 384 + (e.a[0] >> 4 & 7);
             break;
         case FST_HOLD: count = e.a[2] != 0; break;
-        case FST_KEY_UP: case FST_RECORDING: case FST_STATE: case FST_OPEN: case FST_STORE: count = 0; break;
+        case FST_KEY_UP: case FST_RECORDING: case FST_STATE: case FST_OPEN: case FST_STORE: case FST_CUT_STOP: count = 0; break;
         default: break;
         }
         if (k >= 0) {
@@ -177,7 +206,7 @@ static double arg_d(const char *s) { return strtod(s, 0); }
 int main(int argc, char **argv)
 {
     const char *path = 0;
-    double r0 = R0, r98 = R98, wg = 1.0, wb = 1.5, wd = 0.5, wh = 4.0, bpm = 0.0, mins, G, B, D, H, changes, raw, energy;
+    double r0 = R0, r98 = R98, wg = 1.0, wb = 0.8, wd = 0.5, wh = 4.0, bpm = 0.0, mins, G, B, D, H, changes, raw, energy;
     long len = 180000, in = 0, out = -1, factory = -1, h, secs = 0;
     int i, r, shard;
     size_t n = 0;
@@ -196,6 +225,8 @@ int main(int argc, char **argv)
             r0 = arg_d(argv[++i]);
         else if (!strcmp(argv[i], "--r98") && i + 1 < argc)
             r98 = arg_d(argv[++i]);
+        else if (!strcmp(argv[i], "--bins") && i + 1 < argc)
+            nbins = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--factory") && i + 1 < argc)
             factory = atol(argv[++i]);
         else if (!strcmp(argv[i], "--w") && i + 1 < argc) {
@@ -206,8 +237,8 @@ int main(int argc, char **argv)
         else
             return fprintf(stderr, "energy: what is %s? (engine/tools/energy.c says)\n", argv[i]), 1;
     }
-    if ((!path) == (factory < 0) || len < 1000 || len > 3600000 || in < 0 || r0 <= 0.0 || r98 <= r0)
-        return fprintf(stderr, "energy [--len MS] [--in MS] [--out MS] [--r0 X --r98 Y] [--w G,B,D,H] [--factory I] FILE|-\n"), 1;
+    if ((!path) == (factory < 0) || len < 1000 || len > 3600000 || in < 0 || r0 <= 0.0 || r98 <= r0 || nbins < 0 || nbins > MAXBINS)
+        return fprintf(stderr, "energy [--len MS] [--in MS] [--out MS] [--r0 X --r98 Y] [--w G,B,D,H] [--factory I] [--bins N] FILE|-\n"), 1;
     if (frs_init(44100.0f))
         return 4;
     if (factory >= 0) {
@@ -245,6 +276,9 @@ int main(int argc, char **argv)
     if (out - in < 1000)
         return fprintf(stderr, "energy: under a second on air (in %ld, out %ld, the stream %u ms)\n", in, out, f.ms), 1;
     memset(lay, 0, sizeof lay);
+    memset(bins, 0, sizeof bins);
+    bin_in = in;
+    bin_len = out - in;
     counting = in == 0;
     if (fst_air_open(&air, &f, 44100.0f))
         return 4;
@@ -268,7 +302,7 @@ int main(int argc, char **argv)
     D = lay[0].n / mins;
     H = shard ? 0.0 : (double)gestures(&f, (uint32_t)in, (uint32_t)out) / mins;
     changes = wg * G + wb * B + wd * D;
-    raw = changes * sqrt((bpm > 1.0 ? bpm : 1.0) / 90.0) + wh * H;
+    raw = changes * (bpm > 1.0 ? bpm : 1.0) / 90.0 + wh * H;
     energy = 1000.0 * log1p(raw / r0) / log1p(r98 / r0);
     energy = energy < 0.0 ? 0.0 : energy > 1000.0 ? 1000.0 : energy;
     printf("{\"kind\":\"%s\",\"name\":", shard ? "shard" : "stream");
@@ -278,6 +312,12 @@ int main(int argc, char **argv)
     printf(",\"measured_on\":\"%s\",\"in\":%ld,\"out\":%ld,\"G\":%.2f,\"B\":%.2f,\"D\":%.2f,\"H\":%.2f,\"bpm\":%.1f,"
            "\"raw\":%.2f,\"energy\":%d,\"r0\":%g,\"r98\":%g,\"strikes\":{\"G\":%ld,\"B\":%ld,\"D\":%ld}}\n",
            frs_version(), in, out, G, B, D, H, bpm, raw, (int)lround(energy), r0, r98, lay[1].raw, lay[2].raw, lay[0].raw);
+    if (nbins) {                         /* (the same line, "bins" after it: a second JSON line keeps the first as it was) */
+        printf("{\"bins\":[");
+        for (i = 0; i < nbins; i++)
+            printf("%s%.1f", i ? "," : "", bins[i]);
+        printf("]}\n");
+    }
     free(b);
     frs_close();
     return 0;

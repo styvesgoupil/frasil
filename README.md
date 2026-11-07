@@ -48,6 +48,7 @@ firmwares uses. It has no area of its own:
 | The 16 scenes | `0xDA000` | two 4 KiB sectors, written in turn, each record with a CRC |
 | The scenes' bass sequences and TEMPOs | `0xD8000` | the same |
 | The scenes' drone sequences | `0xD6000` | the same |
+| The scenes' names past their sixteenth character | `0xD2000` | the same |
 | Your presets (drone, GLINT, bass) | the flash too | the same |
 | The settings: the sound at power-on, MIDI channels, tempo, LOAD, the metronome and COUNT-IN, KEYS, the learned CCs | `0xFC000` | the same, in the sector pair where Felucca keeps its globals |
 | The panel's calibration | `0xDC000` | in Felucca's own format, so it stays valid from one to the other |
@@ -138,7 +139,7 @@ low-pass.
 | **SEQ** | the track's sequence, the drone's included, opening on its ON/OFF; ON, its three pages, and the arpeggio OFF. Held: the track's STACK |
 | **REC** | records into the track's sequence, from any page: LIVE (counted in for a bar from silence, at once over a sequence playing), again STEP, again OFF. Leaving the SEQ and ARP pages ends a take. REC flashes on the beat while it records. Held: the metronome off, or back on. Hold OCT− and press REC on a SEQ page: CLEAR |
 | **SEL** | HARMONY: root, scale, chord, voicing. Hold SEL and tap a key: a single note over what is lit, whatever STACK says; on the bass, it takes the note's place |
-| **LFO, FX, GLO** | the three LFOs and their targets (×6), GENERATIVE FX, CLOUD (×3), MASTER FILTER, LOFI TAPE and PUMP (×2), GLOBAL, MIDI, MASTERING, MASTER EQ (×2), ROUTING, SCREEN and RECORD (METRONOME, COUNT-IN). Hold FX: FREEZE. Hold LFO and turn K1–K4: that setting onto an LFO. Hold GLO and move a CC: MIDI learn |
+| **LFO, FX, GLO** | the three LFOs and their targets (×6), GENERATIVE FX, CLOUD (×3), MASTER FILTER, LOFI TAPE and PUMP (×2), GLOBAL, MIDI, MASTERING, MASTER EQ (×2), ROUTING, SCREEN and RECORD (METRONOME, COUNT-IN, TUNE A4). Hold FX: FREEZE. Hold LFO and turn K1–K4: that setting onto an LFO. Hold GLO and move a CC: MIDI learn |
 | **HOME** | the play page; again: KEYS (how the keys play the track: HARMONY, NOTES, LATCH, STACK); MIXER; CLOUD SEND (each track's SPACE); the living logo screen. Hold: on-screen help (5 pages, turn SELECT) |
 | **SAVE** | LOAD or SAVE. LOAD: SCENES (K1 or SELECT the slot, or NEW SHARD above slot 01 to start fresh; MORPH, LOAD; PLAY loads). SAVE: WHAT (a scene, or a drone, GLINT or bass preset), INTO (a slot, or a new preset or one of yours), then NAME IT; SEL goes on, FX goes back, SAVE twice goes straight to saving. Hold SAVE and press a white key: load that scene. Hold SAVE and press REC: store the current scene |
 | **PLAY** | with nothing playing, the scene (its three tracks, as held); else the transport: the three sequences stop together or start together from the top, the arpeggios wait or go on; on SCENES, load. Tapped twice quick while anything plays, or held: RELEASE ALL; with nothing playing, RESTORE: the scene again, its sequences from the top. Starting or held, it restarts the beat there, as a MIDI Start (a MIDI clock's beats are left as they are) |
@@ -182,13 +183,13 @@ CLOUD, the reverb's return; hold OCT- and turn K1-K4 for each track's pan. PUMP 
 to MIDI clock or TEMPO, its release, attack and offset on PUMP II. MASTERING (GLO) is a light compressor on the output, with its gain reduction on screen.
 MASTER FILTER (FX) is a low-pass or a high-pass with resonance on the tracks you choose, LOFI TAPE (FX) puts them on a
 saturated, wobbling tape (a cassette's reels on screen), and MASTER EQ (GLO) shapes the output before the compressor:
-three bands and seven presets, its curve drawn. Each scene keeps them. ROUTING (GLO) puts the filter and the tape before or after the cloud, and SPK/JACK quiets the FM-1's own output (speaker and jack) while the USB audio goes on; SCREEN has ANIMATIONS LOW to keep the screen quick with a heavy scene, and SCREENSAVER: after ten minutes untouched, the screen goes black and the logo drifts.
+three bands and seven presets, its curve drawn. Each scene keeps them. ROUTING (GLO) puts the filter and the tape before or after the cloud, and SPK/JACK quiets the FM-1's own output (speaker and jack) while the USB audio goes on; SCREEN has ANIMATIONS LOW to keep the screen quick with a heavy scene, and SCREENSAVER: after IDLE TIME untouched (1 to 60 minutes, 10 at first), the screen goes black and the logo drifts; HEADER draws the band at the top in the track's colour (INVERT) or dark with the words in that colour (DARK).
 
 **Scenes and presets.** 16 slots, 7 of them factory scenes that play once loaded, each at its own TEMPO (NORTH
 RIVER, LUMIERE NOCTURNE, RESILIENCE, LONG NIGHT, OPEN WATER, WHITEOUT, THAW). A new FM-1 starts on NEW SHARD, a fresh
 sound to begin from. A scene holds the sound, its TEMPO, the latched drones, the arpeggios' notes, the bass and the
-three sequences. SAVE, then SAVE: store a scene into a slot, or a track's sound as a preset of your own (then name it,
-up to sixteen characters); SAVE held and a white key loads one of the 16, as does PLAY on SCENES (SAVE, then LOAD) or a
+three sequences. SAVE, then SAVE: store a scene into a slot, or a track's sound as a preset of your own (then name it:
+a scene up to 32 characters, a preset sixteen); SAVE held and a white key loads one of the 16, as does PLAY on SCENES (SAVE, then LOAD) or a
 MIDI Program Change. MORPH glides into a scene, up to two minutes, or cuts; LOAD on SND+NOTES lets everything go and
 plays the scene's notes at its TEMPO, its sequences from the top, on SND ONLY changes the sound alone. Hold OCT-, then
 EDIT, to hear the scene as saved (COMPARE); SAVE lights while the sound has changed. Scenes saved by an earlier FRASIL

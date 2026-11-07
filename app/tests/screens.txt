@@ -339,6 +339,98 @@ turn K2 30
 turn K3 40
 wait 2500
 shot screen-tape.png
+# LOFI TAPE II (the next page, only while TAPE is on): TAPE SPEED, TONE, NOISE, DROPOUT; round again to LOFI TAPE
+tap FX
+wait 30
+expect page 62
+turn K2 -20
+turn K3 40
+turn K4 50
+wait 2500
+shot screen-tape2.png
+turn K2 20
+turn K3 -40
+turn K4 -50
+# TAPE SPEED (K1): x0.25 (0) .. x1.00 (64) .. x2.00 (127); a quick turn (detents 10 ms apart: four steps each) stops at x1.00 as
+# it passes it, the next detent goes on
+turn K1 -20 10
+expect p227 0
+wait 300
+turn K1 1
+expect p227 1
+turn K1 17 10
+expect p227 64
+turn K1 1 10
+expect p227 68
+turn K1 -1 10
+expect p227 64
+expect semistag 0
+expect toneword 0
+wait 300
+# a slow detent a hundredth (engine/params.c tape_oct: x0.48 .. x1.58), x0.99, x0.98 (engine/tests/api.c their texts);
+# landed on a half-tone, the tones between the reels (-1.5 over TONES at x0.84: three half-tones down), between them
+# nothing
+turn K1 -1 200
+expect p227 63
+turn K1 -1 200
+expect p227 62
+wait 100
+expect semistag 0
+turn K1 -14 200
+expect p227 48
+wait 100
+expect semistag -3
+expect toneword 2
+shot screen-tapespeed.png
+turn K1 -1 200
+wait 100
+expect semistag 0
+expect toneword 0
+# x0.50 an octave down (14: -6 TONES), a tone down (53, x0.89: -1 TONE), half a tone (58, x0.94: -0.5 TONES), x1.50
+# the fifth (114: +3.5 TONES; x1.49 beside it not), the ends two octaves down (0, x0.25) and one up (127, x2.00);
+# x1.00 nothing
+setp 227 14
+wait 300
+expect semistag -12
+expect toneword 2
+shot screen-tapespeed-half.png
+setp 227 53
+wait 300
+expect semistag -2
+expect toneword 1
+shot screen-tapespeed-tone.png
+setp 227 58
+wait 100
+expect semistag -1
+expect toneword 2
+setp 227 114
+wait 300
+expect semistag 7
+expect toneword 2
+shot screen-tapespeed-fifth.png
+setp 227 113
+wait 100
+expect semistag 0
+setp 227 0
+wait 100
+expect semistag -24
+setp 227 127
+wait 100
+expect semistag 12
+setp 227 64
+wait 100
+expect semistag 0
+expect toneword 0
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+wait 30
+expect page 34
 turn K1 -1
 tap FX
 tap FX

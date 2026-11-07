@@ -203,6 +203,21 @@ static struct {
     float clk_ms;                        /* ms between clocks, smoothed finely (the tempo, for the delay) */
 } grid;
 
+/* LOFI TAPE II's TAPE SPEED as it plays (tape_run): the octaves it moves (params.c tape_oct), gliding to its setting's as
+ * a tape slows or speeds up; tape_tk its factor on the grid's pace and the voices' times, 1 while a clock leads (a MIDI
+ * clock, the host's tempo: the pitch alone then) */
+static float tape_l2, tape_sent, tape_tk = 1.0f;
+static uint32_t tape_at;
+static uint8_t tape_clocked, tape_fresh = 1;   /* (fresh: the engine opened, its first run there at once, no glide) */
+
+static int grid_clocked(uint32_t now) { return now - grid.clk_at < 500u && grid.clk_ms > 1.0f; }
+
+/* a MIDI clock's milliseconds on the grid: the clock's coming in, else TEMPO's at TAPE SPEED */
+static float grid_ms_tick(uint32_t now)
+{
+    return grid_clocked(now) ? grid.clk_ms : 2500.0f / ((float)(st.v[P_TEMPO] + 30u) * tape_tk);
+}
+
 /* GLINT's step sequencer (GLINT I's PLAYS on SEQ): SC_SEQ steps, a byte each, its note (SQ_REST, a note, or SQ_TIE: the
  * last one held on) and SQ_ACC; SEQ LENGTH of them, played on the arpeggiator's grid (RATE, CHANCE) from the step it
  * started on; the keys transpose it along the scale (RECORD OFF), or write into it (STEP: at STEP, then on; LIVE: on
@@ -476,11 +491,16 @@ static float delay_s_now = 0.25f;        /* GLINT's delay time from the tempo (d
 
 static uint8_t saved_bsp;                /* (the bass's SPACE, as saved_bq has the rest: scene_t's last) */
 static uint8_t saved_gv;                 /* (GLINT's AUTO VIB, the same) */
+static uint8_t saved_tp[4];              /* (LOFI TAPE II's four, the same: scene_t's tp_flutter ..) */
+static uint8_t saved_amt[SC_LFO_AMT], saved_sw;   /* (the LFOs' AMOUNTs, SWELL, the same: scene_t's lfo_amt, swell) */
 static uint8_t saved_v[NSOUND], saved_seq[SC_SEQ], saved_bnote[SC_BSEQ], saved_bq[NBQ];   /* (the sound as last loaded or
                                                                                      * saved; saved_bq: as scene_t has
                                                                                      * them from bq_on) */
 static uint8_t saved_dnote[SC_DSEQ][DQ_NOTES], saved_dq[NDQ];   /* (the drone's sequence, the same; saved_dq: from dq_on) */
 static void drone_resolve(uint8_t *v);
+/* TUNE A4, the platform's and not the scene's: log2 of A4 over 440 Hz, every voice's pitch (the notes as they are); 0,
+ * 440 Hz, but where the FM-1's shell sets it (its settings, app.c a4_take) */
+static float a4_l2;
 
 static void engine_push(void)
 {
@@ -497,7 +517,11 @@ static void engine_push(void)
     } else {
         params_to_engine(st.v, st.v[P_FREEZE], &b);
     }
+    b.a4_l2 = a4_l2;
     b.glint.delay_s = delay_s_now;
+    b.tape_l2 = tape_l2;                 /* TAPE SPEED as it glides (tape_run): the pitch, and the times unless clocked */
+    b.time_l2 = tape_clocked ? 0.0f : tape_l2;
+    tape_sent = tape_l2;
     frasil_set(&b);
     st.engine_dirty = 0;
 }
@@ -675,6 +699,13 @@ static void drone_resolve(uint8_t *v)    /* a sound as it is kept, its drone's p
             v[DRONE_P[i]] = DRONE_PRESET[(v[P_DR_PRESET] - 1u) % NDPRESET][i];
 }
 
+static void tp_now(uint8_t *o)           /* LOFI TAPE II's four as they are: TAPE SPEED, TONE, NOISE, DROPOUT */
+{
+    uint32_t i;
+    for (i = 0; i < 4u; i++)
+        o[i] = st.v[P_TP_FLUTTER + i];
+}
+
 static void sound_mark(void)
 {
     uint32_t i;
@@ -686,6 +717,9 @@ static void sound_mark(void)
     bq_now(saved_bq);                    /* (the scene's TEMPO too: scene_t's, after bq_trans) */
     saved_bsp = st.v[P_BS_SPACE];
     saved_gv = st.v[P_GL_VIB_AUTO];
+    tp_now(saved_tp);
+    memcpy(saved_amt, &st.v[P_L1_AMT1], sizeof saved_amt);
+    saved_sw = st.v[P_SWELL];
     memcpy(saved_dnote, dnote, sizeof dnote);
     dq_now(saved_dq);
     st.dirty = 0;
@@ -694,7 +728,7 @@ static void sound_mark(void)
 static int sound_changed(void)
 {
     uint32_t i;
-    uint8_t q[NBQ], d[NDQ];
+    uint8_t q[NBQ], d[NDQ], t[4];
     for (i = 0; i < NSOUND; i++)
         if (kept_v(i) != saved_v[i])
             return 1;
@@ -703,8 +737,10 @@ static int sound_changed(void)
             return 1;
     bq_now(q);
     dq_now(d);
+    tp_now(t);
     return memcmp(bnote, saved_bnote, sizeof bnote) || memcmp(q, saved_bq, sizeof q) || st.v[P_BS_SPACE] != saved_bsp ||
-           st.v[P_GL_VIB_AUTO] != saved_gv || memcmp(dnote, saved_dnote, sizeof dnote) || memcmp(d, saved_dq, sizeof d);
+           st.v[P_GL_VIB_AUTO] != saved_gv || memcmp(t, saved_tp, sizeof t) || memcmp(dnote, saved_dnote, sizeof dnote) || memcmp(d, saved_dq, sizeof d) ||
+           memcmp(&st.v[P_L1_AMT1], saved_amt, sizeof saved_amt) || st.v[P_SWELL] != saved_sw;
 }
 
 /* the sequencer's settings that are its steps' (NOTE, ACCENT and LENGTH show the step on STEP, as the bass's: bseq_view),
@@ -1104,7 +1140,7 @@ static void pulse_run(void)
         float d = g - bp.ng;
         bp.fresh = (d < 0.0f ? d + 9600.0f : d) <= 3.0f;   /* (the grid wraps at 9600) */
     }
-    ms_tick = eng_ms() - grid.clk_at < 500u && grid.clk_ms > 1.0f ? grid.clk_ms : 2500.0f / (float)(st.v[P_TEMPO] + 30u);
+    ms_tick = grid_ms_tick(eng_ms());
 #ifdef PLAT_HOST
     if (r) {
         bass_view_t bv;
@@ -1916,15 +1952,46 @@ static void dseq_take(const scene_t *sc)
 /* a scene's MORPH under way: what each setting still lacks of the scene's at the start (morph_off goes from it to 0) */
 static struct {
     uint8_t on;
+    uint8_t anc;                         /* ANCHOR's way back, not a scene's */
     uint32_t t0, dur;
-    float d[NSOUND];
-    char name[SC_NAME + 1];
+    float d[NMORPH];
+    char name[SC_NAME_ALL + 1];          /* the scene it goes to (its 32) */
 } mo;
+
+/* ANCHOR (the FM-1's OCT- and OCT+ together; frs_anchor_*): the scene as it is now, kept in RAM alone (never the store,
+ * no flash written), to come back to gliding (MORPH: the FM-1's and the iPad's press, since 3.1) or at once (BACK:
+ * their hold). What comes back: what a scene keeps of the sound and of its tracks (every setting of the sound, the
+ * effects, HARMONY, each layer's PLAYS, ARP's and SEQ's settings, TEMPO, BASS TONE, LOFI TAPE II's four, the LFOs'
+ * AMOUNTs, SWELL, the three sequences' steps); not what plays: the notes latched or held sound on, the sequences play
+ * on from where they are. A take under way keeps its
+ * track's steps, PLAYS and SEQ LENGTH (the hand's). LOFI TAPE II's four and the AMOUNTs (past NMORPH) switch at the half,
+ * the AMOUNTs with their TARGETs; SWELL glides (morph_off, eng_swell hearing it).
+ * Not a scene's, not kept: KEYS, FREEZE, what the keys play, SWELL's ENV held and CC 11 (of the moment), the runner's
+ * own (the FM-1's octave: its own, beside).
+ * MORPH: the settings that glide (anc_glides) go from where they are heard to the anchor's on the scene MORPH's path
+ * (morph_off, a hundred times a second, the DSP's 25 ms glide under it), smoothstep; the rest (a choice among a few: a
+ * preset, MODEL, TYPE, ROOT, SCALE, CHORD, a TARGET, a RATE, PLAYS, TEMPO, SEQ LENGTH, the steps) switch together at
+ * its half, where the sound moves most. A hand on a setting takes it out of either; a scene taken drops the anchor and
+ * the way back under way, its switch with it */
+#define ANCHOR_MS 8000u                  /* MORPH's (the FM-1's press, its long press until 3.1; 3.5 s until 3.0.2-b2, too
+                                          * quick to follow; 14 s in b3, too long) */
+#define ANCHOR_NAME "ANCHOR"             /* its one name, the screen's too (the FM-1's app.c) */
+static struct {
+    uint8_t on;                          /* set */
+    uint8_t due;                         /* a way back's switch still to come, at mo.t0 + half */
+    uint8_t seqs;                        /* the sequences it takes then: 1 GLINT's, 2 the bass's, 4 the drone's */
+    uint32_t half;
+    uint32_t pend[(NPARAM + 31u) / 32u]; /* the settings it switches then */
+    scene_t sc;                          /* the anchor (its notes in it, as STORE has them: never played back) */
+} anc;
+static void anchor_drop(void);           /* (below) */
+static void anc_switch(void);
 
 /* KEYS turned (the layer's HARMONY, NOTES, LATCH, STACK). LATCH off lets the layer's latched notes go, as KEY MODE did
  * (the drones' chords latched; GLINT's ring, on KEYS; the bass's note latched, on KEYS), what is held sounding on; the
  * drones' is KEY MODE's (P_KEYS: LATCH on, HOLD off) */
 static void arp_keep_held(arp_t *a);     /* (the arpeggiator, below) */
+static void anc_hand(int p);             /* (ANCHOR, below) */
 static void keys_set(int p, int32_t x)
 {
     uint32_t k, r;
@@ -1967,6 +2034,8 @@ static void param_set(int p, int32_t x)
         return;
     set_was = st.v[p];
     st.v[p] = (uint8_t)x;
+    if (anc.due)                         /* (ANCHOR's way back: this one the hand's) */
+        anc_hand(p);
     if (p == P_GL_PRESET)                /* a preset: its sound into the GLINT parameters */
         glint_preset(st.v, (uint32_t)x);
     if (p == P_KEYS) {                   /* to held notes, or back: the latched ones go; KEYS' LATCH, the drones' and the
@@ -2006,7 +2075,7 @@ static void param_set(int p, int32_t x)
         bseq_set(p, x);
     if ((p >= P_DQ_ON && p <= P_DQ_STEP) || (p >= P_DQ_NOTES && p <= P_DQ_UNDO))
         dseq_set(p, x);
-    if (p < NSOUND)                      /* a hand on it: out of the scene's MORPH (a preset: all it sets) */
+    if (p < NMORPH)                      /* a hand on it: out of the scene's MORPH (a preset: all it sets) */
         morph_off[p] = mo.d[p] = 0.0f;
     if (p == P_DR_PRESET) {
         uint32_t i;
@@ -2047,10 +2116,13 @@ static void param_set(int p, int32_t x)
         st.engine_dirty = 1;
     } else if (p == P_TEMPO) {           /* (the scene's TEMPO too) */
         st.dirty = (uint8_t)sound_changed();
-    } else if (p == P_BS_WEIGHT || p == P_BS_PUNCH || p == P_BS_BITE || p == P_BS_SPACE || p == P_GL_VIB_AUTO) {   /* (the scene's, the
-                                                                                                     * sound's) */
+    } else if (p == P_BS_WEIGHT || p == P_BS_PUNCH || p == P_BS_BITE || p == P_BS_SPACE || p == P_GL_VIB_AUTO ||
+               (p >= P_TP_FLUTTER && p <= P_TP_DROPOUT)) {   /* (the scene's, the sound's) */
         st.dirty = (uint8_t)sound_changed();
         st.engine_dirty = 1;
+    } else if ((p >= P_L1_AMT1 && p <= P_L3_AMT4) || p == P_SWELL) {   /* (the scene's too: the LFOs and eng_swell hear
+                                                                         * them at their next pass) */
+        st.dirty = (uint8_t)sound_changed();
     }
 }
 
@@ -2118,6 +2190,9 @@ static void scene_notes_take(scene_t *sc)
     sc->gl_vib = st.v[P_GL_VIB_AUTO];
     dq_now(&sc->dq_on);                  /* the drone's sequence, its settings */
     memcpy(sc->dnote, dnote, sizeof dnote);
+    tp_now(&sc->tp_flutter);             /* LOFI TAPE II's four, */
+    memcpy(sc->lfo_amt, &st.v[P_L1_AMT1], sizeof sc->lfo_amt);   /* the LFOs' AMOUNTs, SWELL, last (the name: the caller's) */
+    sc->swell = st.v[P_SWELL];
 }
 
 /* an arpeggio on a scene's notes, latched, from the next step */
@@ -2165,6 +2240,42 @@ static void scene_notes_play(const scene_t *sc)
 
 static void new_shard(scene_t *out);     /* (below) */
 
+/* a scene from before LOFI TAPE II (or a factory scene) with its four as the tape was (TAPE_NONE: TAPE SPEED X1.00, TONE
+ * in the middle, no hiss, no dropouts; not their defaults, which colour it: tape_defaults) */
+static void tape_none(scene_t *sc)
+{
+    sc->tp_flutter = TAPE_NONE[0];
+    sc->tp_tone = TAPE_NONE[1];
+    sc->tp_noise = TAPE_NONE[2];
+    sc->tp_dropout = TAPE_NONE[3];
+}
+
+static void tape_defaults(scene_t *sc)   /* a new one's: LOFI TAPE II's four at their defaults (X1.00, TONE +10, 0, 0) */
+{
+    sc->tp_flutter = PD[P_TP_FLUTTER].def;
+    sc->tp_tone = PD[P_TP_TONE].def;
+    sc->tp_noise = PD[P_TP_NOISE].def;
+    sc->tp_dropout = PD[P_TP_DROPOUT].def;
+}
+
+/* the LFOs' twelve AMOUNTs of "FRS|" (3.0.2-b5's test builds: -100 % .. +100 %, 100 its 0 %), in place, as "FRS}"'s
+ * multipliers: the size of each, |v - 100| (+100 % x1.00, -35 % x0.35; a multiplier has no sign); past 200, x1.00 */
+static void amt_pct_over(uint8_t *a)
+{
+    uint32_t i;
+    for (i = 0; i < SC_LFO_AMT; i++)
+        a[i] = a[i] > 200u ? (uint8_t)PD[P_L1_AMT1].def : (uint8_t)(a[i] >= 100u ? a[i] - 100u : 100u - a[i]);
+}
+
+/* a scene with what "FRS}" added at its defaults: no name past sixteen, every LFO AMOUNT at x1.00 (the LFOs as they
+ * moved them), SWELL at 0 */
+static void more_none(scene_t *sc)
+{
+    memset(sc->name_more, 0, sizeof sc->name_more);
+    memset(sc->lfo_amt, PD[P_L1_AMT1].def, sizeof sc->lfo_amt);
+    sc->swell = PD[P_SWELL].def;
+}
+
 /* a scene with no arpeggio on the bass: its settings' defaults, no notes */
 static void barp_none(scene_t *sc)
 {
@@ -2193,6 +2304,8 @@ static void factory_get(uint32_t s, scene_t *out)
     memset(out, 0, sizeof *out);
     barp_none(out);
     dseq_none(out);
+    tape_none(out);
+    more_none(out);
     memcpy(out->name, f->name, SC_NAME);
     if (f->whole) {
         memcpy(out->v, f->sound, FACTORY_NV);
@@ -2232,13 +2345,16 @@ static void factory_get(uint32_t s, scene_t *out)
     out->bq_len = f->bq_len;
 }
 
-/* a scene's name as text, t SC_NAME + 1 long (all sixteen used: no NUL in the scene) */
+/* a scene's name as text, t SC_NAME_ALL + 1 long: its first sixteen (all used: no NUL in the scene), then, those all
+ * used, the rest (name_more) */
 static char *name_text(const scene_t *sc, char *t)
 {
-    uint32_t i;
-    for (i = 0; i < SC_NAME && sc->name[i]; i++)
-        t[i] = sc->name[i];
-    t[i] = 0;
+    uint32_t i, n;
+    for (n = 0; n < SC_NAME && sc->name[n]; n++)
+        t[n] = sc->name[n];
+    for (i = 0; n == SC_NAME + i && i < SC_NAME_MORE && sc->name_more[i]; i++)
+        t[n++] = sc->name_more[i];
+    t[n] = 0;
     return t;
 }
 
@@ -2258,6 +2374,8 @@ static void new_shard(scene_t *out)      /* NEW SHARD (params.c): made as a fact
     uint32_t i;
     *out = NEW_SHARD;
     dseq_none(out);
+    tape_defaults(out);
+    more_none(out);
     glint_preset(out->v, out->v[P_GL_PRESET]);
     arp_defaults(out->v);
     later_defaults(out->v, P_BS_DRIVE);
@@ -2266,9 +2384,12 @@ static void new_shard(scene_t *out)      /* NEW SHARD (params.c): made as a fact
 }
 
 /* a scene's earlier layouts (a shard's, as the River and the iPad keep them; the FM-1's store has its own records), each
- * its bytes: this one's, FRSz (3.0: the drone's sequence last); FRSy's, before it; 2.7's test builds' FRSx (before AUTO
+ * its bytes: this one's, FRS} (FRS|'s bytes too: frasil_engine.c frs_scene_amt_over; the name's rest, the LFOs' AMOUNTs, SWELL last); FRS{'s (LOFI TAPE II's four last), before
+ * it; FRSz's (3.0: the drone's sequence last), before that; FRSy's; 2.7's test builds' FRSx (before AUTO
  * VIB), FRSw (before the bass's SPACE), FRSv (before BASS TONE), FRSu (the first: to the bass's RATE); 2.6's FRSt */
-#define FRSZ_SCENE ((uint32_t)sizeof(scene_t))
+#define FRSZ_SCENE 586u
+#define FRSTP_SCENE 590u                 /* ("FRS{": LOFI TAPE II's four after FRSz's) */
+#define FRSBAR_SCENE ((uint32_t)sizeof(scene_t))   /* ("FRS}": the name's rest, the LFOs' AMOUNTs, SWELL after FRS{'s) */
 #define FRSY_SCENE 324u
 #define FRSX_SCENE 323u
 #define FRSW_SCENE 322u
@@ -2277,14 +2398,15 @@ static void new_shard(scene_t *out)      /* NEW SHARD (params.c): made as a fact
 #define FRST_SCENE 297u
 
 /* sc, as a layout read it, its first n bytes (whatever was after them), made over in place: what it did not have yet at
- * its defaults (the drone's sequence none; AUTO VIB, the bass's SPACE, BASS TONE 0; before FRSv, PLAYS' 1 (SEQUENCE on)
+ * its defaults (no name past sixteen, the LFOs' AMOUNTs x1.00, SWELL 0; LOFI TAPE II's four as the tape was; the
+ * drone's sequence none; AUTO VIB, the bass's SPACE, BASS TONE 0; before FRSv, PLAYS' 1 (SEQUENCE on)
  * is 2, the bass's arpeggio none, its settings and GATE their defaults; FRSt's bass, its sixteen notes then their
  * lengths, onto the one grid). 0, or -1: not one it knows, as it was */
 static int scene_over(scene_t *sc, uint32_t n)
 {
-    if (n == FRSZ_SCENE)
+    if (n == FRSBAR_SCENE)
         return 0;
-    if (n != FRSY_SCENE && n != FRSX_SCENE && n != FRSW_SCENE && n != FRSV_SCENE && n != FRSU_SCENE && n != FRST_SCENE)
+    if (n != FRSTP_SCENE && n != FRSZ_SCENE && n != FRSY_SCENE && n != FRSX_SCENE && n != FRSW_SCENE && n != FRSV_SCENE && n != FRSU_SCENE && n != FRST_SCENE)
         return -1;
     if (n == FRSX_SCENE) {               /* (AUTO VIB not yet) */
         sc->gl_vib = 0;
@@ -2302,21 +2424,34 @@ static int scene_over(scene_t *sc, uint32_t n)
         sc->bq_on = sc->bq_on ? SQT_SEQ : 0u;   /* (SEQUENCE on was 1) */
         barp_none(sc);
     }
-    dseq_none(sc);                       /* (every one before FRSz: no drone's sequence) */
+    if (n < FRSZ_SCENE)
+        dseq_none(sc);                   /* (every one before FRSz: no drone's sequence) */
+    if (n < FRSTP_SCENE)
+        tape_none(sc);                   /* (every one before FRS{: LOFI TAPE II's four as the tape was) */
+    more_none(sc);                       /* (every one before FRS}: no name's rest, the LFOs whole, no SWELL) */
     return 0;
 }
 
 static int grid_top(int start);          /* (below) */
 static void seqs_top(int glint, int bass, int drone);
 
-/* BASS TONE's three, a scene's, as its sound: taken with it */
+/* BASS TONE's three, a scene's, as its sound: taken with it (the other settings past the sound it keeps, the same:
+ * the bass's SPACE, AUTO VIB, LOFI TAPE II's four, the LFOs' AMOUNTs, SWELL) */
 static void bass_tone(const scene_t *sc)
 {
+    uint32_t i;
     st.v[P_BS_WEIGHT] = sc->bs_weight > PD[P_BS_WEIGHT].max ? PD[P_BS_WEIGHT].def : sc->bs_weight;
     st.v[P_BS_PUNCH] = sc->bs_punch > PD[P_BS_PUNCH].max ? PD[P_BS_PUNCH].def : sc->bs_punch;
     st.v[P_BS_BITE] = sc->bs_bite > PD[P_BS_BITE].max ? PD[P_BS_BITE].def : sc->bs_bite;
     st.v[P_BS_SPACE] = sc->bs_space > PD[P_BS_SPACE].max ? PD[P_BS_SPACE].def : sc->bs_space;
     st.v[P_GL_VIB_AUTO] = sc->gl_vib > PD[P_GL_VIB_AUTO].max ? PD[P_GL_VIB_AUTO].def : sc->gl_vib;
+    st.v[P_TP_FLUTTER] = sc->tp_flutter > PD[P_TP_FLUTTER].max ? PD[P_TP_FLUTTER].def : sc->tp_flutter;   /* LOFI TAPE II's */
+    st.v[P_TP_TONE] = sc->tp_tone > PD[P_TP_TONE].max ? PD[P_TP_TONE].def : sc->tp_tone;
+    st.v[P_TP_NOISE] = sc->tp_noise > PD[P_TP_NOISE].max ? PD[P_TP_NOISE].def : sc->tp_noise;
+    st.v[P_TP_DROPOUT] = sc->tp_dropout > PD[P_TP_DROPOUT].max ? PD[P_TP_DROPOUT].def : sc->tp_dropout;
+    for (i = 0; i < SC_LFO_AMT; i++)     /* the LFOs' AMOUNTs, SWELL */
+        st.v[P_L1_AMT1 + i] = sc->lfo_amt[i] > PD[P_L1_AMT1 + i].max ? PD[P_L1_AMT1 + i].def : sc->lfo_amt[i];
+    st.v[P_SWELL] = sc->swell > PD[P_SWELL].max ? PD[P_SWELL].def : sc->swell;
 }
 
 /* a scene's sound and what it plays, taken as a load takes them (from a slot: the FM-1's scene_load; a shard the River
@@ -2326,6 +2461,7 @@ static void scene_take(const scene_t *sc)
 {
     uint32_t i;
     count_stop();                        /* (a count under way: no more) */
+    anchor_drop();                       /* (another scene: no ANCHOR, no way back to it) */
     rec_was.on = 0;                      /* (its PLAYS are the scene's now) */
     for (i = 0; i < NSOUND; i++)
         st.v[i] = sc->v[i] > PD[i].max ? PD[i].max : sc->v[i];
@@ -2467,8 +2603,11 @@ static void eng_scene_go(const scene_t *sc)   /* (the FM-1's scene_go: its slot'
     static const uint32_t MORPH_MS[9] = {0, 1000, 2000, 4000, 8000, 15000, 30000, 60000, 120000};
     static float from[NSOUND];
     uint32_t i, dur = MORPH_MS[st.v[P_MORPH] % 9u];
+    anchor_drop();                       /* (another scene: no ANCHOR; a way back under way glides on from where it is) */
     for (i = 0; i < NSOUND; i++)         /* (where it is now, a MORPH under way too) */
         from[i] = (float)st.v[i] + morph_off[i];
+    for (i = NSOUND; i < NMORPH; i++)    /* (those ANCHOR's alone glides: at the scene's) */
+        morph_off[i] = mo.d[i] = 0.0f;
     if (st.v[P_LOAD]) {
         uint8_t kept[sizeof PLAYS_P];
         for (i = 0; i < sizeof PLAYS_P; i++)
@@ -2484,6 +2623,9 @@ static void eng_scene_go(const scene_t *sc)   /* (the FM-1's scene_go: its slot'
         memcpy(saved_bq, &sc->bq_on, sizeof saved_bq);   /* (PLAYS, SEQ LENGTH, TRANSPOSE, TEMPO, RATE, MODE .. GATE) */
         saved_bsp = sc->bs_space;
         saved_gv = sc->gl_vib;
+        memcpy(saved_tp, &sc->tp_flutter, sizeof saved_tp);
+        memcpy(saved_amt, sc->lfo_amt, sizeof saved_amt);
+        saved_sw = sc->swell;
         memcpy(saved_dnote, sc->dnote, sizeof saved_dnote);   /* (the drone's sequence: what plays stays) */
         memcpy(saved_dq, &sc->dq_on, sizeof saved_dq);
         for (i = 0; i < sizeof PLAYS_P; i++)
@@ -2506,7 +2648,7 @@ static void eng_scene_go(const scene_t *sc)   /* (the FM-1's scene_go: its slot'
         mo.dur = dur;
         name_text(sc, mo.name);
     } else {
-        char t[SC_NAME + 1];
+        char t[SC_NAME_ALL + 1];
         eng_say("LOADED", name_text(sc, t));
     }
 }
@@ -2520,16 +2662,271 @@ static void morph_run(void)              /* a hundred times a second while a MOR
         return;
     morph_at = now;
     k = (float)(now - mo.t0) / (float)mo.dur;
+    if (mo.anc && anc.due && (k >= 1.0f || now - mo.t0 >= anc.half))
+        anc_switch();                    /* (ANCHOR's way back: its choices at its half) */
     if (k >= 1.0f) {
-        mo.on = 0;
-        for (i = 0; i < NSOUND; i++)
+        mo.on = mo.anc = 0;
+        for (i = 0; i < NMORPH; i++)
             morph_off[i] = mo.d[i] = 0.0f;
     } else {
         g = 1.0f - k * k * (3.0f - 2.0f * k);
-        for (i = 0; i < NSOUND; i++)
+        for (i = 0; i < NMORPH; i++)
             morph_off[i] = mo.d[i] * g;
     }
     st.engine_dirty = 1;
+}
+
+/* ------------------------------------------------------------------ ANCHOR --- */
+/* the scene's settings past the sound, where scene_t keeps them (scene_take's) */
+static const struct {
+    uint8_t p;
+    uint16_t at;
+} ANC_X[] = {{P_BQ_ON, offsetof(scene_t, bq_on)}, {P_BQ_STEPS, offsetof(scene_t, bq_steps)},
+             {P_BQ_TRANS, offsetof(scene_t, bq_trans)}, {P_TEMPO, offsetof(scene_t, tempo)},
+             {P_BQ_LEN, offsetof(scene_t, bq_len)}, {P_BA_MODE, offsetof(scene_t, ba_mode)},
+             {P_BA_RANGE, offsetof(scene_t, ba_range)}, {P_BA_CHANCE, offsetof(scene_t, ba_chance)},
+             {P_BQ_GATE, offsetof(scene_t, bq_gate)}, {P_BS_WEIGHT, offsetof(scene_t, bs_weight)},
+             {P_BS_PUNCH, offsetof(scene_t, bs_punch)}, {P_BS_BITE, offsetof(scene_t, bs_bite)},
+             {P_BS_SPACE, offsetof(scene_t, bs_space)}, {P_GL_VIB_AUTO, offsetof(scene_t, gl_vib)},
+             {P_DQ_ON, offsetof(scene_t, dq_on)}, {P_DQ_RATE, offsetof(scene_t, dq_rate)},
+             {P_DQ_LEN, offsetof(scene_t, dq_len)}, {P_DQ_GATE, offsetof(scene_t, dq_gate)},
+             {P_DQ_CHANCE, offsetof(scene_t, dq_chance)}, {P_DQ_TRANS, offsetof(scene_t, dq_trans)},
+             {P_TP_FLUTTER, offsetof(scene_t, tp_flutter)}, {P_TP_TONE, offsetof(scene_t, tp_tone)},
+             {P_TP_NOISE, offsetof(scene_t, tp_noise)}, {P_TP_DROPOUT, offsetof(scene_t, tp_dropout)},
+             {P_SWELL, offsetof(scene_t, swell)},
+             {P_L1_AMT1, offsetof(scene_t, lfo_amt)}, {P_L1_AMT2, offsetof(scene_t, lfo_amt) + 1u},
+             {P_L1_AMT3, offsetof(scene_t, lfo_amt) + 2u}, {P_L1_AMT4, offsetof(scene_t, lfo_amt) + 3u},
+             {P_L2_AMT1, offsetof(scene_t, lfo_amt) + 4u}, {P_L2_AMT2, offsetof(scene_t, lfo_amt) + 5u},
+             {P_L2_AMT3, offsetof(scene_t, lfo_amt) + 6u}, {P_L2_AMT4, offsetof(scene_t, lfo_amt) + 7u},
+             {P_L3_AMT1, offsetof(scene_t, lfo_amt) + 8u}, {P_L3_AMT2, offsetof(scene_t, lfo_amt) + 9u},
+             {P_L3_AMT3, offsetof(scene_t, lfo_amt) + 10u}, {P_L3_AMT4, offsetof(scene_t, lfo_amt) + 11u}};
+#define NANC_X (sizeof ANC_X / sizeof ANC_X[0])
+
+static int anc_x(uint32_t p)             /* its place in ANC_X, -1: none (not a scene's) */
+{
+    uint32_t i;
+    for (i = 0; i < NANC_X; i++)
+        if (ANC_X[i].p == p)
+            return (int)i;
+    return -1;
+}
+
+static int anc_glides(uint32_t p)        /* it glides back (else it switches) */
+{
+    return p < NSOUND ? morphs(p) : p == P_SWELL || (p >= P_BS_WEIGHT && p < NMORPH);
+}
+
+/* setting p as the anchor would have it played (as scene_take takes it: the drone's preset on its settings), p a
+ * scene's */
+static uint8_t anc_val(uint32_t p)
+{
+    int i;
+    if (p < NSOUND) {
+        uint8_t pre = anc.sc.v[P_DR_PRESET] > PD[P_DR_PRESET].max ? PD[P_DR_PRESET].max : anc.sc.v[P_DR_PRESET];
+        if (pre && drone_of[p] >= 0)
+            return DRONE_PRESET[(pre - 1u) % NDPRESET][drone_of[p]];
+        return anc.sc.v[p] > PD[p].max ? PD[p].max : anc.sc.v[p];
+    }
+    i = anc_x(p);
+    if (i < 0)
+        return st.v[p];
+    {
+        uint8_t x = ((const uint8_t *)&anc.sc)[ANC_X[i].at];
+        return x > PD[p].max ? PD[p].def : x;
+    }
+}
+
+static int anc_pend(uint32_t p) { return (int)(anc.pend[p >> 5] >> (p & 31u) & 1u); }
+static void anc_pend_put(uint32_t p, int on)
+{
+    if (on)
+        anc.pend[p >> 5] |= 1u << (p & 31u);
+    else
+        anc.pend[p >> 5] &= ~(1u << (p & 31u));
+}
+
+static uint32_t anc_takes(void)          /* the tracks a take is under way on (1 GLINT, 2 the bass, 4 the drone) */
+{
+    return (st.v[P_SQ_REC] ? 1u : 0u) | (st.v[P_BQ_REC] ? 2u : 0u) | (st.v[P_DQ_REC] ? 4u : 0u);
+}
+
+static void anc_keep_track(uint32_t t)   /* track t's sequence the hand's: its steps, PLAYS, SEQ LENGTH out of the way back */
+{
+    anc.seqs &= (uint8_t)~t;
+    if (t & 1u) {
+        anc_pend_put(P_SQ_TYPE, 0);
+        anc_pend_put(P_SQ_LEN, 0);
+    }
+    if (t & 2u) {
+        anc_pend_put(P_BQ_ON, 0);
+        anc_pend_put(P_BQ_STEPS, 0);
+    }
+    if (t & 4u) {
+        anc_pend_put(P_DQ_ON, 0);
+        anc_pend_put(P_DQ_LEN, 0);
+    }
+}
+
+/* a hand on setting p while a way back's switch is to come: p out of it, and what p's own turning sets (a preset's
+ * settings, CUSTOM's, a sequence edited, a take begun) */
+static void anc_hand(int p)
+{
+    uint32_t i;
+    anc_pend_put((uint32_t)p, 0);
+    if (drone_of[p] >= 0 && anc_pend(P_DR_PRESET)) {   /* (CUSTOM from here: its settings as they are now) */
+        anc_pend_put(P_DR_PRESET, 0);
+        for (i = 0; i < NDRONE; i++)
+            custom[i] = st.v[DRONE_P[i]];
+    }
+    if (p == P_DR_PRESET)
+        for (i = 0; i < NDRONE; i++)
+            anc_pend_put(DRONE_P[i], 0);
+    if (p == P_GL_PRESET) {
+        for (i = P_GL_RATIO; i < P_GL_RATIO + 7u; i++)
+            anc_pend_put(i, 0);
+        anc_pend_put(P_GL_ATTACK, 0);
+        anc_pend_put(P_GL_PING, 0);
+        anc_pend_put(P_GL_SUSTAIN, 0);
+    }
+    if (p == P_EQ_PRESET)
+        for (i = P_EQ_LOW; i <= P_EQ_HIGHF; i++)
+            anc_pend_put(i, 0);
+    if (p >= P_EQ_LOW && p <= P_EQ_HIGHF)
+        anc_pend_put(P_EQ_PRESET, 0);
+    if ((p >= P_SQ_NOTE && p <= P_SQ_CLEAR) || p == P_SQ_NEW || p == P_SQ_UNDO || p == P_SQ_NLEN)
+        anc_keep_track(1u);
+    if (p == P_BQ_NOTE || p == P_BQ_REC || p == P_BQ_CLEAR || (p >= P_BQ_ACC && p <= P_BQ_UNDO) || p == P_BQ_NLEN)
+        anc_keep_track(2u);
+    if ((p >= P_DQ_REC && p <= P_DQ_CLEAR) || (p >= P_DQ_NOTES && p <= P_DQ_UNDO))
+        anc_keep_track(4u);
+}
+
+/* the way back's switch: the sequences' steps, then the settings that switch, PLAYS and the RATEs as a hand turns them
+ * (a sequence started or stopped, the step playing kept) */
+static void anc_switch(void)
+{
+    static const uint8_t TURNED[] = {P_BQ_LEN, P_DQ_RATE, P_SQ_TYPE, P_BQ_ON, P_DQ_ON};
+    uint8_t turn[sizeof TURNED];
+    uint32_t i, p;
+    anc.due = 0;
+    if (anc.seqs & 1u)
+        memcpy(seq, anc.sc.seq, sizeof seq);
+    if (anc.seqs & 2u)
+        memcpy(bnote, anc.sc.bnote, sizeof bnote);
+    if (anc.seqs & 4u) {
+        memcpy(dnote, anc.sc.dnote, sizeof dnote);
+        for (i = 0; i < SC_DSEQ; i++)
+            dstep_sane(dnote[i]);
+        dq_memo_at = -1;
+    }
+    anc.seqs = 0;
+    for (i = 0; i < sizeof TURNED; i++) {
+        turn[i] = (uint8_t)anc_pend(TURNED[i]);
+        anc_pend_put(TURNED[i], 0);
+    }
+    for (p = 0; p < NPARAM; p++)
+        if (anc_pend(p))
+            st.v[p] = anc_val(p);
+    memset(anc.pend, 0, sizeof anc.pend);
+    for (i = 0; i < sizeof TURNED; i++)
+        if (turn[i])
+            param_set(TURNED[i], anc_val(TURNED[i]));
+    seq_view();
+    bseq_view();
+    dseq_view();
+    st.dirty = (uint8_t)sound_changed();
+    st.engine_dirty = 1;
+}
+
+static void anchor_drop(void)            /* no ANCHOR, no way back under way (what glides, gliding on) */
+{
+    anc.on = anc.due = 0;
+    mo.anc = 0;
+}
+
+static void anchor_settle(void)          /* a way back under way: its switch now (a STORE, a new ANCHOR: where it goes) */
+{
+    if (anc.due)
+        anc_switch();
+}
+
+static void anchor_set(void)             /* the scene as it is now, kept (as STORE keeps it) */
+{
+    uint32_t i;
+    anchor_settle();
+    memset(&anc.sc, 0, sizeof anc.sc);
+    for (i = 0; i < NSOUND; i++)
+        anc.sc.v[i] = kept_v(i);
+    scene_notes_take(&anc.sc);
+    anc.on = 1;
+}
+
+/* back to the ANCHOR: ms 0 at once, else gliding over ms; the anchor let go. None, a way back under way ends at once
+ * (its values there). 0, or -1 neither */
+static int anchor_back(uint32_t ms)
+{
+    uint32_t i, t;
+    if (!anc.on) {
+        if (!mo.on || !mo.anc)
+            return -1;
+        ms = 0;                          /* (where it went, now) */
+    } else {
+        anc.on = 0;
+        for (i = 0; i < NDRONE; i++)     /* (the drone's CUSTOM, as the anchor keeps it) */
+            custom[i] = anc.sc.v[DRONE_P[i]] > PD[DRONE_P[i]].max ? PD[DRONE_P[i]].max : anc.sc.v[DRONE_P[i]];
+        memset(anc.pend, 0, sizeof anc.pend);
+        for (i = 0; i < NMORPH; i++) {
+            float from = (float)st.v[i] + morph_off[i];   /* (where it is heard now, a MORPH under way too) */
+            mo.d[i] = morph_off[i] = 0.0f;
+            if (i >= NSOUND && anc_x(i) < 0)
+                continue;
+            if (anc_glides(i)) {
+                uint8_t x = anc_val(i);
+                st.v[i] = x;
+                if (ms)
+                    mo.d[i] = morph_off[i] = from - (float)x;
+            } else if (anc_val(i) != st.v[i]) {
+                anc_pend_put(i, 1);
+            }
+        }
+        for (i = 0; i < NANC_X; i++)
+            if (ANC_X[i].p >= NMORPH && anc_val(ANC_X[i].p) != st.v[ANC_X[i].p])
+                anc_pend_put(ANC_X[i].p, 1);
+        anc.seqs = (uint8_t)((memcmp(seq, anc.sc.seq, sizeof seq) ? 1u : 0u) |
+                             (memcmp(bnote, anc.sc.bnote, sizeof bnote) ? 2u : 0u) |
+                             (memcmp(dnote, anc.sc.dnote, sizeof dnote) ? 4u : 0u));
+        for (t = anc_takes(), i = 1u; i <= 4u; i <<= 1)
+            if (t & i)
+                anc_keep_track(i);
+        anc.due = 1;
+        mo.on = mo.anc = 0;
+    }
+    if (ms) {
+        mo.on = mo.anc = 1;
+        mo.t0 = eng_ms();
+        mo.dur = ms;
+        anc.half = ms / 2u;
+        mo.name[0] = 0;
+        text_cat(mo.name, ANCHOR_NAME);
+    } else {
+        for (i = 0; i < NMORPH; i++)
+            morph_off[i] = mo.d[i] = 0.0f;
+        mo.on = mo.anc = 0;
+        anchor_settle();
+    }
+    st.dirty = (uint8_t)sound_changed();
+    st.engine_dirty = 1;
+    return 0;
+}
+
+/* 0 none, 1 set, 2 a way back under way (*k: how far, 0 .. 1, by the clock) */
+static int anchor_state(float *k)
+{
+    if (k)
+        *k = mo.on && mo.anc && mo.dur ? (float)(eng_ms() - mo.t0) / (float)mo.dur : 0.0f;
+    if (k && *k > 1.0f)
+        *k = 1.0f;
+    return anc.on ? 1 : mo.on && mo.anc ? 2 : 0;
 }
 
 /* -------------------------------------------------------- the arpeggiator --- */
@@ -2695,7 +3092,7 @@ static void pump_sync(void)
         frasil_pump(0.0f, 0.0f);
         return;
     }
-    ms_tick = eng_ms() - grid.clk_at < 500u && grid.clk_ms > 1.0f ? grid.clk_ms : 2500.0f / (float)(st.v[P_TEMPO] + 30u);
+    ms_tick = grid_ms_tick(eng_ms());
     per = (float)PUMP_TICKS[r];
     ph = grid_now() / per;
     frasil_pump(ph - fm_floorf(ph), (1000.0f / FRASIL_FS) / (ms_tick * per));
@@ -2793,7 +3190,8 @@ static void lfo_run(void)
             lfo[i].ph = 0.0f;
             lfo[i].cyc = 0;
         }
-        lfo[i].ph += r < LFO_NFREE ? dt * lfo_hz(r) : dg / (float)LFO_TICKS[(r - LFO_NFREE) % 12u];
+        lfo[i].ph += r < LFO_NFREE ? dt * tape_tk * lfo_hz(r) : dg / (float)LFO_TICKS[(r - LFO_NFREE) % 12u];   /* (TAPE
+                                                                             * SPEED's pace: free, its own; synced, the grid's) */
         n = (uint32_t)lfo[i].ph;
         lfo[i].ph -= (float)n;
         lfo[i].cyc += n;
@@ -2803,9 +3201,11 @@ static void lfo_run(void)
         if (fm_fabsf(off) > lfo[i].peak)
             lfo[i].peak = fm_fabsf(off);
         for (k = 0; k < 4u; k++)
-            if (L[4u + k]) {
-                uint32_t p = LFO_TGT[L[4u + k] % NLFO_TGT];
-                mod[p] += off * (float)PD[p].max;
+            if (L[4u + k]) {             /* each TARGET times its AMOUNT (x0.00 .. x1.00 .. x5.00: at its middle, 1
+                                          * exactly, the LFOs as they were; the setting stays in its range, u7) */
+                uint32_t p = LFO_TGT[L[4u + k] % NLFO_TGT], v = st.v[P_L1_AMT1 + 4u * i + k];
+                float a = (float)(v <= 100u ? v : 100u + 4u * (v - 100u)) / 100.0f;
+                mod[p] += off * a * (float)PD[p].max;
             }
     }
     lfo_restart = 0;
@@ -3208,8 +3608,7 @@ static void ring_run(void)
 static void arp_run(void)
 {
     uint32_t now = eng_ms(), ticks = ARP_TICKS[st.v[P_ARP_RATE] % 10u], bticks = bseq_ticks(), dt = now - grid.last_ms;
-    float ms_tick = now - grid.clk_at < 500u && grid.clk_ms > 1.0f ? grid.clk_ms
-                                                                 : 2500.0f / (float)(st.v[P_TEMPO] + 30u);
+    float ms_tick = grid_ms_tick(now);
     uint32_t period = (uint32_t)((float)ticks * ms_tick);   /* a step's length, for the gate below */
     uint32_t snap = ARP_SNAP_TICKS[st.v[P_ARP_SNAP] % 6u];   /* ARP SNAP's grid (0: OFF) */
     grid.last_ms = now;
@@ -3867,7 +4266,7 @@ static void count_run(void)              /* (as often as it comes: a beat's tick
         frasil_click(cnt.beat == 0u);
         cnt.beat++;
     }
-    ms_tick = eng_ms() - grid.clk_at < 500u && grid.clk_ms > 1.0f ? grid.clk_ms : 2500.0f / (float)(st.v[P_TEMPO] + 30u);
+    ms_tick = grid_ms_tick(eng_ms());
     cnt.t += (float)dt / (24.0f * ms_tick);
 }
 
@@ -4144,15 +4543,18 @@ static uint32_t swell_at;                /* (eng_swell's last) */
 static void eng_swell(int held)
 {
     uint32_t now = eng_ms(), dt = now - swell_at;
-    float s, step = (float)(dt > 100u ? 100u : dt) * (1.0f / 1500.0f);   /* 1.5 s up, 1.5 s down */
+    float s, k, step = (float)(dt > 100u ? 100u : dt) * (1.0f / 1500.0f);   /* 1.5 s up, 1.5 s down */
     swell_at = now;
     if (held)
         st.swell_btn = st.swell_btn + step > 1.0f ? 1.0f : st.swell_btn + step;
     else
         st.swell_btn = st.swell_btn - step < 0.0f ? 0.0f : st.swell_btn - step;
     s = st.swell_btn > st.swell_midi ? st.swell_btn : st.swell_midi;
-    if ((float)st.v[P_SWELL] * (1.0f / 127.0f) > s)   /* GENERATIVE FX's, where it is turned */
-        s = (float)st.v[P_SWELL] * (1.0f / 127.0f);
+    k = ((float)st.v[P_SWELL] + morph_off[P_SWELL]) * (1.0f / 127.0f);   /* GENERATIVE FX's, where it is turned (the
+                                                                           * scene's: ANCHOR's way back glides it) */
+    k = k < 0.0f ? 0.0f : k > 1.0f ? 1.0f : k;
+    if (k > s)
+        s = k;
     if (fm_fabsf(s - st.swell_sent) > 0.004f || (s == 0.0f && st.swell_sent != 0.0f)) {
         st.swell_sent = s;
         frasil_swell(s * s * (3.0f - 2.0f * s));
@@ -4556,7 +4958,8 @@ static void eng_edits(void)
  * number, not the preset's values) and its TEMPO (one it had out of range kept as it was); once what it plays was
  * edited, what plays now as STORE keeps it (scene_notes_take: the chords latched, the arpeggio's notes, the bass held,
  * the sequences). BASS's OCTAVE turned with a note held is one: the bass is kept as it sounds. The scene's settings
- * past NSOUND (BASS TONE's WEIGHT, PUNCH, BITE, the bass's SPACE, GLINT's AUTO VIB) as STORE keeps them; ARP II's
+ * past NSOUND (BASS TONE's WEIGHT, PUNCH, BITE, the bass's SPACE, GLINT's AUTO VIB, LOFI TAPE II's four, the LFOs'
+ * AMOUNTs, SWELL) as STORE keeps them; ARP II's
  * LATCH, GLINT's and the bass's, as the FM-1 turns it (off: the arpeggio's notes no key holds go) */
 static void eng_edit_param(uint32_t p, uint32_t x)
 {
@@ -4565,7 +4968,8 @@ static void eng_edit_param(uint32_t p, uint32_t x)
         param_set((int)p, (int32_t)x);
         if (b >= 0 && bass_note >= 0 && bass_sounding(bass_note) != b)
             keys_edited = 1;
-    } else if (p == P_BS_WEIGHT || p == P_BS_PUNCH || p == P_BS_BITE || p == P_BS_SPACE || p == P_GL_VIB_AUTO) {
+    } else if (p == P_BS_WEIGHT || p == P_BS_PUNCH || p == P_BS_BITE || p == P_BS_SPACE || p == P_GL_VIB_AUTO ||
+               (p >= P_TP_FLUTTER && p <= P_TP_DROPOUT) || (p >= P_L1_AMT1 && p <= P_L3_AMT4) || p == P_SWELL) {
         uint8_t was = st.v[p];
         param_set((int)p, (int32_t)x);   /* (the scene's, not its sound's: kept as what it plays is, scene_notes_take) */
         if (st.v[p] != was)
@@ -5011,6 +5415,7 @@ static void eng_live(float *out)
 static void eng_init(float fs)
 {
     grid.clk_at = eng_ms() - 60000u;
+    tape_at = eng_ms();
     frasil_init(fs);
     drone_init();
 }
@@ -5073,6 +5478,13 @@ static void eng_reset(void)
     memset(saved_bnote, 0, sizeof saved_bnote);
     memset(saved_bq, 0, sizeof saved_bq);
     saved_bsp = 0;
+    memset(saved_tp, 0, sizeof saved_tp);
+    memset(saved_amt, 0, sizeof saved_amt);
+    saved_sw = 0;
+    tape_l2 = tape_sent = 0.0f;
+    tape_tk = 1.0f;
+    tape_clocked = 0;
+    tape_fresh = 1;
     memset(&bp, 0, sizeof bp);
     memset(custom, 0, sizeof custom);
     memset(seq_prev, 0, sizeof seq_prev);
@@ -5137,8 +5549,28 @@ static void eng_power_on(void)
 
 /* every millisecond, before the MIDI that came in since the last: the grid's (the arpeggiator or GLINT's sequence, the
  * bass's sequence, PULSE after it: a NOTE beginning on the division first; the delay on the beat) */
+static void tape_run(void)              /* TAPE SPEED: some 120 ms a time constant (a tape slowing, never a jump) */
+{
+    uint32_t now = eng_ms(), dt = now - tape_at;
+    float to = tape_oct(st.v[P_TP_FLUTTER]), d = to - tape_l2;
+    uint8_t clocked = (uint8_t)grid_clocked(now);
+    tape_at = now;
+    if (d != 0.0f) {
+        float k = tape_fresh ? 1.0f : (float)(dt > 120u ? 120u : dt) * (1.0f / 120.0f);
+        tape_l2 = fm_fabsf(d) < 0.002f ? to : tape_l2 + d * k;
+        if (fm_fabsf(tape_l2 - tape_sent) >= 0.01f || tape_l2 == to)   /* (the engine glides between) */
+            st.engine_dirty = 1;
+    }
+    if (clocked != tape_clocked && tape_l2 != 0.0f)   /* (the times' factor to 1, or back) */
+        st.engine_dirty = 1;
+    tape_clocked = clocked;
+    tape_fresh = 0;
+    tape_tk = clocked || tape_l2 == 0.0f ? 1.0f : fm_exp2f(tape_l2);
+}
+
 static void eng_steps(void)
 {
+    tape_run();
     st.v[P_GA_LATCH] = arp.latch;        /* (the settings that show a state, as it is: ARP held, frs_metronome, REC held) */
     st.v[P_BA_LATCH] = barp.latch;
     st.v[P_METRO] = (uint8_t)(metro_free ? 2u : st.metro ? 1u : 0u);

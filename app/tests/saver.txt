@@ -1,8 +1,9 @@
-# The screensaver (GLO > SCREEN's K2, SCREENSAVER, ON by default): ten minutes without a touch of the panel, the screen
-# black but for the small logo, which drifts a pixel a step on both axes and bounces off the edges (each bounce the next
-# colour); the sound goes on as it was. Any button, knob or key wakes it, and that touch does nothing else (a knob's turn
-# dropped till it rests); what was on the screen comes back (a page, the help, a pop-up). OFF: never. Kept with the
-# settings (an earlier record reads ON). Shots: OUTDIR/saver-*.png. (saver.sh: the render with and without it, bit
+# The screensaver (GLO > SCREEN's K2, SCREENSAVER, ON by default): IDLE TIME (K3, ten minutes at first) without a touch
+# of the panel, the screen black but for the small logo, which drifts a pixel a step on both axes (40 a second) and
+# bounces off the edges (each bounce the next colour); the sound goes on as it was. Any button, knob or key wakes it,
+# and that touch does nothing else (a knob's turn dropped till it rests); what was on the screen comes back (a page, the
+# help, a pop-up). OFF: never. Kept with the settings (an earlier record reads ON, ten). Each time it comes, its first
+# corner a minute on, celebrated (CORNER!). Shots: OUTDIR/saver-*.png. (saver.sh: the render with and without it, bit
 # for bit.)
 #   app/build/host/frasil_host app/tests/saver.txt OUTDIR
 master 3000
@@ -162,27 +163,163 @@ expect popup 1
 tap SEL
 wait 200
 expect popup 0
-# GLO > SCREEN: K1 ANIMATIONS, K2 SCREENSAVER; OFF: never, however long
+# THE CORNER: each time it comes, the logo starts where (and goes the way) that brings it into a corner about a minute
+# on (both edges on the same step); every corner celebrated (a frost ring, ice crystals bursting from the corner,
+# CORNER!) for 2.6 s, then the drift on. 1000 starts as it draws them, each run: the first corner 55 .. 65 s in (2200 ..
+# 2600 steps), the one aimed at; no start on an edge or near two (a corner); all four corners and ways come
+saveraim 1000
+expect saver_aimbad 0
+expect saver_aimmin >2199
+expect saver_aimmax <2601
+expect saver_aimways 255
+expect saver_aimedge >23
+# one start drawn from a known seed: aimed at 2407 steps (60.2 s)
+saverseed 20261102
+wait 5600
+expect saver 1
+expect saver_aim 2407
+expect saver_corners 0
+uicost
+# two seconds before it: the logo on its way, nothing else on the screen
+wait 57335
+expect saver_corners 0
+expect saver_party 0
+expect saver_stray 0
+shot saver-corner-1.png
+wait 1500
+shot saver-corner-2.png
+# the corner: on the step aimed at; the celebration
+wait 520
+expect saver_corners 1
+expect saver_corner_step 2407
+expect saver_party 1
+expect saver_x 128
+expect saver_y 0
+shot saver-corner-hit.png
+wait 280
+expect saver_stray >400
+shot saver-corner-start.png
+wait 900
+expect saver_party 1
+expect saver_stray >1500
+shot saver-corner-middle.png
+wait 1100
+expect saver_party 1
+shot saver-corner-end.png
+# over: the screen black but the logo again, its next colour, drifting on (out of the corner)
+wait 400
+expect saver 1
+expect saver_party 0
+expect saver_stray 0
+expect saver_lit >300
+expect saver_out 0
+savermark
+wait 1000
+expect saver_dist >18
+expect saver_corners 1
+expect held 1
+shot saver-corner-after.png
+uicost
+# woken during one: at once, and the touch only wakes it (OCT+: the octave stays; the next OCT+ turns it)
+tap HOME
+wait 100
+expect saver 0
+expect octave -1
+wait 5600
+expect saver 1
+expect saver_aim 2407
+wait 60403
+expect saver_corners 1
+expect saver_party 1
+expect saver_stray >1500
+tap OCT+
+wait 100
+expect saver 0
+expect saver_party 0
+expect octave -1
+shot saver-corner-woken.png
+wait 400
+tap OCT+
+wait 100
+expect octave 0
+tap OCT-
+wait 100
+expect octave -1
+# the next time it comes: no celebration left over, a new aim
+saverseed 0
+wait 5600
+expect saver 1
+expect saver_party 0
+expect saver_corners 0
+expect saver_stray 0
+expect saver_aim >2339
+expect saver_aim <2461
+tap SEL
+wait 200
+expect saver 0
+# GLO > SCREEN: K1 ANIMATIONS, K2 SCREENSAVER, K3 IDLE TIME (1 .. 60 minutes, ten at first; no setting of the schema:
+# kept in SCREENSAVER's byte, 3.0's values as they were: 0 ON, 1 OFF, both ten minutes; ON with 1 .. 60: 2 .. 61; OFF
+# with them: 62 .. 121)
 gopage 47
 wait 100
 expect page 47
 expect knob2 226
+expect knob3 246
+expect saver_min 10
 shot saver-setting.png
+# five minutes: asleep after five untouched (not before)
+turn K3 -5
+wait 100
+expect saver_min 5
+shot saver-setting-idle.png
+saveridle 0
+wait 298000
+expect saver 0
+wait 3000
+expect saver 1
+tap OCT+
+wait 100
+expect saver 0
+expect page 47
+# from 1 to 60, no further
+wait 500
+turn K3 -10
+wait 100
+expect saver_min 1
+spin K3 100
+wait 100
+expect saver_min 60
+spin K3 -55
+wait 100
+expect saver_min 5
+# kept: a reboot keeps it (ON, five: the byte 6)
+prefs
+expect saver_byte 6
+reboot
+wait 600
+expect p226 1
+expect saver_min 5
+# OFF: never, however long; IDLE TIME slate, kept
+gopage 47
+wait 100
 turn K2 -1
 wait 100
 expect p226 0
+expect saver_min 5
 shot saver-setting-off.png
 wait 30000
 expect saver 0
 saveridle 0
 wait 700000
 expect saver 0
-# kept: a reboot keeps it OFF
+# kept: a reboot keeps it OFF, with its five minutes (the byte 66)
 prefs
+expect saver_byte 66
 reboot
 wait 600
 expect p226 0
-# a backup has it: OFF in the backup, ON now, the backup restored: OFF again
+expect saver_min 5
+# a backup has it: OFF and five in the backup, ON and twenty now, the backup restored: OFF and five again
 tapkey 7
 wait 200
 expect held 0
@@ -192,14 +329,190 @@ wait 100
 turn K2 1
 wait 100
 expect p226 1
+spin K3 15
+wait 100
+expect saver_min 20
 restore out:saver-off.frasil
 wait 300
 expect p226 0
-# an earlier record (3.0's first builds' FRSO, without the byte; 2.5's ...): ON
+expect saver_min 5
+# the byte as each FRASIL writes it, read: 3.0's 0 (ON) and 1 (OFF), ten minutes; ON 1 and 60, OFF 1 and 60; ten
+# minutes written otherwise (11), a later FRASIL's (200): ON, ten
+saverbyte 0
+reboot
+wait 600
+expect p226 1
+expect saver_min 10
+saverbyte 1
+reboot
+wait 600
+expect p226 0
+expect saver_min 10
+saverbyte 2
+reboot
+wait 600
+expect p226 1
+expect saver_min 1
+saverbyte 61
+reboot
+wait 600
+expect p226 1
+expect saver_min 60
+saverbyte 62
+reboot
+wait 600
+expect p226 0
+expect saver_min 1
+saverbyte 121
+reboot
+wait 600
+expect p226 0
+expect saver_min 60
+saverbyte 11
+reboot
+wait 600
+expect p226 1
+expect saver_min 10
+saverbyte 200
+reboot
+wait 600
+expect p226 1
+expect saver_min 10
+# an earlier record (3.0's first builds' FRSO, without the byte; 2.5's ...): ON, ten
 oldfrso 1
 reboot
 wait 600
 expect p226 1
+expect saver_min 10
 saveridle 3000
 wait 3600
 expect saver 1
+# GLO > SCREEN's K4, HEADER (no setting of the schema: the settings' record's byte after SWELL, in its padding, 0 as an
+# earlier record reads it): INVERT, the band in the track's colour, everything on it dark (as it always was); DARK, the
+# band dark, everything on it in the track's colour
+tap OCT+
+wait 100
+expect saver 0
+tap SEL
+wait 100
+saveridle 0
+gopage 47
+wait 100
+expect page 47
+expect knob4 247
+expect headdark 0
+shot header-setting-invert.png
+turn K4 1
+wait 100
+expect headdark 1
+shot header-setting-dark.png
+turn K4 3
+wait 100
+expect headdark 1
+# each track's band, SOUND's (the scene's name) and an edit page's, both ways
+gopage 0
+wait 100
+expect p166 0
+shot header-drone-dark.png
+turn SELECT 1
+wait 100
+expect p166 1
+shot header-glint-dark.png
+turn SELECT 1
+wait 100
+expect p166 2
+shot header-bass-dark.png
+setp 157 1
+wait 100
+shot header-bass-freeze-dark.png
+setp 157 0
+gopage 1
+wait 100
+turn SELECT -2
+wait 100
+expect p166 0
+shot header-edit-drone-dark.png
+gopage 47
+wait 1000
+turn K4 -1
+wait 100
+expect headdark 0
+gopage 0
+wait 100
+shot header-drone-invert.png
+turn SELECT 1
+wait 100
+shot header-glint-invert.png
+turn SELECT 1
+wait 100
+shot header-bass-invert.png
+setp 157 1
+wait 100
+shot header-bass-freeze-invert.png
+setp 157 0
+turn SELECT -2
+wait 100
+# kept: a reboot keeps it (the byte 1), INVERT too (0)
+gopage 47
+wait 100
+turn K4 1
+wait 100
+prefs
+expect headbyte 1
+reboot
+wait 600
+expect headdark 1
+gopage 47
+wait 100
+turn K4 -1
+wait 100
+prefs
+expect headbyte 0
+reboot
+wait 600
+expect headdark 0
+# a backup has it: DARK in the backup, INVERT now, the backup restored: DARK again
+gopage 47
+wait 100
+turn K4 1
+wait 100
+prefs
+backup out:header-dark.frasil
+turn K4 -1
+wait 100
+expect headdark 0
+restore out:header-dark.frasil
+wait 300
+expect headdark 1
+tap SEL
+wait 100
+# an earlier record (3.0.2's FRSQ, before the byte; 3.0's first builds' FRSO): INVERT
+prefs
+expect headbyte 1
+frsq
+reboot
+wait 600
+expect headdark 0
+gopage 47
+wait 100
+turn K4 1
+wait 100
+expect headdark 1
+prefs
+expect headbyte 1
+oldfrso 1
+reboot
+wait 600
+expect headdark 0
+# no settings at all (a new FM-1): INVERT
+gopage 47
+wait 100
+turn K4 1
+wait 100
+expect headdark 1
+prefs
+expect headbyte 1
+nosettings
+reboot
+wait 600
+expect headdark 0

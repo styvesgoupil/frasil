@@ -78,7 +78,7 @@ def main():
         rows.append((p, m))
     raws = [m["raw"] for p, m in rows if not p["same_as"]]
     r0, r98 = round(statistics.median(raws), 2), round(pct(raws, 0.98), 2)
-    cal = {"r0": r0, "r98": r98, "weights": W.get("weights", [1, 1.5, 0.5, 4]), "pieces": len(raws),
+    cal = {"r0": r0, "r98": r98, "weights": W.get("weights", [1, 0.8, 0.5, 4]), "pieces": len(raws),
            "made": "engine/tools/energy_catalogue.py: the River's public shards, the test takes, the factory scenes"}
     out = sys.stdout if not a.json else open(a.json, "w")
     for p, m in rows:

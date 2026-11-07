@@ -39,6 +39,8 @@ typedef struct {
     float drive;                         /* warmth, 0..1 */
     float mix;                           /* reverb, 0 dry .. 1 wet */
     float tune;                          /* semitones, -1..1 */
+    float a4_l2;                         /* the reference, log2 of A4 over 440 Hz (0: 440; the FM-1's TUNE A4, 415 .. 466
+                                          * Hz, the device's): on every voice's frequency, with TAPE SPEED (br_pk) */
     float pump_drone, pump_bass, pump_glint;   /* PUMP: how deep each track ducks on the beat, 0..1 */
     float pump_rel;                      /* the share of the period it takes to come back, 0.1 .. 1 */
     float pump_att;                      /* how long it takes to go down, seconds */
@@ -66,6 +68,11 @@ typedef struct {
                                           * partials, little breath, narrower, less warmth, its body high-passed) */
     float sink;                          /* GENERATIVE FX's SINK: everything under, a low-pass on the whole mix,
                                           * 0 none .. 1 (some 120 Hz) */
+    float tape_l2, time_l2;              /* LOFI TAPE II's TAPE SPEED, log2 of its factor (0: X1, -1 an octave down and half
+                                          * as fast): tape_l2 on every voice's frequency (DRONE's, GLINT's, BASS's), time_l2
+                                          * on their times (envelopes, GLIDE, MOTION's drift, the tide, the sways, AUTO
+                                          * VIB, the tape's wow and flutter); time_l2 0 while a clock leads (the pitch
+                                          * alone). Not the cloud, not the delay: they run in real time */
     nuage_params_t rev;
     glint_params_t glint;
     bass_params_t bass;
@@ -77,9 +84,11 @@ typedef struct {
     float eq_low, eq_mid, eq_high, eq_lowf, eq_midf, eq_q, eq_highf;
     /* MASTER FILTER (12 dB an octave, on the tracks chosen, where PUMP's gains are): 0 off, 1 low pass, 2 high pass;
      * its cutoff (Hz) and Q. LOFI TAPE (after it): on, its saturation and its wobble 0..1. Their tracks: bits, 1 the
-     * drones and the cloud, 2 GLINT, 4 BASS */
+     * drones and the cloud, 2 GLINT, 4 BASS. LOFI TAPE II: the flutter's rate (Hz; 5, 7.3 until TAPE SPEED), the tone (times the
+     * cutoff its saturation leaves: 1 as it was), the hiss 0..1 (0 none) and the dropouts 0..1 (0 none) */
     int fl_type, fl_tracks, tp_on, tp_tracks;
-    float fl_cut, fl_q, tp_sat, tp_wobble;
+    float fl_cut, fl_q, tp_sat, tp_wobble, tp_flutter, tp_tone, tp_noise, tp_dropout;   /* (tp_flutter 5 Hz since TAPE
+                                                                                       * SPEED) */
     /* ROUTING: the filter and the tape before the cloud (each track through it, the cloud fed what comes out, its
      * return as it is) or after it (0, the tracks as they sound, DRONE's with the cloud's return); PUMP on the cloud's
      * return. The pans (-1 left .. 1 right, a balance): the drones, GLINT, BASS, the cloud's return */

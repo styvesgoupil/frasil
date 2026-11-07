@@ -33,7 +33,8 @@
  * numbers past NSOUND move when a setting is added (2.5: 23 higher than 2.0's; 2.6: one more; 2.7's numbered last, none
  * moved, P_BQ_LEN the bass's one RATE, P_BQ_ON its PLAYS: KEYS, ARP, SEQ as GLINT's P_SQ_TYPE; 3.0's after them, the
  * drone's sequence's P_DQ_ON .. P_DQ_STEP, 197 .. 205; then P_DQ_NOTES .. P_COUNT_IN, 206 .. 224: the drone's step
- * editing and UNDO TAKE, ARP II's LATCH, KEYS, METRONOME and COUNT-IN; P_ARP_SNAP 225, P_SAVER 226, none moved). A scene,
+ * editing and UNDO TAKE, ARP II's LATCH, KEYS, METRONOME and COUNT-IN; P_ARP_SNAP 225, P_SAVER 226, none moved; LOFI TAPE II's P_TP_FLUTTER .. P_TP_DROPOUT 227 .. 230, the scene's, last; the LFOs' AMOUNTs, P_L1_AMT1 ..
+ * P_L3_AMT4 231 .. 242, the scene's, last). A scene,
  * a shard, is FRS_SCENE_BYTES bytes in the River's layout (scene_t: its name, its sound, what it plays, its sequences,
  * its TEMPO); what is kept beside it, the engine's state (frs_state_save). */
 #pragma once
@@ -43,9 +44,13 @@
 extern "C" {
 #endif
 
-#define FRS_VERSION "3.0"                /* the FRASIL this engine is (VERSION's: engine/tests/run.sh checks them alike) */
+#define FRS_VERSION "3.1"           /* the FRASIL this engine is (VERSION's: engine/tests/run.sh checks them alike) */
 #define FRS_BLOCK 256u                   /* frames the engine renders at a time (frs_render takes any count) */
-#define FRS_SCENE_BYTES 586u             /* a scene, a shard ("FRSz", 3.0's: the drone's sequence last; 324 in "FRSy",
+#define FRS_SCENE_BYTES 619u             /* a scene, a shard ("FRS}": its name's characters 17 .. 32, the LFOs' AMOUNTs and
+                                          * SWELL last; the same bytes in "FRS|", 3.0.2-b5's test builds', its AMOUNTs as
+                                          * -100 % .. +100 %: frs_scene_amt_over; 590 in "FRS{", LOFI TAPE II's four last;
+                                          * 586 in 3.0's "FRSz", the
+                                          * drone's sequence last; 324 in "FRSy",
                                           * before it; 323 in 2.7's "FRSx", 322 in its "FRSw", 319 in its "FRSv", 298 in
                                           * its first test builds, "FRSu"; 297 in 2.6, "FRSt": frs_scene_over makes them
                                           * over; 296 in 2.5, 273 till 2.0, the River makes the old over) */
@@ -74,6 +79,11 @@ void frs_cut(void);                      /* CUT (the FM-1's OCT- held, PLAY): RE
                                           * out (no click). 2.5.1's, the FM-1's too: some 40 ms on, what the cloud's
                                           * filters kept comes back faint (some 35 dB under) and dies away; a note given
                                           * before the second block is dropped by the sound (the brain has it) */
+void frs_cut_stop(void);                 /* CUT as the iPad's transport has it: every track stopped (frs_track_play's
+                                          * stop), each keeping what it plays, the sound emptied as frs_cut empties it;
+                                          * PLAY (frs_play), frs_release_all or a track's own play brings each back.
+                                          * RESTORE's notes as they were. frs_cut as it was (a stream's CUT from
+                                          * before it) */
 uint32_t frs_ms(void);                   /* the engine's clock: the millisecond it runs next */
 /* a recipe played from any place (a stream, FRASIL STREAM's radio). frs_tick_hook: fn first in every millisecond of the
  * brain, inside frs_render and frs_skip_to, there to call what a replay calls; from the thread that renders, never
@@ -92,11 +102,13 @@ int frs_param_info(uint32_t p, const char **name, uint32_t *max, uint32_t *def);
 #define FRS_P_SCENE 1u                   /* kept in a scene: the sound (MASTER EQ, MASTER FILTER, LOFI TAPE, ROUTING, the
                                           * pans, CHOIR III's SOFT too), TEMPO, the bass's PLAYS, SEQ LENGTH, RATE,
                                           * TRANSPOSE, its arpeggio's MODE, RANGE, CHANCE, its GATE; the drone's
-                                          * sequence's ON, RATE, SEQ LENGTH, GATE, CHANCE, TRANSPOSE (3.0) */
+                                          * sequence's ON, RATE, SEQ LENGTH, GATE, CHANCE, TRANSPOSE (3.0); LOFI TAPE II's
+                                          * four, the LFOs' AMOUNTs, SWELL ("FRS}": ENV held and CC 11 swell it too, of the
+                                          * moment) */
 #define FRS_P_STATE 2u                   /* kept beside it (frs_state_save): KEY MODE, the MIDI channels, LOAD, CLOCK; KEYS
                                           * (3.0: P_KY_DR_HARM .. P_KY_BS_STACK), ARP SNAP (3.0: P_ARP_SNAP, a new chord into
                                           * an arpeggio taken on its grid; 1/4 at the start) */
-#define FRS_P_MOMENT 3u                  /* kept nowhere, what plays now: FREEZE, SWELL, KEYS, MORPH, RECORD, STEP, ARP
+#define FRS_P_MOMENT 3u                  /* kept nowhere, what plays now: FREEZE, KEYS, MORPH, RECORD, STEP, ARP
                                           * II's LATCH (P_GA_LATCH, P_BA_LATCH: the arpeggios' latch as it is) */
 #define FRS_P_STEP 4u                    /* the step STEP points at: NOTE, ACCENT, LENGTH, the sequences' (it changes with
                                           * STEP; the drone's NOTES and LENGTH, P_DQ_NOTES, P_DQ_NLEN) */
@@ -281,8 +293,8 @@ void frs_scene_go(const uint8_t *scene);     /* as the FM-1's SCENES has it: MOR
                                               * plays stays) */
 void frs_scene_stop(void);               /* every note let go, the sequences stopped */
 void frs_scene_store(uint8_t *out, const uint8_t *from);   /* the scene as STORE keeps it now (its sound, what plays,
-                                                            * its sequences, its TEMPO; its name from `from`, else
-                                                            * NEW SHARD's), and the sound marked as saved */
+                                                            * its sequences, its TEMPO; its name from `from`, its 32,
+                                                            * else NEW SHARD's), and the sound marked as saved */
 void frs_scene_edited(const uint8_t *played, uint8_t *out);   /* the River's: the shard played as it is now (its
                                                                * notes once edited) */
 void frs_scene_new(uint8_t *out);        /* NEW SHARD */
@@ -290,7 +302,9 @@ void frs_keys_defaults(void);            /* KEYS back to their defaults, as NEW 
                                           * keeps none: the runner's NEW SHARD calls this) */
 int frs_scene_factory(uint32_t i, uint8_t *out);   /* the factory scenes: 0, or -1: none i */
 int frs_scene_over(uint8_t *scene, uint32_t n);   /* a scene read from an earlier layout, its n bytes first in scene,
-                                          * which holds FRS_SCENE_BYTES: every one with the drone's sequence none (off,
+                                          * which holds FRS_SCENE_BYTES: every one with no name past sixteen, every LFO
+                                          * AMOUNT at x1.00 and SWELL at 0 (as they played: "FRS{"'s 590, that alone),
+                                          * LOFI TAPE II's four as the tape was (64, 64, 0, 0: TAPE SPEED X1.00, TONE 0; not their defaults; 3.0's 586, "FRSz", that alone), the drone's sequence none (off,
                                           * every step a rest, its settings their defaults): 3.0's first, 324 ("FRSy"),
                                           * that alone; 2.7's 323 ("FRSx": AUTO VIB at 0), 322 ("FRSw": the bass's SPACE too), 319 ("FRSv": BASS TONE too); 2.6's 297 ("FRSt": its bass's sixteen notes, then
                                           * their lengths, onto the one grid, the FM-1's own rule) or 2.7's first test
@@ -298,7 +312,39 @@ int frs_scene_over(uint8_t *scene, uint32_t n);   /* a scene read from an earlie
                                           * bass's arpeggio none, its settings and GATE their defaults, whatever bytes
                                           * were after n. FRS_SCENE_BYTES itself: as it is. 0, or -1 a size it does not
                                           * know, scene untouched */
+void frs_scene_amt_over(uint8_t *scene); /* a scene of "FRS|" (3.0.2-b5's test builds: the same 619 bytes, each LFO AMOUNT
+                                          * -100 % .. +100 %, 100 its 0 %) made "FRS}"'s in place: each AMOUNT the
+                                          * multiplier of its size, |v - 100| (+100 % x1.00, -35 % x0.35, 0 % x0.00: a
+                                          * multiplier has no sign); one past 200 x1.00 */
 int frs_dirty(void);                     /* the sound changed since the scene was taken or stored */
+
+/* ---------------------------------------------------------------- ANCHOR --- */
+/* ANCHOR (the FM-1's OCT- and OCT+ together): the scene as it is now, kept in RAM alone (no store), to come back to after
+ * playing on, at once or gliding. What comes back: what a scene keeps of the sound and its tracks (every setting of the
+ * sound, the effects, HARMONY, each layer's PLAYS, ARP's and SEQ's settings, TEMPO, BASS TONE, LOFI TAPE II, the LFOs'
+ * AMOUNTs, SWELL, the three sequences' steps); not what plays (the notes latched or held sound on, the sequences play on from where they are), nor KEYS,
+ * FREEZE, what the keys play, nor SWELL's ENV held and CC 11 (of the moment). A take under way keeps its track's steps,
+ * PLAYS and SEQ LENGTH.
+ *   Gliding (ms): the settings that glide (the sound's that SCENES' MORPH glides, BASS TONE's, the bass's SPACE, AUTO
+ * VIB, SWELL) from where they are heard to the anchor's, smoothstep, a hundred steps a second (the DSP gliding under
+ * them: no zipper); the rest (a preset, a MODEL or TYPE, HARMONY's ROOT, SCALE, CHORD, a TARGET and its AMOUNT, a RATE,
+ * PLAYS, TEMPO, SEQ LENGTH, LOFI TAPE II, the steps) switch together at its half. A setting set meanwhile (frs_param_set, a CC) leaves it, the rest going on; a
+ * scene taken or gone to (frs_scene_take, _play, _go) drops the anchor and the way back, which glides on from where it
+ * is to the new scene's. frs_scene_store meanwhile stores where it goes (its switch made then).
+ *   A stream (frasil_stream.h: FST_ANCHOR, FST_ANCHOR_BACK, FST_ANCHOR_DROP) replays both bit for bit: a recorder
+ * journals the anchor's bytes as it is set (frs_anchor_get, an FSTJ_SCENE for FST_ANCHOR), the way back's ms, a drop;
+ * one that starts while anchored writes FST_ANCHOR first */
+#define FRS_ANCHOR_MS 8000u              /* the FM-1's press: MORPH back (its long press until 3.1; 3500 until 3.0.2-b2, 14000 in b3) */
+void frs_anchor_set(void);               /* set (again: the scene as it is now); a way back under way switches first */
+int frs_anchor_back(uint32_t ms);        /* back to it, ms 0 at once, else gliding over ms; the anchor let go. None set: a
+                                          * way back under way ends at once, its values there. 0, or -1 nothing to do */
+void frs_anchor_drop(void);              /* let go (a way back under way goes on) */
+int frs_anchor_state(float *k);          /* 0 none, 1 set, 2 a way back under way (*k, if given: how far, 0 .. 1) */
+uint32_t frs_anchor_get(uint8_t *out);   /* the anchor's bytes (a scene's: FRS_SCENE_BYTES), its length; 0 none set */
+void frs_anchor_put(const uint8_t *scene);   /* set as those bytes (a stream's replay) */
+uint32_t frs_param_heard(uint32_t p);    /* setting p as it is heard (the thread that renders): during a way back (state
+                                          * 2) a setting that glides on its way there, rounded, so that a screen moves
+                                          * with the sound (frs_param_get has the anchor's at once); else frs_param_get's */
 
 /* -------------------------------------------------- the drone's sequence --- */
 /* DRONE SEQ (3.0): FRS_DQ_STEPS steps, each the notes it plays, FRS_DQ_NOTES at most: a chord as it was built (a chord

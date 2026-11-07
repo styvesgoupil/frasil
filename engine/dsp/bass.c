@@ -219,19 +219,20 @@ static void wave(int model, float *s, uint32_t d)
 void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
 {
     float kg, ka, kd, kr, sus, drv, norm, mix, k, trim, kp, kf, mgs, kpe, c1, c2;
+    const float ch_t = (float)CH * BR_INV_FS * br_tk;   /* a chunk's time (TAPE SPEED's) */
     uint32_t c, i;
     if (b.note < 0)
         return;
     /* a chunk's steps: the glide (a third of GLIDE a time constant), the envelope's */
     {
         float tg = 2.0f * p->glide * p->glide;
-        kg = tg < 0.002f ? 1.0f : 1.0f - fm_expf(-(float)CH * BR_INV_FS * 3.0f / tg);
+        kg = tg < 0.002f ? 1.0f : 1.0f - fm_expf(-ch_t * 3.0f / tg);
     }
-    ka = 1.0f - fm_expf(-(float)CH * BR_INV_FS * 3.0f / (0.005f * fm_powf(1000.0f, p->attack)));
-    kr = 1.0f - fm_expf(-(float)CH * BR_INV_FS * 3.0f / (0.03f * fm_powf(500.0f, p->release)));
-    kd = 1.0f - fm_expf(-(float)CH * BR_INV_FS * 3.0f / (0.01f * fm_powf(1000.0f, p->decay)));
+    ka = 1.0f - fm_expf(-ch_t * 3.0f / (0.005f * fm_powf(1000.0f, p->attack)));
+    kr = 1.0f - fm_expf(-ch_t * 3.0f / (0.03f * fm_powf(500.0f, p->release)));
+    kd = 1.0f - fm_expf(-ch_t * 3.0f / (0.01f * fm_powf(1000.0f, p->decay)));
     sus = p->sustain >= 1.0f ? 1.0f : fm_sqrtf(p->sustain);   /* (the gain is the envelope's square: SUSTAIN a level) */
-    kpe = fm_expf(-(float)CH * BR_INV_FS / 0.05f);
+    kpe = fm_expf(-ch_t / 0.05f);
     c1 = 1.0f - fm_expf(-6.2831853f * 3000.0f * BR_INV_FS);
     c2 = 1.0f - fm_expf(-6.2831853f * 700.0f * BR_INV_FS);
     kp = br_k(0.15f);                    /* (a chunk's, at 44.1 kHz) */
@@ -273,7 +274,7 @@ void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
             b.pe = 1.0f;
             b.pulses++;
         }
-        b.ts += (float)CH * BR_INV_FS;
+        b.ts += ch_t;
         if (!b.gate) {
             b.env += (0.0f - b.env) * kr;
         } else if (!b.dec) {
@@ -299,11 +300,11 @@ void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
         mix = b.drv;
         k = 2.0f - 1.83f * br_clampf(b.res, 0.0f, 1.0f);   /* 1 / Q: 0.5 .. 6 */
         trim = 1.0f / (1.0f + 0.6f * br_clampf(b.res, 0.0f, 1.0f));   /* its peak, kept under the limit */
-        f = 440.0f * fm_exp2f(b.oct);
+        f = 440.0f * fm_exp2f(b.oct) * br_pk;   /* (TAPE SPEED on it, and on its filter) */
         inc = br_clampf(f * BR_INV_FS, 0.0f, 0.45f);
         d = (uint32_t)(int32_t)(inc * 4294967296.0f);
         /* the low-pass: 40 Hz .. 5 kHz, opened up to two octaves by pressure */
-        fc = br_clampf(40.0f * fm_powf(125.0f, b.flt) * fm_exp2f(2.0f * b.prs + 3.5f * b.pch * b.pe), 20.0f, 12000.0f);
+        fc = br_clampf(40.0f * fm_powf(125.0f, b.flt) * fm_exp2f(2.0f * b.prs + 3.5f * b.pch * b.pe) * br_pk, 20.0f, 12000.0f);
         g = fm_tanf(3.14159265f * fc * BR_INV_FS);
         a1 = 1.0f / (1.0f + g * (g + k));
         a2 = g * a1;

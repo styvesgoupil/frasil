@@ -50,6 +50,7 @@ famille de firmwares de Felucca. Il n'a pas de zone à lui :
 | Les 16 scènes | `0xDA000` | deux secteurs de 4 Kio, écrits à tour de rôle, chaque enregistrement avec un CRC |
 | Les séquences de basse et le TEMPO des scènes | `0xD8000` | pareil |
 | Les séquences du drone des scènes | `0xD6000` | pareil |
+| Les noms des scènes après leur seizième caractère | `0xD2000` | pareil |
 | Tes presets (drone, GLINT, basse) | la flash aussi | pareil |
 | Les réglages : le son au démarrage, les canaux MIDI, le tempo, LOAD, le métronome et COUNT-IN, KEYS, les CC appris | `0xFC000` | pareil, dans la paire de secteurs où Felucca garde ses réglages globaux |
 | La calibration du panneau | `0xDC000` | dans le format de Felucca, pour qu'elle reste valide de l'un à l'autre |
@@ -144,7 +145,7 @@ plonge tout sous un passe-bas.
 | **SEQ** | la séquence de la piste, celle du drone comprise, qui s'ouvre sur son ON/OFF; à ON, ses trois pages, et l'arpège à OFF. Tenu : le STACK de la piste |
 | **REC** | enregistre dans la séquence de la piste, de n'importe quelle page : LIVE (une mesure de décompte depuis le silence, tout de suite par-dessus une séquence qui joue), encore une fois STEP, encore une fois OFF. Quitter les pages SEQ et ARP termine la prise. REC clignote sur le temps tant qu'il enregistre. Tenu : éteint le métronome, ou le rallume. OCT− tenu et REC, sur une page SEQ : CLEAR |
 | **SEL** | HARMONY : fondamentale, gamme, accord, voicing. Tiens SEL et tape une touche : une note seule par-dessus ce qui est allumé, quel que soit STACK; sur la basse, elle prend la place de sa note |
-| **LFO, FX, GLO** | les trois LFO et leurs cibles (×6), GENERATIVE FX, CLOUD (×3), MASTER FILTER, LOFI TAPE et PUMP (×2), GLOBAL, MIDI, MASTERING, MASTER EQ (×2), ROUTING, SCREEN et RECORD (METRONOME, COUNT-IN). FX tenu : FREEZE. LFO tenu en tournant K1–K4 : ce réglage sur un LFO. GLO tenu en bougeant un CC : MIDI learn |
+| **LFO, FX, GLO** | les trois LFO et leurs cibles (×6), GENERATIVE FX, CLOUD (×3), MASTER FILTER, LOFI TAPE et PUMP (×2), GLOBAL, MIDI, MASTERING, MASTER EQ (×2), ROUTING, SCREEN et RECORD (METRONOME, COUNT-IN, TUNE A4). FX tenu : FREEZE. LFO tenu en tournant K1–K4 : ce réglage sur un LFO. GLO tenu en bougeant un CC : MIDI learn |
 | **HOME** | la page de jeu; encore une fois : KEYS (comment les touches jouent la piste : HARMONY, NOTES, LATCH, STACK); MIXER; CLOUD SEND (le SPACE de chaque piste); l'écran du logo, vivant. Tenu : l'aide à l'écran (5 pages, tourne SELECT) |
 | **SAVE** | LOAD ou SAVE. LOAD : SCENES (K1 ou SELECT l'emplacement, ou NEW SHARD au-dessus de l'emplacement 01 pour repartir à neuf; MORPH, LOAD; PLAY charge). SAVE : WHAT (une scène, ou un preset de drone, de GLINT ou de basse), INTO (un emplacement, ou un nouveau preset ou l'un des tiens), puis NAME IT; SEL avance, FX recule, SAVE deux fois va droit à la sauvegarde. SAVE tenu + une touche blanche : charger cette scène. SAVE tenu + REC : sauvegarder la scène en cours |
 | **PLAY** | quand rien ne joue, la scène (ses trois pistes, comme tenu); sinon le transport : les trois séquences s'arrêtent ensemble ou repartent ensemble du début, les arpèges attendent ou reprennent; sur SCENES, charger. Tapé deux fois vite pendant que ça joue, ou tenu : RELEASE ALL; tenu quand rien ne joue : RESTORE, la scène de nouveau, ses séquences du début. Lancé ou tenu, il relance le temps à ce moment, comme un Start MIDI (les temps d'une horloge MIDI restent les siens) |
@@ -193,13 +194,13 @@ sont sur PUMP II. MASTERING (GLO) est un compresseur léger sur
 la sortie, avec sa réduction de gain à l'écran. MASTER FILTER (FX) est un passe-bas ou un passe-haut résonant sur les
 pistes choisies, LOFI TAPE (FX) les met sur une bande saturée qui pleure et hoquette (les bobines d'une cassette à
 l'écran), et MASTER EQ (GLO) façonne la sortie avant le compresseur : trois bandes, sept presets, sa courbe dessinée.
-Chaque scène les garde. ROUTING (GLO) place le filtre et la bande avant ou après le nuage, et SPK/JACK coupe la sortie propre du FM-1 (haut-parleur et jack) pendant que l'audio USB continue; SCREEN a ANIMATIONS LOW pour garder l'écran vif avec une scène lourde.
+Chaque scène les garde. ROUTING (GLO) place le filtre et la bande avant ou après le nuage, et SPK/JACK coupe la sortie propre du FM-1 (haut-parleur et jack) pendant que l'audio USB continue; SCREEN a ANIMATIONS LOW pour garder l'écran vif avec une scène lourde, et HEADER : la bande du haut dans la couleur de la piste (INVERT) ou sombre, le texte dans cette couleur (DARK).
 
 **Scènes et presets.** 16 emplacements, dont 7 scènes d'usine qui jouent dès qu'on les charge, chacune à son TEMPO
 (NORTH RIVER, LUMIERE NOCTURNE, RESILIENCE, LONG NIGHT, OPEN WATER, WHITEOUT, THAW). Un FM-1 neuf démarre sur NEW
 SHARD, un son frais d'où partir. Une scène contient le son, son TEMPO, les drones latchés, les notes des arpèges, la
 basse et les trois séquences. SAVE, puis SAVE : sauvegarde une scène dans un emplacement, ou le son d'une piste comme
-preset à toi (puis le nomme, jusqu'à seize caractères); SAVE tenu + une touche blanche charge l'une des 16, comme PLAY
+preset à toi (puis le nomme : une scène jusqu'à 32 caractères, un preset seize); SAVE tenu + une touche blanche charge l'une des 16, comme PLAY
 sur SCENES (SAVE, puis LOAD) ou un Program Change MIDI. MORPH fait glisser le son vers la scène (jusqu'à deux minutes)
 ou le change d'un coup (CUT); LOAD sur SND+NOTES relâche tout et joue les notes de la scène à son TEMPO, ses séquences
 du début, sur SND ONLY ne change que le son. Tiens OCT-, puis EDIT, pour entendre la scène telle que sauvée (COMPARE);

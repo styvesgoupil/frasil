@@ -1,0 +1,92 @@
+# FRASIL in the host simulator: MASTER EQ turned while a scene plays, no click (3.1, Styves on 3.1.0-b5: "when I
+# change the HIGH values, it crackles"): ./build.sh --host, then
+#   app/build/host/frasil_host app/tests/eq_turn.txt app/build/host
+# The bands' coefficients glided a block at a time (256 frames), each block's step a click at its edge: a shelf's
+# large b0 against the states the coefficients before made, HIGH the most, MID next. Now a straight line over 20 ms,
+# a sample at a time (frasil.c eq_chunk, eq_glide). Measured (edges, expect edgedb: the output's second difference
+# squared at the blocks' first samples over their middles', dB x 10), factory scene 3 playing, its sequences and a
+# chord; "still": the same script, each turn a wait as long (the scene's own edges, which a raised treble lifts):
+#                     at rest   HIGH quick   HIGH slow   LOW   MID   the presets   HIGH FREQ
+#   still                 7          8           34       49    49        1           -1
+#   before (3.1.0-b6)     7        401          206       48   111      302          266
+#   now                   7         14           23       47    38        1            0
+# (a band at rest renders as before, bit for bit)
+keysstay 1
+master 4096
+wait 300
+midi C0 03
+wait 500
+tap PLAY
+midi 90 48 80
+midi 90 55 80
+midi 90 64 80
+wait 3000
+gopage 40
+wait 100
+expect page 40
+# the bands flat, the EQ CUSTOM: at rest
+turn K1 1
+wait 300
+expect p130 1
+edges
+wait 2000
+expect edgedb <30
+# -- HIGH, quick (a detent every 12 ms, the turn's speed doubling them): 0 to +12, to -12, up again; then 0 (unmeasured)
+edges
+turn K4 24 12
+expect p133 48
+turn K4 -48 12
+expect p133 0
+turn K4 24 12
+wait 300
+expect edgedb <30
+param 133 24
+wait 300
+# -- HIGH, as a hand turns it (a detent every 80 ms)
+edges
+turn K4 24
+expect p133 48
+turn K4 -48
+expect p133 0
+turn K4 24
+wait 300
+expect p133 24
+expect edgedb <55
+# -- LOW
+edges
+turn K2 24 12
+turn K2 -48 12
+turn K2 24 12
+wait 300
+expect edgedb <70
+param 131 24
+wait 300
+# -- MID
+edges
+turn K3 24 12
+turn K3 -48 12
+turn K3 24 12
+wait 300
+expect edgedb <70
+param 132 24
+wait 300
+# -- the presets, each a while (FLAT .. LOW CUT), then CUSTOM's bands and OFF
+edges
+turn K1 7 400
+expect p130 8
+turn K1 -8 400
+wait 300
+expect p130 0
+expect edgedb <30
+# -- MASTER EQ II's HIGH FREQ, HIGH at +6: the shelf moved
+turn K1 1
+param 133 36
+wait 300
+gopage 41
+wait 100
+expect page 41
+edges
+turn K4 -60 12
+turn K4 60 12
+wait 300
+expect edgedb <30

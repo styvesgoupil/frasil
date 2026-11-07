@@ -91,6 +91,14 @@ static void tune(glint_t *s, int octave)
     s->dm = (uint32_t)(int32_t)(br_clampf(f * s->ratio * BR_INV_FS, 0.0f, 0.45f) * 4294967296.0f);
 }
 
+/* an increment bent by k, kept inside an int32 (TAPE SPEED's X2.00 on one at tune's 0.45 of a turn; a vibrato's bend
+ * alone stays under it, as it did) */
+static inline uint32_t bent(uint32_t d, float k)
+{
+    float x = (float)(int32_t)d * k;
+    return (uint32_t)(int32_t)(x < 2147483520.0f ? x : 2147483520.0f);
+}
+
 void glint_on(int note, float vel, const glint_params_t *p)
 {
     glint_t *s = 0;
@@ -208,9 +216,9 @@ void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, 
         if (s->octv != p->octave)        /* OCTAVE turned: it sounds there at once */
             tune(s, p->octave);
         s->blocks++;
-        s->t += (float)n * BR_INV_FS;
+        s->t += (float)n * BR_INV_FS * br_tk;   /* (TAPE SPEED's time: AUTO VIB's pace with it) */
         if (!s->gate)
-            s->toff += (float)n * BR_INV_FS;
+            s->toff += (float)n * BR_INV_FS * br_tk;
         /* pressure: louder (up to +8 dB, gliding across the block), and while the key is held the bell rings on
          * (its decay slowed as it is pressed) */
         pg = s->pg;
@@ -240,10 +248,11 @@ void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, 
         }
         if (p->vibrato > 0.001f)         /* VIBRATO: the finger's */
             s->cents += p->vibrato * 25.0f * br_clampf((s->pf - s->pa) * 4.0f, -1.0f, 1.0f);
-        if (p->vibrato > 0.001f || p->vib_auto > 0.0f) {   /* both operators bent together, a block at a time */
-            float bend = fm_exp2f(s->cents * (1.0f / 1200.0f));
-            dc = (uint32_t)(int32_t)((float)(int32_t)dc * bend);
-            dm = (uint32_t)(int32_t)((float)(int32_t)dm * bend);
+        if (p->vibrato > 0.001f || p->vib_auto > 0.0f || br_pk != 1.0f) {   /* both operators bent together, a block at
+                                                                             * a time (TAPE SPEED with them) */
+            float bend = fm_exp2f(s->cents * (1.0f / 1200.0f)) * br_pk;
+            dc = bent(dc, bend);
+            dm = bent(dm, bend);
         }
         amp = s->amp;
         att = s->att;
@@ -253,6 +262,11 @@ void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, 
         k = s->gate ? (s->prs > 0.01f ? fm_exp2f(fm_log2f(s->ka) * (1.0f - 0.85f * s->prs)) : s->ka) : s->kr;
         fl = s->gate ? s->amp0 * p->sustain : 0.0f;   /* held: down to SUSTAIN's level, not to silence */
         ki = s->ki;
+        if (br_tk != 1.0f) {             /* TAPE SPEED: its steps over its time (k^tk a sample) */
+            k = fm_exp2f(fm_log2f(k) * br_tk);
+            ki = fm_exp2f(fm_log2f(ki) * br_tk);
+            katt = 1.0f - fm_exp2f(fm_log2f(1.0f - katt) * br_tk);
+        }
         gl = s->gl * lv;
         gr = s->gr * lv;
         for (i = 0; i < n; i++) {

@@ -1,0 +1,30 @@
+# made on the engine of 3.0.2-b5, "FRS{" (ae5ce21): NAME, its render from the top, joined half-way (engine/tests/old_streams.c make, then hash)
+# c-SCENE-KIND: KIND arp, arp-open, plain as engine/tests/old-streams/'s; swell: SWELL turned through scenes taken, gone to, an ANCHOR's way back
+c-0-arp-open.frstream 16f29541126122e2 cce2375457426f0a
+c-0-arp.frstream 6b5d32bd10a3ac63 2285612c457844db
+c-0-plain.frstream 4ffcf0b93a784582 c8112b96d1a66afa
+c-0-swell.frstream 51f3b6e45e6d5653 98945f4fc4ff80c8
+c-1-arp-open.frstream 424a480c3a6b9c97 2b7c35dfe88de8ce
+c-1-arp.frstream 43d441f0f49e37a8 35c18ef317881a9d
+c-1-plain.frstream 9bb699944397a492 3722caaf25ef6469
+c-1-swell.frstream cb03a696bac1603f 47ae54b519d8acd3
+c-2-arp-open.frstream 940b9af9c4cea274 b516d808c44e1087
+c-2-arp.frstream 15d21c89c0c9b551 0971ffdf55002dc7
+c-2-plain.frstream 6e1a0b7ff5ab5860 407acb1e9bc79ab7
+c-2-swell.frstream 597bb404e508170b ae4d357259c61d1c
+c-3-arp-open.frstream 0f97a1121f47c20a 8dc177c96458241f
+c-3-arp.frstream 7c06c20fbd90a990 eeef8a34151d885d
+c-3-plain.frstream 4c08b0b7071e65ad 823bc6664df4b29c
+c-3-swell.frstream 7a3f8e6d98e0cf54 f274d78a92d6782d
+c-4-arp-open.frstream 5c8a676c61f188a6 6cbb8450c406a211
+c-4-arp.frstream 8418a14cec665d35 50f7fd7a775ab6a7
+c-4-plain.frstream 77e580ef0b18e2b9 cff92095e33c7750
+c-4-swell.frstream 0988320339ce0d27 1581b473e6b425b8
+c-5-arp-open.frstream 6e4a2e23eb5ebc32 2ce6cd7363390120
+c-5-arp.frstream 62e70c9349e07953 dfc2522cf2fbfae9
+c-5-plain.frstream 97a32d1caf321656 6d68da86716d6162
+c-5-swell.frstream 26d0de92037b1d14 be7c7cc7b9961990
+c-6-arp-open.frstream 93b9e4ad5cdc256a 2828a6cc951f67a0
+c-6-arp.frstream e4e9070f0e990a41 e2859b68fc8ef327
+c-6-plain.frstream a5822e6d34225f90 7a9392301ffab1b1
+c-6-swell.frstream 943744ed7b9481d3 e2e68e81db3fe1fa

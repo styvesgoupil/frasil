@@ -18,12 +18,19 @@ enum { PG_SON, PG_DRONE, PG_CHOEUR, PG_CHOEUR2, PG_CHOEUR3, PG_PARTIELS, PG_PART
        PG_DSEQ, PG_DSEQ2, PG_DSEQ3,      /* the drone's sequence */
        PG_NOARP,                         /* ARP with DRONE selected: NOT AVAILABLE FOR DRONE */
        PG_KEYS,                          /* HOME's second: the selected track's HARMONY, NOTES, LATCH, STACK */
-       PG_RECORD,                        /* GLO's last: METRONOME, COUNT-IN */
+       PG_RECORD,                        /* GLO's last: METRONOME, COUNT-IN, TUNE A4 */
        PG_SAVE, PG_SAVEAS,               /* SAVE: LOAD or SAVE; WHAT, INTO (app.c) */
+       PG_TAPE2,                         /* LOFI TAPE II: TAPE SPEED, TONE, NOISE, DROPOUT (skipped while TAPE is off) */
        NPAGES };
 #define T_ANY 3u
 #define K_ARP (NPARAM + 1u)              /* K1 of ARP and SEQ: ON, OFF, over the track's PLAYS (app.c ways_turn) */
 #define K_SEQ (NPARAM + 2u)
+#define K_IDLE (NPARAM + 3u)             /* SCREEN's K3, IDLE TIME: the screensaver's minutes (app.c saver.min; no setting
+                                          * in the schema: kept in SCREENSAVER's byte, saver_byte) */
+#define K_HEAD (NPARAM + 4u)             /* SCREEN's K4, HEADER: INVERT or DARK (app.c hdr; no setting in the schema
+                                          * either: settings_t.head) */
+#define K_TUNE (NPARAM + 5u)             /* RECORD's K3, TUNE A4: 415 .. 466 Hz (app.c a4; the device's, no setting in the
+                                          * schema: settings_t.a4) */
 typedef struct {
     const char *name;
     uint8_t button;
@@ -64,9 +71,10 @@ static const page_t PAGES[NPAGES] = {
     [PG_DSEQ3] = {"DRONE SEQ III", B_SEQ, 0, {P_DQ_CHANCE, P_DQ_TRANS, P_DQ_UNDO, NPARAM}},
     [PG_NOARP] = {"DRONE ARP", B_ARP, 0, {NPARAM, NPARAM, NPARAM, NPARAM}},
     [PG_KEYS] = {"KEYS", B_HOME, T_ANY, {NPARAM, NPARAM, NPARAM, NPARAM}},   /* (the selected track's: app.c page_knob) */
-    [PG_SCREEN] = {"SCREEN", B_GLO, T_ANY, {P_ANIM, P_SAVER, NPARAM, NPARAM}},   /* (SCREENSAVER: app.c saver) */
+    [PG_SCREEN] = {"SCREEN", B_GLO, T_ANY, {P_ANIM, P_SAVER, K_IDLE, K_HEAD}},   /* (SCREENSAVER: app.c saver) */
     [PG_ROUTING] = {"ROUTING", B_GLO, T_ANY, {P_FL_PRE, P_TP_PRE, P_PUMP_CLOUD, P_SPEAKER}},   /* (SPK/JACK: the settings') */
-    [PG_RECORD] = {"RECORD", B_GLO, T_ANY, {P_METRO, P_COUNT_IN, NPARAM, NPARAM}},
+    [PG_RECORD] = {"RECORD", B_GLO, T_ANY, {P_METRO, P_COUNT_IN, K_TUNE, NPARAM}},   /* (TUNE A4: the device's, as the
+                                                                                    * metronome is) */
     [PG_FORME] = {"DRONE SHAPE", B_ENV, 0, {P_ATTAQUE, P_RELACHE, P_PRESSION, P_VELOCITE}},
     [PG_LFO1] = {"LFO 1", B_LFO, T_ANY, {P_L1_SHAPE, P_L1_RATE, P_L1_DEPTH, P_L1_POL}},
     [PG_LFO1T] = {"LFO 1 TARGETS", B_LFO, T_ANY, {P_L1_T1, P_L1_T2, P_L1_T3, P_L1_T4}},
@@ -81,6 +89,7 @@ static const page_t PAGES[NPAGES] = {
     [PG_NUAGE3] = {"CLOUD III", B_FX, T_ANY, {P_SHIMMER, P_INTERVALLE, P_SH_TONE, NPARAM}},   /* the shimmer */
     [PG_FILTER] = {"MASTER FILTER", B_FX, T_ANY, {P_FL_TYPE, P_FL_CUT, P_FL_RESO, P_FL_TRACKS}},   /* before PUMP */
     [PG_TAPE] = {"LOFI TAPE", B_FX, T_ANY, {P_TP_ON, P_TP_SAT, P_TP_WOBBLE, P_TP_TRACKS}},     /* after the filter */
+    [PG_TAPE2] = {"LOFI TAPE II", B_FX, T_ANY, {P_TP_FLUTTER, P_TP_TONE, P_TP_NOISE, P_TP_DROPOUT}},   /* after LOFI TAPE */
     [PG_PUMP] = {"PUMP", B_FX, T_ANY, {P_PUMP_RATE, P_PUMP_DRONE, P_PUMP_BASS, P_PUMP_GLINT}},
     [PG_PUMP2] = {"PUMP II", B_FX, T_ANY, {P_PUMP_REL, P_PUMP_ATT, P_PUMP_OFF, NPARAM}},
     [PG_GLOBAL] = {"GLOBAL", B_GLO, T_ANY, {P_TEMPO, P_COUPEBAS, P_ACCORD, P_ARP_SNAP}},   /* (ARP SNAP: the device's) */
@@ -95,6 +104,7 @@ static const page_t PAGES[NPAGES] = {
     [PG_SAVE] = {"SCENES", B_SAVE, T_ANY, {NPARAM, NPARAM, NPARAM, NPARAM}},      /* (K1: LOAD | SAVE, app.c) */
     [PG_SAVEAS] = {"SAVE", B_SAVE, T_ANY, {NPARAM, NPARAM, NPARAM, NPARAM}},      /* (K1 WHAT, K2 INTO, app.c) */
 };
+_Static_assert(K_TUNE <= 255u, "the pages' own knobs, past the settings, fit a page's bytes");
 /* the order a button's taps go through its pages, and SELECT with the button held */
 static const uint8_t PAGE_ORDER[NPAGES] = {
     PG_SON, PG_KEYS, PG_MIXER, PG_CSEND,
@@ -105,7 +115,7 @@ static const uint8_t PAGE_ORDER[NPAGES] = {
     PG_DSEQ, PG_DSEQ2, PG_DSEQ3, PG_SEQ, PG_SEQ2, PG_SEQ3, PG_BSEQ, PG_BSEQ2, PG_BSEQ3,
     PG_LFO1, PG_LFO1T, PG_LFO2, PG_LFO2T, PG_LFO3, PG_LFO3T,
     PG_HARMONY,
-    PG_GENFX, PG_NUAGE, PG_NUAGE2, PG_NUAGE3, PG_FILTER, PG_TAPE, PG_PUMP, PG_PUMP2,
+    PG_GENFX, PG_NUAGE, PG_NUAGE2, PG_NUAGE3, PG_FILTER, PG_TAPE, PG_TAPE2, PG_PUMP, PG_PUMP2,
     PG_GLOBAL, PG_GLOBAL2, PG_MASTER, PG_EQ, PG_EQ2, PG_ROUTING, PG_SCREEN, PG_RECORD,
     PG_SAVE, PG_SAVEAS, PG_SCENES,
 };

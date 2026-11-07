@@ -3,8 +3,10 @@
 /* FRASIL's own exports in the browser build (app.h APP_WEB; base/web/emu/emu_web.c includes it): the River plays a
  * shard with the app as it runs. The page writes the shard's scene_t (web_scene_size() bytes, its STEP LENGTH last) to
  * web_scene_buf, then calls web_scene_play; web_scene_stop lets every note go (web/emu/app_worklet.js: {type: "app",
- * op: "scene" | "stop"}). THE KEYS, the editor's settings, the live view: the engine's (engine/core.c). A shard of an
- * earlier layout (FRSy's 324 bytes, FRSx's 323, FRSw's 322, FRSu's 298, FRSt's 297, and those before made over to FRSt's):
+ * op: "scene" | "stop"}). The shard is FRS|'s, whole: its name's 32, its LFOs' AMOUNTs, SWELL, in and out. THE KEYS, the
+ * editor's settings, the live view: the engine's (engine/core.c). A shard of an earlier layout (FRS{'s 590 bytes, 3.0.2's,
+ * before the name's rest, the AMOUNTs and SWELL; FRSz's 586, 3.0's, before LOFI TAPE II; FRSy's 324 bytes, FRSx's 323,
+ * FRSw's 322, FRSu's 298, FRSt's 297, and those before made over to FRSt's):
  * web_scene_over(n) first makes it
  * over, as the FM-1 does (scene_over) */
 static scene_t web_sc;
@@ -12,7 +14,7 @@ __attribute__((used, visibility("default"))) uint8_t *web_scene_buf(void) { retu
 __attribute__((used, visibility("default"))) uint32_t web_scene_size(void) { return (uint32_t)sizeof web_sc; }
 __attribute__((used, visibility("default"))) void web_scene_play(void) { eng_scene_play(&web_sc, 1); }
 __attribute__((used, visibility("default"))) void web_scene_stop(void) { eng_scene_stop(); }
-/* the scene in web_scene_buf, n bytes of an earlier layout's (324 FRSy .. 297 FRSt: core.c scene_over), made over in
+/* the scene in web_scene_buf, n bytes of an earlier layout's (590 FRS{ .. 297 FRSt: core.c scene_over), made over in
  * place to this one's: 0,
  * or -1 not a size it knows */
 __attribute__((used, visibility("default"))) int web_scene_over(uint32_t n) { return scene_over(&web_sc, n); }

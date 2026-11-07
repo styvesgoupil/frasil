@@ -1,0 +1,64 @@
+# FRASIL in the host simulator: CUT (OCT- held, PLAY), then PLAY, on RESILIENCE: ./build.sh --host, then
+#   app/build/host/frasil_host app/tests/cut_play.txt app/build/host
+# The iPad's CUT let the drone's chords and GLINT's arpeggio go when its tracks were stopped first (card #101: PLAY
+# brought the bass back alone; the engine's frs_cut_stop since). The FM-1 has no track stopped on its own: PLAY tapped
+# is the transport (the bass's sequence stopped, the arpeggio waiting, the drone held), CUT empties everything, and PLAY
+# with nothing playing plays the scene again (eng_play_tap: eng_scene_again), its three tracks. Stopped or not
+keysstay 1
+wait 600
+# RESILIENCE (slot 03): two chords latched (7 drone voices held), GLINT's arpeggio on three notes, the bass's sequence
+press SAVE
+tapkey w2
+release SAVE
+wait 3000
+expect scene 2
+expect held 7
+expect arpnotes 3
+expect paused 0
+expect bseqrun 1
+# PLAY: the transport stopped (the bass's sequence, the arpeggio waiting), the drone held
+tap PLAY
+wait 1000
+expect bseqrun 0
+expect paused 1
+expect held 7
+# CUT: nothing sounds, nothing held, nothing waiting; silent while nothing is asked
+press OCT-
+press PLAY
+release PLAY
+release OCT-
+wait 400
+expect voices 0
+expect glints 0
+expect held 0
+expect arpnotes 0
+expect bseqrun 0
+expect paused 0
+wait 1500
+expect voices 0
+expect glints 0
+# PLAY: all three back, the drone's chords, the arpeggio stepping on its three notes, the bass's sequence sounding
+tap PLAY
+wait 3000
+expect held 7
+expect arpnotes 3
+expect glints >0
+expect paused 0
+expect bseqrun 1
+expect bassvoice >0
+# nothing stopped first: CUT, then PLAY, the same three
+press OCT-
+press PLAY
+release PLAY
+release OCT-
+wait 400
+expect voices 0
+expect held 0
+expect bseqrun 0
+tap PLAY
+wait 3000
+expect held 7
+expect arpnotes 3
+expect glints >0
+expect bseqrun 1
+expect bassvoice >0

@@ -42,7 +42,7 @@ enum {
     P_DR_PRESET, P_DR_FULL,              /* the drone's preset (0: CUSTOM), its BODY (DRONE TONE) */
     P_L3_SHAPE, P_L3_RATE, P_L3_DEPTH, P_L3_POL, P_L3_T1, P_L3_T2, P_L3_T3, P_L3_T4,   /* LFO 3 */
     P_SQ_TYPE,                           /* GLINT's PLAYS: KEYS, ARP (the arpeggiator), SEQ (the sequencer) */
-    P_GX_SPARK, P_GX_BLUR, P_GX_SINK,    /* GENERATIVE FX (SWELL beside them, not kept): glints by themselves, the
+    P_GX_SPARK, P_GX_BLUR, P_GX_SINK,    /* GENERATIVE FX (SWELL beside them, past NSOUND): glints by themselves, the
                                           * drone into the cloud, everything under */
     P_BS_DECAY, P_BS_SUSTAIN, P_BS_PULSE,   /* BASS III's DECAY and SUSTAIN (between its ATTACK and RELEASE), BASS II's
                                              * PULSE: the note let go and played again on the grid */
@@ -63,7 +63,8 @@ enum {
     P_SQ_STEP, P_SQ_NOTE, P_SQ_ACC, P_SQ_REC, P_SQ_CLEAR,   /* GLINT SEQ's editing: the step on K1, its note and
                                                              * accent (seq[]'s, shown), RECORD, CLEAR (not kept) */
     P_SWELL,                             /* GENERATIVE FX's K1: every drone voice swelled, as far as it is turned
-                                          * (not kept) */
+                                          * (kept in the scene since "FRS}": scene_t's swell; ENV held and MIDI's CC 11
+                                          * swell it too, of the moment) */
     P_KB,                                /* SELECT's: what the keys play, DRONE, GLINT, BASS (not kept) */
     P_MORPH, P_LOAD,                     /* SCENES' K2, K3: how a scene comes in (LOAD kept with the settings;
                                           * MORPH on CUT at every start) */
@@ -122,5 +123,14 @@ enum {
                                           * device's (kept with the settings, frs_state_save; 3.0) */
     P_SAVER,                             /* SCREEN's K2, SCREENSAVER: ON (after ten minutes without a touch, the screen
                                           * black, the logo drifting), OFF; the FM-1's, kept with its settings (3.0) */
+    P_TP_FLUTTER, P_TP_TONE, P_TP_NOISE, P_TP_DROPOUT,   /* LOFI TAPE II: TAPE SPEED (FLUTTER RATE's until it), the tone, the hiss, the
+                                          * dropouts; kept in the scene, after its drone's sequence (scene_t's tp_flutter ..;
+                                          * numbered last; not LFO targets) */
+    /* LFO AMOUNT: each LFO's on each of its TARGETs (P_L1_AMT1 + 4 x the LFO + the TARGET's 0 .. 3), a multiplier
+     * (0 .. 200: x0.00 .. x1.00 by 0.01, then .. x5.00 by 0.04; 100, x1.00, as the LFOs moved them before); kept in the scene, after LOFI TAPE II's four (scene_t's
+     * lfo_amt; numbered last; not LFO targets) */
+    P_L1_AMT1, P_L1_AMT2, P_L1_AMT3, P_L1_AMT4,
+    P_L2_AMT1, P_L2_AMT2, P_L2_AMT3, P_L2_AMT4,
+    P_L3_AMT1, P_L3_AMT2, P_L3_AMT3, P_L3_AMT4,
     NPARAM
 };

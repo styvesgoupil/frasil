@@ -9,11 +9,11 @@ lights, screen or store. The FM-1's firmware is built on it (`app/`, its shell),
 | `frasil_engine.h`, `frasil_engine.c` | the engine alone: its public API (init at a rate, render, the keys, THE KEYS, MIDI, the settings, the scenes, a UI's view, the effects') |
 | `frasil_params.h` | the settings' numbers by name (`P_EQ_LOW` ...), the public enum `params.c` and the API share |
 | `core.c` | the brain: what a key means, the chords, GLINT's arpeggiator and step sequencer, the bass's sequence and its LIVE take, PULSE, the LFOs, SPARKLE, the metronome, the grid (MIDI clock or TEMPO), MORPH, the scenes taken and stored, RELEASE ALL and RESTORE, MIDI's meaning, THE KEYS |
-| `params.c` | every setting (its range, default and words), the scene's layout (a shard, 319 bytes), the factory scenes, the presets (the drone's, GLINT's, MASTER EQ's), LFO TARGET's choices, `params_to_engine` |
+| `params.c` | every setting (its range, default and words), the scene's layout (a shard, 619 bytes, "FRS}"), the factory scenes, the presets (the drone's, GLINT's, MASTER EQ's), LFO TARGET's choices, `params_to_engine` |
 | `harmony.c` | the key (ROOT, SCALE) and what a played note becomes (CHORD, VOICING) |
 | `dsp/` | the sound, compiled apart at -O2: `frasil.c` (the voices, the mix, MASTER FILTER, MASTER EQ, LOFI TAPE, ROUTING, the pans, MASTERING, CUT), `glint.c` (GLINT and its delay), `bass.c` (BASS), `nuage.c` (CLOUD, the reverb); `fastmath.h` |
 | `frasil_stream.h`, `.c` | SHARD STREAM: a performance as a recipe. The file (`.frstream`), the journal, the replay, and `fst_air`: a stream played by the engine's own milliseconds, joined at any place (`frs_tick_hook`, `frs_skip_to`). The API alone, no platform: the same reader for the iPad and the radio |
-| `tests/` | the engine alone against the FM-1's simulator (`run.sh`) |
+| `tests/` | the engine alone against the FM-1's simulator (`run.sh`; `anchor.c`: ANCHOR through the API and a stream) |
 
 ## Alone
 
@@ -45,6 +45,9 @@ FM-1's DSP is built: at 44.1 kHz alone.
 - **A stream joined anywhere** (`tests/skip.c`): takes through the real file, every factory scene, MIDI, keys, scene
   changes, CUT, an engine opened again: a skip's messages to the DSP and the brain's state at T are a render's, at any
   buffer. Controls that must differ, or the test proves nothing.
+- **Old streams** (`tests/old_streams.c`): `tests/old-streams/`'s takes of "FRSz" (3.0, before ARP SNAP) and
+  `tests/old-streams-3.0.2/`'s of "FRS{" (3.0.2-b5's, SWELL turned through scenes and an ANCHOR among them), each as
+  its engine played it, bit for bit, from the top and joined half-way.
 - **At 48 kHz:** the same sound, second by second, and measured: the bass's pitch, GLINT's echo, CLOUD's RT60,
   LOFI TAPE's delay and flutter, MASTER FILTER's 3 dB point, MASTER EQ's MID FREQ.
 
@@ -94,6 +97,13 @@ FM-1's DSP is built: at 44.1 kHz alone.
     state.
   - **Only what is latched is kept:** a chord or a bass note held (MIDI's, a key's in HOLD, THE KEYS' HOLD) sounds on.
   - **A stopped track stays stopped** through a MIDI Start or a host's start and locate.
+- **ANCHOR** (`frs_anchor_set`, `frs_anchor_back`, `frs_anchor_drop`, `frs_anchor_state`, `frs_anchor_get`,
+  `frs_anchor_put`): the scene as it is now kept in RAM, to come back to gliding or at once (the FM-1's OCT− and OCT+
+  together again: pressed, gliding; held, at once). What a scene keeps of the sound and its tracks comes back, not
+  what plays. Gliding, what SCENES' MORPH glides (and BASS TONE, the bass's SPACE, AUTO VIB) glides; the choices
+  switch at its half. A stream replays both
+  (`FST_ANCHOR`, `FST_ANCHOR_BACK`, `FST_ANCHOR_DROP`). `frs_param_heard`: a setting as it is heard while it glides
+  back (`frs_param_get` has the anchor's at once), for a screen that moves with the sound (the iPad's).
 - **THE KEYS' HOLD with several fingers** (`frs_hold`):
   - **Counting:** each note's fingers are counted, so a note two fingers hold lets go at the last up.
   - **The bass** plays the last finger's note. When the top finger lets go, the last one still down plays again.
@@ -113,7 +123,18 @@ FM-1's DSP is built: at 44.1 kHz alone.
     0 KEYS, 1 ARP, 2 SEQ; `P_BQ_ON`'s 1 was SEQUENCE on till then), the bass's arpeggio and the sequences alike, numbered
     last too: `P_BA_MODE` 184, `P_BA_RANGE`, `P_BA_CHANCE`, `P_BQ_GATE`, `P_BQ_ACC`, `P_BQ_NEW`, `P_BQ_UNDO`, GLINT's LENGTH
     `P_SQ_NLEN` 191, `NPARAM` 192. The arpeggiator is one, its layers `arp` and `barp`; the grid and the clock `grid`.
-  - **Their kind** (`frs_param_kind`): kept in a scene (2.5's effects and pans, 2.6's SOFT too), kept beside it (CLOCK too), of
+    Since then, every one numbered last, none moved: BASS TONE 192 .. 194, the bass's SPACE 195, AUTO VIB 196, 3.0's
+    drone's sequence 197 .. 208, ARP II's LATCH, KEYS, METRONOME, COUNT-IN, ARP SNAP, SCREENSAVER 209 .. 226, LOFI TAPE
+    II's four 227 .. 230, the LFOs' AMOUNTs `P_L1_AMT1` .. `P_L3_AMT4` 231 .. 242 (LFO n's TARGET k's:
+    `P_L1_AMT1 + 4 (n - 1) + k - 1`), `NPARAM` 243.
+  - **The LFOs' AMOUNTs** (one per TARGET, a multiplier): 0 .. 200, x0.00 .. x5.00; 0 .. 100 is x0.00 .. x1.00 by
+    0.01, 100 .. 200 x1.00 .. x5.00 by 0.04 (x3.00 at 150). 100 (x1.00, the default) the LFO as it moved its TARGET
+    before, bit for bit (its factor 1 exactly). What the LFO adds to its TARGET is times the AMOUNT, the setting still
+    in its range. Its words "×1.00" (UTF-8's ×).
+  - **SWELL** (`P_SWELL`, GENERATIVE FX's K1) is the scene's (since "FRS}": stored, taken, ANCHOR's); ENV held
+    (`frs_swell`) and MIDI's CC 11 swell the drone too, of the moment: the most of the three sounds.
+  - **Their kind** (`frs_param_kind`): kept in a scene (2.5's effects and pans, 2.6's SOFT too, LOFI TAPE II, the
+    AMOUNTs, SWELL), kept beside it (CLOCK too), of
     the moment, a step's, an action (turned to 2, it acts and comes back: not a plug-in's automation), or none (the
     FM-1's alone: SPK/JACK, ANIMATIONS).
   - **The engine's state beside a scene** (KEY MODE, the MIDI channels, LOAD, CLOCK, the metronome):
@@ -126,11 +147,24 @@ FM-1's DSP is built: at 44.1 kHz alone.
   - **TRACKS** (MASTER FILTER's and LOFI TAPE's): `FRS_TRACKS_*` are its values (ALL, DRONE, GLINT, BASS, then the
     pairs), `frs_tracks_bits` the tracks each is on (`FRS_TRK_*`; DRONE has its cloud's return with it, unless
     ROUTING puts the effect before the cloud).
-- **A scene** (a shard) is 319 bytes in the River's layout (`FRS_SCENE_BYTES`, "FRSv"): a shard from the River
-  plays as it does there. A scene a platform kept from before goes through `frs_scene_over(scene, n)` first, in a buffer
-  of `FRS_SCENE_BYTES`: 2.6's 297 bytes ("FRSt", its bass's sequence made over as the FM-1 does) or 2.7's first test
-  builds' 298 ("FRSu"); `P_BQ_ON`'s 1 becomes 2, the bass's arpeggio none. The River makes the older shards over before it gives them (2.5's 296
-  bytes, SOFT at 0; 2.0's 273).
+- **A scene** (a shard) is 619 bytes in the River's layout (`FRS_SCENE_BYTES`, "FRS}"): a shard from the River
+  plays as it does there. Its name: its first 16 characters at 0 (NUL-padded, all 16 used: no NUL), the rest, 17 ..
+  32, at 590 (`name_more`, only after a first 16 all used). Its tail, after "FRS{"'s 590 bytes: the name's rest (590,
+  16 bytes), the LFOs' AMOUNTs (606, 12: LFO 1's four TARGETs, LFO 2's, LFO 3's), SWELL (618). A scene a platform kept
+  from before goes through `frs_scene_over(scene, n)` first, in a buffer of `FRS_SCENE_BYTES`: 3.0.2's 590 ("FRS{": no
+  name past 16, the AMOUNTs x1.00, SWELL 0), 3.0's 586 ("FRSz": LOFI TAPE II's four as the tape was too, 64, 64,
+  0, 0, not their defaults), 324 ("FRSy": no drone's sequence too), 2.7's 323, 322, 319, 2.6's 297 bytes ("FRSt", its bass's sequence made over as the FM-1
+  does) or 2.7's first test builds' 298 ("FRSu"); `P_BQ_ON`'s 1 becomes 2, the bass's arpeggio none. The River makes
+  the older shards over before it gives them (2.5's 296 bytes, SOFT at 0; 2.0's 273). A user's preset keeps a name of
+  16 (`FRS_PRESET_HEAD`). "FRS|" (3.0.2-b5's test builds, never released) has the same 619 bytes, its AMOUNTs in
+  percent (-100 % .. +100 %): `frs_scene_amt_over(scene)` makes them multipliers (|v - 100|: +100 % x1.00, -35 % x0.35).
+- **A stream's scenes** (`frasil_stream.h`): "FRS}", or an older layout's ("FRS{", "FRSz") made over as they are
+  played, SWELL as it is then (their engines left it through a scene and an ANCHOR's way back): an old stream plays
+  as it did. The file itself is not changed (its CRC stays). An "FRS|" stream is refused (its AMOUNTs in percent in
+  its scenes, its state and its moves; only 3.0.2-b5's test builds made any).
+- **ANCHOR's way back and a scene's MORPH:** SWELL glides back on ANCHOR's MORPH (as BASS TONE, the bass's SPACE,
+  AUTO VIB), the AMOUNTs switch at its half with the TARGETs; on a scene's MORPH, SWELL is the scene's at once, as
+  BASS TONE is.
 - **2.5's effects as they sound** (`frs_live_fx`, `FRS_LIVE_FX` floats, its layout in the header): LOFI TAPE's mix,
   speed, wow, drift and flutter phases and drag; MASTER FILTER's type, cutoff, Q and tracks now; MASTER EQ's three
   biquads now; MASTERING's gain reduction; the output's peak and RMS, left and right. `frs_fx_response` draws the

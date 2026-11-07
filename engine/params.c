@@ -13,14 +13,15 @@ enum { F_PCT, F_ATT, F_REL, F_DECAY, F_PREDELAY, F_HZ, F_TAU, F_PERIOD, F_INTERV
        F_CREL, F_DBGAIN, F_LEVEL, F_PATT, F_SHAPE, F_CINT, F_HARM, F_BPITCH, F_SIGNED, F_CTYPE, F_LSHAPE, F_LRATE, F_LPOL,
        F_LTGT, F_SQLEN, F_SQNOTE, F_SQREC, F_SQCLEAR, F_SQTRANS, F_DPRESET, F_SQTYPE, F_KB, F_MORPH, F_LOAD, F_UNDO, F_NEWTAKE,
        F_BQNOTE, F_BQLEN, F_BDEC, F_BPULSE, F_GREL, F_EQPRESET, F_EQDB, F_EQLOWF, F_EQMIDF, F_EQQ, F_EQHIGHF, F_FLTYPE,
-       F_FLCUT, F_FLTRACKS, F_PREPOST, F_PAN, F_ANIM, F_CLOCK, F_BQNLEN, F_DQNOTES, F_KNOTES, F_METRO, F_COUNTIN, F_ARPSNAP };
+       F_FLCUT, F_FLTRACKS, F_PREPOST, F_PAN, F_ANIM, F_CLOCK, F_BQNLEN, F_DQNOTES, F_KNOTES, F_METRO, F_COUNTIN, F_ARPSNAP, F_TSPEED,
+       F_AMT };
 
 typedef struct {
     const char *name;
     uint8_t max, def, fmt;
 } pdesc_t;
 
-#define NLFO_TGT 56u                     /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below) */
+#define NLFO_TGT 58u                     /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below) */
 #define NDRONE 33u                       /* the settings a drone preset sets (DRONE_P, below) */
 #define NDPRESET 36u
 #define NPULSE 7u                        /* PULSE's choices: OFF, then its divisions (PULSE_TICKS, below) */
@@ -225,6 +226,26 @@ static const pdesc_t PD[NPARAM] = {
     [P_SQ_NLEN] = {"LENGTH", 32, 0, F_BQNLEN},         /* the note on STEP's: 1 .. 32 steps (0: no note there, -) */
     [P_SPEAKER] = {"SPK/JACK", 1, 1, F_ONOFF},        /* OFF: the speaker and headphones quiet, USB audio as ever */
     [P_ANIM] = {"ANIMATIONS", 1, 0, F_ANIM},           /* LOW: the river, the tape, the logo still (for the sound) */
+    [P_TP_FLUTTER] = {"TAPE SPEED", 127, 64, F_TSPEED},   /* LOFI TAPE II: X0.25 .. X2.00, X1.00 at 64, X0.01 a detent
+                                                         * from X0.48 to X1.58 (tape_oct; FLUTTER RATE's byte until
+                                                         * it: the flutter now 5 HZ) */
+    [P_TP_TONE] = {"TONE", 127, 74, F_SIGNED},         /* the tape's pole times 0.25 .. 4, as it was in the middle; +10 its
+                                                        * default */
+    [P_TP_NOISE] = {"NOISE", 127, 0, F_PCT},           /* the hiss */
+    [P_TP_DROPOUT] = {"DROPOUT", 127, 0, F_PCT},       /* now and then the level dips */
+    [P_L1_AMT1] = {"AMOUNT 1", 200, 100, F_AMT},       /* LFO AMOUNT: x0.00 .. x5.00, x1.00 (the LFOs as they were) in
+                                                        * the middle */
+    [P_L1_AMT2] = {"AMOUNT 2", 200, 100, F_AMT},
+    [P_L1_AMT3] = {"AMOUNT 3", 200, 100, F_AMT},
+    [P_L1_AMT4] = {"AMOUNT 4", 200, 100, F_AMT},
+    [P_L2_AMT1] = {"AMOUNT 1", 200, 100, F_AMT},
+    [P_L2_AMT2] = {"AMOUNT 2", 200, 100, F_AMT},
+    [P_L2_AMT3] = {"AMOUNT 3", 200, 100, F_AMT},
+    [P_L2_AMT4] = {"AMOUNT 4", 200, 100, F_AMT},
+    [P_L3_AMT1] = {"AMOUNT 1", 200, 100, F_AMT},
+    [P_L3_AMT2] = {"AMOUNT 2", 200, 100, F_AMT},
+    [P_L3_AMT3] = {"AMOUNT 3", 200, 100, F_AMT},
+    [P_L3_AMT4] = {"AMOUNT 4", 200, 100, F_AMT},
     [P_SAVER] = {"SCREENSAVER", 1, 1, F_ONOFF},        /* ON: ten minutes untouched, the logo drifts on black (app.c) */
     [P_CLOCK] = {"CLOCK", 1, 0, F_CLOCK},              /* INTERNAL: an incoming MIDI clock ignored */
     [P_EQ_PRESET] = {"PRESET", 8, 0, F_EQPRESET},      /* OFF, CUSTOM (the bands as they are), then EQ_PRESETS' seven */
@@ -277,14 +298,17 @@ static const char *const PULSE_NAME[NPULSE] = {"OFF", "1/8 BEAT", "1/4 BEAT", "1
 #define SC_CHORDS 8u                     /* latched drone chords a scene keeps */
 #define SC_ARP 16u                       /* and each arpeggio's notes, GLINT's, the bass's */
 #define SC_SEQ 32u                       /* and GLINT's sequence: a byte a step (app.c, SQ_*) */
-#define SC_NAME 16u                      /* a name's characters */
+#define SC_NAME 16u                      /* a name's characters, its first (scene_t's name) */
+#define SC_NAME_MORE 16u                 /* and past them (scene_t's name_more, "FRS}"'s) */
+#define SC_NAME_ALL (SC_NAME + SC_NAME_MORE)   /* 32 in all */
+#define SC_LFO_AMT 12u                   /* the LFOs' AMOUNTs a scene keeps: each LFO's four (P_L1_AMT1 ..) */
 #define SC_BSEQ 32u                      /* and the bass's sequence: a byte a step (core.c, bnote), one STEP LENGTH */
 #define SC_DSEQ 32u                      /* and the drone's sequence: its steps (core.c dnote), */
 #define DQ_NOTES 8u                      /* each up to eight notes */
 #define DQ_TIE 127u                      /* (a step's first byte: a tie, the notes before held on) */
 #define NDQ 6u                           /* scene_t's from dq_on to dq_trans */
 typedef struct {
-    char name[SC_NAME];                  /* NUL-padded; all sixteen used, none (app.c name_text) */
+    char name[SC_NAME];                  /* NUL-padded; all sixteen used, none (core.c name_text); the rest in name_more */
     uint8_t v[NSOUND];
     uint8_t nch, narp;                   /* what it plays: none (a factory scene) keeps what is playing */
     int8_t ch[SC_CHORDS][5];             /* each chord: its root, then its notes (-1: none) */
@@ -311,6 +335,16 @@ typedef struct {
     uint8_t dnote[SC_DSEQ][DQ_NOTES];    /* its steps, each the notes it plays as they were played on the drones (MIDI's,
                                           * TRANSPOSE off them), 1 .. 126 low to high, 0 after the last: none, a rest;
                                           * DQ_TIE first (the rest 0), a tie */
+    uint8_t tp_flutter, tp_tone, tp_noise, tp_dropout;   /* LOFI TAPE II's TAPE SPEED (FLUTTER RATE's byte until it),
+                                                          * TONE, NOISE, DROPOUT ("FRS{": the layouts before end at
+                                                          * dnote, read with these as the tape was, TAPE_NONE, core.c
+                                                          * tape_none) */
+    char name_more[SC_NAME_MORE];        /* the name's characters 17 .. 32, NUL-padded (only after a first sixteen all
+                                          * used; "FRS}": the layouts before end at tp_dropout, read with no name's
+                                          * rest, the AMOUNTs at x1.00, SWELL 0, core.c more_none) */
+    uint8_t lfo_amt[SC_LFO_AMT];         /* each LFO TARGET's AMOUNT: LFO 1's four, LFO 2's, LFO 3's (P_L1_AMT1 ..'s
+                                          * values: 100 x1.00; "FRS|"'s in percent, 200 +100 %: frs_scene_amt_over) */
+    uint8_t swell;                       /* SWELL, GENERATIVE FX's K1 (P_SWELL's value) */
 } scene_t;
 #define NBQ 12u                          /* scene_t's from bq_on to bq_gate, what the scene's "changed" looks at */
 
@@ -465,7 +499,10 @@ static const factory_t FACTORY[] = {
  * (LOW CUT at 83 HZ: no boom swelling under it as the drift moves the low notes). A seventh in A minor, open (A E G C:
  * Am7 on A). GLINT's SINE */
 #define S(n, ...) {n, {__VA_ARGS__}, 0, 0, {{0}}, {0}, -1, {0}, {0}, 0, 15, 14, 60, 0, 0, 1, 127, 127, 0, 0, 0, 0, {0}, 0, 0, \
-                   0, 4, 3, 127, 127, 14, {{0}}}   /* playing nothing, at 90 BPM; the drone's sequence off, empty */
+                   0, 4, 3, 127, 127, 14, {{0}}, 64, 64, 0, 0, {0}, \
+                   {200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200}, 0}   /* playing nothing, at 90 BPM; the
+                                                                                      * drone's sequence off, empty; the
+                                                                                      * tape as it was, the LFOs whole */
 static const scene_t NEW_SHARD = S("NEW SHARD", 84, 50, 44, 40, 50, 46, 60, 20, 0, 60, 0, 100, 96, 90, 76, 30, 64, 36,
                                    30, 38, 98, 82, 60, 0, 100, 85, 20, 0, 56, 127, 50, 64, 66,
                                    9, 2, 3, 1, 8);
@@ -593,7 +630,7 @@ static const uint8_t LFO_TGT[NLFO_TGT] = {NPARAM, P_TIMBRE, P_ESPACE, P_MOUVEMEN
                                     P_ARP_CHANCE, P_SQ_LEN, P_GX_SPARK, P_GX_BLUR, P_GX_SINK, P_FL_CUT, P_FL_RESO,
                                     P_PN_DRONE, P_PN_BASS, P_PN_GLINT, P_PN_CLOUD, P_CH_SOFT, P_GL_ATTACK, P_GL_DECAY,
                                     P_GL_SUSTAIN, P_GL_RELEASE, P_BS_ATTACK, P_BS_DECAY, P_BS_SUSTAIN,
-                                    P_BS_RELEASE};   /* (GLINT's CHANCE,
+                                    P_BS_RELEASE, P_TP_SAT, P_TP_WOBBLE};   /* (GLINT's CHANCE,
                                                                 * its SEQ LENGTH, SPARKLE: app.c's, arp_chance,
                                                                 * seq_len, sparkle_run) */
 static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MOTION", "WARMTH", "CHOIR", "PARTIALS",
@@ -605,7 +642,7 @@ static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MO
                                              "SPARKLE", "BLUR", "SINK", "MS CUTOFF", "MS RESO", "DRONE PAN", "BASS PAN",
                                              "GLINT PAN", "CLOUD PAN", "CH SOFT", "GL ATTACK", "GL DECAY", "GL SUSTAIN",
                                              "GL RELEASE", "BS ATTACK", "BS DECAY", "BS SUSTAIN",
-                                             "BS RELEASE"};   /* (new ones at the end: a saved TARGET
+                                             "BS RELEASE", "TAPE SAT", "WOBBLE"};   /* (new ones at the end: a saved TARGET
                                                                          * keeps its setting) */
 static float lfo_hz(uint32_t r) { return 0.005f * fm_powf(2000.0f, (float)r / (float)(LFO_NFREE - 1u)); }
 /* GLINT's OCTAVE, in semitones: every glint is played without it, the engine puts it on (a key's, a MIDI note's, the
@@ -617,8 +654,11 @@ static int32_t bseq_shift;
 /* DRONE SEQ II's NOTES as the step on STEP has them (core.c dseq_view): its notes' count and, one alone, it (as it
  * sounds: TRANSPOSE aside) */
 static uint8_t dq_view_n, dq_view_note;
-/* a scene's MORPH: what each setting still lacks of the scene's, in its own steps, toward 0 (app.c, morph_run) */
-static float morph_off[NSOUND];
+/* a scene's MORPH, ANCHOR's way back: what each setting still lacks of where it goes, in its own steps, toward 0
+ * (core.c morph_run): the sound's, and the six a scene keeps past it that sound as it does (SWELL, BASS TONE's WEIGHT,
+ * PUNCH, BITE, the bass's SPACE, AUTO VIB: ANCHOR's alone glides them; SWELL's heard by core.c eng_swell) */
+#define NMORPH (P_GL_VIB_AUTO + 1)
+static float morph_off[NMORPH];
 /* what the LFOs add to each setting now, in its own steps (app.c, lfo_run); params_to_engine takes them */
 static float mod[NSOUND];
 
@@ -713,9 +753,41 @@ static const uint8_t EQ_PRESETS[EQ_NPRESET][7] = {
     {24, 18, 24, 59, 51, 53, 90}, {30, 22, 29, 51, 64, 24, 96}, {12, 28, 24, 59, 87, 29, 90}};
 static const char *const FL_TRACKS_NAME[7] = {"ALL", "DRONE", "GLINT", "BASS", "DRONE+GLINT", "DRONE+BASS", "GLINT+BASS"};
 
+/* LOFI TAPE II's TAPE SPEED, as the octaves it moves (log2 of its factor), the one mapping (the FM-1, the stream's
+ * readers, the iPad's engine; its text, F_TSPEED): X1.00 at 64 exactly (so that a tape from before plays as it did),
+ * X0.01 a detent from X0.48 (12) to X1.58 (122): X0.50 (14) an octave down, X1.50 (114) a fifth up; past them a
+ * half-tone a detent (X0.47 .. X0.25 at 0, two octaves down; X1.59 .. X2.00 at 127, one up). Until 3.1 the byte was
+ * log2's own, a 32nd of an octave a detent under X1.00 (X0.79, X0.77: two hundredths) and a 63rd over */
+static float tape_oct(uint32_t x)
+{
+    return x == 64u ? 0.0f
+         : x < 12u  ? ((float)x - 24.0f) * (1.0f / 12.0f)
+         : x > 122u ? ((float)(x > 127u ? 127u : x) - 115.0f) * (1.0f / 12.0f)
+                    : fm_log2f((float)(36u + x) * 0.01f);
+}
+
+/* the half-tones TAPE SPEED at x moves the pitch, when it lands on one: 12 log2 of its factor within 0.1 of a whole
+ * number, and nearer it than the detents beside (one detent a half-tone: X1.50, not X1.49, for the fifth); 0 at
+ * X1.00 and between them (LOFI TAPE II, between the reels: -3 as "-1.5 TONES") */
+static int tape_semis(uint32_t x)
+{
+    float s = 12.0f * tape_oct(x), e;
+    int n = (int)(s < 0.0f ? s - 0.5f : s + 0.5f);
+    e = fm_fabsf(s - (float)n);
+    if (!n || e > 0.1f || (x > 0u && fm_fabsf(12.0f * tape_oct(x - 1u) - (float)n) < e) ||
+        (x < 127u && fm_fabsf(12.0f * tape_oct(x + 1u) - (float)n) < e))
+        return 0;
+    return n;
+}
+
+/* LOFI TAPE II's four as the tape was before them (TAPE SPEED X1.00, TONE in the middle, no hiss, no dropouts), not their
+ * defaults (TONE +10): what a scene, a shard or the settings from before "FRS{" (and every factory scene) are made over
+ * with, so they sound as they did (core.c tape_none; the schema's tape.none) */
+static const uint8_t TAPE_NONE[4] = {64, 64, 0, 0};
+
 static float u7(const uint8_t *v, int p)  /* a setting, 0..1, with what the LFOs add to it */
 {
-    float x = ((float)v[p] + (p < NSOUND ? mod[p] + morph_off[p] : 0.0f)) / (float)PD[p].max;
+    float x = ((float)v[p] + (p < NSOUND ? mod[p] + morph_off[p] : p < NMORPH ? morph_off[p] : 0.0f)) / (float)PD[p].max;
     return x < 0.0f ? 0.0f : x > 1.0f ? 1.0f : x;
 }
 
@@ -823,6 +895,10 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
         b->tp_on = v[P_TP_ON] != 0;
         b->tp_sat = u7(v, P_TP_SAT);
         b->tp_wobble = u7(v, P_TP_WOBBLE);
+        b->tp_flutter = 5.0f;            /* (fixed since TAPE SPEED took its byte; 7.3 HZ before) */
+        b->tp_tone = v[P_TP_TONE] == 64u ? 1.0f : fm_powf(2.0f, ((float)v[P_TP_TONE] - 64.0f) * (1.0f / 32.0f));
+        b->tp_noise = u7(v, P_TP_NOISE);
+        b->tp_dropout = u7(v, P_TP_DROPOUT);
         b->tp_tracks = TRK[v[P_TP_TRACKS] % 7u];
         b->fl_pre = v[P_FL_PRE] != 0;
         b->tp_pre = v[P_TP_PRE] != 0;
@@ -1026,6 +1102,26 @@ static void value_text(int p, uint8_t x, char *b)
             int_text(x < 50u ? 50 - (int32_t)x : (int32_t)x - 50, b + 1);
         }
         break;
+    case F_TSPEED: {                     /* "×0.25" .. "×1.00" (64) .. "×2.00", as the LFO AMOUNTs (UTF-8's ×: the FM-1
+                                          * draws its own, ui.c value_big) */
+        int32_t d = (int32_t)(fm_exp2f(tape_oct(x)) * 100.0f + 0.5f);
+        char *e;
+        text_cat(b, "\xC3\x97");
+        int_text(d / 100, b + 2);
+        text_cat(b, d % 100 < 10 ? ".0" : ".");
+        for (e = b; *e; e++)
+            ;
+        int_text(d % 100, e);
+        break;
+    }
+    case F_AMT: {                        /* LFO AMOUNT: "×0.00" .. "×1.00" (100) .. "×5.00" (200), by 0.01 on the left,
+                                          * 0.04 on the right (UTF-8's ×: the FM-1 draws its own, ui.c amt_head) */
+        uint32_t m = x <= 100u ? x : 100u + 4u * (x - 100u);
+        char d[5] = {(char)('0' + m / 100u % 10u), '.', (char)('0' + m / 10u % 10u), (char)('0' + m % 10u), 0};
+        text_cat(b, "\xC3\x97");
+        text_cat(b, d);
+        break;
+    }
     case F_ANIM:
         text_cat(b, x ? "LOW" : "NORMAL");
         break;

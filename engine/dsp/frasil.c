@@ -347,7 +347,7 @@ static inline float ou(float x, float th, float s)
 static void drift(uint32_t n)
 {
     float tau = 20.0f * fm_powf(0.025f, P.motion_rate);   /* 20 s .. 0.5 s */
-    float th = (float)n * BR_INV_FS / tau, s = 0.6f * fm_sqrtf(2.0f * th);
+    float th = (float)n * BR_INV_FS * br_tk / tau, s = 0.6f * fm_sqrtf(2.0f * th);   /* (TAPE SPEED: its pace) */
     float te = th * (1.0f + 3.0f * P.pa_evolve), se = 0.6f * fm_sqrtf(2.0f * te);
     uint32_t i, k;
     for (i = 0; i < NV; i++) {
@@ -366,7 +366,7 @@ static void drift(uint32_t n)
         v->ou_pan = ou(v->ou_pan, th * 0.5f, s * 0.7f);
     }
     /* the tide: one turn in 5 min .. 10 s */
-    tide_ph += (float)n * BR_INV_FS / (300.0f * fm_powf(1.0f / 30.0f, P.tide_rate));
+    tide_ph += (float)n * BR_INV_FS * br_tk / (300.0f * fm_powf(1.0f / 30.0f, P.tide_rate));
     if (tide_ph >= 1.0f)
         tide_ph -= 1.0f;
     tide_v = fm_sinf(6.2831853f * tide_ph);
@@ -375,7 +375,7 @@ static void drift(uint32_t n)
 /* -------------------------------------------------- a voice's block setup --- */
 static void voice_block(voice_t *v)
 {
-    float f = 440.0f * fm_exp2f(((float)v->note - 69.0f + P.tune) * (1.0f / 12.0f));
+    float f = 440.0f * fm_exp2f(((float)v->note - 69.0f + P.tune) * (1.0f / 12.0f)) * br_pk;   /* (TAPE SPEED on it) */
     float m = P.motion, prs = br_clampf(v->prs + swell, 0.0f, 1.0f) * P.pressure;
     float mw = m * (1.0f + 2.0f * m);  /* MOTION's wander: as before low down, twice as wide half-way, three times at the
                                         * top (a choir's ±21 cents, its filter opening and closing: heard) */
@@ -397,7 +397,7 @@ static void voice_block(voice_t *v)
             v->cdt[j] = f * (j ? 1.0f : P.ch_interval) *
                         fm_exp2f((SIDE[j] * dc + mw * 7.0f * v->ou_c[j]) * (1.0f / 1200.0f)) * BR_INV_FS;
             v->cid[j] = 1.0f / v->cdt[j];
-            v->cpw[j] += PWR[j] * (float)MAXN * BR_INV_FS;
+            v->cpw[j] += PWR[j] * (float)MAXN * BR_INV_FS * br_tk;
             v->cpw[j] -= (float)(int32_t)v->cpw[j];
             v->cw[j] = br_clampf(w + sw * fm_sinf(6.2831853f * v->cpw[j]) + 0.1f * mw * v->ou_c[j] * a, 0.04f, 0.96f);
         }
@@ -491,7 +491,7 @@ static void voice_block(voice_t *v)
             float bt = P.pa_beat, dep = bt * 1.4f > 1.0f ? 1.0f : bt * 1.4f, hz = 0.15f + 5.0f * bt * bt;
             for (j = 0; j < (uint32_t)np; j++) {
                 float gb;
-                v->pbt[j] += hz * SPREAD_[j] * (float)MAXN * BR_INV_FS;
+                v->pbt[j] += hz * SPREAD_[j] * (float)MAXN * BR_INV_FS * br_tk;
                 v->pbt[j] -= (float)(int32_t)v->pbt[j];
                 gb = (1.0f - dep * (0.5f + 0.5f * fm_sinf(6.2831853f * v->pbt[j]))) / (1.0f - 0.5f * dep);   /* (as loud
                                                                                                    * on average) */
@@ -1057,14 +1057,18 @@ static void render_part(float *ol, float *or_, uint32_t n)
         for (i = 0; i < NGLIDE; i++)     /* ~25 ms */
             pf[i] += (tf[i] - pf[i]) * gk;
     }
+    br_pk = P.tape_l2 == 0.0f ? 1.0f : fm_exp2f(P.tape_l2);   /* TAPE SPEED this block (X1.00: 1 exactly) */
+    br_tk = P.time_l2 == 0.0f ? 1.0f : fm_exp2f(P.time_l2);
     events();
     drift(n);
     breath_noise(n);
+    if (P.a4_l2 != 0.0f)                 /* TUNE A4 on the voices' pitch with TAPE SPEED (440 Hz: as it was, exactly) */
+        br_pk *= fm_exp2f(P.a4_l2);
     for (i = 0; i < n; i++)
         ol[i] = or_[i] = 0.0f;
     /* envelope coefficients a chunk: one-pole to the target, a third of the time a time constant */
-    ka = 1.0f - fm_expf(-(float)CH * BR_INV_FS * 3.0f / (0.005f * fm_powf(6000.0f, P.attack)));
-    kr = 1.0f - fm_expf(-(float)CH * BR_INV_FS * 3.0f / (0.05f * fm_powf(1200.0f, P.release)));
+    ka = 1.0f - fm_expf(-(float)CH * BR_INV_FS * br_tk * 3.0f / (0.005f * fm_powf(6000.0f, P.attack)));
+    kr = 1.0f - fm_expf(-(float)CH * BR_INV_FS * br_tk * 3.0f / (0.05f * fm_powf(1200.0f, P.release)));
     {                                    /* shedding: no more voices sounding than the level allows, the ones over it
                                           * let go quickly (some 15 ms: cut, they clicked); the partials' cap gliding
                                           * to the level's, a partial in some 50 ms (voice_block: the top one fading) */
@@ -1230,9 +1234,14 @@ static inline float svf(float x, float *s1, float *s2, float a1, float a2, float
 
 /* LOFI TAPE: what is on it recorded saturated (tanh's shape, a little lopsided: some even harmonics too; what comes
  * off kept as loud as what went on) onto a loop of tape, read back where its speed has it: wow (wandering between 0.3
- * and 0.8 Hz, a drift under it) and flutter (7.3 Hz), as deep as WOBBLE; now and then, the more WOBBLE the more often,
+ * and 0.8 Hz, a drift under it) and flutter (5 Hz; 7.3 until TAPE SPEED), as deep as WOBBLE; now and then, the more WOBBLE the more often,
  * the tape drags: slower a moment (a tenth of a second to well over one; 2 to 8 % at most, the longest less), its level
- * dipping, then on at speed, catching up what it lost. Duller as SATURATION grows (a pole from 16 kHz down to 6) */
+ * dipping, then on at speed, catching up what it lost. Duller as SATURATION grows (a pole from 16 kHz down to 6).
+ * LOFI TAPE II: TAPE SPEED (the voices' pitch and pace, br_pk and br_tk: the wow and the flutter at that pace too; FLUTTER
+ * RATE's place until it), the tone (the pole's cutoff times 0.25 .. 4,
+ * 1 at the middle), the hiss (a noise, its low end gone, read off the tape), the dropouts (now and then, the more the
+ * more often, the level dips for a tenth of a second or so, as a bad patch of oxide does; no speed in them). The four
+ * at the middle / 0 / 0 are the tape as it was but its flutter's rate (the dropouts draw from a generator of their own) */
 /* the loop: 46 ms each side at 44.1 kHz, in the pool; at the rate, as long as it needs (what it reads at most: TP_D0,
  * the wow's 400 and the flutter's 6, TP_XMAX, at the rate), BR_FS_MAX's in the pool */
 #define TP_N(fs) ((fs) <= 44100 ? 2048u : (fs) <= 88200 ? 4096u : 8192u)
@@ -1264,6 +1273,19 @@ static float tp_ph1, tp_ph2, tp_ph3, tp_d = TP_D0, tp_l, tp_r, tp_dcl, tp_dcr, t
 static float tp_ai, tp_ao, tp_ei, tp_eo;  /* what goes onto the tape and comes off, a chunk's and followed: the gain
                                           * that keeps it as loud */
 static float tp_rate = 0.55f, tp_rate_to = 0.55f;   /* the wow's rate, and where it wanders to */
+static float tp_fl_g = 5.0f, tp_tn_g = 1.0f, tp_ns_g, tp_do_g;   /* the flutter's rate (Hz), TONE (times the cutoff), NOISE and
+                                                                  * DROPOUT as they sound, gliding */
+static float tp_do_t, tp_do_n, tp_do_depth;   /* the dropout under way: its time left, its length, its depth */
+static uint32_t tp_nz = 2463534242u;      /* the hiss's and the dropouts' generator (xorshift32: the effects' rng untouched) */
+static float tp_hl, tp_hr;                /* the hiss's last samples (its first difference: the low end gone) */
+
+static inline float tp_rnd(void)         /* -1 .. 1 */
+{
+    tp_nz ^= tp_nz << 13;
+    tp_nz ^= tp_nz >> 17;
+    tp_nz ^= tp_nz << 5;
+    return (float)(int32_t)tp_nz * (1.0f / 2147483648.0f);
+}
 static float tp_x, tp_drag, tp_drag_n, tp_drag_s;   /* the delay the drags hold back; the one under way: its time
                                                      * left, its length, its depth */
 static volatile float tp_speed = 1.0f;    /* frasil_tape_speed */
@@ -1280,9 +1302,10 @@ static inline float tp_clip(float x)     /* tanh's shape, cheaper: a cubic to 1.
 }
 
 /* a sample each side onto the tape (driven by tg, lopsided by bias, cb its own level), and back read d samples
- * behind, at itg, its DC out, dulled (ta), at dip (a drag's, and the gain that keeps it as loud), in at mix */
+ * behind, at itg, its hiss (hiss) in, its DC out, dulled (ta), at dip (a drag's, a dropout's, and the gain that keeps it
+ * as loud), in at mix */
 static inline void tp_step(float *l, float *r, float d, float tg, float bias, float cb, float itg, float ta,
-                           float dip, float mix)
+                           float dip, float mix, float hiss)
 {
     float at, f, a, b;
     uint32_t k0, k1;
@@ -1298,6 +1321,13 @@ static inline void tp_step(float *l, float *r, float d, float tg, float bias, fl
     k1 = (k0 + 1u) & tp_m;
     a = ((float)tp_bl[k0] + (float)(tp_bl[k1] - tp_bl[k0]) * f) * itg;
     b = ((float)tp_br[k0] + (float)(tp_br[k1] - tp_br[k0]) * f) * itg;
+    if (hiss > 0.0f) {                   /* (off the tape, before the pole: TONE dulls it too) */
+        float nl = tp_rnd(), nr = tp_rnd();
+        a += hiss * (nl - tp_hl);
+        b += hiss * (nr - tp_hr);
+        tp_hl = nl;
+        tp_hr = nr;
+    }
     tp_dcl += (a - tp_dcl) * tp_kdc;
     tp_dcr += (b - tp_dcr) * tp_kdc;
     tp_l += (a - tp_dcl - tp_l) * ta;
@@ -1308,8 +1338,13 @@ static inline void tp_step(float *l, float *r, float d, float tg, float bias, fl
 }
 
 /* MASTER EQ: three biquads each side (transposed direct form II); their coefficients made again when a setting moves,
- * the ones sounding gliding to them a chunk at a time */
+ * the ones sounding gliding to them in a straight line over EQ_GLIDE, a sample at a time (stepped once a block, a
+ * shelf's large b0 against states the old coefficients made clicked, HIGH most: +20 dB at the blocks' edges) */
+#define EQ_GLIDE 0.02f                   /* seconds */
 static float eq_c[3][5] = {{1.0f}, {1.0f}, {1.0f}}, eq_t[3][5], eq_z[3][4], eq_key[7];
+static float eq_n[3][5], eq_d[3][5];     /* the block's end, a sample's step to it */
+static uint32_t eq_left;                 /* the glide's frames left */
+static int eq_gl;                        /* gliding this block (at rest: none, the block as before) */
 
 void frasil_eq_coefs(int kind, float hz, float db, float q, float *c)
 {
@@ -1339,7 +1374,7 @@ void frasil_eq_coefs(int kind, float hz, float db, float q, float *c)
     c[4] = a2 / a0;
 }
 
-static void eq_chunk(void)               /* a chunk's: its coefficients, aimed at and glided to; its mix */
+static void eq_chunk(uint32_t m)         /* a block's (m frames): its coefficients, aimed at and glided to */
 {
     const float key[7] = {T.eq_low, T.eq_mid, T.eq_high, T.eq_lowf, T.eq_midf, T.eq_q, T.eq_highf};
     uint32_t b, j, moved = 0;
@@ -1352,17 +1387,32 @@ static void eq_chunk(void)               /* a chunk's: its coefficients, aimed a
         frasil_eq_coefs(0, T.eq_lowf, T.eq_low, 0.707f, eq_t[0]);
         frasil_eq_coefs(1, T.eq_midf, T.eq_mid, T.eq_q, eq_t[1]);
         frasil_eq_coefs(2, T.eq_highf, T.eq_high, 0.707f, eq_t[2]);
-        if (eq_mix <= 0.0f)              /* (off: no glide from the last, it comes in at these) */
+        eq_left = (uint32_t)(EQ_GLIDE * BR_FS);
+        if (eq_mix <= 0.0f) {            /* (off: no glide from the last, it comes in at these) */
             for (b = 0; b < 3u; b++)
                 for (j = 0; j < 5u; j++)
                     eq_c[b][j] = eq_t[b][j];
+            eq_left = 0;
+        }
     }
-    {
-        const float k = br_k(0.3f);      /* (a block's, made for 44.1 kHz) */
+    if (eq_left) {                       /* the block's share of what is left, its last block onto them exactly */
+        const float im = 1.0f / (float)m, f = eq_left > m ? (float)m / (float)eq_left : 1.0f;
         for (b = 0; b < 3u; b++)
-            for (j = 0; j < 5u; j++)
-                eq_c[b][j] += (eq_t[b][j] - eq_c[b][j]) * k;
+            for (j = 0; j < 5u; j++) {
+                eq_n[b][j] = eq_left > m ? eq_c[b][j] + (eq_t[b][j] - eq_c[b][j]) * f : eq_t[b][j];
+                eq_d[b][j] = (eq_n[b][j] - eq_c[b][j]) * im;
+            }
+        eq_left = eq_left > m ? eq_left - m : 0u;
+        eq_gl = 1;
     }
+}
+
+static inline void eq_glide(void)        /* a sample's step of the coefficients, to the block's end */
+{
+    uint32_t b, j;
+    for (b = 0; b < 3u; b++)
+        for (j = 0; j < 5u; j++)
+            eq_c[b][j] += eq_d[b][j];
 }
 
 static inline float eq_side(float x, uint32_t s)   /* the three bands on one side (s: 0 left, 2 right) */
@@ -1455,7 +1505,8 @@ void frasil_skip(uint32_t ms)
         }
     }
     glint_skip_ms(ms);
-    tide_ph += (float)ms * 0.001f / (300.0f * fm_powf(1.0f / 30.0f, pend.tide_rate));
+    tide_ph += (float)ms * 0.001f * (pend.time_l2 == 0.0f ? 1.0f : fm_exp2f(pend.time_l2)) /
+               (300.0f * fm_powf(1.0f / 30.0f, pend.tide_rate));   /* (TAPE SPEED's pace) */
     if (tide_ph >= 1.0f)
         tide_ph -= 1.0f;
 }
@@ -1674,8 +1725,9 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
             pump_ph = fm_fabsf(e) > 0.2f ? pump_sync_ph : pump_ph + e * kpn;
             pump_ph -= fm_floorf(pump_ph);
         }
+        eq_gl = 0;
         if (T.eq_on || eq_mix > 0.0f)
-            eq_chunk();
+            eq_chunk(m);
         /* the compressor's detector: 10 ms up, RELEASE down; its gain from it a chunk at a time */
         ka = 1.0f - fm_expf(-1.0f / (0.01f * BR_FS));
         kr = 1.0f - fm_expf(-1.0f / (P.comp_rel * BR_FS + 1.0f));
@@ -1686,7 +1738,7 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
             if (f->reset)
                 fa1 = fa2 = fb1 = fb2 = ga1 = ga2 = gb1 = gb2 = 0.0f;
             float tm0, em0, td0, dp0, dtm, dem, ddt, ddp;
-            float tg = 1.0f, tb = 0.0f, tcb = 0.0f, itg = 1.0f, ta = 1.0f, gl4[4], gr4[4];
+            float tg = 1.0f, tb = 0.0f, tcb = 0.0f, itg = 1.0f, ta = 1.0f, hs = 0.0f, gl4[4], gr4[4];
             float wx[4], wy[4], wz[4];        /* the groups (the drones, the cloud's return, GLINT, BASS) in X, Y, Z */
             uint32_t j;
             int fb = f->pre ? 0 : f->bits, hp = f->type == 2, fx_all, hx = 0, hy = 0, hz = 0, pan_on = 0;
@@ -1772,16 +1824,21 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                 pan_on |= pn > 0.001f || pn < -0.001f;
             }
             if (tp_bits) {               /* the tape's place at the chunk's end: wow, flutter, a drag */
-                float w, ch = (float)(e - c) * BR_INV_FS, v = 0.0f, u;
+                float w, ch = (float)(e - c) * BR_INV_FS, chs = ch * br_tk, v = 0.0f, u;   /* (chs: TAPE SPEED's
+                                                                                          * pace, for its wow and flutter) */
                 tp_sat_g += (T.tp_sat - tp_sat_g) * k15;
                 tp_wob_g += (T.tp_wobble - tp_wob_g) * k02;   /* (some 40 ms: its depth moves the head slowly) */
+                tp_fl_g += (T.tp_flutter - tp_fl_g) * k02;
+                tp_tn_g += (T.tp_tone - tp_tn_g) * k15;
+                tp_ns_g += (T.tp_noise - tp_ns_g) * k15;
+                tp_do_g += (T.tp_dropout - tp_do_g) * k15;
                 w = tp_wob_g;
                 if (TP_PICKED(br_rand(&rng)))   /* (one chunk in 1024 at 44.1 kHz, some 0.7 s) the wow's rate: elsewhere */
                     tp_rate_to = 0.3f + 0.5f * (float)(br_rand(&rng) >> 8) * (1.0f / 16777216.0f);
                 tp_rate += (tp_rate_to - tp_rate) * k003;
-                tp_ph1 += tp_rate * ch;
-                tp_ph2 += 0.23f * ch;
-                tp_ph3 += 7.3f * ch;
+                tp_ph1 += tp_rate * chs;
+                tp_ph2 += 0.23f * chs;
+                tp_ph3 += tp_fl_g * chs;
                 tp_ph1 -= tp_ph1 >= 1.0f ? 1.0f : 0.0f;
                 tp_ph2 -= tp_ph2 >= 1.0f ? 1.0f : 0.0f;
                 tp_ph3 -= tp_ph3 >= 1.0f ? 1.0f : 0.0f;
@@ -1811,11 +1868,23 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                 tp_ai = tp_ao = 0.0f;
                 u = (tp_ei + 1e-3f) / (tp_eo + 1e-3f);
                 tp_dip = (1.0f - 6.0f * v) * (u < 0.5f ? 0.5f : u > 4.0f ? 4.0f : u);
+                if (tp_do_t > 0.0f) {    /* a dropout under way: down fast, held, up fast (its middle the deepest) */
+                    float q = fm_sin_turns(0.5f * tp_do_t / tp_do_n) * 3.0f;
+                    q = q > 1.0f ? 1.0f : q;
+                    tp_dip *= 1.0f - tp_do_depth * q;
+                    tp_do_t -= ch;
+                } else if (tp_do_g > 0.001f &&   /* (up to some two a second; none drawn while DROPOUT is 0) */
+                           0.5f * (tp_rnd() + 1.0f) < tp_do_g * tp_do_g * ch * 2.0f) {
+                    float r1 = 0.5f * (tp_rnd() + 1.0f), r2 = 0.5f * (tp_rnd() + 1.0f);
+                    tp_do_n = tp_do_t = 0.03f + 0.17f * r1 * r1;   /* 30 .. 200 ms, short ones more */
+                    tp_do_depth = 0.4f + 0.6f * r2 * tp_do_g;   /* 40 % .. all, deeper as DROPOUT grows */
+                }
+                hs = 0.03f * tp_ns_g * tp_ns_g;
                 tg = 1.0f + 30.0f * tp_sat_g * tp_sat_g;
                 tb = 0.25f * tp_sat_g;
                 tcb = tp_clip(tb);
                 itg = 1.0f / (tg * TP_ONE);
-                ta = 1.0f - fm_expf(-6.2831853f * (16000.0f - 10000.0f * tp_sat_g) * BR_INV_FS);
+                ta = 1.0f - fm_expf(-6.2831853f * (16000.0f - 10000.0f * tp_sat_g) * tp_tn_g * BR_INV_FS);
             }
             ddt = (tp_d - td0) / (float)(e - c);
             tp_speed = tp_bits ? 1.0f - ddt : 1.0f;   /* (reading further behind: slower) */
@@ -1895,7 +1964,7 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                                 r += (svf(r, &ga1, &ga2, fc1, fc2, fc3, fk, hp) - r) * fm0;
                             }
                             if (tp_bits)
-                                tp_step(&l, &r, td0, tg, tb, tcb, itg, ta, dp0, tm0);
+                                tp_step(&l, &r, td0, tg, tb, tcb, itg, ta, dp0, tm0, hs);
                         } else {             /* the groups to their buses, the filters on X and Y, the tape on
                                               * fA(X) + Z, W the rest */
                             float xl = wx[0] * dl + wx[1] * wl + wx[2] * gl_ + wx[3] * bl2;
@@ -1916,7 +1985,7 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                             l = xl + zl;
                             r = xr + zr;
                             if (tp_bits && (hx | hz))
-                                tp_step(&l, &r, td0, tg, tb, tcb, itg, ta, dp0, tm0);
+                                tp_step(&l, &r, td0, tg, tb, tcb, itg, ta, dp0, tm0, hs);
                             l += yl + wl_;
                             r += yr + wr_;
                         }
@@ -1949,7 +2018,16 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                         sk_r2 = 2.0f * v2 - sk_r2;
                         mxr[k] = r + (v2 - r) * sw;
                     }
-                if (em0 > 0.0f || eq_mix > 0.0f)   /* MASTER EQ, before MASTERING */
+                if (eq_gl)               /* MASTER EQ, before MASTERING: gliding, */
+                    for (k = 0; k < e - c; k++) {
+                        em0 += dem;
+                        eq_glide();
+                        if (em0 > 0.0f) {
+                            mxl[k] += (eq_side(mxl[k], 0u) - mxl[k]) * em0;
+                            mxr[k] += (eq_side(mxr[k], 2u) - mxr[k]) * em0;
+                        }
+                    }
+                else if (em0 > 0.0f || eq_mix > 0.0f)   /* or still */
                     for (k = 0; k < e - c; k++) {
                         em0 += dem;
                         if (em0 > 0.0f) {
@@ -2006,6 +2084,10 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
             for (b = 0; b < 3u; b++)
                 for (j = 0; j < 4u; j++)
                     eq_z[b][j] = eq_mix > 0.0f ? fm_flush(eq_z[b][j]) : 0.0f;
+            if (eq_gl)                   /* (the block's end exactly, as a step there had it: no drift) */
+                for (b = 0; b < 3u; b++)
+                    for (j = 0; j < 5u; j++)
+                        eq_c[b][j] = eq_n[b][j];
         }
         if (!comp)
             comp_env = 0.0f;
@@ -2047,6 +2129,9 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
 /* ------------------------------------------------------------- the rest --- */
 #if !BR_FS_CONST
 float br_fs = 44100.0f, br_inv_fs = 1.0f / 44100.0f, br_r44 = 1.0f;   /* (dsp.h: the rate, frasil_init's) */
+#endif
+float br_pk = 1.0f, br_tk = 1.0f;        /* (dsp.h: TAPE SPEED, render_part's) */
+#if !BR_FS_CONST
 float frasil_rate(void) { return br_fs; }
 #endif
 
@@ -2100,6 +2185,7 @@ void frasil_reset(void)
     fr_zero(vo, sizeof vo);
     fr_zero(&P, sizeof P);
     T = pend = P;
+    br_pk = br_tk = 1.0f;
     ages = 0;
     rng = 0x2545F491u;
     pend_seq = pend_seen = 0;
@@ -2127,6 +2213,10 @@ void frasil_reset(void)
     fl_lc = 14.3f;
     fl_k = 1.4142f;
     tp_sat_g = tp_wob_g = 0.0f;
+    tp_fl_g = 5.0f;
+    tp_tn_g = 1.0f;
+    tp_ns_g = tp_do_g = tp_do_t = tp_do_n = tp_do_depth = tp_hl = tp_hr = 0.0f;
+    tp_nz = 2463534242u;
     pc_g = 1.0f;
     fa1 = fa2 = fb1 = fb2 = ga1 = ga2 = gb1 = gb2 = 0.0f;
     fr_zero(pf, sizeof pf);
@@ -2147,6 +2237,10 @@ void frasil_reset(void)
     fr_zero(eq_t, sizeof eq_t);
     fr_zero(eq_z, sizeof eq_z);
     fr_zero(eq_key, sizeof eq_key);
+    fr_zero(eq_n, sizeof eq_n);
+    fr_zero(eq_d, sizeof eq_d);
+    eq_left = 0;
+    eq_gl = 0;
     cut_at = 0;
     glint_reset();
     bass_reset();

@@ -73,7 +73,26 @@ static int op_len(uint8_t op, const uint8_t *b, size_t n, uint32_t *skip)
 
 /* ------------------------------------------------------------------ the start --- */
 _Static_assert(sizeof(fst_ev) == 20u, "a ring's slot, 20 bytes");
-_Static_assert(FRS_SCENE_BYTES == 586u, "FST_SCENE_LAYOUT names this size");
+_Static_assert(FRS_SCENE_BYTES == 619u, "FST_SCENE_LAYOUT names this size");
+
+/* the older layouts a stream may have, each its scenes' bytes (made over as they are played; not "FRS|": the same bytes
+ * as FRS}'s, its AMOUNTs another scale everywhere in the stream) */
+static const struct {
+    const char *name;
+    uint16_t bytes;
+} OLD_LAYOUT[] = {{"FRS{", 590u}, {"FRSz", 586u}};
+#define SC_SWELL (FRS_SCENE_BYTES - 1u)  /* (SWELL's byte, the scene's last: params.c scene_t) */
+
+/* a scene of sbytes (FRS_SCENE_BYTES, or an older layout's: made over, SWELL at swell) copied into o, FRS_SCENE_BYTES
+ * long */
+static void scene_copy(uint8_t *o, const uint8_t *s, uint32_t sbytes, uint8_t swell)
+{
+    memcpy(o, s, sbytes);
+    if (sbytes != FRS_SCENE_BYTES) {
+        frs_scene_over(o, sbytes);
+        o[SC_SWELL] = swell;
+    }
+}
 
 void fst_capture(fst_start *s, const uint8_t *from)
 {
@@ -101,6 +120,9 @@ int fst_fresh(const fst_start *s, float fs)
         return -1;
     frs_keys_touch(1);
     frs_step_stays(1);
+    if (s->state_n)                      /* (a state from before ARP SNAP has none: OFF, as its engine played; a later one's
+                                          * sets it. No state, a shard alone on air (shard_stream): the engine's own) */
+        frs_param_set(P_ARP_SNAP, 0);
     frs_state_load(s->state, s->state_n);
     frs_scene_take(s->scene);
     for (i = 0; i < s->moves_n; i++)
@@ -455,7 +477,7 @@ static int walk(const fst_file *f)
         len = op_len(op, b + at, n - at, &skip);
         if (len < 0 || n - at < skip + (uint32_t)len)
             return FST_BAD;
-        if (op == FST_SCENE || op == FST_SCENE_NOW || op == FST_STORE) {
+        if (op == FST_SCENE || op == FST_SCENE_NOW || op == FST_STORE || op == FST_ANCHOR) {
             if (r16(b + at) >= f->nscns)
                 return FST_BAD;
         } else if (op == FST_DSTEP) {
@@ -485,7 +507,8 @@ static int walk(const fst_file *f)
             work = 0;
         }
         work += op == FST_OPEN ? 512u
-                : op == FST_SCENE || op == FST_SCENE_NOW || op == FST_STORE || op == FST_PANIC || op == FST_CUT || op == FST_STATE ? 16u : 1u;
+                : op == FST_SCENE || op == FST_SCENE_NOW || op == FST_STORE || op == FST_PANIC || op == FST_CUT || op == FST_CUT_STOP || op == FST_STATE ||
+                  op == FST_ANCHOR || op == FST_ANCHOR_BACK ? 16u : 1u;
         if (work > FST_BUDGET)           /* (the audio thread would stall on it) */
             return FST_BAD;
     }
@@ -496,6 +519,7 @@ int fst_read(const uint8_t *b, size_t n, fst_file *f)
 {
     size_t at = 8;
     int have = 0, r;
+    uint32_t scn0_l = 0, scns_l = 0, i;
     memset(f, 0, sizeof *f);
     if (n < 8u || memcmp(b, MAGIC, 4))
         return FST_BAD;
@@ -524,8 +548,7 @@ int fst_read(const uint8_t *b, size_t n, fst_file *f)
         } else if (!memcmp(tag, "SCN0", 4)) {
             f->scene = p;
             have |= 2;
-            if (l != FRS_SCENE_BYTES)
-                have |= 64;
+            scn0_l = l;
         } else if (!memcmp(tag, "STAT", 4)) {
             if (l > FRS_STATE_BYTES)
                 return FST_BAD;
@@ -544,8 +567,8 @@ int fst_read(const uint8_t *b, size_t n, fst_file *f)
                 return FST_BAD;
             f->nscns = r16(p);
             f->scns = p + 2;
-            if ((size_t)f->nscns * FRS_SCENE_BYTES != l - 2u)
-                have |= 64;              /* (another layout's scenes: not this engine's to play) */
+            scns_l = l - 2u;
+            have |= 128;
         } else if (!memcmp(tag, "EVTS", 4)) {
             f->evts = p;
             f->evts_n = l;
@@ -561,7 +584,14 @@ int fst_read(const uint8_t *b, size_t n, fst_file *f)
     }
     if ((have & 15) != 15 || at != n)
         return FST_BAD;
-    if (memcmp(f->layout, FST_SCENE_LAYOUT, 4) || have & 64 || f->nparam > frs_param_count())
+    if (!memcmp(f->layout, FST_SCENE_LAYOUT, 4))
+        f->sbytes = FRS_SCENE_BYTES;
+    for (i = 0; !f->sbytes && i < sizeof OLD_LAYOUT / sizeof OLD_LAYOUT[0]; i++)
+        if (!memcmp(f->layout, OLD_LAYOUT[i].name, 4))
+            f->sbytes = OLD_LAYOUT[i].bytes;   /* (an older one's: made over as they are played) */
+    if (!f->sbytes || scn0_l != f->sbytes || (have & 128 && (size_t)f->nscns * f->sbytes != scns_l))
+        return FST_LAYOUT;               /* (another layout's scenes: not this engine's to play) */
+    if (f->nparam > frs_param_count())
         return FST_LAYOUT;
     r = walk(f);
     return r;
@@ -569,7 +599,7 @@ int fst_read(const uint8_t *b, size_t n, fst_file *f)
 
 void fst_start_of(const fst_file *f, fst_start *s)
 {
-    memcpy(s->scene, f->scene, FRS_SCENE_BYTES);
+    scene_copy(s->scene, f->scene, f->sbytes, 0);   /* (an older layout's SWELL: its MOVE's, after it) */
     s->state_n = f->state_n;
     if (f->state_n)
         memcpy(s->state, f->state, f->state_n);
@@ -584,6 +614,7 @@ void fst_begin(fst_player *p, const fst_file *f)
 {
     p->f = *f;
     p->at = p->t = p->missed = 0;
+    p->cut_stop = 0;
     p->have = 0;
 }
 
@@ -618,9 +649,10 @@ static int decode(fst_player *p)
 static int known(uint8_t op)
 {
     switch (op) {
-    case FST_CUT: case FST_PLAY: case FST_PANIC: case FST_PARAM: case FST_HOLD_OFF: case FST_CLEAR: case FST_TRACK_PLAY:
+    case FST_CUT: case FST_CUT_STOP: case FST_PLAY: case FST_PANIC: case FST_PARAM: case FST_HOLD_OFF: case FST_CLEAR: case FST_TRACK_PLAY:
     case FST_PLAY_ALL: case FST_KEY_UP: case FST_SCENE: case FST_SCENE_NOW: case FST_LATCH: case FST_HOLD: case FST_KEY_DOWN:
     case FST_MIDI: case FST_STORE: case FST_RECORDING: case FST_DSTEP: case FST_STATE: case FST_OPEN:
+    case FST_ANCHOR: case FST_ANCHOR_BACK: case FST_ANCHOR_DROP:
         return 1;
     default:
         return 0;
@@ -645,16 +677,28 @@ int fst_next(fst_player *p, uint32_t now, fst_dec *e)
 
 int fst_more(const fst_player *p) { return p->have || p->at < p->f.evts_n; }
 
-static const uint8_t *scene_at(const fst_player *p, uint32_t i)
+static const uint8_t *scene_at(fst_player *p, uint32_t i)
 {
-    return p->f.scns + (size_t)i * FRS_SCENE_BYTES;
+    const uint8_t *s = p->f.scns + (size_t)i * p->f.sbytes;
+    if (p->f.sbytes == FRS_SCENE_BYTES)
+        return s;
+    scene_copy(p->conv, s, p->f.sbytes, (uint8_t)frs_param_get(P_SWELL));   /* (an older layout's: made over, valid
+                                                                             * till the next; SWELL as it is, as their
+                                                                             * engines left it through a scene) */
+    return p->conv;
 }
 
 int fst_apply(fst_player *p, const fst_dec *e, uint64_t frames)
 {
     const uint8_t *a = e->a;
+    int cs = p->cut_stop;
+    p->cut_stop = e->op == FST_CUT_STOP;
     switch (e->op) {
-    case FST_CUT: frs_cut(); break;
+    case FST_CUT:
+        if (!cs)                         /* (after an FST_CUT_STOP: its old readers' CUT, done already) */
+            frs_cut();
+        break;
+    case FST_CUT_STOP: frs_cut_stop(); break;
     case FST_PLAY: frs_play(); break;
     case FST_PANIC: frs_panic(); break;
     case FST_PARAM: frs_param_set(a[0], a[1]); break;
@@ -684,10 +728,22 @@ int fst_apply(fst_player *p, const fst_dec *e, uint64_t frames)
         break;
     case FST_DSTEP: frs_dseq_step(a[0], a + 1, e->n - 1u); break;
     case FST_STATE: frs_state_load(a, e->n); break;
+    case FST_ANCHOR: frs_anchor_put(scene_at(p, r16(a))); break;
+    case FST_ANCHOR_BACK:
+        if (p->f.sbytes != FRS_SCENE_BYTES && frs_anchor_get(p->conv)) {   /* (an older layout's anchor: SWELL as it is now,
+                                                                             * as their engines left it) */
+            p->conv[SC_SWELL] = (uint8_t)frs_param_get(P_SWELL);
+            frs_anchor_put(p->conv);
+        }
+        frs_anchor_back(r16(a));
+        break;
+    case FST_ANCHOR_DROP: frs_anchor_drop(); break;
     case FST_OPEN: {
         fst_start s;
         uint32_t sn = a[7], mn = a[8 + sn];
         memcpy(s.scene, scene_at(p, r16(a)), FRS_SCENE_BYTES);
+        if (p->f.sbytes != FRS_SCENE_BYTES)
+            s.scene[SC_SWELL] = 0;       /* (as fst_start_of's: its MOVE's, after it) */
         s.tracks = a[2];
         s.state_n = sn;
         memcpy(s.state, a + 8, sn);

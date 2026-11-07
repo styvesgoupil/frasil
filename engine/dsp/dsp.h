@@ -30,6 +30,10 @@ extern float br_fs, br_inv_fs, br_r44;   /* (frasil.c, frasil_init) */
 #endif
 #endif
 
+/* LOFI TAPE II's TAPE SPEED as the render has it this block (frasil.c, from frasil_params_t's tape_l2 and time_l2, gliding):
+ * the factor on the voices' frequencies, and on their times; exactly 1 at X1.00 (every step then as it was) */
+extern float br_pk, br_tk;
+
 /* big zero-initialised buffers: the .pool RAM region on the device */
 #ifndef __PI32V2__
 #define BR_POOL

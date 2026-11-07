@@ -1,0 +1,377 @@
+# ANCHOR on the FM-1, in the host simulator: ./build.sh --host, then
+#   app/build/host/frasil_host app/tests/anchor.txt app/build/host
+# OCT- and OCT+ together set it (the scene as it is now, the octave with it; RAM alone: no store written), the screen
+# framed in violet, four pixels, breathing from full to a fifth; again, let go at once: MORPH, 8 s, the settings that
+# glide from where they are heard, the screen's values with them (shownN), the rest at its half, the frame erased
+# counter-clockwise as it goes; held 400 ms: BACK, every setting the anchor's at once (3.1: the other way round before).
+# What plays plays on. anchordiff: the scene now (as STORE keeps it, its name and notes aside) and each of its settings
+# against the anchor's, the bytes that differ; moff: the settings a glide still moves; heardN: setting N as it sounds;
+# shownN: setting N as the screen shows it; framepx: the frame's pixels on the screen (of 3776), framegone its places
+# erased (of 944), framelo and framehi its breath's dimmest and brightest (of 32)
+wait 100
+expect anchor 0
+expect framepx 0
+tapkey 9
+wait 100
+expect held >0
+# set: no octave step (OCT+ after OCT-: the first one's undone), nothing stored, the frame whole
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 100
+expect anchor 1
+expect octave -1
+expect anchordiff 0
+expect store_writes 0
+expect framepx 3776
+expect framegone 0
+# it breathes: still whole a second on (every pixel the frame's), from full to a fifth and back in under a second
+wait 1000
+expect framepx 3776
+expect framehi 32
+expect framelo <8
+shot anchor-frame.png
+# played on: the sound, HARMONY, the presets, MASTER EQ, an LFO's TARGET, the three tracks' PLAYS, RATEs, SEQ LENGTHs,
+# TEMPO, BASS TONE, steps of GLINT's and the bass's sequences, the octave, another chord latched
+setp 5 10
+setp 31 120
+setp 73 40
+setp 139 30
+setp 33 7
+setp 34 3
+setp 35 4
+setp 84 2
+setp 62 2
+setp 113 5
+setp 37 3
+setp 130 4
+setp 98 5
+setp 110 7
+setp 156 120
+setp 176 7
+setp 174 3
+setp 192 90
+setp 195 70
+setp 199 7
+setp 198 6
+setp 123 2
+setp 177 2
+setp 197 1
+setp 160 2
+setp 161 60
+setp 172 1
+setp 173 40
+tap OCT+
+wait 100
+tapkey 14
+wait 100
+expect octave 0
+expect anchordiff >30
+expect lit67 1
+expect held 3
+# BACK: held. Every setting the anchor's at once, bit for bit, no glide left, while they are still down; the octave
+# back; the chord latched still latched, its three notes sounding; the frame gone; nothing stored. Down a moment
+# first: nothing yet (a press or a hold, not known till then)
+press OCT-
+press OCT+
+wait 200
+expect anchor 1
+expect anchordiff >30
+wait 250
+expect anchor 0
+expect anchordiff 0
+expect moff 0
+release OCT-
+release OCT+
+wait 100
+expect anchor 0
+expect anchordiff 0
+expect moff 0
+expect octave -1
+expect lit67 1
+expect held 3
+expect framepx 0
+expect store_writes 0
+# again with none set: a new ANCHOR, set
+press OCT+
+press OCT-
+wait 30
+release OCT+
+release OCT-
+wait 100
+expect anchor 1
+expect anchordiff 0
+expect octave -1
+# MORPH: pressed. The settings that glide from where they are heard (FILTER, MIXER's DRONE, BASS TONE's WEIGHT), the
+# choices at its half (ROOT, CHOIR's TYPE, the bass's PLAYS, a step of GLINT's sequence), the frame steady and erased;
+# down, nothing yet, it starts as they are let go
+setp 5 120
+setp 73 10
+setp 192 120
+setp 33 4
+setp 84 1
+setp 177 2
+setp 160 3
+setp 161 64
+wait 30
+expect anchordiff >5
+gopage 2
+press OCT-
+press OCT+
+wait 30
+expect anchor 1
+release OCT-
+release OCT+
+wait 80
+expect anchor 2
+expect framepx >3600
+expect heard5 >100
+expect heard73 <20
+expect p33 4
+expect p84 1
+expect p177 2
+expect seqstep3 64
+expect moff >2
+# the screen as it is heard: FILTER's value the anchor's already (p5), shown where the sound is
+expect p5 46
+expect shown5 >100
+expect shown73 <20
+shot anchor-morph-0.png
+# a second on: still most of the way to go (3.5 s's had a quarter of it behind), the screen between
+wait 1000
+expect anchor 2
+expect heard5 >108
+expect shown5 >108
+expect shown5 <120
+expect framepx >3100
+shot anchor-morph-1.png
+gopage 42
+# a little before its half: the glide under way, the screen with it, the choices as they were, half the frame left and
+# more
+wait 2800
+expect anchor 2
+expect heard5 <100
+expect heard5 >30
+expect shown5 <100
+expect shown5 >30
+expect heard73 >30
+expect shown73 >30
+expect shown73 <90
+expect p33 4
+expect seqstep3 64
+expect framepx >1750
+expect framepx <2150
+shot anchor-morph-2.png
+# a little past it: the choices the anchor's, half the frame left and less
+wait 600
+expect p33 9
+expect p84 0
+expect p177 0
+expect seqstep3 0
+expect framepx <1880
+expect framepx >1450
+# near its end: the screen nearly there
+wait 3000
+expect anchor 2
+expect shown5 <60
+expect shown73 >85
+# its end: every setting the anchor's, bit for bit, no glide left, the frame gone, the screen at the anchor's
+wait 700
+expect anchor 0
+expect anchordiff 0
+expect moff 0
+expect framepx 0
+expect held >0
+expect shown5 46
+expect shown73 100
+shot anchor-morph-3.png
+gopage 0
+# MORPH, a hand on FILTER (it glides no more: the hand's) and on ROOT (no switch at the half: the hand's) meanwhile;
+# the rest the anchor's at its end
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 30
+expect anchor 1
+setp 5 120
+setp 73 10
+setp 33 4
+setp 34 5
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 500
+setp 5 30
+setp 33 6
+expect shown5 30
+wait 7800
+expect anchor 0
+expect p5 30
+expect p33 6
+expect p34 2
+expect heard73 100
+expect moff 0
+expect anchordiff 4
+# MORPH, OCT- and OCT+ pressed again during it: it ends there at once, its choices with it, the frame gone
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 30
+setp 5 90
+setp 33 4
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 800
+expect anchor 2
+expect p33 4
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 100
+expect anchor 0
+expect anchordiff 0
+expect moff 0
+expect p33 6
+expect framepx 0
+# a scene loaded (SAVE held, a white key) while anchored: the anchor gone, the frame with it
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 100
+expect anchor 1
+press SAVE
+tapkey 2
+release SAVE
+wait 100
+expect scene 1
+expect anchor 0
+expect framepx 0
+# ... during a MORPH back: the way back gone (no switch at its half: slot 01's ROOT and TYPE stay), the frame at once
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 30
+setp 33 3
+setp 84 2
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 300
+expect anchor 2
+press SAVE
+tapkey 0
+release SAVE
+wait 100
+expect scene 0
+expect anchor 0
+expect framepx 0
+expect p33 6
+expect p84 0
+wait 8500
+expect p33 6
+expect p84 0
+expect moff 0
+# STORE while anchored (SAVE held, REC): stored as it is, the anchor kept; BACK (held): the anchor's, the sound no
+# longer the scene's as stored
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 30
+setp 5 100
+press SAVE
+tap REC
+release SAVE
+wait 50
+tap FX
+wait 50
+expect dirty 0
+expect anchor 1
+press OCT-
+press OCT+
+wait 450
+release OCT-
+release OCT+
+wait 100
+expect anchor 0
+expect anchordiff 0
+expect dirty 1
+# STORE during a MORPH back: where it goes (its choices at once), the glide going on; at its end, the sound the scene's
+# as stored
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 30
+setp 5 20
+setp 33 4
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 200
+expect anchor 2
+expect p33 4
+press SAVE
+tap REC
+release SAVE
+wait 50
+tap FX
+wait 50
+expect anchor 2
+expect p33 6
+expect moff 1
+wait 8500
+expect anchor 0
+expect anchordiff 0
+expect dirty 0
+# a take under way keeps its track's sequence: GLINT on SEQ, RECORD STEP, a step written; BACK (held): the rest the
+# anchor's, the step and RECORD the take's (recanywhere: a take on this page)
+recanywhere 1
+setp 123 2
+wait 30
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 30
+setp 160 0
+setp 161 70
+setp 163 1
+setp 5 10
+press OCT-
+press OCT+
+wait 450
+release OCT-
+release OCT+
+wait 100
+expect anchor 0
+expect seqstep0 70
+expect p163 1
+expect p123 2
+expect anchordiff 1
+setp 163 0
+wait 30

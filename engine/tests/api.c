@@ -192,6 +192,70 @@ static float clocked(uint32_t buf)
     return v.tempo;
 }
 
+/* TAPE SPEED at x: what sounds alone (track 2 the bass, a sine wide open, on A1; track 1 a glint, BRIGHT 0, a sine, on
+ * A4), its frequency from its rising zero crossings over a second, 3 s in; a host at 120 BPM playing, or not. *grid: the
+ * grid's MIDI clocks a second, from 1 s in to 3 */
+static double tape_hz(uint32_t x, uint32_t track, int host, float *grid)
+{
+    uint8_t sc[FRS_SCENE_BYTES];
+    frs_view_t v;
+    double t0 = -1.0, t1 = 0.0, beat = 0.0;
+    float g0 = 0.0f, last = 0.0f;
+    uint32_t k, i, n = 0, at = 0;
+    frs_close();
+    frs_init(48000.0f);
+    frs_scene_new(sc);
+    frs_scene_take(sc);
+    frs_param_set(P_MX_DRONE, 0);
+    frs_param_set(P_MX_CLOUD, 0);
+    frs_param_set(P_MS_RATIO, 0);
+    frs_param_set(P_PUMP_RATE, 0);
+    frs_param_set(P_SQ_TYPE, 0);
+    frs_param_set(P_BS_MODEL, 0);
+    frs_param_set(P_BS_FILTER, 127);
+    frs_param_set(P_BS_WEIGHT, 0);
+    frs_param_set(P_BS_PUNCH, 0);
+    frs_param_set(P_BS_BITE, 0);
+    frs_param_set(P_GL_BRIGHT, 0);
+    frs_param_set(P_GL_SUSTAIN, 127);
+    frs_param_set(P_GL_VIB_AUTO, 0);
+    frs_param_set(P_GL_VIBRATO, 0);
+    frs_param_set(P_GD_MIX, 0);
+    frs_param_set(track == 2u ? P_MX_GLINT : P_MX_BASS, 0);
+    frs_param_set(P_TP_FLUTTER, x);
+    for (k = 0; k < 4u * 48000u / 1024u; k++) {
+        if (host) {
+            frs_host_tempo(120.0, beat, 1);
+            beat += 1024.0 / 48000.0 * 2.0;
+        }
+        if (k == 2u) {
+            if (track == 2u)
+                frs_latch(2u, 33u, 0);
+            else
+                frs_hold(1u, 69u, 1, 0);
+        }
+        if (k == 47u) {                  /* (a second in: TAPE SPEED glided there) */
+            frs_view(&v);
+            g0 = v.grid;
+        }
+        frs_render(l_, r_, 1024);
+        if (k == 47u + 94u) {            /* (some 2 s on) */
+            frs_view(&v);
+            *grid = (v.grid - g0) * 48000.0f / (95.0f * 1024.0f);   /* (95 blocks since g0's, read before its) */
+        }
+        for (i = 0; i < 1024u; i++, at++) {
+            if (at >= 3u * 48000u && at < 4u * 48000u - 1024u && last < 0.0f && l_[i] >= 0.0f) {
+                t1 = (double)at - 1.0 + (double)(-last / (l_[i] - last));
+                if (t0 < 0.0)
+                    t0 = t1;
+                n++;
+            }
+            last = l_[i];
+        }
+    }
+    return n > 1u ? (double)(n - 1u) * 48000.0 / (t1 - t0) : 0.0;
+}
+
 int main(void)
 {
     uint8_t sc[FRS_SCENE_BYTES], st[FRS_SCENE_BYTES], state[FRS_STATE_BYTES];
@@ -412,14 +476,15 @@ int main(void)
     frs_host_tempo(0.0, 0.0, 0);
     frs_param_set(P_CLOCK, 0);
     frs_param_text(P_L1_T1, 41, t);
-    check(frs_lfo_targets() == 55u && frs_lfo_target(0) == -1 && frs_lfo_target(56) == -1 &&
+    check(frs_lfo_targets() == 57u && frs_lfo_target(0) == -1 && frs_lfo_target(58) == -1 &&
               frs_lfo_target(1) == P_TIMBRE && frs_lfo_target(41) == P_FL_CUT && frs_lfo_target(42) == P_FL_RESO &&
               frs_lfo_target(43) == P_PN_DRONE && frs_lfo_target(46) == P_PN_CLOUD &&
               frs_lfo_target(47) == P_CH_SOFT && !strcmp(t, "MS CUTOFF") &&
               frs_lfo_target(48) == P_GL_ATTACK && frs_lfo_target(49) == P_GL_DECAY && frs_lfo_target(50) == P_GL_SUSTAIN &&
               frs_lfo_target(51) == P_GL_RELEASE && frs_lfo_target(52) == P_BS_ATTACK && frs_lfo_target(53) == P_BS_DECAY &&
-              frs_lfo_target(54) == P_BS_SUSTAIN && frs_lfo_target(55) == P_BS_RELEASE,
-          "LFO TARGET: 55 choices, 41 MS CUTOFF .. 46 CLOUD PAN, 47 CH SOFT (2.6's) as they were, 48 .. 55 the ADSRs, OFF none");
+              frs_lfo_target(54) == P_BS_SUSTAIN && frs_lfo_target(55) == P_BS_RELEASE &&
+              frs_lfo_target(56) == P_TP_SAT && frs_lfo_target(57) == P_TP_WOBBLE,
+          "LFO TARGET: 57 choices, 41 MS CUTOFF .. 46 CLOUD PAN, 47 CH SOFT (2.6's) as they were, 48 .. 55 the ADSRs, 56 TAPE SAT, 57 WOBBLE, OFF none");
     frs_param_text(P_FL_TRACKS, FRS_TRACKS_GLINT_BASS, t);
     check(frs_tracks_bits(FRS_TRACKS_ALL) == 7u && frs_tracks_bits(FRS_TRACKS_DRONE) == FRS_TRK_DRONE &&
               frs_tracks_bits(FRS_TRACKS_BASS) == FRS_TRK_BASS &&
@@ -524,6 +589,241 @@ int main(void)
         o[304] = 52;
         check(!frs_scene_over(o, 319) && !o[302] && !o[303] && !o[304] && o[305] == 2u && o[306] == 40u && o[307] == 52u,
               "  FRSv's: BASS TONE at 0, the notes after it");
+    }
+
+    /* TAPE SPEED (LOFI TAPE II's first, FLUTTER RATE's byte until it): X0.25 .. X2.00, X1.00 at 64, X0.01 a detent
+     * from X0.48 (12) to X1.58 (122), a half-tone a detent past them (3.1: params.c tape_oct); every voice's pitch an
+     * octave down at 14, two at 0, one up at 127, three half-tones down at X0.84 (48); the grid's pace with it on TEMPO;
+     * a host's tempo leading: the grid its, the pitch TAPE SPEED's still */
+    {
+        const char *nm;
+        uint32_t max, def, x, ok;
+        char tx[FRS_TEXT], t0[FRS_TEXT], t1[FRS_TEXT], t2[FRS_TEXT], tw[FRS_TEXT], tl[FRS_TEXT];
+        float g1, gh, gq, gd, g2, gx;
+        double b1 = tape_hz(64, 2, 0, &g1), bh = tape_hz(14, 2, 0, &gh), bq = tape_hz(0, 2, 0, &gq), bd = tape_hz(127, 2, 0, &gd);
+        double l1 = tape_hz(64, 1, 0, &g2), lh = tape_hz(14, 1, 0, &g2), x1 = tape_hz(64, 2, 1, &g2), xh = tape_hz(14, 2, 1, &gx);
+        double b3 = tape_hz(48, 2, 0, &g2);
+        check(!frs_param_info(P_TP_FLUTTER, &nm, &max, &def) && max == 127u && def == 64u && !strcmp(nm, "TAPE SPEED"),
+              "TAPE SPEED: 0 .. 127 from 64");
+        frs_param_text(P_TP_FLUTTER, 64, tx);
+        frs_param_text(P_TP_FLUTTER, 0, t0);
+        frs_param_text(P_TP_FLUTTER, 14, t1);
+        frs_param_text(P_TP_FLUTTER, 127, t2);
+        check(!strcmp(tx, "\xC3\x97" "1.00") && !strcmp(t0, "\xC3\x97" "0.25") && !strcmp(t1, "\xC3\x97" "0.50") &&
+              !strcmp(t2, "\xC3\x97" "2.00"),
+              "  x1.00 in the middle, x0.25 at 0, x0.50 at 14, x2.00 at 127 (the AMOUNTs' ×)");
+        for (ok = 1, x = 12; x <= 122u; x++) {   /* (a detent a hundredth: x0.48 .. x0.99, x1.00, x1.01 .. x1.58) */
+            snprintf(tw, sizeof tw, "\xC3\x97" "%u.%02u", (36u + x) / 100u, (36u + x) % 100u);
+            frs_param_text(P_TP_FLUTTER, x, tl);
+            ok &= !strcmp(tl, tw);
+        }
+        frs_param_text(P_TP_FLUTTER, 63, tw);
+        frs_param_text(P_TP_FLUTTER, 62, tl);
+        check(ok && !strcmp(tw, "\xC3\x97" "0.99") && !strcmp(tl, "\xC3\x97" "0.98"),
+              "  a detent a hundredth from x0.48 (12) to x1.58 (122): x0.99 at 63, x0.98 at 62");
+        frs_param_text(P_TP_FLUTTER, 11, tw);
+        frs_param_text(P_TP_FLUTTER, 123, tl);
+        check(!strcmp(tw, "\xC3\x97" "0.47") && !strcmp(tl, "\xC3\x97" "1.59"),
+              "  past them a half-tone a detent: x0.47 at 11 (13 down), x1.59 at 123 (8 up)");
+        printf("       the bass on A1: %.3f Hz at X1.00, %.3f at X0.50, %.3f at X0.25, %.3f at X2.00, %.3f at X0.84\n", b1, bh, bq,
+               bd, b3);
+        check(fabs(b1 - 55.0) < 0.05, "  X1.00: the bass in tune (55 Hz)");
+        check(fabs(bh / b1 - 0.5) < 5e-4 && fabs(bq / b1 - 0.25) < 5e-4 && fabs(bd / b1 - 2.0) < 1e-3,
+              "  the bass an octave down at X0.50, two at X0.25, one up at X2.00");
+        check(fabs(b3 / b1 - 0.84) < 5e-4, "  X0.84 (48): the bass at 0.84 of it (three half-tones down, 2 cents off)");
+        printf("       a glint on A4: %.2f Hz at X1.00, %.2f at X0.50\n", l1, lh);
+        check(fabs(l1 - 440.0) < 2.0 && fabs(lh / l1 - 0.5) < 5e-4, "  a glint an octave down at X0.50 (A4, its few cents apart)");
+        printf("       the grid on TEMPO: %.2f clocks a second at X1.00, %.2f at X0.50, %.2f at X0.25, %.2f at X2.00\n", g1, gh,
+               gq, gd);
+        check(g1 > 1.0f && fabsf(gh / g1 - 0.5f) < 0.01f && fabsf(gq / g1 - 0.25f) < 0.01f && fabsf(gd / g1 - 2.0f) < 0.01f,
+              "  the grid's pace with it (TEMPO's at X1.00, half at X0.50, a quarter at X0.25, twice at X2.00)");
+        printf("       a host at 120 BPM: the bass %.3f Hz at X1.00, %.3f at X0.50; the grid %.2f clocks a second at X0.50\n",
+               x1, xh, gx);
+        check(fabs(xh / x1 - 0.5) < 5e-4 && fabsf(gx - 48.0f) < 1.0f, "  a host's tempo leading: the pitch alone, the grid the host's");
+    }
+
+    /* LOFI TAPE II: TAPE SPEED, TONE, NOISE, DROPOUT, the scene's last four bytes (586 .. 589), at their defaults in NEW SHARD
+     * (64: X1.00, 74: TONE +10, 0, 0); a scene of 586 bytes (3.0's FRSz) and a factory scene with them as the tape was
+     * (64, 64, 0, 0: as they sounded); NOISE a hiss, DROPOUT dips in the level */
+    {
+        uint8_t t[FRS_SCENE_BYTES], o[FRS_SCENE_BYTES];
+        const char *nm;
+        uint32_t max, def, k;
+        float n0, n1, lv;
+        char tx[FRS_TEXT];
+        frs_close();
+        frs_init(48000.0f);
+        frs_scene_new(sc);
+        check(sc[586] == 64u && sc[587] == 74u && sc[588] == 0u && sc[589] == 0u, "LOFI TAPE II: 64, 74, 0, 0 in NEW SHARD");
+        for (k = 0; k < 4u; k++)
+            check(frs_param_kind(P_TP_FLUTTER + k) == FRS_P_SCENE, "  the scene's");
+        check(!frs_param_info(P_TP_TONE, &nm, &max, &def) && max == 127u && def == 74u, "  TONE: 0 .. 127 from 74");
+        frs_param_text(P_TP_TONE, 74, tx);
+        check(!strcmp(tx, "+10"), "  +10 its default");
+        check(!frs_param_info(P_TP_NOISE, &nm, &max, &def) && !def && !frs_param_info(P_TP_DROPOUT, &nm, &max, &def) && !def,
+              "  NOISE and DROPOUT from 0");
+        check(!frs_scene_factory(0, t) && t[586] == 64u && t[587] == 64u && !t[588] && !t[589],
+              "  a factory scene: 64, 64, 0, 0 (the tape as it was)");
+        frs_scene_take(sc);
+        rms(4800);
+        check(!frs_dirty(), "  taken: nothing changed");
+        frs_param_set(P_TP_FLUTTER, 100);
+        frs_param_set(P_TP_TONE, 20);
+        frs_param_set(P_TP_NOISE, 33);
+        frs_param_set(P_TP_DROPOUT, 44);
+        rms(4800);
+        check(frs_dirty(), "  turned: the scene changed");
+        frs_scene_store(t, sc);
+        check(t[586] == 100u && t[587] == 20u && t[588] == 33u && t[589] == 44u, "  stored, last");
+        memset(o, 0xEE, sizeof o);
+        memcpy(o, t, 586);
+        check(!frs_scene_over(o, 586) && !memcmp(o, t, 586) && o[586] == 64u && o[587] == 64u && !o[588] && !o[589],
+              "  FRSz's 586 bytes: the four as the tape was (64, 64, 0, 0: not their defaults), the rest as it was");
+        frs_scene_take(o);
+        rms(4800);
+        check(frs_param_get(P_TP_FLUTTER) == 64u && frs_param_get(P_TP_TONE) == 64u && !frs_param_get(P_TP_NOISE) &&
+                  !frs_param_get(P_TP_DROPOUT),
+              "  a scene without them: as the tape was (x1.00, TONE 0), sounding as it did");
+        frs_scene_take(sc);
+        rms(4800);
+        check(frs_param_get(P_TP_FLUTTER) == 64u && frs_param_get(P_TP_TONE) == 74u && !frs_param_get(P_TP_NOISE) &&
+                  !frs_param_get(P_TP_DROPOUT),
+              "  NEW SHARD again: their defaults (x1.00, TONE +10)");
+        frs_scene_take(t);
+        rms(4800);
+        check(frs_param_get(P_TP_FLUTTER) == 100u && frs_param_get(P_TP_TONE) == 20u && frs_param_get(P_TP_NOISE) == 33u &&
+                  frs_param_get(P_TP_DROPOUT) == 44u,
+              "  taken");
+        frs_scene_take(sc);              /* (the sound: TAPE on, nothing else coloured) */
+        rms(4800);
+        frs_param_set(P_TP_ON, 1);
+        frs_param_set(P_TP_SAT, 0);
+        frs_param_set(P_TP_WOBBLE, 0);
+        rms(48000);
+        n0 = rms(24000);                 /* (nothing playing: the tape is silent) */
+        frs_param_set(P_TP_NOISE, 127);
+        rms(24000);
+        n1 = rms(24000);
+        check(n1 > 0.0f && n1 > 10.0f * n0, "NOISE: a hiss on a silent tape");
+        frs_param_set(P_TP_NOISE, 0);
+        rms(24000);
+        check(rms(24000) <= n0 * 1.0001f + 1e-12f, "  NOISE back at 0: silent again");
+        for (k = 0; k < 2u; k++) {       /* (the same drone twice from the start, the second with DROPOUT at the top) */
+            frs_close();
+            frs_init(48000.0f);
+            frs_scene_new(sc);
+            frs_scene_take(sc);
+            frs_param_set(P_TP_ON, 1);
+            frs_param_set(P_TP_SAT, 0);
+            frs_param_set(P_TP_WOBBLE, 0);
+            frs_param_set(P_TP_DROPOUT, k ? 127 : 0);
+            frs_latch(0, 48, FRS_CHORD_HARMONY);
+            rms(96000);
+            lv = rms(480000);            /* (10 s: some twenty dropouts) */
+            if (k)
+                n1 = lv;
+            else
+                n0 = lv;
+        }
+        check(n0 > 0.0f && n1 < 0.97f * n0, "DROPOUT at the top: the level dips now and then, the drone quieter by its dips");
+        frs_param_set(P_TP_DROPOUT, 0);
+        frs_param_set(P_TP_ON, 0);
+        frs_release_all();
+        rms(48000);
+    }
+
+    /* "FRS}": the name's characters 17 .. 32 (590 .. 605), the LFOs' AMOUNTs (606 .. 617, x1.00 in NEW SHARD), SWELL
+     * (618, 0), the scene's last; FRS{'s 590 bytes made over with them (none, x1.00, 0); FRS|'s AMOUNTs (percent) made
+     * multipliers; SWELL and the AMOUNTs the scene's
+     * (changed, stored, taken), ENV held not; a name of 32 through STORE, a scene gone to, the River's edit */
+    {
+        uint8_t t[FRS_SCENE_BYTES], o[FRS_SCENE_BYTES], z[16];
+        const char *nm;
+        uint32_t max, def, k;
+        int ok = 1;
+        char tx[FRS_TEXT];
+        frs_close();
+        frs_init(48000.0f);
+        frs_callbacks(on_say, 0, 0);
+        frs_scene_new(sc);
+        memset(z, 0, sizeof z);
+        for (k = 0; k < 12u; k++)
+            ok &= sc[606 + k] == 100u && frs_param_kind(P_L1_AMT1 + k) == FRS_P_SCENE;
+        check(ok && !memcmp(sc + 590, z, 16) && !sc[618], "FRS}: no name's rest, the AMOUNTs at 100, SWELL 0 in NEW SHARD");
+        check(frs_param_kind(P_SWELL) == FRS_P_SCENE, "  SWELL the scene's");
+        check(!frs_param_info(P_L2_AMT3, &nm, &max, &def) && max == 200u && def == 100u && !strcmp(nm, "AMOUNT 3"),
+              "  LFO 2's AMOUNT 3: 0 .. 200 from 100");
+        ok = 1;
+        frs_param_text(P_L1_AMT1, 200, tx);
+        ok &= !strcmp(tx, "\xC3\x97" "5.00");
+        frs_param_text(P_L1_AMT1, 150, tx);
+        ok &= !strcmp(tx, "\xC3\x97" "3.00");
+        frs_param_text(P_L1_AMT1, 101, tx);
+        ok &= !strcmp(tx, "\xC3\x97" "1.04");
+        frs_param_text(P_L1_AMT1, 100, tx);
+        ok &= !strcmp(tx, "\xC3\x97" "1.00");
+        frs_param_text(P_L1_AMT1, 35, tx);
+        ok &= !strcmp(tx, "\xC3\x97" "0.35");
+        frs_param_text(P_L1_AMT1, 0, tx);
+        ok &= !strcmp(tx, "\xC3\x97" "0.00");
+        check(ok, "  its words: x5.00 x3.00 x1.04 x1.00 x0.35 x0.00 (UTF-8's x)");
+        memcpy(o, sc, sizeof o);         /* (FRS|: 200 +100 %, its default, 135 +35 %, 100 0 %, 65 -35 %, 0 -100 %, 250
+                                          * none) */
+        memset(o + 606, 200, 12);
+        o[606] = 200u, o[607] = 135u, o[608] = 100u, o[609] = 65u, o[610] = 0u, o[611] = 250u;
+        frs_scene_amt_over(o);
+        check(o[606] == 100u && o[607] == 35u && !o[608] && o[609] == 35u && o[610] == 100u && o[611] == 100u &&
+                  o[612] == 100u && !memcmp(o, sc, 606) && o[618] == sc[618],
+              "  FRS|'s AMOUNTs made multipliers: +100 % x1.00, +35 % and -35 % x0.35, 0 % x0.00, -100 % x1.00");
+        frs_scene_take(sc);
+        rms(4800);
+        check(!frs_dirty(), "  taken: nothing changed");
+        frs_swell(1);
+        rms(48000);
+        frs_swell(0);
+        check(!frs_dirty() && !frs_param_get(P_SWELL), "  ENV held: of the moment, the scene unchanged");
+        frs_param_set(P_SWELL, 70);
+        rms(4800);
+        check(frs_dirty(), "  SWELL turned: the scene changed");
+        frs_scene_store(t, sc);
+        rms(4800);
+        frs_param_set(P_L2_AMT3, 65);
+        rms(4800);
+        check(frs_dirty(), "  an AMOUNT turned: the scene changed");
+        frs_scene_store(t, sc);
+        check(t[618] == 70u && t[612] == 65u && t[606] == 100u, "  stored, last");
+        memset(o, 0xEE, sizeof o);
+        memcpy(o, t, 590);
+        check(!frs_scene_over(o, 590) && !memcmp(o, t, 590) && !memcmp(o + 590, z, 16) && o[606] == 100u &&
+                  o[612] == 100u && o[617] == 100u && !o[618],
+              "  FRS{'s 590 bytes: no name's rest, the AMOUNTs x1.00, SWELL 0, the rest as it was");
+        memset(o, 0xEE, sizeof o);
+        memcpy(o, t, 586);
+        check(!frs_scene_over(o, 586) && o[586] == 64u && !o[589] && !memcmp(o + 590, z, 16) && o[612] == 100u && !o[618],
+              "  FRSz's 586 bytes: LOFI TAPE II's four as the tape was, and these");
+        frs_scene_take(sc);
+        rms(4800);
+        check(!frs_param_get(P_SWELL) && frs_param_get(P_L2_AMT3) == 100u, "  a scene without them: SWELL 0, x1.00");
+        frs_scene_take(t);
+        rms(4800);
+        check(frs_param_get(P_SWELL) == 70u && frs_param_get(P_L2_AMT3) == 65u && !frs_dirty(), "  taken");
+        memcpy(t, "ABCDEFGHIJKLMNOP", 16);   /* (a name of 30) */
+        memset(t + 590, 0, 16);
+        memcpy(t + 590, "QRSTUVWXYZ0123", 14);
+        frs_scene_store(o, t);
+        check(!memcmp(o, t, 16) && !memcmp(o + 590, t + 590, 16), "a name of 30: STORE keeps it from `from`, both parts");
+        frs_param_set(P_MORPH, 0);
+        said[0] = 0;
+        frs_scene_go(o);
+        check(!strcmp(said, "LOADED ABCDEFGHIJKLMNOPQRSTUVWXYZ0123"), "  gone to: its 30 said");
+        frs_scene_play(o, 0);
+        frs_param_edit(P_TIMBRE, 3);
+        frs_scene_edited(o, t);
+        check(!memcmp(t, o, 16) && !memcmp(t + 590, o + 590, 16) && t[618] == 70u, "  the River's edit: its 30 kept");
+        memcpy(o, "SHORT\0\0\0\0\0\0\0\0\0\0\0", 16);   /* (the rest only after a first sixteen all used) */
+        said[0] = 0;
+        frs_scene_go(o);
+        check(!strcmp(said, "LOADED SHORT"), "  a name of five, bytes past it: five said");
     }
 
     /* the bass's SPACE: the scene's, its last byte, 0 in NEW SHARD; its share in the cloud's return alone, the dry as it
@@ -631,6 +931,37 @@ int main(void)
         frs_param_set(P_L1_T1, 47);
         frs_param_text(P_L1_T1, frs_param_get(P_L1_T1), w);
         check(!strcmp(w, "CH SOFT") && frs_lfo_target(47) == P_CH_SOFT, "  a saved TARGET, 47: as it was");
+    }
+
+    /* the LFO's AMOUNT on that TARGET: x1.00 as before (lower), x0.00 as no LFO, x5.00 further (lower still), x0.50
+     * between */
+    {
+        static const uint32_t AMT[5] = {100, 0, 200, 100, 50};
+        float lv[5], live[FRS_LIVE];
+        uint32_t k;
+        for (k = 0; k < 5u; k++) {
+            frs_close();
+            frs_init(48000.0f);
+            frs_scene_new(sc);
+            frs_scene_take(sc);
+            frs_param_set(P_SQ_TYPE, 0);
+            frs_param_set(P_GL_SUSTAIN, 64);
+            frs_param_set(P_L1_RATE, 0);
+            frs_param_set(P_L1_POL, 2);
+            frs_param_set(P_L1_DEPTH, 16);   /* (room for x5.00 in the setting's range) */
+            frs_param_set(P_L1_T2, k != 3u ? 50u : 0u);   /* (TARGET 2, its AMOUNT 2; the fourth: no LFO) */
+            frs_param_set(P_L1_AMT2, AMT[k]);
+            frs_render(l_, r_, 4096);
+            frs_hold(1u, 76u, 1, 0);
+            rms(96000);
+            frs_live(live);
+            lv[k] = live[20];
+            frs_hold(1u, 76u, 0, 0);
+        }
+        check(lv[3] > 0.0f && lv[0] < lv[3], "LFO AMOUNT x1.00: the LFO's DOWN holds GLINT's voice lower, as before");
+        check(lv[1] == lv[3], "  x0.00: as no LFO");
+        check(lv[2] < lv[0], "  x5.00: lower still");
+        check(lv[0] < lv[4] && lv[4] < lv[3], "  x0.50: between");
     }
 
     /* GLINT off ARP: its notes kept, silent, CLEAR on the sequence leaving them; ARP again, there; PLAY sees them only
@@ -751,6 +1082,108 @@ int main(void)
     check(!memcmp(v.latched, w.latched, sizeof v.latched) && !bits(v.kept) && rms(4800) > 1e-6f,
           "  what the transport kept, back: the player's chords");
 
+    /* the iPad's CUT (frs_cut_stop), after the transport stopped every track or not (Styves 2026-11-05): RESILIENCE,
+     * its drone's two chords held (no sequence), GLINT's arpeggio on three notes, the bass's sequence. Every track
+     * stopped and kept, silent; PLAY brings the three back as the scene loaded played them; each track's own play its
+     * own alone. frs_cut as it was (a stream's CUT): what the transport kept, let go */
+    {
+        uint32_t i, t;
+        for (i = 0; !frs_scene_factory(i, sc) && strncmp((const char *)sc, "RESILIENCE", 10); i++)
+            ;
+        for (t = 0; t < 4u; t++) {
+            frs_close();
+            frs_init(48000.0f);
+            frs_scene_take(sc);
+            passes(10);
+            frs_view(&w);
+            if (!t)
+                check(bits(w.latched) == 2 && w.narp == 3u && w.bseq_run && w.playing == 7u,
+                      "RESILIENCE: two chords latched, GLINT's arpeggio on three notes, the bass's sequence");
+            if (t == 1u || t == 3u)
+                for (n = 0; n < 3u; n++)
+                    frs_track_play(n, 0);
+            else if (!t)
+                frs_play_all(0);
+            passes(5);
+            if (t == 3u) {
+                frs_cut();
+                passes(5);
+                frs_view(&v);
+                k = !bits(v.latched) && !bits(v.kept) && !v.narp && voices() == 0;
+                frs_play();
+                passes(30);
+                frs_view(&v);
+                check(k && !bits(v.latched) && v.narp == 3u && v.bseq_run,
+                      "  frs_cut after the tracks stopped, PLAY: the drone's chords gone (a stream's CUT, as it was)");
+                continue;
+            }
+            frs_cut_stop();
+            passes(5);
+            frs_view(&v);
+            check(!bits(v.latched) && !memcmp(v.kept, w.latched, sizeof v.kept) && v.narp == 3u && v.arp_paused &&
+                  !v.bseq_run && !v.playing && voices() == 0 && rung() == 0,
+                  t == 2u ? "  nothing stopped, CUT: silent, every track stopped, what each plays kept"
+                  : t ? "  each track stopped, CUT: silent, every track stopped, what each plays kept"
+                      : "  every track stopped (frs_play_all), CUT: silent, every track stopped, what each plays kept");
+            if (t != 1u) {
+                frs_play();
+                passes(30);
+                frs_view(&v);
+                check(!memcmp(v.latched, w.latched, sizeof v.latched) && !bits(v.kept) && voices() > 0 &&
+                      v.narp == 3u && !v.arp_paused && rung() > 0 && v.bseq_run && v.playing == 7u,
+                      "  PLAY: the drone's chords, GLINT's arpeggio and the bass's sequence, all three again");
+                continue;
+            }
+            frs_track_play(0, 1);
+            passes(30);
+            frs_view(&v);
+            check(!memcmp(v.latched, w.latched, sizeof v.latched) && voices() > 0 && v.arp_paused && rung() == 0 &&
+                  !v.bseq_run && v.playing == 1u, "  the drones' play: their chords alone");
+            frs_track_play(1, 1);
+            passes(30);
+            frs_view(&v);
+            check(!v.arp_paused && rung() > 0 && !v.bseq_run && v.playing == 3u, "  GLINT's: its arpeggio");
+            frs_track_play(2, 1);
+            passes(30);
+            frs_view(&v);
+            check(v.bseq_run && v.playing == 7u, "  the bass's: its sequence");
+        }
+        frs_close();                     /* (frs_cut_stop, then PLAY held: RESTORE, the three back; held again, RELEASE
+                                          * ALL; again, RESTORE: the chords too) */
+        frs_init(48000.0f);
+        frs_scene_take(sc);
+        passes(10);
+        frs_cut_stop();
+        passes(5);
+        frs_release_all();
+        passes(30);
+        frs_view(&v);
+        check(!memcmp(v.latched, w.latched, sizeof v.latched) && v.narp == 3u && !v.arp_paused && rung() > 0 &&
+              v.bseq_run && v.playing == 7u, "  CUT, then PLAY held (frs_release_all): RESTORE, all three");
+        frs_release_all();
+        passes(5);
+        frs_view(&v);
+        k = !bits(v.latched) && !v.narp && !v.bseq_run;
+        frs_release_all();
+        passes(30);
+        frs_view(&v);
+        check(k && !memcmp(v.latched, w.latched, sizeof v.latched) && v.narp == 3u && rung() > 0 && v.bseq_run,
+              "  held again: RELEASE ALL; again: RESTORE, the chords with the rest");
+        frs_close();                     /* (a CUT with nothing stopped: RELEASE ALL, PLAY's RESTORE, as before) */
+        frs_init(48000.0f);
+        frs_scene_take(sc);
+        passes(10);
+        frs_cut();
+        passes(5);
+        frs_view(&v);
+        k = !bits(v.latched) && !bits(v.kept) && !v.narp && !v.bseq_run && voices() == 0;
+        frs_play();
+        passes(30);
+        frs_view(&v);
+        check(k && !memcmp(v.latched, w.latched, sizeof v.latched) && v.narp == 3u && rung() > 0 && v.bseq_run,
+              "  CUT with nothing stopped, PLAY: everything let go, then all three again (RESTORE)");
+    }
+
     /* PLAY tapped twice quick on the sequences alone: RELEASE ALL (frs_release), never RESTORE */
     frs_close();
     frs_init(48000.0f);
@@ -797,17 +1230,18 @@ int main(void)
         const char *nm;
         uint32_t max, def, i;
         int bad = 0, same = 1;
-        check(param("SOFT", 0) == P_CH_SOFT && P_CH_SOFT == NSOUND - 1 && NSOUND == 154 && NPARAM == 227 &&
+        check(param("SOFT", 0) == P_CH_SOFT && P_CH_SOFT == NSOUND - 1 && NSOUND == 154 && NPARAM == 243 &&
                   P_KEYS == 154 && P_CLOCK == 182 && P_BQ_NLEN == 183 && P_BA_MODE == 184 && P_SQ_NLEN == 191 && P_BS_WEIGHT == 192 && P_BS_SPACE == 195 &&
                   P_GL_VIB_AUTO == 196 && P_DQ_ON == 197 && P_DQ_STEP == 205 && P_DQ_NOTES == 206 && P_DQ_UNDO == 208 &&
                   P_GA_LATCH == 209 && P_BA_LATCH == 210 && P_KY_DR_HARM == 211 && P_KY_BS_STACK == 222 &&
-                  P_METRO == 223 && P_COUNT_IN == 224 && P_ARP_SNAP == 225 && P_SAVER == 226 && FRS_SCENE_BYTES == 586u &&
+                  P_METRO == 223 && P_COUNT_IN == 224 && P_ARP_SNAP == 225 && P_SAVER == 226 && P_TP_FLUTTER == 227 && P_TP_DROPOUT == 230 && P_L1_AMT1 == 231 && P_L3_AMT4 == 242 && FRS_SCENE_BYTES == 619u &&
                   !frs_param_info(P_CH_SOFT, &nm, &max, &def) && max == 127u && def == 0u &&
                   frs_param_kind(P_CH_SOFT) == FRS_P_SCENE,
               "SOFT: the sound's last (153), 0 .. 127 from 0, kept in a scene; KEY MODE 154 .. CLOCK 182, LENGTH 183, the "
               "bass's MODE 184 .. GLINT's LENGTH 191, BASS TONE 192 .. 194, its SPACE 195, GLINT's AUTO VIB 196, the drone's "
               "sequence 197 .. 205, 3.0's after it: its NOTES 206 .. UNDO TAKE 208, ARP II's LATCH 209, 210, KEYS 211 .. "
-              "222, METRONOME 223, COUNT-IN 224, ARP SNAP 225, SCREENSAVER 226; a scene 586 B");
+              "222, METRONOME 223, COUNT-IN 224, ARP SNAP 225, SCREENSAVER 226, LOFI TAPE II 227 .. 230, the LFOs' AMOUNTs 231 .. "
+              "242; a scene 619 B");
         frs_param_text(P_ARP_SNAP, 3, t);
         check(!frs_param_info(P_ARP_SNAP, &nm, &max, &def) && max == 5u && def == 3u && !strcmp(t, "1/4") &&
                   frs_param_kind(P_ARP_SNAP) == FRS_P_STATE,

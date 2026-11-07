@@ -1649,6 +1649,78 @@ static void preset_test(void)
     frs_close();
 }
 
+/* "FRS}" from the inside: each TARGET's AMOUNT in what the LFOs add (x1.00 as before, bit for bit; x0.00 nothing; x5.00
+ * five times; LFO 2's slots its own), SWELL gliding back on ANCHOR's MORPH (eng_swell hearing it) while the AMOUNTs switch at its
+ * half, SWELL at once on a scene's MORPH (as BASS TONE), the scene's name of 32 on it */
+static void amount_swell_test(void)
+{
+    uint8_t sc[FRS_SCENE_BYTES];
+    uint32_t i;
+    float depth = 100.0f * (1.0f / 127.0f), off, a35 = (float)35u / 100.0f, h;
+    frs_init(44100.0f);
+    frs_scene_new(sc);
+    frs_scene_take(sc);
+    for (i = 0; i < 4u; i++) {           /* (NEW SHARD's own TARGETs off) */
+        param_set(P_L1_T1 + i, 0);
+        param_set(P_L2_T1 + i, 0);
+        param_set(P_L3_T1 + i, 0);
+    }
+    param_set(P_L1_SHAPE, 4);            /* (SQUARE: -1 or 1) */
+    param_set(P_L1_DEPTH, 100);
+    param_set(P_L1_T1, 1);               /* (TIMBRE) */
+    param_set(P_L1_T2, 2);               /* (SPACE) */
+    param_set(P_L1_T3, 1);               /* (TIMBRE again) */
+    param_set(P_L1_AMT2, 35);
+    param_set(P_L1_AMT3, 0);
+    param_set(P_L2_SHAPE, 4);
+    param_set(P_L2_DEPTH, 127);
+    param_set(P_L2_T4, 3);               /* (MOTION) */
+    ms_run(100);
+    off = depth * lfo[0].out;
+    check(lfo[0].on && fm_fabsf(lfo[0].out) == 1.0f && mod[P_TIMBRE] == off * (float)PD[P_TIMBRE].max,
+          "LFO AMOUNT: TIMBRE at x1.00 and at x0.00 on one LFO, the first alone, as before");
+    check(mod[P_ESPACE] == off * a35 * (float)PD[P_ESPACE].max, "  SPACE at x0.35: the LFO's times 0.35");
+    check(mod[P_MOUVEMENT] == 127.0f * (1.0f / 127.0f) * lfo[1].out * (float)PD[P_MOUVEMENT].max,
+          "  LFO 2's TARGET 4 at x1.00: as before, bit for bit");
+    param_set(P_L2_AMT4, 200);
+    ms_run(30);
+    check(mod[P_MOUVEMENT] == 127.0f * (1.0f / 127.0f) * lfo[1].out * 5.0f * (float)PD[P_MOUVEMENT].max,
+          "  at x5.00: five times");
+    param_set(P_L1_AMT2, 0);
+    ms_run(30);
+    check(mod[P_ESPACE] == 0.0f, "  x0.00: nothing");
+    frs_close();
+
+    frs_init(44100.0f);
+    frs_scene_new(sc);
+    frs_scene_take(sc);
+    param_set(P_SWELL, 20);
+    frs_anchor_set();
+    param_set(P_SWELL, 120);
+    param_set(P_L1_AMT1, 30);
+    ms_run(50);
+    check(fm_fabsf(st.swell_sent - 120.0f / 127.0f) < 0.005f, "SWELL at 120: heard");
+    frs_anchor_back(4000);
+    check(st.v[P_SWELL] == 20u && morph_off[P_SWELL] == 100.0f, "ANCHOR's MORPH: SWELL the anchor's, heard from where it was");
+    ms_run(1000);
+    h = (float)st.v[P_SWELL] + morph_off[P_SWELL];
+    check(h > 25.0f && h < 115.0f && fm_fabsf(st.swell_sent - h / 127.0f) < 0.005f, "  a second in: SWELL gliding, heard so");
+    check(st.v[P_L1_AMT1] == 30u, "  an AMOUNT: the hand's before its half");
+    ms_run(1500);
+    check(st.v[P_L1_AMT1] == 100u, "  past its half: the anchor's (x1.00, NEW SHARD's)");
+    ms_run(2000);
+    check(!morph_off[P_SWELL] && fm_fabsf(st.swell_sent - 20.0f / 127.0f) < 0.005f, "  at its end: SWELL the anchor's, heard");
+
+    memcpy(sc, "ABCDEFGHIJKLMNOP", 16);
+    memcpy(sc + 590, "QRSTUVWXYZ012345", 16);
+    sc[618] = 90;
+    param_set(P_MORPH, 3);
+    frs_scene_go(sc);
+    check(mo.on && !mo.anc && st.v[P_SWELL] == 90u && !morph_off[P_SWELL], "a scene's MORPH: its SWELL at once (as BASS TONE)");
+    check(!strcmp(mo.name, "ABCDEFGHIJKLMNOPQRSTUVWXYZ012345"), "  its name of 32, whole");
+    frs_close();
+}
+
 int main(void)
 {
     frs_view_t v;
@@ -1702,6 +1774,7 @@ int main(void)
     rec_layer_test();
     metro_set_test();
     preset_test();
+    amount_swell_test();
     printf("inside: %s\n", fails ? "FAILED" : "ok");
     return fails ? 1 : 0;
 }

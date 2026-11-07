@@ -22,6 +22,10 @@ while "$E" --factory $i > "$OUT/energy-f.json" 2> /dev/null; do
 done
 "$E" "$OUT/drones.frscene" > "$OUT/energy-drones.json"
 "$E" "$OUT/drones-lfo.frscene" > "$OUT/energy-lfo.json"
+"$E" "$OUT/sharp.frscene" > "$OUT/energy-sharp.json"
+"$E" "$OUT/soft.frscene" > "$OUT/energy-soft.json"
+i=0; : > "$OUT/energy-factory.jsonl"
+while "$E" --factory $i >> "$OUT/energy-factory.jsonl" 2> /dev/null; do i=$((i + 1)); done
 "$E" "$TAKE" > "$OUT/energy-take.json"
 "$E" - < "$TAKE" > "$OUT/energy-take2.json"
 "$E" "$TAKE" > "$OUT/energy-take3.json"
@@ -47,6 +51,13 @@ check(open(f"{out}/energy-take.json").read() == open(f"{out}/energy-take2.json")
 check(t["kind"] == "stream" and t["H"] > 0 and p["in"] == 60000 and p["out"] == 120000 and p["H"] > 0, f"a stream's gestures: H {t['H']} a minute ({p['H']} in 1:00 .. 2:00)")
 check(t["r0"] == cal["r0"] and t["r98"] == cal["r98"], f"its calibration energy-calibration.json's (r0 {cal['r0']}, r98 {cal['r98']})")
 check(refused == 2, f"not a piece: refused (exit {refused})")
+sh, so = j("sharp"), j("soft")
+check(sh["G"] > 0 and so["G"] < sh["G"] / 10 and so["B"] <= sh["B"] / 10 and so["energy"] < sh["energy"] / 2,
+      f"a strike that swells in (GLINT's and the bass's ATTACK slowest): G {sh['G']} -> {so['G']}, B {sh['B']} -> {so['B']}, energy {sh['energy']} -> {so['energy']}")
+fac = {m["name"]: m["energy"] for m in map(json.loads, open(f"{out}/energy-factory.jsonl"))}
+nr, rs, wh, lu = fac["NORTH RIVER"], fac["RESILIENCE"], fac["WHITEOUT"], fac["LUMIERE NOCTURNE"]
+check(abs(nr - rs) <= 50, f"the owner's listening: NORTH RIVER {nr} and RESILIENCE {rs} close (50 at most apart)")
+check(wh > lu, f"the owner's listening: WHITEOUT {wh} above LUMIERE NOCTURNE {lu}")
 print("energy: " + ("FAILED" if fails else "ok"))
 sys.exit(1 if fails else 0)
 PY

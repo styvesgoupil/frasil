@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Styves Goupil */
 /* The same sound at another rate, measured: at 44.1, 48 and 96 kHz, a bass's pitch (SINE, A2: 110 Hz), GLINT's echo's
  * time (a quarter at 90 BPM: 667 ms), CLOUD's RT60 (DECAY at its middle: 4.9 s); 2.5's LOFI TAPE's delay (its head
- * at rest: 9.5 ms) and flutter (7.3 Hz), MASTER FILTER's 3 dB point, MASTER EQ's MID FREQ. Each the same at 48 kHz
+ * at rest: 9.5 ms) and flutter (5 Hz; 7.3 until TAPE SPEED), MASTER FILTER's 3 dB point, MASTER EQ's MID FREQ. Each the same at 48 kHz
  * and at 96 kHz (the lengths' upper sizes) as at 44.1 kHz.
  *   engine/tests/run.sh, or: rate */
 #include <stdio.h>
@@ -141,12 +141,13 @@ static double onset(float fs, int tape)
     return (double)a * 1000.0 / (double)r;
 }
 
-/* LOFI TAPE's flutter: its phase's turns over 4 s (7.3 a second) */
-static double flutter(float fs)
+/* LOFI TAPE's flutter: its phase's turns over 4 s (5 a second, at TAPE SPEED's pace: speed its setting) */
+static double flutter(float fs, uint32_t speed)
 {
     uint32_t r = open_at(fs), k, turns = 0;
     float fx[FRS_LIVE_FX], was = 0.0f;
     param_set(P_TP_ON, 1);
+    param_set(P_TP_FLUTTER, speed);
     param_set(P_TP_WOBBLE, 127);
     frs_latch(0, 48, FRS_CHORD_HARMONY);
     frs_render(L, R, r);
@@ -192,13 +193,13 @@ int main(void)
 {
     static const float AT[2] = {48000.0f, 96000.0f};
     double p1 = pitch(44100.0f), e1 = echo(44100.0f), t1 = rt60(44100.0f), d1 = onset(44100.0f, 1) - onset(44100.0f, 0);
-    double w1 = flutter(44100.0f), c1, b1;
+    double w1 = flutter(44100.0f, 64), wh = flutter(44100.0f, 14), c1, b1;
     char s[200];
     int k;
     fx_points(44100.0f, &c1, &b1);
     for (k = 0; k < 2; k++) {
         float fs = AT[k];
-        double p2 = pitch(fs), e2 = echo(fs), t2 = rt60(fs), d2 = onset(fs, 1) - onset(fs, 0), w2 = flutter(fs), c2, b2;
+        double p2 = pitch(fs), e2 = echo(fs), t2 = rt60(fs), d2 = onset(fs, 1) - onset(fs, 0), w2 = flutter(fs, 64), c2, b2;
         fx_points(fs, &c2, &b2);
         snprintf(s, sizeof s, "the bass's A2: %.3f Hz at 44.1 kHz, %.3f Hz at %.0f kHz", p1, p2, fs / 1000.0f);
         check(fabs(p1 - 110.0) < 0.05 && fabs(p2 - 110.0) < 0.05, s);
@@ -210,14 +211,16 @@ int main(void)
         snprintf(s, sizeof s, "LOFI TAPE's delay: %.2f ms at 44.1 kHz, %.2f ms at %.0f kHz (TP_D0: 9.52)", d1, d2,
                  fs / 1000.0f);
         check(fabs(d1 - 9.52) < 0.6 && fabs(d2 - 9.52) < 0.6 && fabs(d1 - d2) < 0.3, s);
-        snprintf(s, sizeof s, "LOFI TAPE's flutter: %.2f turns a second at 44.1 kHz, %.2f at %.0f kHz (7.3)", w1, w2,
+        snprintf(s, sizeof s, "LOFI TAPE's flutter: %.2f turns a second at 44.1 kHz, %.2f at %.0f kHz (5)", w1, w2,
                  fs / 1000.0f);
-        check(fabs(w1 - 7.3) < 0.3 && fabs(w2 - 7.3) < 0.3, s);
+        check(fabs(w1 - 5.0) < 0.3 && fabs(w2 - 5.0) < 0.3, s);
         snprintf(s, sizeof s, "MASTER FILTER's 3 dB point: %.0f Hz at 44.1 kHz, %.0f Hz at %.0f kHz", c1, c2, fs / 1000.0f);
         check(c1 > 100.0 && fabs(c2 / c1 - 1.0) < 0.02, s);
         snprintf(s, sizeof s, "MASTER EQ's MID: its top at %.0f Hz at 44.1 kHz, %.0f Hz at %.0f kHz", b1, b2, fs / 1000.0f);
         check(b1 > 100.0 && fabs(b2 / b1 - 1.0) < 0.02, s);
     }
+    snprintf(s, sizeof s, "  at TAPE SPEED X0.50: %.2f turns a second (2.5)", wh);
+    check(fabs(wh - 2.5) < 0.4, s);
     frs_close();
     printf("rate: %s\n", fails ? "FAILED" : "ok");
     return fails ? 1 : 0;

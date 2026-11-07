@@ -31,15 +31,18 @@ void app_tick(void);
 /* the store: the app's objects and the panel calibration (the platform's), and their flash offsets. The scenes'
  * bass sequences apart (OBJ_BSEQ: the sixteen scenes no longer fit one object), in the free pair under the scenes; their
  * drone sequences (3.0) apart again (OBJ_DSEQ), in the free pair under that one; the player's presets (OBJ_UPRE, 3.0) in
- * the next */
-enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NOBJ };
-#define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDA000u, 0xD8000u, 0xD6000u, 0xD4000u}
+ * the next; the rest of the scenes' names (OBJ_NAMES, 3.0.1: past their sixteenth character; 3.0.3: and each scene's
+ * LFO AMOUNTs and SWELL) in the next */
+enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES, OBJ_NOBJ };
+#define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDA000u, 0xD8000u, 0xD6000u, 0xD4000u, 0xD2000u}
 /* backup and restore over USB (fm1.toml backup = true: device/backup.c): the settings and the scenes (their bass
  * sequences and their drone sequences too), never the panel's calibration (the unit's). The version stays 1 when a
  * record's layout changes: each object carries its own magic, and a restore reloads it as a boot does (an earlier
  * layout made over; a backup of an earlier FRASIL, without OBJ_DSEQ: every scene's drone sequence none; without OBJ_UPRE:
- * the player's presets stay as they are, app_backup_restored writes them back) */
-#define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE}
+ * the player's presets stay as they are, app_backup_restored writes them back; without OBJ_NAMES: every name its first
+ * sixteen characters, as that FRASIL had them, the AMOUNTs +100 %, SWELL 0; 3.0.1's OBJ_NAMES, FRNM: the AMOUNTs, SWELL so). An earlier FRASIL refuses a backup with more objects than it has (3.0:
+ * this one's, OBJ_NAMES in it) */
+#define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES}
 #define APP_BACKUP_MAGIC 0x4B425246u     /* "FRBK" */
 #define APP_BACKUP_VERSION 1u
 #define APP_BACKUP_WHAT "replaces all scenes"

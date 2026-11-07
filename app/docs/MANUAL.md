@@ -141,7 +141,7 @@ while it runs; **SWELL** (lamp) while it swells.
 **The header** is the selected track's. The whole band at the top of the screen is filled with its colour, DRONE white,
 GLINT ice blue, BASS orange, and the page's name and the track's name are written dark on it: wherever you are, you
 see which track the buttons act on. On the play page the title is the scene's name, as large as it fits (a long one
-smaller: its sixteen characters always fit), with a dot while the sound differs from the scene's. Elsewhere, the
+smaller; one that still does not fit rolls slowly along and back), with a dot while the sound differs from the scene's. Elsewhere, the
 page's name; SCENES adds CHANGED while the sound differs. FRASIL's name stays on the logo screen. Under the title, a
 dot for each page of its button, the one on screen larger and darkest; a button with one page has none, an ARP or a SEQ that is OFF
 among them. At the right: the track's name, CHORD before it a little paler while its keys play chords (CHORD · GLINT:
@@ -230,7 +230,7 @@ SELECT for its five pages: the buttons in the panel's order (three pages), the e
 control's job, then the control, and under it, in amber, what it does again, held, or with something else. Tap HOME
 to close it and go back where you were.
 
-![Help, its first page: GENERATIVE FX on FX (again: CLOUD, PUMP; hold: FREEZE), HARMONY on SEL (hold and a key: add a single note), ENVELOPE on ENV (hold: SWELL), LFO 1, 2, 3 on LFO (again: next page; hold and a K: route)](img/screen-help-1.png "Hold HOME")
+![Help, its first page: GENERATIVE FX on FX (again: CLOUD, PUMP; hold: FREEZE), HARMONY on SEL (hold and a key: one note; hold and a K: LFO amount), ENVELOPE on ENV (hold: SWELL), LFO 1, 2, 3 on LFO (again: next page; hold and a K: route)](img/screen-help-1.png "Hold HOME")
 
 ---
 
@@ -245,7 +245,7 @@ The DRONE selected (SELECT all the way left):
 | **Tap another key** | it takes the place of what is lit, which fades over RELEASE; keys pressed together stay together. With KEYS' STACK ON, it joins them (section 5) |
 | **Hold a key and press** | the voice swells and opens (PRESSURE sets how much). Let go: it stays lit |
 | **Hold ENV** | SWELL: after 0.4 s, every drone voice swells together (1.5 s up, 1.5 s down once let go); ENV is lit while it lasts. Whatever track is selected |
-| **SWELL** (FX, GENERATIVE FX's K1) | held where you leave it: every voice swells as far as it is turned (with ENV's and CC 11's, the most of them) |
+| **SWELL** (FX, GENERATIVE FX's K1) | held where you leave it: every voice swells as far as it is turned (with ENV's and CC 11's, the most of them). A scene keeps it |
 | **Hold SEL, tap a key** | a single note over what is lit, even when CHORD makes chords, whatever KEYS' STACK says (on the bass it takes the note's place: it has one voice) |
 
 With KEYS' LATCH OFF (HOME, KEYS, K3), notes sound only while their key is held (section 5).
@@ -261,7 +261,8 @@ On any track:
 | **Hold OCT−, turn PRESETS** | picked unheard: the grid's choice framed in amber, the sound going on as it is; let OCT− go and it is taken (the octave unchanged) |
 | **Turn ALGORITHM** | the track's brightness: the drone's TIMBRE, GLINT's BRIGHT, the bass's FILTER |
 | **Hold GLO, turn ALGORITHM** | MASTER FILTER's CUTOFF (FX), whatever the track; with the filter OFF, it turns on, LOW PASS |
-| **OCT− / OCT+** | octave −3 to +2, shown large over the strip a moment. Both together: back to −1, where the keys run F2 to G4. While the name grid is open, its screens instead |
+| **OCT− / OCT+** | octave −3 to +2, shown large over the strip a moment; at power-on −1, where the keys run F2 to G4. While the name grid is open, its screens instead |
+| **OCT− + OCT+** | ANCHOR: the scene as it sounds now kept, the octave with it (ANCHOR SET), a violet frame round the screen, breathing, while it is. Press them again: MORPH, the sound gliding back over 8 s, the values on the screen gliding with it, its choices (a preset, ROOT, a TYPE, PLAYS, the steps) switching halfway, the frame erasing counter-clockwise from the top as it goes. Hold them a moment: BACK, every setting as it was, at once. What plays plays on. Loading a scene lets the anchor go. Nothing is stored: it is gone at power-off. (Held past 7 s, the two count down to UPDATE MODE, entered at 10 s: let go.) |
 | **Hold EDIT** | the key map: three black keys light (below) |
 | **Hold PLAY** | after 0.6 s, RELEASE ALL: the drones, the bass, the glints, the arpeggios and the sequences; the beat begins there (below). From 0.2 s the header says RELEASE ALL, a line counting down under it: let go then, before 0.6 s, and nothing happens |
 | **Hold PLAY again** | with nothing playing: RESTORE, the scene again (RESTORED): what the last RELEASE ALL let go, else the scene's own notes as saved (at power-on, say): its latched drones, the arpeggios' notes, the bass; and every sequence that is on, from its first step; the beat begins there |
@@ -276,8 +277,8 @@ On any track:
 
 **The buttons.** A press shows, a hold acts. Every button does its job when you let it go, but OCT− and OCT+, which
 act at once. Held 0.4 s (PLAY 0.6 s, REC 0.8 s), it does its other thing instead. A button used with something else
-(SEL with a key, SAVE with a key or REC, LFO with an encoder, GLO with a CC or ALGORITHM, EDIT with a key, a page button
-with SELECT) does nothing more when you let it go.
+(SEL with a key or an encoder, SAVE with a key or REC, LFO with an encoder, GLO with a CC or ALGORITHM, EDIT with a
+key, a page button with SELECT) does nothing more when you let it go.
 
 **The track and the pages.** EDIT, ENV, ARP, SEQ and REC act on the selected track; FX, SEL, LFO, GLO, HOME and SAVE
 are the same whatever it is. Turn SELECT on one of the track's pages and the page follows: ENV, ARP and SEQ go to the
@@ -311,8 +312,8 @@ key map closed. HOME is the exception: once its help is up, SELECT turns the hel
 
 | Button | Tap | Hold | Held, with |
 | --- | --- | --- | --- |
-| **FX** | GENERATIVE FX; again: CLOUD, CLOUD II, CLOUD III, MASTER FILTER, LOFI TAPE, PUMP, PUMP II | FREEZE on or off | SELECT turned: its pages |
-| **SEL** | HARMONY | | a key: a single note · SELECT: its page |
+| **FX** | GENERATIVE FX; again: CLOUD, CLOUD II, CLOUD III, MASTER FILTER, LOFI TAPE, LOFI TAPE II (only while TAPE is on), PUMP, PUMP II | FREEZE on or off | SELECT turned: its pages |
+| **SEL** | HARMONY | | a key: a single note · K1–K4 turned: the LFO AMOUNT of that setting (section 9) · SELECT: its page |
 | **ENV** | the track's envelope: DRONE SHAPE, GLINT ADSR, BASS ADSR | SWELL of the drone, while held | SELECT: its page |
 | **LFO** | LFO 1; again: its targets, LFO 2, its targets, LFO 3, its targets | | K1–K4 turned: that setting onto an LFO (section 9) · SELECT: its pages |
 | **EDIT** | the track's sound: DRONE TONE, DRONE MOTION and the drone's layers (9 pages), GLINT I, II, DELAY, or BASS I, II, TONE | the key map: F♯, G♯, A♯ jump to the track's groups | with OCT− held, COMPARE: the scene as saved (section 10) · SELECT: its pages |
@@ -780,6 +781,7 @@ something else (section 4, the buttons). The dots under the page's name say wher
 | FX | CLOUD III | SHIMMER | INTERVAL (+12, +7, +5, +19, −12) | BRIGHT (the shimmer's brightness, 700 Hz to 8 kHz) | |
 | FX | MASTER FILTER | TYPE (OFF, LOW PASS, HIGH PASS) | CUTOFF (20 Hz to 20 kHz) | RESONANCE | TRACKS (ALL, DRONE, GLINT, BASS, or two of them) |
 | FX | LOFI TAPE | TAPE (OFF, ON) | SATURATION | WOBBLE (wow, flutter, hiccups) | TRACKS (as MASTER FILTER's) |
+| FX | LOFI TAPE II | TAPE SPEED (×0.25 to ×2.00) | TONE (dark to bright) | NOISE (hiss) | DROPOUT |
 | FX | PUMP | RATE (OFF, 4 BARS, 2 BARS, 1 BAR, 1/2, 1/4, 1/8) | DRONE (its depth) | BASS | GLINT |
 | FX | PUMP II | RELEASE (10 to 100 % of the period) | ATTACK (1 to 300 ms) | OFFSET (0 to 100 % of the period) | |
 | GLO | GLOBAL | TEMPO (30 to 240 BPM) | LOW CUT (20 to 500 Hz) | TUNE (±50 cents) | ARP SNAP (OFF, 1/16, 1/8, 1/4, 1/2, 1 BAR) |
@@ -788,8 +790,8 @@ something else (section 4, the buttons). The dots under the page's name say wher
 | GLO | MASTER EQ | PRESET (OFF, CUSTOM, then the seven) | LOW | MID | HIGH (each −12 to +12 dB) |
 | GLO | MASTER EQ II | LOW FREQ (a shelf, 30 to 600 Hz) | MID FREQ (a bell, 80 Hz to 12 kHz) | Q (the bell's width, 0.4 to 8) | HIGH FREQ (a shelf, 1.5 to 16 kHz) |
 | GLO | ROUTING | FILTER (POST CLOUD, PRE CLOUD) | TAPE (POST CLOUD, PRE CLOUD) | CLOUD PUMP (ON, OFF) | SPK/JACK (ON, OFF) |
-| GLO | SCREEN | ANIMATIONS (NORMAL, LOW) | SCREENSAVER (ON, OFF) | | |
-| GLO | RECORD | METRONOME (OFF, REC, ALWAYS) | COUNT-IN (OFF, 1 BAR) | | |
+| GLO | SCREEN | ANIMATIONS (NORMAL, LOW) | SCREENSAVER (ON, OFF) | IDLE TIME (1 to 60 MIN) | HEADER (INVERT, DARK) |
+| GLO | RECORD | METRONOME (OFF, REC, ALWAYS) | COUNT-IN (OFF, 1 BAR) | TUNE A4 (415 to 466 HZ) | |
 | SAVE | SCENES | the slot, 1 to 16, or NEW SHARD above | MORPH (CUT, 1 S to 2:00) | LOAD (SND+NOTES, SND ONLY) | |
 
 GLINT's pages are in section 6, BASS's in section 7, the DRONE's sequence in section 8.
@@ -800,15 +802,17 @@ the LFOs on the grid), each scene its own (section 10); LOW CUT; TUNE; ARP SNAP,
 
 ![GLOBAL: TEMPO 90 BPM, LOW CUT 83 HZ, TUNE 0 CT, ARP SNAP 1/4; the processor's load in the header](img/screen-global.png "GLO")
 
-**RECORD** (GLO, last page): METRONOME and COUNT-IN, for recording (section 6, Recording). Both are kept with the
-settings.
+**RECORD** (GLO, last page): METRONOME and COUNT-IN, for recording (section 6, Recording); TUNE A4, the pitch A4
+sounds at, 415 to 466 Hz, 440 at first: every voice moves with it, the notes stay the same. A quick turn stops at 432
+and at 440. All three are kept with the settings, not in scenes (GLOBAL's TUNE, ±50 cents, is the scene's).
 
 ![RECORD: METRONOME REC, COUNT-IN OFF](img/screen-record.png "GLO, eight times")
 
 **GENERATIVE FX** is FX's first page, to perform with, on the whole sound:
 
 - **SWELL** swells every drone voice as far as it is turned, and holds it there (with ENV's and CC 11's, the most of
-  them). It is not kept: FRASIL starts with it at 0.
+  them). A scene keeps it, and ANCHOR glides it back; one made by an earlier FRASIL comes in at 0. ENV held and CC 11
+  swell only while they last.
 - **SPARKLE** plays glints by themselves, now and then, on the notes the drones hold: GLINT's OCTAVE up, one in three
   an octave more, soft and short, in GLINT's sound. From a few a minute to about six a second. No drone, no sparkle.
 - **BLUR** dissolves the drone into the cloud: wetter (SPACE toward 90 %), a longer DECAY, more DIFFUSION and
@@ -816,7 +820,7 @@ settings.
 - **SINK** takes everything under: a low-pass on the whole mix, from 12 kHz down to about 120 Hz (some 2.4 kHz at
   25, 800 Hz at 50), with a small resonance as it goes down.
 
-A scene keeps SPARKLE, BLUR and SINK. An LFO can move them.
+A scene keeps SWELL, SPARKLE, BLUR and SINK. An LFO can move the last three.
 
 ![GENERATIVE FX: a little SPARKLE and BLUR](img/screen-genfx.png "FX")
 
@@ -837,6 +841,24 @@ level dipping, then it catches up), TRACKS (as MASTER FILTER's). The page shows 
 anticlockwise as the tape runs, the right one filling as the left empties, with a quick rewind at the end: a wow sways
 them, a drag nearly stops them. The tape runs round two rollers and over the head; WOBBLE loosens and sways it,
 SATURATION warms it and lights a glow round the head.
+
+**LOFI TAPE II** (FX, right after LOFI TAPE) is the tape's other four settings: TAPE SPEED (the whole sound slowed
+down or sped up, as a tape played slower or faster: ×0.25 to ×2.00, ×1.00 in the middle, the knob stopping there as it
+passes; ×0.50 is an octave lower and half as fast, ×2.00 an octave higher and twice as fast, ×0.25 two octaves lower and
+four times slower. A detent is 0.01 from ×0.48 to ×1.58, then a half-tone down to ×0.25 and up to ×2.00; when the
+speed lands on a whole number of half-tones the page shows the tones between the reels (-1.5 TONES at ×0.84, -1 TONE
+at ×0.89, +3.5 TONES at ×1.50).
+It moves every voice's pitch, the grid's tempo (the arpeggios, the sequences, DRONE SEQ), the LFOs'
+rates, the envelopes' times and the tape's own wow and flutter; CLOUD and the delays stay in real time, as if the tape
+came before them. With a MIDI clock coming in, the tempo stays the clock's and only the pitch moves. A change glides
+briefly, as a tape slowing down. The flutter itself runs at 5 Hz), TONE (how dull or bright the
+tape is: the pole SATURATION sets, from a quarter of its cutoff to four times, the middle leaving it where it was),
+NOISE (the tape's hiss, up from nothing: it has no low end, and TONE dulls it too) and DROPOUT (now and then, more
+often as it grows, up to about twice a second, the level dips for a tenth of a second or so, as a bad patch of tape
+does; a deep one nearly silences it). A new scene starts at ×1.00, TONE +10, NOISE 0 and DROPOUT 0. A scene made
+before this page comes in at ×1.00, TONE 0, NOISE 0 and DROPOUT 0, so it sounds as it did, its flutter at 5 Hz.
+The page is there only while TAPE is ON: when it is OFF, FX goes past it (the page is skipped, not greyed), and SELECT
+turned with FX held does the same. The cassette's reels are on this page too. These four are not LFO targets.
 
 When MASTER FILTER's TYPE or LOFI TAPE's TAPE is OFF, the page's other settings are grey; they still turn.
 
@@ -888,12 +910,15 @@ is OFF.
 **SCREEN** (GLO, seventh page): ANIMATIONS, NORMAL or LOW, kept through power-off. LOW, what only decorates stands
 still (the river and its particles, the tape's reels, the logo screen); the screen is drawn again when a value changes,
 and four times a second for what informs (the meters, the playheads). SCREENSAVER, ON or OFF (ON at first), kept
-through power-off: ON, after ten minutes without a touch of a button, a knob or a key, the screen goes black and the
-logo drifts across it; the sound goes on as it was, and MIDI does not wake it. Any control wakes it, and only wakes it:
-that touch changes nothing.
+through power-off: ON, after IDLE TIME without a touch of a button, a knob or a key (1 to 60 minutes, 10 at first, kept
+too; slate while SCREENSAVER is OFF), the screen goes black and the logo drifts across it; the sound goes on as it was, and MIDI does not wake it. Any control wakes it, and only wakes it:
+that touch changes nothing. HEADER, INVERT or DARK (INVERT at first), kept through power-off: INVERT, the band at the top
+in the selected track's colour, its words and marks dark; DARK, the band dark, its words and marks in the track's colour,
+a thin line of it under the band.
 
-A scene keeps MASTER FILTER, LOFI TAPE and MASTER EQ, as it keeps MASTERING, and ROUTING's FILTER, TAPE and CLOUD
-PUMP; one made by an earlier FRASIL comes in with the three off.
+A scene keeps MASTER FILTER, LOFI TAPE (LOFI TAPE II's four too) and MASTER EQ, as it keeps MASTERING, and ROUTING's
+FILTER, TAPE and CLOUD PUMP; one made by an earlier FRASIL comes in with the three off, and one made before LOFI TAPE II
+with its four in the middle, at nothing, as it sounded.
 
 ![MASTER EQ on LOUD: its curve, each band's badge on it](img/screen-eq.png "GLO, four times")
 
@@ -933,30 +958,40 @@ its targets.
   the top of their turn.
 - **DEPTH:** 0 is off. Up, it reaches the whole range of each target.
 - **POLARITY:** BIPOLAR moves a setting both ways around where you set it, UP only above, DOWN only below.
-- **TARGET 1–4:** each OFF or one of 55 settings, as the screen writes them: TIMBRE, SPACE, MOTION, WARMTH, CHOIR,
+- **TARGET 1–4:** each OFF or one of 57 settings, as the screen writes them: TIMBRE, SPACE, MOTION, WARMTH, CHOIR,
   PARTIALS, BREATH; CHOIR's CH DETUNE, CH FILTER, CH SHAPE, CH RESO, CH SOFT; PARTIALS' PA TILT, PA ODD, PA STRETCH,
   PA EVOLVE, PA BEAT, PA FORMANT, PA PEAK; BREATH's BR RESO, BR COLOR, BR GRAIN, BR TONE, BR AIR, BR SPREAD; GLINT's
   GL LEVEL, GL BRIGHT, GL PING, GL SPACE, GL CHANCE (the arpeggiator's and the sequencer's CHANCE), SEQ LEN (its SEQ
   LENGTH), GL ATTACK, GL DECAY, GL SUSTAIN, GL RELEASE; the bass's BS FILTER, BS RESO, BS DRIVE (they glide, so a
   FILTER swept by an LFO is a smooth wobble), BS ATTACK, BS DECAY, BS SUSTAIN, BS RELEASE; DRONE LVL, GLINT LVL and
   BASS LVL (the MIXER's), BODY, SPARKLE, BLUR, SINK, MS CUTOFF and MS RESO (MASTER FILTER's), DRONE PAN, BASS PAN,
-  GLINT PAN and CLOUD PAN (the MIXER's pans: chosen here, the MIXER's knobs being the levels). Each is written in its
+  GLINT PAN and CLOUD PAN (the MIXER's pans: chosen here, the MIXER's knobs being the levels), TAPE SAT and WOBBLE (LOFI TAPE's SATURATION and WOBBLE; they sound once TAPE is on). Each is written in its
   track's colour: GLINT's ice blue (the GL ones, GLINT LVL, SEQ LEN, SPARKLE, GLINT PAN), BASS's orange (the BS ones,
-  BASS LVL, BASS PAN), the drone's white, the whole mix's green (MS CUTOFF, MS RESO, BLUR, SINK, CLOUD PAN). TARGET's
+  BASS LVL, BASS PAN), the drone's white, the whole mix's green (MS CUTOFF, MS RESO, BLUR, SINK, CLOUD PAN, TAPE SAT, WOBBLE). TARGET's
   list opens in the name grid, in its four sections (section 3): you hear a target as you stop on it, SEL keeps it,
   FX goes back to the one before.
 
 An LFO runs freely and without end while it is on, with DEPTH up and a target set; a key does not start or restart
-it. Its four targets move together, by the same amount, and LFOs on one setting add up. The setting keeps the
+it. Its four targets move together, each by its AMOUNT (below), and LFOs on one setting add up. The setting keeps the
 value you gave it, and that is what a scene saves, with the LFOs; the LFO moves the sound around it. On every page,
 a setting's gauge shows a small ice-blue mark where the LFO has it now. On an LFO's pages the river gives way to
 its shape and a glint where it is, grey while it is off. GL BRIGHT and GL PING are set at each strike: an LFO on
 them changes the next notes. The engine glides between the LFO's steps, so a SQUARE or a RANDOM steps softly.
 
 **LFO held and an encoder.** On any page, hold LFO and turn K1, K2, K3 or K4: the setting under that encoder goes
-onto LFO 1, then LFO 2, LFO 3, then none (turned back, the other way), into that LFO's first free TARGET. An LFO's
-DEPTH at 0 comes up to 25 %. The header says where it went: FILTER > LFO 2, FILTER > NO LFO (in bold, deep red), LFO 2 FULL
-(its four TARGETs taken), or NOT AN LFO TARGET. Let LFO go without turning anything and it opens its pages, as ever.
+onto LFO 1, then LFO 2, LFO 3, then none (turned back, the other way), into that LFO's first free TARGET, its AMOUNT
+at ×1.00. An LFO's DEPTH at 0 comes up to 25 %. The header says where it went: FILTER > LFO 2, FILTER > NO LFO (in
+bold, deep red), LFO 2 FULL (its four TARGETs taken), or NOT AN LFO TARGET. Let LFO go without turning anything and it
+opens its pages, as ever.
+
+**SEL held and an encoder: the AMOUNT.** Each TARGET has its AMOUNT, a multiplier of how far the LFO moves that
+setting: ×1.00 the LFO as it is (as at first), ×0.50 half as far, ×0.00 not at all, ×3.00 three times, up to ×5.00
+(the setting still stops at its ends). On any page, hold SEL and turn K1, K2, K3 or K4: the AMOUNT of the setting
+under that encoder, on the LFO it is on. The header says it large, LFO 1 AMOUNT ×0.35, a bar under it from ×1.00 at
+its middle, filling to the left down to ×0.00, to the right up to ×5.00. On an LFO's TARGETS page, it is that
+TARGET's. A setting on no LFO: NO LFO; an empty TARGET: NO TARGET. On the TARGETS pages, a target whose AMOUNT is not
+×1.00 has a small gauge under its name, lamp while SEL turns it. A scene keeps the AMOUNTs; one made by an earlier
+FRASIL comes in with every AMOUNT at ×1.00, as it sounded.
 
 ![LFO 1: a sine, its shape drawn, a glint where it is](img/screen-lfo.png "LFO")
 
@@ -967,8 +1002,9 @@ DEPTH at 0 comes up to 25 %. The header says where it went: FILTER > LFO 2, FILT
 ## 10. Scenes and presets
 
 A **scene** is the whole sound with what plays: the three tracks and their settings, the latched drones (up to 8
-chords), the arpeggios' notes, the bass's note, the three sequences, the effects, the LFOs, TEMPO. A **preset** is one
-track's sound alone: a drone, a GLINT sound, a bass. Sixteen scene slots; your presets come after the factory ones.
+chords), the arpeggios' notes, the bass's note, the three sequences, the effects, the LFOs and their AMOUNTs, SWELL,
+TEMPO, its name. A **preset** is one track's sound alone: a drone, a GLINT sound, a bass. Sixteen scene slots; your
+presets come after the factory ones.
 
 **SAVE** opens a page of two: **LOAD** and **SAVE**, on K1, SAVE at first, then your last choice until power-off. Its
 title follows K1: SCENES on LOAD, SAVE on SAVE. As every question: **SEL** goes on with the one chosen, **FX** goes back
@@ -980,8 +1016,9 @@ buttons still work, dark: they leave SAVE.
 **LOAD** opens SCENES. The page lists five lines around the one K1 picks (framed in ice; SELECT scrolls it the same
 way, both ways, and leaves the track as it is; a page button held with it still turns that button's pages): NEW SHARD
 first, then the sixteen slots, each its number, its name and what it holds (what it plays, FACTORY, EMPTY; a long name
-takes its room), NOW by the one loaded. Under them a box says what the buttons do: PLAY LOAD, and SAVE + REC STORE
-(on NEW SHARD, PLAY LOAD alone). K2 and K3 are MORPH and LOAD. **PLAY** loads the slot K1 points at. SAVE goes back
+takes its room, as large as the others; the one K1 picks rolls slowly along and back, as on the play page), NOW by the
+one loaded. Under them a box says what the buttons do: PLAY LOAD, and SAVE + REC STORE (on NEW SHARD, PLAY LOAD
+alone). K2 and K3 are MORPH and LOAD. **PLAY** loads the slot K1 points at. SAVE goes back
 where you were; FX here opens FX's pages.
 
 - **NEW SHARD**, above slot 01 (turn K1 below slot 1): not a slot, a sound to start a new shard from, fresh. Its line
@@ -1005,7 +1042,7 @@ where you were; FX here opens FX's pages.
    not; a factory preset or another scene ends that, and it starts on NEW. SEL: on to its name; FX: back.
 3. **NAME IT:** the name, written in place of the old one, which it starts from. The page writes its controls:
    **OCT** or **K1** move the cursor, **K2** puts a space, **K3** turns a digit (then - and .), **K4** a letter (a space
-   before A). Sixteen characters at most. **SAVE** stores it (STORED 09 ABYSS), SEL too; **FX**, CANCEL, goes back a
+   before A). A scene's name: 32 characters at most, in two rows; a preset's: sixteen. **SAVE** stores it (STORED 09 ABYSS), SEL too; **FX**, CANCEL, goes back a
    step. Only SAVE and FX are lit, OCT half. A name of spaces alone: nothing is stored, the name stays up.
 
 ![SAVE's second page, its header red: WHAT SCENE, INTO 08 EMPTY; SEL NEXT and FX BACK](img/screen-save-what.png "SAVE, SAVE")
@@ -1084,7 +1121,8 @@ back from it.
   them. Download everything (a `.frasil` file) or the shards you select (a `.frasilscenes` package). Open a file to see
   it without the FM-1. Put a backup back whole, or shards into the slots you choose, several at once: the River reads
   the FM-1 first, and the other slots and the settings stay as they are. Shards go into the slots of an FM-1 that runs
-  FRASIL 3.0; an earlier FRASIL is asked to update first (UPDATE FRASIL). A shard keeps its scene's TEMPO.
+  FRASIL 3.0; an earlier FRASIL is asked to update first (UPDATE FRASIL). A shard keeps its scene's TEMPO and its
+  whole name, 32 characters.
 - **A terminal:** `python3 base/tools/fm1_backup.py backup scenes.frasil --magic FRBK`, then
   `python3 base/tools/fm1_backup.py restore scenes.frasil`; `info` shows what a file holds.
 

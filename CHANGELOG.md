@@ -1,5 +1,32 @@
 # Changelog
 
+## 3.1 (2026-11-06)
+
+**New**
+
+- **ANCHOR**: like Elektron's temp save and reload, with a glide back, as the Octatrack's scenes morph. Press OCT− and OCT+ together to hold the sound as it is. Change anything, have fun performing and stretching the sound to its limits, then press OCT− and OCT+ again to go back smoothly, automatically, in an 8-second morph (or hold them to jump back at once).
+- **TAPE SPEED**: the whole sound slowed or sped up like a tape, from ×0.25 to ×2.00: pitch, tempo, LFOs and envelopes together (reverb and delay stay as they are). A hundredth a detent, and between the tape's reels the screen shows the change in tones whenever you land on a half-tone (-1.5 TONES, +1 TONE). ×1.00 plays as before.
+- **LOFI TAPE II**: a new FX page after LOFI TAPE, there while TAPE is on: TAPE SPEED, TONE, NOISE (hiss) and DROPOUT. Kept in scenes; scenes from before keep their sound.
+- **LFO AMOUNT**: every LFO target has its own amount, an attenuator that can also boost: from ×0.00 to ×5.00 (×1.00 is the LFO as before). Hold SEL and turn K1–K4: the amount shows large in the header, over a bar that fills from its middle. Kept in scenes.
+- **LFO TARGETS**: TAPE SAT and WOBBLE join them, 57 in all.
+- **SCENE NAMES**: support for 32 characters, kept whole on the FM-1 and in the River, the editor and STREAM.
+- **TUNE A4**: the pitch the whole FM-1 is tuned to, from 415 to 466 Hz (440 as before, 432 one turn away). GLO > RECORD, kept on the device.
+- **HEADER**: GLO > SCREEN chooses the header's look: INVERT (the band in the track's colour, as before) or DARK (the band dark, its words in the track's colour). Kept.
+
+**Fixes and changes**
+
+- **Scenes**: 3.1 saves them in a new layout. Scenes, shards and backups from earlier versions load as before, the new settings at their defaults. A 3.1 backup does not restore on 3.0: `tools/backup_for_3_0.py` makes a copy that does.
+- **MASTER EQ** turns smoothly: no more crackle while HIGH (or MID, LOW, a preset) moves.
+- **CUT then PLAY** brings every track back: the drone's held chords and GLINT's arpeggio too, not the bass alone.
+- **SWELL** is kept in the scene: STORE keeps it, a scene loaded sets it, ANCHOR glides it back.
+
+## 3.0.1 (2026-11-02)
+
+- **The screensaver's corner, celebrated.**
+- **IDLE TIME**: how long before the screensaver, 1 to 60 minutes (GLO, SCREEN).
+- **The screensaver's logo drifts twice as fast.**
+- **Scene names up to 32 characters** on the FM-1, and a name too long for the header rolls slowly along and back. The River and the iPad still show the first 16. A 3.0.1 backup no longer restores on 3.0: `tools/backup_for_3_0.py` makes a copy that does.
+
 ## 3.0 (2026-11-02)
 
 **A complete controls redesign, more intuitive.** Three tracks, each with its own keys, sound, arpeggio and sequence.

@@ -25,7 +25,15 @@ static uint8_t test_arp_log;             /* (arplog 1: each arpeggio's step and 
 #include "core.c"                       /* (FRASIL's engine: every setting, the scenes, the brain; its hooks below) */
 #include "pages.c"
 
-#define SET_MAGIC 0x50535246u            /* "FRSP": the settings record (a new one when its layout changes) */
+#define SET_MAGIC 0x53535246u            /* "FRSS": the settings record (a new one when its layout changes) */
+#define SET_FRSR 0x52535246u             /* "FRSR": 3.0.2-b5's test builds', this one with the LFOs' AMOUNTs in percent
+                                          * (-100 % .. +100 %, 100 its 0 %): each made a multiplier, |v - 100| */
+#define SET_FRSQ 0x51535246u             /* "FRSQ": 3.0.2's, before the LFOs' AMOUNTs and SWELL: this one to tp_dropout
+                                          * (FRSQ_BYTES), the twelve at x1.00, SWELL 0 */
+#define FRSQ_BYTES 284u
+#define SET_FRSP 0x50535246u             /* "FRSP": 3.0's before LOFI TAPE II: this one to saver_off (FRSP_BYTES), the four
+                                          * settings at their defaults */
+#define FRSP_BYTES 280u
 #define SET_FRSO 0x4F535246u             /* "FRSO": 3.0's before KEYS: this one to gl_vib, its padding (FRSO_BYTES) */
 #define FRSO_BYTES ((uint32_t)((offsetof(settings_t, bs_bite) + 4u) & ~3u))
 #define SET_FRSN 0x4E535246u             /* "FRSN": 2.7's first test builds' (FRSN_BYTES): this one to bq_len, its PLAYS
@@ -68,18 +76,29 @@ static uint8_t test_arp_log;             /* (arplog 1: each arpeggio's step and 
                                           * steps, PLAYS, SEQ LENGTH, TRANSPOSE, the scene's TEMPO, the bass's RATE, its
                                           * arpeggio's MODE, RANGE, CHANCE, its GATE, BASS TONE's three, its arpeggio's
                                           * notes, its SPACE */
-#define DSQ_MAGIC 0x51445246u            /* "FRDQ": the scenes' drone sequences (OBJ_DSEQ, 3.0), each its settings (dq_on ..
-                                          * dq_trans), then its steps' notes seven bits each (dsq_pack) */
+#define DSQ_MAGIC 0x52445246u            /* "FRDR": the scenes' drone sequences (OBJ_DSEQ, 3.0), each its settings (dq_on ..
+                                          * dq_trans), then its steps' notes seven bits each (dsq_pack), then LOFI TAPE II's
+                                          * four (tp_flutter ..) */
+#define DSQ_FRDQ 0x51445246u             /* "FRDQ": 3.0's before them: a scene's DSQ_SET + DSQ_PACK bytes, the four at their
+                                          * defaults */
 #define UPR_MAGIC 0x50555246u            /* "FRUP": the player's presets (OBJ_UPRE, 3.0) */
+#define NMS_MAGIC 0x4F4E5246u            /* "FRNO": what of the scenes OBJ_SCENES and the others have no room for (OBJ_NAMES:
+                                          * names_save): the rest of their names, their LFOs' AMOUNTs, SWELL */
+#define NMS_FRNN 0x4E4E5246u             /* "FRNN": 3.0.2-b5's test builds', this one with the AMOUNTs in percent (each
+                                          * made a multiplier, |v - 100|: frs_scene_amt_over's) */
+#define NMS_FRNM 0x4D4E5246u             /* "FRNM": 3.0.1's, the rest of the names alone (the AMOUNTs x1.00, SWELL 0) */
 #define BSQ_FRBW 0x57425246u             /* "FRBW": 2.7's test builds' (b4 ..): to the arpeggio's notes, no SPACE */
 #define BSQ_FRBV 0x56425246u             /* "FRBV": 2.7's first test builds': to RATE, PLAYS SEQUENCE then (1: on) */
 #define BSQ_FRBU 0x55425246u             /* "FRBU": 2.6's (2.1 .. 2.6.1): to TEMPO, the bass's sixteen notes and their
                                           * lengths (bseq_over) */
 #define BSQ_FRBT 0x54425246u             /* "FRBT": the one before (with FRSl): from the bass's notes on */
 #define BSQ_FRBS 0x53425246u             /* "FRBS": the one before the scenes' TEMPO (FRBT's less one a scene) */
-#define SHARD_MAGIC 0x7A535246u          /* "FRSz": a scene whole (scene_t: its sequences, its TEMPO, the bass's RATE,
+#define SHARD_MAGIC 0x7D535246u          /* "FRS}": a scene whole (scene_t: its sequences, its TEMPO, the bass's RATE,
                                           * arpeggio, BASS TONE, SPACE and GLINT's AUTO VIB after the rest, then the
-                                          * drone's sequence), as the River keeps it, a shard; "FRSy": 3.0's before the
+                                          * drone's sequence, then LOFI TAPE II's four, then the name's rest, the LFOs'
+                                          * AMOUNTs and SWELL), as the River keeps it, a shard; "FRS|": 3.0.2-b5's test
+                                          * builds', the same bytes, the AMOUNTs in percent (frs_scene_amt_over); "FRS{": 3.0.2's before
+                                          * those three (590 bytes); "FRSz": 3.0's before LOFI TAPE II (586 bytes); "FRSy": 3.0's before the
                                           * drone's sequence (324 bytes); "FRSx": 2.7's test builds' before AUTO VIB (323 bytes);
                                           * "FRSw": before SPACE (322 bytes); "FRSv":
                                           * 2.7's test builds' before BASS TONE (319 bytes); "FRSu": 2.7's
@@ -92,6 +111,9 @@ static uint8_t test_arp_log;             /* (arplog 1: each arpeggio's step and 
                                           * "FRSk" shards: without it, SCATTER where GLINT's
                                           * RELEASE is; "FRSi": before BASS's DECAY, SUSTAIN and PULSE too (FRSH_NV
                                           * sounds); "FRSh": those without the bass's too */
+#define SHARD_FRSBAR 0x7C535246u
+#define SHARD_FRSTP 0x7B535246u
+#define SHARD_FRSZ 0x7A535246u
 #define SHARD_FRSY 0x79535246u
 #define SHARD_FRSX 0x78535246u
 #define SHARD_FRSW 0x77535246u
@@ -141,6 +163,15 @@ typedef struct {
                                           * default, 1/4); in the padding, the record's size the same (280) */
     uint8_t saver_off;                   /* SCREENSAVER OFF (0, as FRSP's last padding byte reads: ON); in the padding
                                           * too, the record's size the same (280) */
+    uint8_t tp_flutter, tp_tone, tp_noise, tp_dropout;   /* LOFI TAPE II's four (FRSQ: FRSP's end at saver_off, read with
+                                                          * their defaults) */
+    uint8_t lfo_amt[12];                 /* the LFOs' AMOUNTs, LFO 1's TARGET 1 .. LFO 3's TARGET 4 (P_L1_AMT1 ..; FRSS:
+                                          * FRSQ's end at tp_dropout, read at x1.00; FRSR's in percent, made multipliers) */
+    uint8_t swell;                       /* GENERATIVE FX's SWELL (the same: 0) */
+    uint8_t head;                        /* GLO > SCREEN's HEADER: 1 DARK (0, as FRSS's padding byte reads: INVERT);
+                                          * in the padding, the record's size the same (300) */
+    int8_t a4;                           /* GLO > RECORD's TUNE A4 less 440 Hz, -25 .. +26 (0, as FRSS's padding byte
+                                          * reads: 440); in the padding too (300); then one byte of it */
 } settings_t;
 
 typedef struct {
@@ -232,14 +263,40 @@ static const layout_t OLD_SET[] = {
 #define BSQ_BYTES (4u + NSCENES * BSQ_SCENE)
 #define DSQ_SET NDQ                      /* a scene's in OBJ_DSEQ: its drone sequence's settings, */
 #define DSQ_PACK (SC_DSEQ * DQ_NOTES * 7u / 8u)   /* its notes, seven bits each (1 .. 126, 0 none, DQ_TIE), */
-#define DSQ_SCENE (DSQ_SET + DSQ_PACK)   /* 230 bytes: sixteen scenes fit the object (scene_t has them a byte each) */
+#define DSQ_SCENE_FRDQ (DSQ_SET + DSQ_PACK)   /* 230 bytes (FRDQ's) */
+#define DSQ_SCENE (DSQ_SCENE_FRDQ + 4u)  /* 234: and LOFI TAPE II's four; sixteen scenes fit the object (scene_t has the notes a
+                                          * byte each) */
+#define DSQ_BYTES_FRDQ (4u + NSCENES * DSQ_SCENE_FRDQ)
 #define DSQ_BYTES (4u + NSCENES * DSQ_SCENE)
+/* a scene's name on the FM-1: SC_LONG characters, its first SC_NAME in the scene's name, the rest in its name_more
+ * (scene_t's, the shard's FRS| has both). In the store the rest is in OBJ_NAMES (3.0.1), apart, with the LFOs' twelve
+ * AMOUNTs and SWELL (3.0.3), so that every record 3.0 reads stays as it reads it (they do not fit OBJ_SCENES: 16 scenes
+ * of SC_REC + 16 bytes are 3928, the object holds 3840). OBJ_NAMES: its magic, then each slot's: the sum of its record in
+ * OBJ_SCENES as written with it (rec_sum), its SC_MORE characters (NUL-padded), its twelve AMOUNTs, its SWELL. Read back
+ * only onto a scene whose record has that sum, so a scene never gets another's: a scene stored again by an earlier
+ * FRASIL, or a restore of a backup without OBJ_NAMES, or one a River changed, has its first sixteen alone, its AMOUNTs at
+ * +100 %, SWELL 0; a scene the River moved to another slot keeps them (names_load) */
+#define SC_LONG 32u
+#define SC_MORE (SC_LONG - SC_NAME)
+#define NMS_MORE (SC_MORE + 12u + 1u)    /* scene_t's from name_more to swell: what OBJ_NAMES keeps of a scene */
+#define NMS_SCENE (4u + NMS_MORE)        /* 33 */
+#define NMS_BYTES (4u + NSCENES * NMS_SCENE)   /* 532 */
+#define NMS_SCENE_FRNM (4u + SC_MORE)    /* FRNM's: the sum, the name's rest */
+#define NMS_BYTES_FRNM (4u + NSCENES * NMS_SCENE_FRNM)
 static uint8_t raw[8u + NSCENES * FRSL_REC];   /* an old record as it was saved (the largest, FRSl's scenes: 3800),
                                                 * and the scenes' records as they are written and read (FRSs's:
                                                 * 3672) */
 static uint8_t store_old;                /* bit 0 the scenes, bit 1 the settings: made over from an earlier layout at
                                           * load, the store's still in it (a backup saves them first) */
-_Static_assert(sizeof(scene_t) == SC_REC + BSQ_SCENE + DSQ_SET + SC_DSEQ * DQ_NOTES && offsetof(scene_t, seq) == SC_REC &&
+_Static_assert(sizeof(scene_t) == SC_REC + BSQ_SCENE + DSQ_SET + SC_DSEQ * DQ_NOTES + 4u + NMS_MORE && offsetof(scene_t, seq) == SC_REC &&
+                   offsetof(scene_t, tp_flutter) == FRSZ_SCENE && offsetof(scene_t, tp_dropout) == FRSZ_SCENE + 3u &&
+                   offsetof(scene_t, name_more) == FRSZ_SCENE + 4u && sizeof(((scene_t *)0)->name_more) == SC_MORE &&
+                   offsetof(scene_t, lfo_amt) == offsetof(scene_t, name_more) + SC_MORE &&
+                   offsetof(scene_t, swell) == offsetof(scene_t, lfo_amt) + 12u && sizeof(scene_t) == 619u &&
+                   SC_NAME_MORE == SC_MORE && SC_LFO_AMT == 12u && SC_NAME_ALL == SC_LONG &&
+                   offsetof(scene_t, tp_tone) == offsetof(scene_t, tp_flutter) + 1u &&
+                   offsetof(scene_t, tp_noise) == offsetof(scene_t, tp_flutter) + 2u &&
+                   offsetof(scene_t, dnote) + SC_DSEQ * DQ_NOTES == FRSZ_SCENE &&
                    offsetof(scene_t, bnote) == SC_REC + SC_SEQ && offsetof(scene_t, nch) == SC_NAME + NSOUND &&
                    SC_BSEQ == 2u * OLD_BSEQ && offsetof(scene_t, bq_on) == SC_REC + SC_SEQ + SC_BSEQ &&
                    offsetof(scene_t, tempo) == SC_REC + SC_SEQ + FRBS_SCENE &&
@@ -283,15 +340,21 @@ _Static_assert(offsetof(settings_t, bq_len) == offsetof(settings_t, clock) + 1u 
                "then the bass's sequence), the sound three settings longer");
 _Static_assert(NBQLEN == 9u && SC_BSEQ == 32u && SC_SEQ == SC_BSEQ && P_BQ_NLEN == P_CLOCK + 1 && P_GL_VIB_AUTO == 196 &&
                    P_DQ_ON == P_GL_VIB_AUTO + 1 && P_DQ_NOTES == P_DQ_STEP + 1 && P_COUNT_IN + 1 == P_ARP_SNAP &&
-                   P_SAVER == P_ARP_SNAP + 1 && P_SAVER + 1 == NPARAM,
+                   P_SAVER == P_ARP_SNAP + 1 && P_TP_FLUTTER == P_SAVER + 1 && P_TP_DROPOUT == P_TP_FLUTTER + 3 &&
+                   P_L1_AMT1 == P_TP_DROPOUT + 1 && P_L2_AMT1 == P_L1_AMT1 + 4 && P_L3_AMT1 == P_L2_AMT1 + 4 &&
+                   P_L3_AMT4 == P_L1_AMT1 + 11 && P_L3_AMT4 + 1 == NPARAM && NPARAM < 255,
                "the bass's sequence's settings (params.c PD: RATE's 9, STEP's and SEQ LENGTH's 32, LENGTH's 1 .. 32); "
                "LENGTH numbered last, then what came after it; the two sequences' steps alike (step_*)");
 
-_Static_assert(sizeof(settings_t) == 280u && offsetof(settings_t, arp_snap) == 278u && offsetof(settings_t, saver_off) == 279u,
-               "ARP SNAP and SCREENSAVER in FRSP's padding: the record's size as 3.0's first builds wrote it (their backups "
-               "restored as they are)");
+_Static_assert(sizeof(settings_t) == 300u && FRSP_BYTES == offsetof(settings_t, tp_flutter) &&
+                   FRSQ_BYTES == offsetof(settings_t, lfo_amt) && offsetof(settings_t, swell) == FRSQ_BYTES + 12u &&
+                   offsetof(settings_t, arp_snap) == 278u && offsetof(settings_t, saver_off) == 279u &&
+                   offsetof(settings_t, head) == offsetof(settings_t, swell) + 1u &&
+                   offsetof(settings_t, a4) == offsetof(settings_t, head) + 1u,
+               "FRSP's 280 bytes (ARP SNAP and SCREENSAVER in its padding), LOFI TAPE II's four after them (FRSQ's 284), "
+               "then the twelve AMOUNTs and SWELL, HEADER and TUNE A4 in the padding");
 _Static_assert(sizeof raw >= sizeof(upresets_t) && sizeof raw >= SCN_BYTES && sizeof raw >= BSQ_BYTES && sizeof raw >= DSQ_BYTES && sizeof raw >= sizeof(settings_t) &&
-                   sizeof raw >= 8u + NSCENES * FRSH_REC, "raw holds the largest");
+                   sizeof raw >= 8u + NSCENES * FRSH_REC && sizeof raw >= NMS_BYTES, "raw holds the largest");
 static uint32_t name_bytes(const layout_t *l) { return l->extra >= 3u ? SC_NAME : OLD_NAME; }
 static uint32_t seq_bytes(const layout_t *l) { return l->extra >= 2u && l->extra != 5u ? SC_SEQ : 0u; }
 static uint32_t scn_bytes(const layout_t *l)
@@ -300,6 +363,13 @@ static uint32_t scn_bytes(const layout_t *l)
 }
 static uint32_t set_bytes(const layout_t *l) { return (4u + l->nv + 5u + 2u * (l->extra ? 1u : 0u) + seq_bytes(l) + 3u) & ~3u; }
 static uint32_t rd32(const uint8_t *b) { return b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24; }
+static uint32_t rec_sum(const uint8_t *b, uint32_t n)   /* a scene's record, summed (FNV-1a: OBJ_NAMES knows it by it) */
+{
+    uint32_t h = 2166136261u;
+    while (n--)
+        h = (h ^ *b++) * 16777619u;
+    return h;
+}
 
 /* the FM-1's own state: its pages, the panel's buttons and encoders, the slots (the engine's: core.c st) */
 static struct {
@@ -329,6 +399,12 @@ static struct {
     uint8_t edit_map;                    /* EDIT held: its three keys up */
     uint32_t oct_at;                     /* OCT+, OCT-: when, the octave large a moment */
     int8_t oct_v;
+    int8_t oct_was;                      /* the octave before OCT- or OCT+ went down alone (the other with it: ANCHOR,
+                                          * that step undone) */
+    int8_t anc_oct;                      /* the octave ANCHOR keeps (back with it) */
+    uint8_t anc_both;                    /* OCT- and OCT+ down together, ANCHOR's: till one is let go */
+    uint8_t anc_arm;                     /* ... on an ANCHOR set: MORPH at their release, BACK held HOLD_MS */
+    uint32_t anc_at;
 } fm __attribute__((used));              /* (kept whole, as the engine's st is: the RAM as it was) */
 
 static uint32_t keys_prev, btn_prev, btn_now;
@@ -407,7 +483,7 @@ void app_tick(void)
 }
 
 /* ---------------------------------------------------------- the screensaver --- */
-/* SCREENSAVER (GLO > SCREEN's K2, ON by default): ten minutes without a touch of the panel (a button, a knob, a key;
+/* SCREENSAVER (GLO > SCREEN's K2, ON by default): IDLE TIME (K3, 1 .. 60 minutes, ten at first) without a touch of the panel (a button, a knob, a key;
  * MIDI, a PERFORM page and the River are not touches: they play, the screen sleeps on), the screen black and the logo
  * drifting on it, a pixel a step on both axes, bouncing off the edges, its colour the next at each bounce (ui.c
  * saver_screen: only its old and new boxes drawn again). The sound, the sequences, MIDI, the clock and a take go on as
@@ -415,34 +491,156 @@ void app_tick(void)
  * or key that did it is dropped till it is let go (no press, no tap, no hold, no note: a sleepy hand on a lit key does
  * not let a drone go), the knob that did it turns nothing till it has rested SAVER_GRACE_MS (SAVER_GRACE_MAX at most:
  * one turning on is heard). What was on the screen comes back as it was (a page, the help, a pop-up, a name). A pop-up
- * that comes meanwhile (a restore from the River) wakes it. The lights stay as they are (they tell what plays) */
+ * that comes meanwhile (a restore from the River) wakes it. The lights stay as they are (they tell what plays).
+ * THE CORNER: each time it comes, the logo starts where (and goes the way) that brings it into a corner, both edges on
+ * the same step, about a minute later (saver_aim); then it drifts on as before (the next corner some 12 minutes on).
+ * Every corner is celebrated: CORNER! and ice crystals bursting from it, SAVER_PARTY_MS (ui.c saver_party), then the
+ * drift again; a touch meanwhile wakes it as ever */
 #include "frasil_saver.h"                /* SAVER_W x SAVER_H: the logo, smaller (tools/gen_logo.py) */
-#define SAVER_MS 600000u                 /* ten minutes */
+#define SAVER_MIN 10u                    /* IDLE TIME at first: ten minutes */
+#define SAVER_STEP_MS 25u                /* the drift: a pixel a step on both axes, 40 steps a second */
 #define SAVER_GRACE_MS 350u
 #define SAVER_GRACE_MAX 1500u
+#define SAVER_MAXX ((int32_t)(240u - SAVER_W))   /* the logo's top left: 0 .. these */
+#define SAVER_MAXY ((int32_t)(240u - SAVER_H))
+#define SAVER_AIM ((int32_t)(60000u / SAVER_STEP_MS))   /* the first corner: this many steps in (a minute), give or take */
+#define SAVER_AIM_JIT ((int32_t)(1500u / SAVER_STEP_MS))   /* (+/- 1.5 s, the start never twice the same) */
+#define SAVER_AIM_EDGE 24                /* a start this near two edges is a start in a corner: another */
 static struct {
     uint32_t idle_at;                    /* the last touch (plat_ms) */
-    uint32_t after;                      /* idle this long: SAVER_MS (the tests' saveridle: less) */
+    uint32_t after;                      /* idle this long: IDLE TIME's (the tests' saveridle: less) */
     uint32_t woke_at, enc_until;         /* woken: when; the knobs' detents dropped till then */
     uint32_t btn_spent, keys_spent;      /* down when it woke: dropped till let go */
     uint32_t step_at;                    /* the drift's last step (ui.c) */
     uint32_t steps, bounces;             /* since it came (the tests) */
+    uint32_t party_at;                   /* a corner's celebration: when it began */
+    uint32_t min_at;                     /* IDLE TIME last turned (its cell lamp a moment, as a turned setting's) */
+    uint32_t corners, corner_step;       /* corners since it came, the step of the first (the tests) */
     int16_t x, y;                        /* the logo's top left */
+    int16_t aim;                         /* the step the first corner was aimed at (the tests) */
     int8_t dx, dy;
     uint8_t on, drawn, col;
-} saver;
+    uint8_t party;                       /* celebrating a corner (ui.c saver_party) */
+    uint8_t min;                         /* IDLE TIME, minutes (1 .. 60) */
+} saver = {.min = SAVER_MIN};
+
+/* GLO > SCREEN's K4, HEADER (no setting in the schema: settings_t.head): INVERT, the band in the track's colour and
+ * everything on it dark (as it always was); DARK, the band dark and everything on it in the track's colour (ui.c) */
+static struct {
+    uint8_t dark;
+    uint32_t at;                         /* last turned (its cell lamp a moment, as a turned setting's) */
+} hdr;
+
+/* GLO > RECORD's K3, TUNE A4 (no setting in the schema: settings_t.a4): the frequency every voice's A4 sounds at, 415 ..
+ * 466 Hz a hertz a detent, 440 at first; the notes, MIDI and the scenes as they are, the pitch alone moves (the engine's
+ * a4_l2, with TAPE SPEED). A quick turn stops at 432 and at 440 as it passes them */
+#define A4_LO 415u
+#define A4_HI 466u
+static struct {
+    uint16_t hz;
+    uint32_t at;                         /* last turned (its cell lamp a moment) */
+} a4 = {.hz = 440u};
+
+static void a4_take(uint32_t hz)
+{
+    a4.hz = (uint16_t)(hz >= A4_LO && hz <= A4_HI ? hz : 440u);
+    a4_l2 = a4.hz == 440u ? 0.0f : fm_log2f((float)a4.hz * (1.0f / 440.0f));   /* (440: 0 exactly, as it was) */
+    st.engine_dirty = 1;
+}
+
+static int32_t a4_catch(int32_t was, int32_t v)   /* a turn from was to v: past 432 or 440, there (the nearer first) */
+{
+    int32_t a = v > was ? 432 : 440, b = v > was ? 440 : 432;
+    if ((was < a && v > a) || (was > a && v < a))
+        return a;
+    return (was < b && v > b) || (was > b && v < b) ? b : v;
+}
+
+/* SCREENSAVER and IDLE TIME in the one byte FRSP had left (settings_t.saver_off), 3.0's two values as they were: 0 ON,
+ * 1 OFF (ten minutes, both); 2 .. 61 ON after 1 .. 60 minutes, 62 .. 121 OFF with them (ten: always 0 or 1); above, a
+ * later FRASIL's: ON, ten. (3.0 reads any byte but 0 as OFF: a 3.0.1 ON with another IDLE TIME, OFF there) */
+static uint8_t saver_byte(void)
+{
+    uint32_t m = saver.min;
+    return (uint8_t)(st.v[P_SAVER] ? (m == SAVER_MIN ? 0u : 1u + m) : (m == SAVER_MIN ? 1u : 61u + m));
+}
+
+static void saver_unbyte(uint32_t b)
+{
+    st.v[P_SAVER] = b == 0u || (b >= 2u && b <= 61u) || b > 121u;
+    saver.min = (uint8_t)(b >= 2u && b <= 61u ? b - 1u : b >= 62u && b <= 121u ? b - 61u : SAVER_MIN);
+}
+
+/* a step of the drift: a pixel on both axes, an axis turned back at its edge (bit 0: x turned, bit 1: y) */
+static int saver_move(int16_t *x, int16_t *y, int8_t *dx, int8_t *dy)
+{
+    int b = 0;
+    if (*x + *dx < 0 || *x + *dx > SAVER_MAXX) {
+        *dx = (int8_t)-*dx;
+        b |= 1;
+    }
+    if (*y + *dy < 0 || *y + *dy > SAVER_MAXY) {
+        *dy = (int8_t)-*dy;
+        b |= 2;
+    }
+    *x = (int16_t)(*x + *dx);
+    *y = (int16_t)(*y + *dy);
+    return b;
+}
+
+/* the logo in a corner: on an edge both ways (the next step turns both) */
+static int saver_cornered(int32_t x, int32_t y) { return (x == 0 || x == SAVER_MAXX) && (y == 0 || y == SAVER_MAXY); }
+
+/* where an axis starts so as to be at edge c (0 or m) in n steps going d (+1, -1): n steps back from c, the bounces
+ * unfolded (a triangle wave of period 2m); its way there in *v. 0: it would start on an edge (another start) */
+static int saver_back(int32_t c, int32_t m, int32_t d, int32_t n, int16_t *p, int8_t *v)
+{
+    int32_t u = (c - d * n) % (2 * m);
+    if (u < 0)
+        u += 2 * m;
+    if (u == 0 || u == m)
+        return 0;
+    *p = (int16_t)(u < m ? u : 2 * m - u);
+    *v = (int8_t)(u < m ? d : -d);
+    return 1;
+}
+
+/* the start, from r: a corner, the way in, a step count about SAVER_AIM; run back from the corner. Each axis is on an
+ * edge every m steps (128 across, 219 down: no factor shared), so both on the same step again only 128 x 219 = 28032
+ * steps on: the aimed corner is the first. A start on an edge, or near two (a corner), is drawn again */
+static int saver_aim(uint32_t r, int16_t *x, int16_t *y, int8_t *dx, int8_t *dy)
+{
+    uint32_t k;
+    for (k = 0; k < 64u; k++, r = r * 1664525u + 1013904223u) {
+        int32_t n = SAVER_AIM - SAVER_AIM_JIT + (int32_t)((r >> 16) % (2u * SAVER_AIM_JIT + 1u));
+        int32_t ddx = (r & 1u) ? 1 : -1, ddy = (r & 2u) ? 1 : -1;
+        if (!saver_back((r & 4u) ? SAVER_MAXX : 0, SAVER_MAXX, ddx, n, x, dx) ||
+            !saver_back((r & 8u) ? SAVER_MAXY : 0, SAVER_MAXY, ddy, n, y, dy))
+            continue;
+        if ((*x < SAVER_AIM_EDGE || *x > SAVER_MAXX - SAVER_AIM_EDGE) &&
+            (*y < SAVER_AIM_EDGE || *y > SAVER_MAXY - SAVER_AIM_EDGE))
+            continue;
+        return (int)n;
+    }
+    saver_back(0, SAVER_MAXX, -1, SAVER_AIM, x, dx);   /* (never: 64 draws all refused) the top left's */
+    saver_back(0, SAVER_MAXY, -1, SAVER_AIM, y, dy);
+    return SAVER_AIM;
+}
 #if defined PLAT_HOST && !defined PLAT_WEB
 static uint32_t saver_out;               /* (the tests: steps that left the logo outside the screen) */
+static uint32_t saver_seed;              /* (the tests: saverseed, the next start's draw; 0: plat_ms's) */
 static struct {
-    uint32_t n[2], ms[2], ticks[2];      /* the UI's frames, awake [0] and asleep [1]: how many, over what, their time */
+    uint32_t n[3], ms[3], ticks[3], tmax[3];   /* the UI's frames, awake [0], asleep [1], a corner's [2]: how many,
+                                                * over what, their time, the longest */
     uint32_t draws, px;                  /* the saver's steps drawn, the pixels they sent */
+    uint32_t pframes, prun, ppx, pmax;   /* a corner's frames drawn, their runs (blits), pixels, the most in one */
 } ui_cost;                               /* (uicost) */
 #endif
 
 static void saver_wake(void)
 {
     uint32_t now = plat_ms();
-    saver.on = 0;
+    saver.on = saver.party = 0;
     saver.idle_at = saver.woke_at = now;
     saver.enc_until = now + SAVER_GRACE_MS;
 }
@@ -511,17 +709,19 @@ static void saver_tick(void)
 #endif
     if (saver.on && !st.v[P_SAVER])
         saver_wake();
-    if (saver.on || !st.v[P_SAVER] || now - saver.idle_at < (saver.after ? saver.after : SAVER_MS))
+    if (saver.on || !st.v[P_SAVER] || now - saver.idle_at < (saver.after ? saver.after : saver.min * 60000u))
         return;
-    r = now * 2654435761u;               /* (where it starts and which way: anywhere) */
+    r = now * 2654435761u;               /* (where it starts and which way: toward a corner a minute on) */
+#if defined PLAT_HOST && !defined PLAT_WEB
+    r = saver_seed ? saver_seed : r;
+#endif
     saver.on = 1;
     saver.drawn = 0;
     saver.steps = saver.bounces = 0;
+    saver.corners = saver.corner_step = 0;
+    saver.party = 0;
     saver.col = 0;
-    saver.x = (int16_t)((r >> 8) % (240u - SAVER_W + 1u));
-    saver.y = (int16_t)((r >> 20) % (240u - SAVER_H + 1u));
-    saver.dx = (r & 1u) ? 1 : -1;
-    saver.dy = (r & 2u) ? 1 : -1;
+    saver.aim = (int16_t)saver_aim(r ^ (r >> 15), &saver.x, &saver.y, &saver.dx, &saver.dy);
 }
 
 /* ------------------------------------------------------------ a pop-up --- */
@@ -555,7 +755,7 @@ static void popup(int kind, const char *kicker, const char *title, const char *l
     pop.kind = (uint8_t)kind;
     pop.on = 1;
     if (saver.on) {                      /* (it wants the eyes: the screen wakes, nothing dropped) */
-        saver.on = 0;
+        saver.on = saver.party = 0;
         saver_touch();
     }
     pop.drawn = 0;
@@ -600,10 +800,11 @@ static int page_off(uint32_t p)          /* a page that waits for its ARP or its
     return (p == PG_ARP2 && !ways_on(1u, SQT_ARP)) || (p == PG_BARP2 && !ways_on(2u, SQT_ARP)) ||
            ((p == PG_SEQ2 || p == PG_SEQ3) && !ways_on(1u, SQT_SEQ)) ||
            ((p == PG_BSEQ2 || p == PG_BSEQ3) && !ways_on(2u, SQT_SEQ)) ||
-           ((p == PG_DSEQ2 || p == PG_DSEQ3) && !ways_on(0u, SQT_SEQ));
+           ((p == PG_DSEQ2 || p == PG_DSEQ3) && !ways_on(0u, SQT_SEQ)) || (p == PG_TAPE2 && !st.v[P_TP_ON]);
 }
 
-/* a button's pages: the selected track's, and those every track has; the flow's two SAVE pages, its own */
+/* a button's pages: the selected track's, and those every track has; the flow's two SAVE pages, its own; LOFI TAPE II
+ * only while TAPE is on (skipped, not greyed, when the pages are stepped through) */
 static int page_hidden(uint32_t p)
 {
     return (PAGES[p].track != T_ANY && PAGES[p].track != st.v[P_KB]) || page_off(p) || p == PG_SAVE || p == PG_SAVEAS;
@@ -645,6 +846,64 @@ static int rec_any(void) { return st.v[P_SQ_REC] || st.v[P_BQ_REC] || st.v[P_DQ_
 #if defined PLAT_HOST && !defined PLAT_WEB
 static uint64_t render_hash = 0xCBF29CE484222325u;   /* (the tests: every sample rendered, FNV-1a: "renderhash") */
 static uint64_t render_frames;
+static int host_slow_us = -1;            /* FRASIL_HOST_SLOW=US: one block's render in 32 US longer (6000, over its 5.8 ms,
+                                          * for 1 or any value under 100), a loaded Mac's spikes without loading this
+                                          * one (card #85) */
+#define PZ_N (4u * 44100u)
+static struct {                          /* (the tests: the output's pitch, "pitch HZ" on: its left side kept, up to four
+                                          * seconds, then the frequency within 100 cents of HZ its spectrum peaks at,
+                                          * a Hann window on it: expect pitchhz, pitchcents) */
+    float x[PZ_N];
+    uint32_t n;
+    uint8_t on;
+    double near, hz, ref;                /* (hz: found, 0 not yet) */
+} pz;
+
+static struct {                          /* (the tests: a step at the blocks' edges, "edges" on: the output's second
+                                          * difference squared at each block's first samples against its middle's,
+                                          * expect edgedb: a setting's glide stepped once a block clicks there, as
+                                          * MASTER EQ's HIGH did before 3.1: eq_turn.txt) */
+    double edge, mid;
+    float p[3];                          /* (the block before's last three, left and right summed) */
+    uint8_t on;                          /* (1: its first block only kept, 2: measuring) */
+} eg;
+
+static double pz_at(double f)            /* the spectrum's magnitude at f, squared (the samples windowed already) */
+{
+    double w = 2.0 * 3.14159265358979 * f / (double)FRASIL_FS, c = cos(w), sn = sin(w), zr = 1.0, zi = 0.0, re = 0.0,
+           im = 0.0, t;
+    uint32_t i;
+    for (i = 0; i < pz.n; i++) {         /* (z: e^-jwi, turned a sample at a time) */
+        re += pz.x[i] * zr;
+        im += pz.x[i] * zi;
+        t = zr * c + zi * sn;
+        zi = zi * c - zr * sn;
+        zr = t;
+    }
+    return re * re + im * im;
+}
+
+static double pz_pitch(void)             /* the window on, then a cent at a time, then a twentieth around the best */
+{
+    double best = 0.0, bm = -1.0, c, lo;
+    uint32_t i;
+    if (pz.hz > 0.0 || pz.n < 4410u || pz.near <= 0.0)
+        return pz.hz;
+    pz.on = 0;
+    for (i = 0; i < pz.n; i++)
+        pz.x[i] *= (float)(0.5 - 0.5 * cos(2.0 * 3.14159265358979 * (double)i / (double)pz.n));
+    for (c = -100.0; c <= 100.0; c += 1.0) {
+        double m = pz_at(pz.near * pow(2.0, c / 1200.0));
+        if (m > bm)
+            bm = m, best = c;
+    }
+    for (lo = best - 1.0, c = lo; c <= lo + 2.0; c += 0.05) {
+        double m = pz_at(pz.near * pow(2.0, c / 1200.0));
+        if (m > bm)
+            bm = m, best = c;
+    }
+    return pz.hz = pz.near * pow(2.0, best / 1200.0);
+}
 #endif
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
@@ -652,9 +911,38 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 #if defined PLAT_HOST && !defined PLAT_WEB
     {
         uint32_t i;
+        if (host_slow_us < 0) {
+            const char *s = getenv("FRASIL_HOST_SLOW");
+            host_slow_us = !s || !*s ? 0 : atoi(s) >= 100 ? atoi(s) : 6000;
+        }
+        if (host_slow_us && !(render_frames / n & 31u)) {
+            struct timespec t = {host_slow_us / 1000000, host_slow_us % 1000000 * 1000L};
+            nanosleep(&t, 0);
+        }
         for (i = 0; i < 2u * n; i++) {
             render_hash ^= (uint32_t)lr[i];
             render_hash *= 0x100000001B3u;
+        }
+        for (i = 0; pz.on && i < n && pz.n < PZ_N; i++)
+            pz.x[pz.n++] = (float)lr[2u * i];
+        if (eg.on && n >= 8u) {
+            float s[6];
+            uint32_t h = n / 2u - 3u;
+            for (i = 0; i < 3u; i++) {
+                s[i] = eg.p[i];
+                s[3u + i] = (float)lr[2u * i] + (float)lr[2u * i + 1u];
+            }
+            for (i = 1; eg.on == 2 && i < 5u; i++) {
+                double d = (double)s[i - 1u] - 2.0 * (double)s[i] + (double)s[i + 1u],
+                       e = (double)lr[2u * (h + i - 1u)] + lr[2u * (h + i - 1u) + 1u] -
+                           2.0 * ((double)lr[2u * (h + i)] + lr[2u * (h + i) + 1u]) + lr[2u * (h + i + 1u)] +
+                           lr[2u * (h + i + 1u) + 1u];
+                eg.edge += d * d;
+                eg.mid += e * e;
+            }
+            for (i = 0; i < 3u; i++)
+                eg.p[i] = (float)lr[2u * (n - 3u + i)] + (float)lr[2u * (n - 3u + i) + 1u];
+            eg.on = 2;
         }
         render_frames += n;
     }
@@ -668,6 +956,14 @@ void app_panic(void) { frasil_panic(); }
  * main loop gives a step back after a calm (no overrun, the load at most 75 %): 4 s at first, twice as long each time
  * a step given back ran over again within 15 s (up to 64 s), 4 s again after a minute without one. (2.5-b8, the user:
  * a heavy scene glitched every few seconds, a step given back and taken again, the dot coming and going) */
+#if defined PLAT_HOST && !defined PLAT_WEB
+static uint32_t host_load;               /* the simulator's load: its script's ("cpuload N", 0 at first), never the
+                                          * Mac's time, or a loaded Mac shed the sound and the tests' values changed from
+                                          * pass to pass (card #85); the FM-1 and the web page measure theirs */
+#define cpu_load() host_load
+#else
+#define cpu_load() plat_cpu_pct()
+#endif
 static volatile uint32_t over_at;        /* when it last ran over (plat_ms), 0: never */
 static volatile int shed_top;            /* the highest step since the last log (app_log_word) */
 static void shed_to(int level)
@@ -709,7 +1005,7 @@ static void load_watch(void)
 {
     static uint32_t calm_since, seen, back_at, calm_ms = 4000u, ahead_at;
     uint32_t now = plat_ms(), at = over_at;
-    if (plat_cpu_pct() > 82u && frasil_shed_level() < 5 && now - ahead_at > 1000u) {   /* the load near the top: a
+    if (cpu_load() > 82u && frasil_shed_level() < 5 && now - ahead_at > 1000u) {   /* the load near the top: a
                                                                                        * step lighter before a render
                                                                                        * runs over (the steps glide:
                                                                                        * not heard), one a second */
@@ -725,7 +1021,7 @@ static void load_watch(void)
     } else if (calm_ms > 4000u && now - at > 60000u) {
         calm_ms = 4000u;
     }
-    if (!frasil_shed_level() || plat_cpu_pct() > 75u || now - at < 4000u) {
+    if (!frasil_shed_level() || cpu_load() > 75u || now - at < 4000u) {
         calm_since = now;
         return;
     }
@@ -744,6 +1040,39 @@ static void scene_get(uint32_t s, scene_t *out)   /* slot s, or NEW SHARD (SC_NE
         *out = scn.s[s];
     else
         factory_get(s, out);
+}
+
+/* slot s's name as text, t SC_LONG + 1 long: a saved scene's first SC_NAME, then the rest (name_more); a factory scene's,
+ * an empty slot's, NEW SHARD's (SC_NEW) as scene_get makes them */
+static char *scene_name(uint32_t s, char *t)
+{
+    uint32_t i, n;
+    if (s < NSCENES && (scn.used >> s & 1u)) {
+        for (n = 0; n < SC_NAME && scn.s[s].name[n]; n++)
+            t[n] = scn.s[s].name[n];
+        for (i = 0; n == SC_NAME + i && i < SC_MORE && scn.s[s].name_more[i]; i++)
+            t[n++] = scn.s[s].name_more[i];
+        t[n] = 0;
+        return t;
+    }
+    {
+        scene_t sc;
+        scene_get(s, &sc);
+        return name_text(&sc, t);
+    }
+}
+
+/* t (NUL-ended, SC_LONG at most) as slot s's name: its first SC_NAME in the scene's name, the rest in its name_more */
+static void name_put(uint32_t s, const char *t)
+{
+    uint32_t i, end = 0;
+    for (i = 0; i < SC_LONG; i++) {
+        end = end || !t[i];
+        if (i < SC_NAME)
+            scn.s[s].name[i] = end ? 0 : t[i];
+        else
+            scn.s[s].name_more[i - SC_NAME] = end ? 0 : t[i];
+    }
 }
 
 static void scene_load(uint32_t s)
@@ -818,7 +1147,9 @@ static int store_all(void)
     set.metro_off = !st.metro;
     set.speaker_off = !st.v[P_SPEAKER];
     set.anim = st.v[P_ANIM];
-    set.saver_off = !st.v[P_SAVER];
+    set.saver_off = saver_byte();
+    set.head = hdr.dark;
+    set.a4 = (int8_t)((int32_t)a4.hz - 440);
     set.clock = st.v[P_CLOCK];
     set.load = st.v[P_LOAD];
     memcpy(set.bnote, bnote, sizeof bnote);
@@ -835,6 +1166,13 @@ static int store_all(void)
     set.bs_bite = st.v[P_BS_BITE];
     set.bs_space = st.v[P_BS_SPACE];
     set.gl_vib = st.v[P_GL_VIB_AUTO];
+    set.tp_flutter = st.v[P_TP_FLUTTER];
+    set.tp_tone = st.v[P_TP_TONE];
+    set.tp_noise = st.v[P_TP_NOISE];
+    set.tp_dropout = st.v[P_TP_DROPOUT];
+    for (i = 0; i < 12u; i++)
+        set.lfo_amt[i] = st.v[P_L1_AMT1 + i];
+    set.swell = st.v[P_SWELL];
     settings_keys();
     return plat_store_save(OBJ_SETTINGS, &set, sizeof set);
 }
@@ -867,9 +1205,90 @@ static void dsq_unpack(const uint8_t *o, uint8_t *n)
     }
 }
 
+static int nms_any(const uint8_t *m)     /* a scene's NMS_MORE bytes (name_more .. swell): anything but none */
+{
+    uint32_t i;
+    for (i = 0; i < 12u; i++)
+        if (m[SC_MORE + i] != PD[P_L1_AMT1 + i].def)
+            return 1;
+    return m[0] || m[SC_MORE + 12u] != PD[P_SWELL].def;
+}
+
+/* the rest of the names, the AMOUNTs and SWELL into the store (OBJ_NAMES), after OBJ_SCENES' record (still in raw: each
+ * slot's sum taken from it). Not written while every saved scene has them as none and the store holds none (names of
+ * sixteen, +100 %, SWELL 0: the flash written as 3.0 did). 0: taken */
+static uint8_t names_stored;             /* the store's OBJ_NAMES holds something (a name's rest, an AMOUNT, SWELL) */
+static int names_save(void)
+{
+    uint32_t s, sum[NSCENES], any = 0;
+    for (s = 0; s < NSCENES; s++) {
+        sum[s] = rec_sum(raw + 8u + s * SC_REC, SC_REC);
+        if (scn.used >> s & 1u)
+            any |= (uint32_t)nms_any((const uint8_t *)scn.s[s].name_more);
+    }
+    if (!any && !names_stored)
+        return 0;
+    for (s = 0; s < 4u; s++)
+        raw[s] = (uint8_t)(NMS_MAGIC >> (8u * s));
+    for (s = 0; s < NSCENES; s++) {
+        uint8_t *o = raw + 4u + s * NMS_SCENE;
+        o[0] = (uint8_t)sum[s], o[1] = (uint8_t)(sum[s] >> 8), o[2] = (uint8_t)(sum[s] >> 16), o[3] = (uint8_t)(sum[s] >> 24);
+        memcpy(o + 4, scn.s[s].name_more, NMS_MORE);   /* (name_more, lfo_amt, swell: one after the other) */
+    }
+    if (plat_store_save(OBJ_NAMES, raw, NMS_BYTES))
+        return -1;
+    names_stored = any != 0;
+    return 0;
+}
+
+/* the rest of the names, the AMOUNTs and SWELL from the store, each onto the scene whose record has the sum it was
+ * written with: its own slot's first, then any other's (a River that moved the scene). sum: each slot's, from OBJ_SCENES
+ * as read (0: an earlier layout's record, or none: every scene's none, more_none). FRNM's (3.0.1): the names' rest alone.
+ * A rest only after a first SC_NAME all used, as names_save wrote it; a byte that is no character (below the space,
+ * past ~): none from there; an AMOUNT or SWELL past its max: its default */
+static void names_load(const uint32_t *sum)
+{
+    uint32_t s, k, j;
+    int n = plat_store_load(OBJ_NAMES, raw, sizeof raw), frnn = n == (int)NMS_BYTES && rd32(raw) == NMS_FRNN;
+    int ok = (n == (int)NMS_BYTES && rd32(raw) == NMS_MAGIC) || frnn;
+    int frnm = n == (int)NMS_BYTES_FRNM && rd32(raw) == NMS_FRNM;
+    uint32_t sz = ok ? NMS_SCENE : NMS_SCENE_FRNM;
+    names_stored = 0;
+    for (s = 0; s < NSCENES; s++)
+        more_none(&scn.s[s]);
+    for (k = 0; (ok || frnm) && k < NSCENES; k++)
+        names_stored |= ok ? nms_any(raw + 4u + k * sz + 4u) : raw[4u + k * sz + 4u] != 0;
+    for (s = 0; (ok || frnm) && sum && s < NSCENES; s++) {
+        scene_t *d = &scn.s[s];
+        if (!(scn.used >> s & 1u))
+            continue;
+        for (k = 0; k < NSCENES; k++) {
+            const uint8_t *o = raw + 4u + ((s + k) % NSCENES) * sz;
+            if (rd32(o) != sum[s])
+                continue;
+            for (j = 0; d->name[SC_NAME - 1u] && j < SC_MORE && o[4u + j] >= 0x20u && o[4u + j] < 0x7Fu; j++)
+                d->name_more[j] = (char)o[4u + j];
+            for (j = 0; ok && j < 12u; j++)
+                d->lfo_amt[j] = o[4u + SC_MORE + j] > PD[P_L1_AMT1 + j].max && !frnn ? (uint8_t)PD[P_L1_AMT1 + j].def
+                                                                                     : o[4u + SC_MORE + j];
+            if (frnn)                    /* (FRNN's percent: multipliers, one past 200 x1.00) */
+                amt_pct_over(d->lfo_amt);
+            if (ok)
+                d->swell = o[4u + SC_MORE + 12u] > PD[P_SWELL].max ? (uint8_t)PD[P_SWELL].def : o[4u + SC_MORE + 12u];
+            break;
+        }
+    }
+    if ((frnm || frnn) && names_stored && scn.used)
+        store_old |= 1u;                 /* (the store's still in 3.0.1's layout, or 3.0.2-b5's: a backup saves it
+                                          * first) */
+}
+
 /* the scenes into the store: their drone sequences first (OBJ_DSEQ), their bass sequences (OBJ_BSEQ), then the rest of
- * them (OBJ_SCENES), each record made in raw. 0: all taken */
-static int scenes_save(void)
+ * them (OBJ_SCENES), each record made in raw, then the rest of their names (OBJ_NAMES; not with names 0: 3.0's way, the
+ * tests' store30). 0: all taken */
+static int scenes_store(int names);
+static int scenes_save(void) { return scenes_store(1); }
+static int scenes_store(int names)
 {
     uint32_t s;
     for (s = 0; s < 4u; s++)
@@ -878,6 +1297,7 @@ static int scenes_save(void)
         uint8_t *o = raw + 4u + s * DSQ_SCENE;
         memcpy(o, &scn.s[s].dq_on, DSQ_SET);
         dsq_pack(&scn.s[s].dnote[0][0], o + DSQ_SET);
+        memcpy(o + DSQ_SCENE_FRDQ, &scn.s[s].tp_flutter, 4u);   /* (LOFI TAPE II's four) */
     }
     if (plat_store_save(OBJ_DSEQ, raw, DSQ_BYTES))
         return -1;
@@ -890,7 +1310,9 @@ static int scenes_save(void)
     memcpy(raw, &scn, 8u);               /* (magic, used, rsv) */
     for (s = 0; s < NSCENES; s++)
         memcpy(raw + 8u + s * SC_REC, &scn.s[s], SC_REC);
-    return plat_store_save(OBJ_SCENES, raw, SCN_BYTES);
+    if (plat_store_save(OBJ_SCENES, raw, SCN_BYTES))
+        return -1;
+    return names ? names_save() : 0;
 }
 
 /* LOAD, the metronome, the CCs learned, SPK/JACK, ANIMATIONS, SCREENSAVER: kept (the sound and the rest of the record
@@ -920,7 +1342,9 @@ static void prefs_save(void)
     settings_keys();
     set.speaker_off = !st.v[P_SPEAKER];
     set.anim = st.v[P_ANIM];
-    set.saver_off = !st.v[P_SAVER];
+    set.saver_off = saver_byte();
+    set.head = hdr.dark;
+    set.a4 = (int8_t)((int32_t)a4.hz - 440);
     set.clock = st.v[P_CLOCK];
     set.load = st.v[P_LOAD];
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0)
@@ -934,23 +1358,24 @@ static int scene_write(uint32_t s, const char *name)
 {
     scene_t sc;
     uint32_t i;
-    char say2[4 + SC_NAME], t[SC_NAME + 1];
+    char say2[4 + SC_LONG], t[SC_LONG + 1];
     scene_get(s, &sc);                   /* keeps its name */
-    if (!(scn.used >> s & 1u) && s >= NFACTORY && st.v[P_DR_PRESET]) {   /* an empty slot: the drone's preset's name */
-        sc.name[0] = 0;
+    if (!(scn.used >> s & 1u))           /* (a factory scene's, an empty slot's: sixteen at most) */
+        memset(sc.name_more, 0, SC_MORE);
+    if (!(scn.used >> s & 1u) && s >= NFACTORY && st.v[P_DR_PRESET]) {   /* an empty slot: the drone's preset's name (NUL
+                                                                          * after it: "SCENE 8"'s 8 not left in the
+                                                                          * record) */
+        memset(sc.name, 0, SC_NAME);
         text_cat(sc.name, DRONE_NAME[st.v[P_DR_PRESET] % (NDPRESET + 1u)]);
     }
-    if (name) {
-        for (i = 0; i < SC_NAME; i++)
-            sc.name[i] = 0;
-        for (i = 0; i < SC_NAME && name[i]; i++)
-            sc.name[i] = name[i];
-    }
+    anchor_settle();                     /* (ANCHOR's way back under way: stored where it goes) */
     for (i = 0; i < NSOUND; i++)
         sc.v[i] = kept_v(i);
     scene_notes_take(&sc);
     scn.magic = SCN_MAGIC;
     scn.s[s] = sc;
+    if (name)                            /* (SC_LONG at most: the rest in name_more) */
+        name_put(s, name);
     scn.used |= (uint16_t)(1u << s);
     fm.scene = (uint8_t)s;
     if (scenes_save() == 0 && store_all() == 0) {
@@ -960,7 +1385,7 @@ static int scene_write(uint32_t s, const char *name)
         say2[1] = (char)('0' + (s + 1u) % 10u);
         say2[2] = ' ';
         say2[3] = 0;
-        text_cat(say2, name_text(&sc, t));
+        text_cat(say2, scene_name(s, t));
         app_say("STORED", say2);
         return 1;
     }
@@ -998,26 +1423,35 @@ static void scene_store(void)
 
 /* ------------------------------------------------------------ a name --- */
 /* STORE written: the scene's name on the whole screen (ui.c name_screen), to change or keep. OCT- and OCT+ move the
- * cursor along the sixteen places; K4 turns its letter (a space before A), K3 its digit (and - .); SEL (OK) stores the name (the
- * scenes written again if it changed); FX leaves it as it was stored. Meanwhile the keys and MIDI play; the other
- * buttons and the encoders wait */
+ * cursor along the places (a scene's SC_LONG, in two rows; a preset's SC_NAME); K4 turns its letter (a space before A), K3
+ * its digit (and - .); SEL (OK) stores the name (the scenes written again if it changed); FX leaves it as it was stored.
+ * Meanwhile the keys and MIDI play; the other buttons and the encoders wait */
 static const char NM_LETTERS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ", NM_DIGITS[] = "0123456789-.";
+static int text_is(const char *a, const char *b);   /* (below) */
 static struct {
     uint8_t on, slot, cur, drawn;
     uint8_t flow;                        /* the SAVE flow's: SAVE stores what WHAT and INTO say, FX back (else STORE's, the
                                           * scene stored: SEL keeps the name, FX leaves it) */
+    uint8_t len;                         /* its places: SC_LONG a scene's, SC_NAME a preset's (the engine's "FRp") */
     uint32_t btn;                        /* the buttons down last frame: a press acts */
-    char name[SC_NAME + 1];              /* sixteen characters, a space for none */
+    char name[SC_LONG + 1];              /* len characters, a space for none */
 } nm;
+
+static void name_fill(const char *t, uint32_t len)   /* the places from t (NUL-ended), spaces after it */
+{
+    uint32_t i, end = 0;
+    for (i = 0; i < len; i++) {
+        end = end || !t[i];
+        nm.name[i] = end ? ' ' : t[i];
+    }
+    nm.name[len] = 0;
+    nm.len = (uint8_t)len;
+}
 
 static void name_open(uint32_t s)
 {
-    uint32_t i, end = 0;
-    for (i = 0; i < SC_NAME; i++) {
-        end |= !scn.s[s].name[i];
-        nm.name[i] = end ? ' ' : scn.s[s].name[i];
-    }
-    nm.name[SC_NAME] = 0;
+    char t[SC_LONG + 1];
+    name_fill(scene_name(s, t), SC_LONG);
     nm.slot = (uint8_t)s;
     nm.cur = 0;
     nm.on = 1;
@@ -1041,29 +1475,25 @@ static void name_turn(const char *set, int32_t n, int32_t d)
 
 static void name_close(int keep)
 {
-    char *d = scn.s[nm.slot].name;
-    int32_t i, n = (int32_t)SC_NAME;
+    char was[SC_LONG + 1], t[4 + SC_LONG];
+    int32_t i, n = (int32_t)nm.len;
     nm.on = 0;
     while (n > 0 && nm.name[n - 1] == ' ')
         n--;
     if (!keep || !n)                     /* (all spaces: the name as stored) */
         return;
-    for (i = 0; i < (int32_t)SC_NAME && (i < n ? d[i] == nm.name[i] : !d[i]); i++)
-        ;
-    if (i == (int32_t)SC_NAME)           /* unchanged */
+    for (i = 0; i < n; i++)
+        t[3 + i] = nm.name[i];
+    t[3 + n] = 0;
+    if (text_is(t + 3, scene_name(nm.slot, was)))   /* unchanged */
         return;
     if (store_held())
         return;
-    for (i = 0; i < (int32_t)SC_NAME; i++)
-        d[i] = i < n ? nm.name[i] : 0;
+    name_put(nm.slot, t + 3);
     if (scenes_save() == 0) {
-        char t[4 + SC_NAME];
         t[0] = (char)('0' + (nm.slot + 1u) / 10u);
         t[1] = (char)('0' + (nm.slot + 1u) % 10u);
         t[2] = ' ';
-        for (i = 0; i < n; i++)
-            t[3 + i] = nm.name[i];
-        t[3 + n] = 0;
         app_say("NAMED", t);
     } else {
         popup(POP_WARN, "SCENES", "NOT NAMED", "THE MEMORY DID NOT TAKE IT.", "THE NAME STAYS AS IT WAS.", "");
@@ -1156,13 +1586,10 @@ static void flow_back(void)              /* the flow left: back where it came fr
 /* the name, its text as it starts: the scene's, or the preset's in use */
 static void flow_name(void)
 {
-    char t[SC_NAME + 25];
-    uint32_t i, end = 0;
+    char t[SC_LONG + 25];
     t[0] = 0;
     if (!sv.what) {
-        scene_t sc;
-        scene_get(fm.scene, &sc);
-        name_text(&sc, t);
+        scene_name(fm.scene, t);
         if (fm.scene >= NSCENES && st.v[P_DR_PRESET]) {
             t[0] = 0;
             text_cat(t, DRONE_NAME[st.v[P_DR_PRESET] % (NDPRESET + 1u)]);
@@ -1176,11 +1603,7 @@ static void flow_name(void)
             value_text(k == 0u ? P_DR_PRESET : k == 1u ? P_GL_PRESET : P_BS_MODEL,
                        st.v[k == 0u ? P_DR_PRESET : k == 1u ? P_GL_PRESET : P_BS_MODEL], t);
     }
-    for (i = 0; i < SC_NAME; i++) {
-        end |= !t[i];
-        nm.name[i] = end ? ' ' : t[i];
-    }
-    nm.name[SC_NAME] = 0;
+    name_fill(t, sv.what ? SC_NAME : SC_LONG);   /* (a preset's: the engine keeps sixteen) */
     nm.cur = 0;
     nm.on = 1;
     nm.flow = 1;
@@ -1192,8 +1615,8 @@ static void flow_name(void)
 /* SAVE on the name: what WHAT and INTO say, stored; the flow over. 0: no name yet */
 static int flow_store(void)
 {
-    char t[SC_NAME + 1];
-    int32_t n = (int32_t)SC_NAME;
+    char t[SC_LONG + 1];
+    int32_t n = (int32_t)nm.len;
     uint32_t k = sv.what - 1u, i;
     while (n > 0 && nm.name[n - 1] == ' ')
         n--;
@@ -1240,7 +1663,7 @@ static int name_input(uint32_t btn)
         else if (d && e == EN_K3)
             name_turn(NM_DIGITS, (int32_t)sizeof NM_DIGITS - 1, d);
         else if (d && e == EN_K1) {      /* (K1 the cursor too, as OCT; K2 a space at it) */
-            nm.cur = (uint8_t)clamp((int32_t)nm.cur + d, 0, (int32_t)SC_NAME - 1);
+            nm.cur = (uint8_t)clamp((int32_t)nm.cur + d, 0, (int32_t)nm.len - 1);
             nm.drawn = 0;
         } else if (d && e == EN_K2) {
             nm.name[nm.cur] = ' ';
@@ -1251,7 +1674,7 @@ static int name_input(uint32_t btn)
         nm.cur--;
         nm.drawn = 0;
     }
-    if ((down >> B_OCTUP & 1u) && nm.cur < SC_NAME - 1u) {
+    if ((down >> B_OCTUP & 1u) && nm.cur + 1u < nm.len) {
         nm.cur++;
         nm.drawn = 0;
     }
@@ -1368,6 +1791,7 @@ static int scenes_over(void)              /* the scenes in an earlier layout, if
     return 0;
 }
 
+static int set_keys_ok;                  /* settings_old read a record that has KEYS (FRSP's, FRSQ's) */
 static int settings_old(void)             /* the settings in an earlier layout, the same (the bass's sequence none),
                                            * its bass's sequence as it kept it */
 {
@@ -1375,6 +1799,26 @@ static int settings_old(void)             /* the settings in an earlier layout, 
     uint32_t k, j;
     set.bq_steps = PD[P_BQ_STEPS].def;
     set.bq_trans = PD[P_BQ_TRANS].def;
+    set_keys_ok = 0;
+    if (n == (int)sizeof set && rd32(raw) == SET_FRSR) {   /* FRSR, 3.0.2-b5's: this layout, the AMOUNTs in percent */
+        memcpy(&set, raw, sizeof set);
+        amt_pct_over(set.lfo_amt);
+        set.magic = SET_MAGIC;
+        set_keys_ok = 1;
+        return 6;
+    }
+    if (n == (int)FRSQ_BYTES && rd32(raw) == SET_FRSQ) {   /* FRSQ, 3.0.2's: this layout to tp_dropout */
+        memcpy(&set, raw, FRSQ_BYTES);
+        set.magic = SET_MAGIC;
+        set_keys_ok = 1;
+        return 5;
+    }
+    if (n == (int)FRSP_BYTES && rd32(raw) == SET_FRSP) {   /* FRSP, 3.0's before LOFI TAPE II: this layout to saver_off */
+        memcpy(&set, raw, FRSP_BYTES);
+        set.magic = SET_MAGIC;
+        set_keys_ok = 1;                 /* (its KEYS, METRONOME, COUNT-IN, ARP SNAP are there) */
+        return 4;
+    }
     if (n == (int)FRSO_BYTES && rd32(raw) == SET_FRSO) {   /* FRSO, 3.0's before KEYS: this layout to gl_vib */
         memcpy(&set, raw, FRSO_BYTES);
         set.magic = SET_MAGIC;
@@ -1477,9 +1921,18 @@ static int settings_over(void)           /* (settings_old's, the bass's sequence
                                           * as this layout has it, the arpeggio's settings and GATE their defaults) */
 {
     int r = settings_old();
+    uint32_t k;
     if (r == 1)
         bseq_over(set.bnote, &set.bq_steps, &set.bq_len);
-    if (r && r != 3) {
+    if (r && r != 6) {                   /* (every one before FRSR: the LFOs' AMOUNTs x1.00, SWELL 0) */
+        for (k = 0; k < 12u; k++)
+            set.lfo_amt[k] = (uint8_t)PD[P_L1_AMT1 + k].def;
+        set.swell = (uint8_t)PD[P_SWELL].def;
+    }
+    if (r && r < 5)                      /* (every one before FRSQ: LOFI TAPE II's four as the tape was, TAPE_NONE:
+                                          * TAPE SPEED x1.00, TONE 0; not their defaults) */
+        memcpy(&set.tp_flutter, TAPE_NONE, 4u);
+    if (r && r < 3) {
         set.bq_on = set.bq_on ? SQT_SEQ : 0u;
         set.ba_mode = PD[P_BA_MODE].def;
         set.ba_range = PD[P_BA_RANGE].def;
@@ -1506,10 +1959,13 @@ static void state_load(void)
     fm.prefs_due = 0;
     store_old = 0;
     int cur = plat_store_load(OBJ_SCENES, raw, sizeof raw) == (int)SCN_BYTES && rd32(raw) == SCN_MAGIC, over = 0;
+    uint32_t sum[NSCENES];               /* (each slot's record summed: names_load) */
     if (cur) {
         memcpy(&scn, raw, 8u);
-        for (i = 0; i < NSCENES; i++)
+        for (i = 0; i < NSCENES; i++) {
             memcpy(&scn.s[i], raw + 8u + i * SC_REC, SC_REC);
+            sum[i] = rec_sum(raw + 8u + i * SC_REC, SC_REC);
+        }
     } else {
         scn.used = 0;
         over = scenes_over();
@@ -1556,16 +2012,25 @@ static void state_load(void)
     {                                    /* their drone sequences: FRDQ's; none (an earlier FRASIL's store, or its
                                           * backup restored): each off, empty */
         int n = plat_store_load(OBJ_DSEQ, raw, sizeof raw), ok = n == (int)DSQ_BYTES && rd32(raw) == DSQ_MAGIC;
+        int old = n == (int)DSQ_BYTES_FRDQ && rd32(raw) == DSQ_FRDQ;   /* (3.0's: without LOFI TAPE II's four) */
+        uint32_t sz = ok ? DSQ_SCENE : DSQ_SCENE_FRDQ;
         for (i = 0; i < NSCENES; i++) {
             scene_t *d = &scn.s[i];
-            if (ok) {
-                memcpy(&d->dq_on, raw + 4u + i * DSQ_SCENE, DSQ_SET);
-                dsq_unpack(raw + 4u + i * DSQ_SCENE + DSQ_SET, &d->dnote[0][0]);
+            if (ok || old) {
+                memcpy(&d->dq_on, raw + 4u + i * sz, DSQ_SET);
+                dsq_unpack(raw + 4u + i * sz + DSQ_SET, &d->dnote[0][0]);
             } else {
                 dseq_none(d);
             }
+            if (ok)
+                memcpy(&d->tp_flutter, raw + 4u + i * sz + DSQ_SCENE_FRDQ, 4u);
+            else
+                tape_none(d);
         }
+        if (old && scn.used)
+            store_old |= 1u;             /* (the store's still in 3.0's layout: a backup saves it first) */
     }
+    names_load(cur ? sum : 0);           /* the rest of their names, their AMOUNTs, SWELL (OBJ_NAMES) */
     if (plat_store_load(OBJ_UPRE, &up, sizeof up) != (int)sizeof up || up.magic != UPR_MAGIC)
         memset(&up, 0, sizeof up);       /* (none: an earlier FRASIL's store, or its backup restored) */
     up_cur[0] = up_cur[1] = up_cur[2] = -1;
@@ -1573,10 +2038,13 @@ static void state_load(void)
     if (!keys_kept) {
         memset(&set, 0, sizeof set);     /* (nothing learned, the defaults, whatever was read) */
         store_old |= (uint8_t)(settings_over() << 1);
+        keys_kept = set_keys_ok;         /* (FRSP's has KEYS; the layouts before it, no) */
     }
     for (i = 0; i < NSCENES; i++)        /* scenes kept before their TEMPO: the one they were played at (the settings') */
         if (scn.s[i].tempo > PD[P_TEMPO].max)
             scn.s[i].tempo = set.magic == SET_MAGIC && set.tempo <= PD[P_TEMPO].max ? set.tempo : PD[P_TEMPO].def;
+    hdr.dark = set.magic == SET_MAGIC && set.head == 1u;   /* HEADER (an earlier record, none: INVERT) */
+    a4_take(set.magic == SET_MAGIC ? (uint32_t)(440 + set.a4) : 440u);   /* TUNE A4 (an earlier record, none: 440) */
     if (set.magic == SET_MAGIC) {
         for (i = 0; i < NSOUND; i++)
             st.v[i] = set.v[i] > PD[i].max ? PD[i].max : set.v[i];
@@ -1599,7 +2067,7 @@ static void state_load(void)
         st.v[P_LOAD] = set.load ? 1 : 0;
         st.v[P_SPEAKER] = !set.speaker_off;
         st.v[P_ANIM] = set.anim ? 1 : 0;
-        st.v[P_SAVER] = !set.saver_off;  /* (an earlier record, or one before it: ON) */
+        saver_unbyte(set.saver_off);     /* SCREENSAVER, IDLE TIME (an earlier record, or one before it: ON, ten) */
         st.v[P_CLOCK] = set.clock == 1u;
         st.v[P_CANAL] = set.channel > 17u ? PD[P_CANAL].def : set.channel;
         st.v[P_CH_GLINT] = set.ch_glint > 17u ? PD[P_CH_GLINT].def : set.ch_glint;
@@ -1623,6 +2091,13 @@ static void state_load(void)
         st.v[P_BS_BITE] = set.bs_bite > PD[P_BS_BITE].max ? 0u : set.bs_bite;
         st.v[P_BS_SPACE] = set.bs_space > PD[P_BS_SPACE].max ? 0u : set.bs_space;
         st.v[P_GL_VIB_AUTO] = set.gl_vib > PD[P_GL_VIB_AUTO].max ? 0u : set.gl_vib;
+        st.v[P_TP_FLUTTER] = set.tp_flutter > PD[P_TP_FLUTTER].max ? PD[P_TP_FLUTTER].def : set.tp_flutter;
+        st.v[P_TP_TONE] = set.tp_tone > PD[P_TP_TONE].max ? PD[P_TP_TONE].def : set.tp_tone;
+        st.v[P_TP_NOISE] = set.tp_noise > PD[P_TP_NOISE].max ? PD[P_TP_NOISE].def : set.tp_noise;
+        st.v[P_TP_DROPOUT] = set.tp_dropout > PD[P_TP_DROPOUT].max ? PD[P_TP_DROPOUT].def : set.tp_dropout;
+        for (i = 0; i < 12u; i++)        /* the LFOs' AMOUNTs, SWELL: the sound's as it was saved */
+            st.v[P_L1_AMT1 + i] = set.lfo_amt[i] > PD[P_L1_AMT1 + i].max ? PD[P_L1_AMT1 + i].def : set.lfo_amt[i];
+        st.v[P_SWELL] = set.swell > PD[P_SWELL].max ? PD[P_SWELL].def : set.swell;
         bseq_view();
         if (fm.scene < NSCENES && (scn.used >> fm.scene & 1u))
             dseq_take(&scn.s[fm.scene]);   /* the drone's sequence: the slot's, as it was stored with this sound (the
@@ -1800,6 +2275,7 @@ static struct {
 static void say_clear(void);             /* (the screen, below) */
 static void say_red(void);
 static void say_both(void);
+static void say_amt(uint32_t slot);
 
 static void hold_undo(uint32_t b)
 {
@@ -1882,6 +2358,7 @@ static void lfo_route(uint32_t p, int32_t d)
         return;
     }
     param_set((int)(LFO_BASE[nx - 1u] + 4u + at), (int32_t)t);
+    param_set((int)(P_L1_AMT1 + 4u * (nx - 1u) + at), PD[P_L1_AMT1].def);   /* (its AMOUNT x1.00: adjusted after, SEL + K) */
     if (!st.v[LFO_BASE[nx - 1u] + 2u])
         param_set((int)(LFO_BASE[nx - 1u] + 2u), 32);   /* (DEPTH: a quarter) */
     m[0] = 0;
@@ -1895,6 +2372,63 @@ static int32_t accel(uint32_t e, int32_t d)
     uint32_t now = plat_ms(), dt = now - fm.enc_at[e];
     fm.enc_at[e] = now;
     return dt < 25u ? d * 4 : dt < 60u ? d * 2 : d;
+}
+
+/* a factor, x1.00 at its default (the engine writes it "×1.00": TAPE SPEED, the LFOs' AMOUNTs) */
+static int times_p(int p)
+{
+    char t[24];
+    value_text(p, PD[p].def, t);
+    return t[0] == '\xC3' && t[1] == '\x97';
+}
+
+/* a factor's knob (a page's: TAPE SPEED) turned from was to v: across its x1.00 (quickly, the detents counting double or
+ * more), it stops there; the next detent goes on. x1.00 is easy to land on */
+static int32_t times_catch(int p, int32_t was, int32_t v)
+{
+    int32_t c = (int32_t)PD[p].def;
+    return times_p(p) && ((was < c && v > c) || (was > c && v < c)) ? c : v;
+}
+
+/* SEL held and an encoder turned: the LFO AMOUNT of the setting under it (on an LFO n TARGETS page: that TARGET slot's),
+ * x0.00 .. x1.00 .. x5.00; the header says it large, a bar from its middle (x1.00) under it (ui.c amt_head, say.amt). A setting on no LFO: NO LFO;
+ * an empty TARGET: NO TARGET */
+static uint32_t tgt_slot(uint32_t p)    /* a TARGET setting's slot, LFO 1's TARGET 1 .. LFO 3's TARGET 4: 0 .. 11; 12 none */
+{
+    uint32_t i;
+    for (i = 0; i < NLFO; i++)
+        if (p >= LFO_BASE[i] + 4u && p < LFO_BASE[i] + 8u)
+            return 4u * i + p - LFO_BASE[i] - 4u;
+    return 12u;
+}
+
+static void lfo_amount(uint32_t e, uint32_t p, int32_t d)
+{
+    uint32_t t, i, k, slot = tgt_slot(p);
+    char m[16], v[24];
+    if (slot < 12u && !st.v[p]) {
+        app_say(PD[p].name, "NO TARGET");
+        return;
+    }
+    for (t = 1; slot == 12u && p < NPARAM && t < NLFO_TGT && LFO_TGT[t] != p; t++)
+        ;
+    for (i = 0; slot == 12u && p < NPARAM && t < NLFO_TGT && i < NLFO; i++)   /* the slot it is on */
+        for (k = 0; k < 4u && slot == 12u; k++)
+            if (st.v[LFO_BASE[i] + 4u + k] == t)
+                slot = 4u * i + k;
+    if (slot == 12u) {
+        app_say(p < NPARAM ? PD[p].name : "LFO", "NO LFO");
+        return;
+    }
+    p = P_L1_AMT1 + slot;
+    param_set((int)p, (int32_t)st.v[p] + accel(e, d));
+    m[0] = 0;
+    text_cat(m, "LFO ");
+    int_text((int32_t)(slot / 4u + 1u), m + 4);
+    text_cat(m, " AMOUNT");
+    value_text((int)p, st.v[p], v);
+    app_say(m, v + 2);                   /* (the number: the engine's × is UTF-8, the header draws its own, amt_head) */
+    say_amt(slot);
 }
 
 /* a long list of names turned (a preset, a SCALE, a CHORD, an LFO's TARGET, MASTER EQ's PRESET): the grid of names over
@@ -1933,7 +2467,7 @@ static const int8_t TGT_SLOTS[NG_TPAGES * NG_PER] = {
     TH(4), 30, 45, 25, 26, 27, 28, TH_NONE, TH_NONE, TH_NONE,                    /* level, pan, its sound */
     TH(5), 48, 49, 50, 51, 36, 37, 38, TH_NONE, TH_NONE,                         /* ADSR, CHANCE, SEQ LEN, SPARKLE */
     TH(6), 34, 44, 31, 32, 33, 52, 53, 54, 55,
-    TH(7), 41, 42, 39, 40, 46, TH_NONE, TH_NONE, TH_NONE, TH_NONE,
+    TH(7), 41, 42, 39, 40, 46, 56, 57, TH_NONE, TH_NONE,
 };
 static uint32_t tgt_at(uint32_t i)       /* the number at place i in the list */
 {
@@ -1962,10 +2496,24 @@ static uint32_t tgt_page(uint32_t i)     /* the page place i is on */
             return k / NG_PER;
     return 0;
 }
+/* setting p as the screen shows it: during ANCHOR's MORPH back as it is heard (its value already the anchor's, the
+ * glide still under way: morph_off), so that the page moves with the sound; else its value */
+static float vh(uint32_t p)
+{
+    return (float)st.v[p] + (mo.on && mo.anc && p < NMORPH ? morph_off[p] : 0.0f);
+}
+static uint32_t vh_n(uint32_t p)          /* ... as a value of its own (gliding: rounded, in its range) */
+{
+    float v;
+    if (!mo.on || !mo.anc || p >= NMORPH)
+        return st.v[p];
+    v = vh(p) + 0.5f;
+    return v < 0.0f ? 0u : v > (float)PD[p].max ? PD[p].max : (uint32_t)v;
+}
 static uint32_t pv_shown(int p)
 {
     if (!ng.on || ng.p != (uint8_t)p || ng.v > PD[p].max)
-        return st.v[p];
+        return vh_n((uint32_t)p);
     return PD[p].fmt == F_LTGT ? tgt_at(ng.v) : ng.v;
 }
 
@@ -2220,6 +2768,13 @@ static void encoders(void)
             lfo_route(fm.page == PG_SCENES ? NPARAM : page_knob(fm.page, (uint32_t)(e - EN_K1)), d);
             continue;
         }
+        if (b_held(B_SEL) && e >= EN_K1 && fm.page != PG_SAVE && fm.page != PG_SAVEAS) {   /* SEL held: its LFO AMOUNT
+                                                                                          * (SEL a hand: no page on its
+                                                                                          * release) */
+            b_used(B_SEL);
+            lfo_amount(e, fm.page == PG_SCENES ? NPARAM : page_knob(fm.page, (uint32_t)(e - EN_K1)), d);
+            continue;
+        }
         if (fm.page == PG_SCENES && (e == EN_K1 || e == EN_SELECT)) {   /* the slots, NEW SHARD above the first:
                                                                           * SELECT as K1 (KEYS stay as they are) */
             p = clamp((fm.pick >= NSCENES ? -1 : (int32_t)fm.pick) + d, -1, NSCENES - 1);
@@ -2257,6 +2812,27 @@ static void encoders(void)
                 ways_turn((uint32_t)p, d);
                 continue;
             }
+            if (p == (int32_t)K_IDLE) {      /* IDLE TIME (turned OFF too: slate), kept as SCREENSAVER is */
+                saver.min = (uint8_t)clamp((int32_t)saver.min + accel(e, d), 1, 60);
+                saver.min_at = plat_ms() | 1u;
+                if (!fm.prefs_due)
+                    fm.prefs_due = 1;
+                continue;
+            }
+            if (p == (int32_t)K_HEAD) {      /* HEADER: right DARK, left INVERT, kept as IDLE TIME is */
+                hdr.dark = d > 0;
+                hdr.at = plat_ms() | 1u;
+                if (!fm.prefs_due)
+                    fm.prefs_due = 1;
+                continue;
+            }
+            if (p == (int32_t)K_TUNE) {      /* TUNE A4: a hertz a detent (quicker, more), stopping at 432 and 440 */
+                a4_take((uint32_t)a4_catch(a4.hz, clamp((int32_t)a4.hz + accel(e, d), (int32_t)A4_LO, (int32_t)A4_HI)));
+                a4.at = plat_ms() | 1u;
+                if (!fm.prefs_due)
+                    fm.prefs_due = 1;
+                continue;
+            }
             if (p >= NPARAM)                 /* an empty slot */
                 continue;
         }
@@ -2289,7 +2865,7 @@ static void encoders(void)
         if (p >= P_KY_DR_HARM && p <= P_KY_BS_STACK && keys_turn(p, d))
             continue;
         {
-            int32_t v = (int32_t)st.v[p] + (PD[p].max > 16u ? accel(e, d) : d);
+            int32_t v = times_catch(p, st.v[p], (int32_t)st.v[p] + (PD[p].max > 16u ? accel(e, d) : d));
             int lp = step_len_p(p), sp = len_step_p(p);
             if (!st.v[p] && d > 0 && p == P_SQ_NOTE)   /* (up from a REST: a note of the line, not the range's bottom) */
                 v = step_near(seq, st.v[P_SQ_STEP], st.v[P_SQ_LEN] + 1u);
@@ -2494,9 +3070,52 @@ static void buttons_down(uint32_t btn)
         }
 }
 
+/* ANCHOR (engine/core.c: what it keeps, how it comes back): OCT- and OCT+ together set it, the octave with it; again,
+ * let go at once, MORPH there (ANCHOR_MS); held HOLD_MS, BACK there at once (3.1: the other way round before); during
+ * the MORPH, it ends there at once. The screen's frame shows it (ui.c anchor_frame) */
+static void anchor_back_to(uint32_t ms)
+{
+    anchor_back(ms);
+    fm.octave = fm.anc_oct;
+    app_say(ms ? "MORPH" : "BACK", "TO " ANCHOR_NAME);
+}
+
+static void anchor_press(void)           /* the two down */
+{
+    fm.anc_both = 1;
+    if (anc.on) {                        /* (MORPH or BACK: as they are let go, or held) */
+        fm.anc_arm = 1;
+        fm.anc_at = plat_ms();
+    } else if (mo.on && mo.anc) {
+        anchor_back(0);
+        app_say("BACK", "TO " ANCHOR_NAME);
+    } else {
+        anchor_set();
+        fm.anc_oct = fm.octave;
+        app_say(ANCHOR_NAME, "SET");
+    }
+}
+
+static void anchor_keys(uint32_t btn)    /* each pass while the two were down together */
+{
+    uint32_t both = 1u << B_OCTDN | 1u << B_OCTUP;
+    if (!fm.anc_both)
+        return;
+    if ((btn & both) != both) {          /* one let go: MORPH, if nothing was done held */
+        fm.anc_both = 0;
+        if (fm.anc_arm)
+            anchor_back_to(ANCHOR_MS);
+        fm.anc_arm = 0;
+    } else if (fm.anc_arm && plat_ms() - fm.anc_at >= HOLD_MS) {
+        fm.anc_arm = 0;
+        anchor_back_to(0);
+    }
+}
+
 static void buttons(uint32_t btn)
 {
     uint32_t down = btn & ~btn_prev, up = btn_prev & ~btn, k, now = plat_ms();
+    anchor_keys(btn);
     if (grid_asks()) {                   /* SEL takes, FX leaves, the rest wait; OCT+, OCT- its pages */
         for (k = 0; k < NB; k++)
             if ((down >> k & 1u) && k != B_OCTDN && k != B_OCTUP)
@@ -2527,13 +3146,23 @@ static void buttons(uint32_t btn)
             pv.oct = fm.octave;          /* (to undo, should it be a hand) */
         if (ng.on && (k == B_OCTDN || k == B_OCTUP)) {   /* the grid's pages, the octave as it is */
             grid_page(k == B_OCTUP ? 1 : -1);
-        } else if (k == B_OCTDN || k == B_OCTUP) {   /* at once; both: back to the start */
-            if ((btn >> B_OCTDN & 1u) && (btn >> B_OCTUP & 1u))
-                fm.octave = OCT_DEF;
-            else
+        } else if (k == B_OCTDN || k == B_OCTUP) {   /* at once; both: ANCHOR (the first one's step undone) */
+            uint32_t other = k == B_OCTDN ? B_OCTUP : B_OCTDN;
+            if (btn >> other & 1u) {
+                if (!fm.anc_both) {
+                    if (btn_prev >> other & 1u)   /* (it came first: its step undone; both in one pass, none taken) */
+                        fm.octave = fm.oct_was;
+                    fm.oct_at = 0;
+                    b_used(B_OCTDN);
+                    b_used(B_OCTUP);
+                    anchor_press();
+                }
+            } else {
+                fm.oct_was = fm.octave;
                 fm.octave = (int8_t)clamp(fm.octave + (k == B_OCTUP ? 1 : -1), -3, 2);
-            fm.oct_at = plat_ms() | 1u;  /* (large a moment, ui.c; undone as a hand: not shown) */
-            fm.oct_v = fm.octave;
+                fm.oct_at = plat_ms() | 1u;   /* (large a moment, ui.c; undone as a hand: not shown) */
+                fm.oct_v = fm.octave;
+            }
         } else if (k == B_REC && (btn >> B_SAVE & 1u)) {   /* SAVE held, REC: STORE (SCENES' slot, else the scene's) */
             b_used(B_SAVE);
             b_used(B_REC);
@@ -3006,6 +3635,8 @@ static struct {
     char msg[2][24];
     uint32_t msg_until;
     uint8_t red;                         /* its second line bold and bright red (say_red) */
+    uint8_t amt;                         /* an LFO's AMOUNT being turned (SEL + K: lfo_amount): its slot + 1, its gauge
+                                          * under the words; 0 none */
 } say;
 
 static int text_is(const char *a, const char *b)
@@ -3048,6 +3679,7 @@ void app_say(const char *a, const char *b)
     say.msg[1][i] = 0;
     say.msg_until = plat_ms() + 1300u;
     say.red = 0;
+    say.amt = 0;
     if (ann_on()) {                          /* and to a screen reader (announce.c, fm1-reader) */
         t[0] = 0;
         text_cat(t, say.msg[0]);
@@ -3062,6 +3694,7 @@ void app_say(const char *a, const char *b)
 static void say_clear(void) { say.msg_until = 0; }   /* the words gone (a hold undone: hold_undo) */
 static void say_red(void) { say.red = 1; }
 static void say_both(void) { say.red = 2; }          /* its two words alike, large, a dot between: ARP ON . SEQ OFF */
+static void say_amt(uint32_t slot) { say.amt = (uint8_t)(slot + 1u); }   /* its AMOUNT's gauge under it (lfo_amount) */
 
 #include "ui.c"
 
@@ -3076,7 +3709,7 @@ static void buttons_spent(void)
 void app_ui_init(void)
 {
     buttons_spent();
-    saver.on = 0;                            /* (awake: at power-on, after a restore or an update tried) */
+    saver.on = saver.party = 0;              /* (awake: at power-on, after a restore or an update tried) */
     saver_touch();
     touch_on(1);                             /* velocity and pressure: the keys' readings on */
     if (fm.booting) {                        /* at power-on, the logo a moment, alive, then the river; again (after a
@@ -3155,17 +3788,13 @@ static uint8_t pf_lvl(float l) { return (uint8_t)(br_clamp01(l) * 127.0f + 0.5f)
 
 static int pf_scene(void)
 {
-    scene_t sc;
-    char t[SC_NAME + 1];
-    uint8_t b[3u + SC_NAME];
+    char t[SC_LONG + 1];                 /* (the name whole: Perform reads it to the message's end, any length) */
+    uint8_t b[3u + SC_LONG];
     uint32_t i;
-    scene_get(fm.scene, &sc);
-    name_text(&sc, t);
+    scene_name(fm.scene, t);
     b[0] = 2u, b[1] = fm.scene, b[2] = st.dirty != 0;
-    for (i = 0; i < SC_NAME; i++)
-        b[3u + i] = (uint8_t)(t[i] && t[i] < 0x7F ? t[i] : ' ');
-    for (i = 0; i < SC_NAME && t[i]; i++)
-        ;
+    for (i = 0; i < SC_LONG && t[i]; i++)
+        b[3u + i] = (uint8_t)(t[i] < 0x7F ? t[i] : ' ');
     if (pf_send(b, 3u + i))
         return -1;
     pf.scene = fm.scene, pf.dirty = st.dirty != 0;
@@ -3350,10 +3979,12 @@ void app_frame(void)
     load_watch();
     saver_tick();
 #if defined PLAT_HOST && !defined PLAT_WEB
-    k = saver.on;
+    k = saver.on ? 1u + saver.party : 0u;
     t0 = plat_ticks();
     ui_frame();
-    ui_cost.ticks[k] += plat_ticks() - t0;
+    t0 = plat_ticks() - t0;
+    ui_cost.ticks[k] += t0;
+    ui_cost.tmax[k] = t0 > ui_cost.tmax[k] ? t0 : ui_cost.tmax[k];
     ui_cost.n[k]++;
     ui_cost.ms[k] += ms - last_ms;
     last_ms = ms;
@@ -3420,6 +4051,49 @@ void app_backup_restored(void)
 
 #if defined PLAT_HOST && !defined PLAT_WEB
 static int16_t saver_mark[2];
+static struct {
+    int32_t bad, min, max, ways, edge;   /* saveraim: off the minute, the soonest and latest corner (steps), the corners
+                                          * and ways seen (bits), the nearest a start came to two edges */
+} saver_aims;
+
+/* saveraim N: N starts as the screensaver draws them (from N times plat_ms might give), each run as it drifts: its
+ * first corner within 55 .. 65 s (2200 .. 2600 steps) and where it was aimed, never a start on an edge or near two */
+static void saver_aim_check(uint32_t n)
+{
+    uint32_t i, ms = 600000u;
+    memset(&saver_aims, 0, sizeof saver_aims);
+    saver_aims.min = 1 << 30;
+    saver_aims.edge = 1 << 30;
+    for (i = 0; i < n; i++) {
+        uint32_t r;
+        int16_t x, y;
+        int8_t dx, dy;
+        int32_t aim, t, e;
+        ms += 1u + (i * 2654435761u >> 22);  /* (any ms: 1 .. 1024 apart) */
+        r = ms * 2654435761u;
+        aim = saver_aim(r ^ (r >> 15), &x, &y, &dx, &dy);
+        e = x < SAVER_MAXX - x ? x : SAVER_MAXX - x;
+        t = y < SAVER_MAXY - y ? y : SAVER_MAXY - y;
+        e = e > t ? e : t;               /* (how far from the nearer edge, on the axis farther from one) */
+        saver_aims.edge = e < saver_aims.edge ? e : saver_aims.edge;
+        if (x <= 0 || x >= SAVER_MAXX || y <= 0 || y >= SAVER_MAXY || e < SAVER_AIM_EDGE)
+            saver_aims.bad++;
+        saver_aims.ways |= 1 << ((dx > 0) + 2 * (dy > 0));
+        for (t = 1; t <= (int32_t)(70000u / SAVER_STEP_MS); t++) {
+            saver_move(&x, &y, &dx, &dy);
+            if (saver_cornered(x, y))
+                break;
+        }
+        saver_aims.ways |= 16 << ((x > 0) + 2 * (y > 0));
+        if (t < (int32_t)(55000u / SAVER_STEP_MS) || t > (int32_t)(65000u / SAVER_STEP_MS) || t != aim)
+            saver_aims.bad++;
+        saver_aims.min = t < saver_aims.min ? t : saver_aims.min;
+        saver_aims.max = t > saver_aims.max ? t : saver_aims.max;
+    }
+    printf("  saveraim %u starts: the first corner %d .. %d steps in (%.2f .. %.2f s), %d off, starts %d px at least "
+           "from a corner, ways and corners 0x%x\n", (unsigned)n, saver_aims.min, saver_aims.max,
+           saver_aims.min * SAVER_STEP_MS / 1000.0, saver_aims.max * SAVER_STEP_MS / 1000.0, saver_aims.bad, saver_aims.edge, (unsigned)saver_aims.ways);
+}
 /* the screensaver's checks: "" on, _x _y where, _steps _bounces since it came, _dist how far since savermark, _out
  * steps outside the screen, _lit the logo's box's pixels not black, _stray the others not black (fb: the screen) */
 static int saver_expect(const char *w)
@@ -3437,6 +4111,28 @@ static int saver_expect(const char *w)
         return (int)saver.bounces;
     if (!strcmp(w, "_out"))
         return (int)saver_out;
+    if (!strcmp(w, "_corners"))          /* corners since it came; the step of the first; the step aimed at */
+        return (int)saver.corners;
+    if (!strcmp(w, "_corner_step"))
+        return (int)saver.corner_step;
+    if (!strcmp(w, "_aim"))
+        return saver.aim;
+    if (!strcmp(w, "_min"))              /* IDLE TIME; the byte the settings' record has (saver_byte) */
+        return saver.min;
+    if (!strcmp(w, "_byte"))
+        return set.saver_off;
+    if (!strcmp(w, "_party"))            /* celebrating one */
+        return saver.on && saver.party;
+    if (!strcmp(w, "_aimbad"))           /* saveraim's */
+        return saver_aims.bad;
+    if (!strcmp(w, "_aimmin"))
+        return saver_aims.min;
+    if (!strcmp(w, "_aimmax"))
+        return saver_aims.max;
+    if (!strcmp(w, "_aimways"))
+        return saver_aims.ways;
+    if (!strcmp(w, "_aimedge"))
+        return saver_aims.edge;
     if (!strcmp(w, "_dist"))
         return abs(saver.x - saver_mark[0]) + abs(saver.y - saver_mark[1]);
     for (y = 0; y < 240u; y++)
@@ -3617,6 +4313,73 @@ int app_expect(const char *what, int *got)
         *got = play_holding() > 0.0f;
     else if (!strcmp(what, "morph"))     /* a scene's MORPH under way */
         *got = mo.on;
+    else if (!strcmp(what, "anchor"))    /* ANCHOR: 0 none, 1 set, 2 its MORPH back under way */
+        *got = anchor_state(0);
+    else if (!strcmp(what, "anchordiff")) {   /* the scene now as STORE keeps it against ANCHOR's (set or let go), its
+                                               * name and its notes aside: the bytes that differ; and each of the scene's
+                                               * settings against the anchor's as it plays (the drone's preset on them) */
+        scene_t a = anc.sc, b;
+        const uint8_t *x = (const uint8_t *)&a, *y = (const uint8_t *)&b;
+        uint32_t i, n = 0;
+        memset(&b, 0, sizeof b);
+        for (i = 0; i < NSOUND; i++)
+            b.v[i] = kept_v(i);
+        scene_notes_take(&b);
+        for (i = 0; i < 2u; i++) {
+            scene_t *s = i ? &b : &a;
+            memset(s->name, 0, SC_NAME);
+            memset(s->name_more, 0, SC_MORE);
+            s->nch = s->narp = s->nbarp = 0;
+            memset(s->ch, 0, sizeof s->ch);
+            memset(s->arp, 0, sizeof s->arp);
+            memset(s->barp, 0, sizeof s->barp);
+            s->bass = 0;
+        }
+        for (i = 0; i < sizeof a; i++)
+            n += x[i] != y[i];
+        for (i = 0; i < NSOUND; i++)
+            n += st.v[i] != anc_val(i);
+        for (i = 0; i < NANC_X; i++)
+            n += st.v[ANC_X[i].p] != anc_val(ANC_X[i].p);
+        *got = (int)n;
+    } else if (!strcmp(what, "moff")) {  /* the settings a glide still moves (MORPH's, ANCHOR's): how many */
+        uint32_t i, n = 0;
+        for (i = 0; i < NMORPH; i++)
+            n += morph_off[i] != 0.0f;
+        *got = (int)n;
+    } else if (!strncmp(what, "heard", 5) && atoi(what + 5) < NMORPH)   /* heardN: setting N as it sounds now, a glide
+                                                                         * on it (its LFO aside) */
+        *got = (int)(st.v[atoi(what + 5)] + morph_off[atoi(what + 5)] + (st.v[atoi(what + 5)] + morph_off[atoi(what + 5)] < 0.0f ? -0.5f : 0.5f));
+    else if (!strncmp(what, "shown", 5) && atoi(what + 5) < NPARAM)   /* shownN: setting N as the screen shows it
+                                                                          * (its number, its gauge: pv_shown) */
+        *got = (int)pv_shown(atoi(what + 5));
+    else if (!strcmp(what, "framegone")) /* ANCHOR's frame: its places erased (of AF_N), as the screen has it */
+        *got = af.on ? af.gone : -1;
+#if defined PLAT_HOST && !defined PLAT_WEB
+    else if (!strcmp(what, "framelo") || !strcmp(what, "framehi")) {   /* its breath: its dimmest and brightest (of 32)
+                                                                        * since asked */
+        if (what[5] == 'l') {
+            *got = af_lo;
+            af_lo = 255u;
+        } else {
+            *got = af_hi;
+            af_hi = 0u;
+        }
+    }
+#endif
+#ifndef PLAT_WEB
+    else if (!strcmp(what, "framepx")) { /* its pixels on the screen (of AF_N x AF_W, 3776): the frame's places that read
+                                          * violet, at any breath (blue and red over green: no band's colour, no
+                                          * night's) */
+        int32_t x, y, n = 0;
+        for (y = 0; y < 240; y++)
+            for (x = 0; x < 240; x++) {
+                uint32_t c = swap16(fb[y * 240 + x]), r = c >> 11, g = c >> 5 & 63u, b = c & 31u;
+                n += af_place(x, y) >= 0 && 2u * b > g + 6u && 2u * r > g;
+            }
+        *got = n;
+    }
+#endif
     else if (!strcmp(what, "overlay"))   /* a value shown large over the strip */
         *got = overlay_on();
     else if (!strcmp(what, "compare"))   /* EDIT held: the scene as saved sounding */
@@ -3642,6 +4405,23 @@ int app_expect(const char *what, int *got)
         *got = seq[atoi(what + 7) % SC_SEQ];
     else if (!strcmp(what, "bseqrun"))   /* the bass's sequence playing; bseqpos: its step now, -1 none */
         *got = bq.run;
+    else if (!strcmp(what, "headdark"))  /* GLO > SCREEN's HEADER: 1 DARK, 0 INVERT; headbyte: the settings' record's */
+        *got = hdr.dark;
+    else if (!strcmp(what, "headbyte"))
+        *got = set.head;
+    else if (!strcmp(what, "a4"))        /* GLO > RECORD's TUNE A4, Hz; a4byte: the settings' record's (less 440) */
+        *got = a4.hz;
+    else if (!strcmp(what, "a4byte"))
+        *got = set.a4;
+#ifndef PLAT_WEB
+    else if (!strcmp(what, "pitchhz"))   /* the output's pitch since "pitch HZ", Hz x 100 (pz); pitchcents: over the one
+                                          * "pitchref" kept, cents x 10 */
+        *got = (int)(pz_pitch() * 100.0 + 0.5);
+    else if (!strcmp(what, "pitchcents"))
+        *got = pz_pitch() > 0.0 && pz.ref > 0.0 ? (int)lround(12000.0 * log2(pz_pitch() / pz.ref)) : 0;
+    else if (!strcmp(what, "edgedb"))    /* the blocks' edges over their middles since "edges", dB x 10 (eg) */
+        *got = eg.edge > 0.0 && eg.mid > 0.0 ? (int)lround(100.0 * log10(eg.edge / eg.mid)) : 0;
+#endif
     else if (!strncmp(what, "knob", 4))  /* knobN: the setting under KN as it is now */
         *got = page_knob(fm.page, (uint32_t)(atoi(what + 4) - 1) & 3u);
     else if (!strcmp(what, "keymid"))    /* the keys at the mid level */
@@ -3729,12 +4509,61 @@ int app_expect(const char *what, int *got)
         *got = nm.on;
     else if (!strcmp(what, "namecur"))
         *got = nm.cur;
-    else if (!strncmp(what, "scnchar", 7))   /* scncharN: the current scene's name, its character N (0: none) */
-        *got = (fm.scene < NSCENES ? scn.s[fm.scene].name : NEW_SHARD.name)[atoi(what + 7) % SC_NAME];
+    else if (!strncmp(what, "scnchar", 7)) {   /* scncharN: the current scene's name, its character N (0: none) */
+        char t[SC_LONG + 1];
+        memset(t, 0, sizeof t);
+        if (fm.scene < NSCENES && !(scn.used >> fm.scene & 1u))   /* (an empty slot: what its record holds, as 3.0) */
+            memcpy(t, scn.s[fm.scene].name, SC_NAME);
+        else
+            scene_name(fm.scene, t);
+        *got = (uint8_t)t[atoi(what + 7) % SC_LONG];
+    } else if (!strcmp(what, "namelen"))   /* the name editor's places (32 a scene's, 16 a preset's) */
+        *got = nm.len;
+    else if (!strcmp(what, "namesstored"))   /* the store's OBJ_NAMES holds something: a name's rest, an AMOUNT, SWELL */
+        *got = names_stored;
+    else if (!strncmp(what, "scnamt", 6))   /* scnamtN: the current slot's scene as saved, its AMOUNT N (0 .. 11);
+                                             * scnswell: its SWELL */
+        *got = fm.scene < NSCENES ? scn.s[fm.scene].lfo_amt[atoi(what + 6) % 12] : -1;
+    else if (!strcmp(what, "scnswell"))
+        *got = fm.scene < NSCENES ? scn.s[fm.scene].swell : -1;
+    else if (!strcmp(what, "sayamt"))    /* the header's AMOUNT gauge (SEL + K): its slot + 1, while it is up; 0 none */
+        *got = plat_ms() < say.msg_until ? say.amt : 0;
+    else if (!strcmp(what, "rolling"))   /* the header's name rolling (ui.c roll), rolloff: how far it is now, rolldist: its
+                                          * way, rollw: its room, rolldraws and rollpx: its windows drawn since asked */
+        *got = roll.on;
+    else if (!strcmp(what, "rolloff"))
+        *got = roll.off;
+    else if (!strcmp(what, "rolldist"))
+        *got = roll.dist;
+    else if (!strcmp(what, "rollw"))
+        *got = roll.w;
+    else if (!strcmp(what, "rolldraws")) {
+        *got = (int)roll.draws;
+        roll.draws = 0;
+    } else if (!strcmp(what, "rollpx")) {
+        *got = (int)roll.px;
+        roll.px = 0;
+    } else if (!strncmp(what, "lroll", 5)) {   /* SCENES' (LOAD's list) long name K1 points at, rolling (ui.c lroll):
+                                                * lrolling, lrolloff, lrolldist, lrollw, lrolldraws, lrollpx as the
+                                                * header's; lrollfont 1 while it is FONT_B, the list's own */
+        const char *k = what + 5;
+        *got = !strcmp(k, "ing") ? lroll.on : !strcmp(k, "off") ? lroll.off : !strcmp(k, "dist") ? lroll.dist
+             : !strcmp(k, "w") ? lroll.w : !strcmp(k, "draws") ? (int)lroll.draws : !strcmp(k, "px") ? (int)lroll.px
+             : !strcmp(k, "font") ? lroll.f == &FONT_B : -1;
+        if (!strcmp(k, "draws"))
+            lroll.draws = 0;
+        if (!strcmp(k, "px"))
+            lroll.px = 0;
+    }
     else if (!strcmp(what, "pick"))      /* SCENES: the slot K1 points at (16: NEW SHARD) */
         *got = fm.pick;
     else if (!strcmp(what, "stacktag"))  /* the STACK hint at the foot, as drawn last: 0 none, 1 OFF, 2 ON */
         *got = ui.stack;
+    else if (!strcmp(what, "semistag"))  /* LOFI TAPE II's tones between the reels, as drawn last: the half-tones
+                                          * they stand for (0 none) */
+        *got = ui.semis;
+    else if (!strcmp(what, "toneword"))  /* and their word: 0 none, 1 TONE, 2 TONES */
+        *got = ui.tonew;
     else if (!strcmp(what, "scnacts"))   /* the words SCENES' box showed last (PLAY LOAD, SAVE + REC STORE: 4) */
         *got = ui.acts;
     else if (!strcmp(what, "setscene"))  /* the settings' scene byte, as last saved (16: NEW SHARD) */
@@ -3747,6 +4576,8 @@ int app_expect(const char *what, int *got)
         *got = (int)BSQ_BYTES;
     else if (!strcmp(what, "size_settings"))
         *got = (int)sizeof(settings_t);
+    else if (!strcmp(what, "size_names"))   /* OBJ_NAMES' */
+        *got = (int)NMS_BYTES;
     else if (!strcmp(what, "at_scene"))     /* the settings' scene byte: where */
         *got = (int)offsetof(settings_t, scene);
 #ifndef PLAT_WEB
@@ -3848,18 +4679,23 @@ static int schema_write(const char *path)
      * in OBJ_BSEQ's (bseqs_t: after its magic, each scene's GLINT sequence, bnote ... barp). bnote: the bass's
      * SC_BSEQ steps (a step a byte: bseq's cut, hold, else a note, its accent in seq's bit); bq: PLAYS, SEQ LENGTH,
      * TRANSPOSE; bq_len: RATE (bseq's ticks' index); ba: its arpeggio's MODE, RANGE, CHANCE; gate; nbarp and barp: its
-     * arpeggio's notes (as narp and arp) */
-    fprintf(f, "\"scene_t\":{\"size\":%u,\"name\":%u,\"name_len\":%u,\"v\":%u,\"nch\":%u,\"narp\":%u,\"ch\":%u,\"arp\":%u,\"bass\":%u,"
+     * arpeggio's notes (as narp and arp); name, name_len: its first sixteen characters (NUL-padded), name_more,
+     * name_more_len: the rest, to name_long (only after a first sixteen all used; FRS|'s); lfo_amt: the twelve LFO TARGETs'
+     * AMOUNTs (LFO 1's TARGET 1 .. LFO 3's TARGET 4: 0 .. 200, 100 is 0 %, 200 +100 %); swell: SWELL */
+    fprintf(f, "\"scene_t\":{\"size\":%u,\"name\":%u,\"name_len\":%u,\"name_more\":%u,\"name_more_len\":%u,"
+               "\"name_long\":%u,\"lfo_amt\":%u,\"swell\":%u,\"v\":%u,\"nch\":%u,\"narp\":%u,\"ch\":%u,\"arp\":%u,\"bass\":%u,"
                "\"seq\":%u,\"bnote\":%u,\"bq\":%u,\"tempo\":%u,\"bq_len\":%u,\"ba\":%u,\"gate\":%u,\"nbarp\":%u,"
-               "\"barp\":%u,\"bs\":%u,\"bs_space\":%u,\"gl_vib\":%u,\"dq\":%u,\"dnote\":%u,\"rec\":%u},\n",
-            (unsigned)sizeof(scene_t), (unsigned)offsetof(scene_t, name), SC_NAME, (unsigned)offsetof(scene_t, v),
-            (unsigned)offsetof(scene_t, nch), (unsigned)offsetof(scene_t, narp), (unsigned)offsetof(scene_t, ch),
+               "\"barp\":%u,\"bs\":%u,\"bs_space\":%u,\"gl_vib\":%u,\"dq\":%u,\"dnote\":%u,\"tp\":%u,\"rec\":%u},\n",
+            (unsigned)sizeof(scene_t), (unsigned)offsetof(scene_t, name), SC_NAME, (unsigned)offsetof(scene_t, name_more),
+            SC_MORE, SC_LONG, (unsigned)offsetof(scene_t, lfo_amt), (unsigned)offsetof(scene_t, swell),
+            (unsigned)offsetof(scene_t, v), (unsigned)offsetof(scene_t, nch), (unsigned)offsetof(scene_t, narp), (unsigned)offsetof(scene_t, ch),
             (unsigned)offsetof(scene_t, arp), (unsigned)offsetof(scene_t, bass), (unsigned)offsetof(scene_t, seq),
             (unsigned)offsetof(scene_t, bnote), (unsigned)offsetof(scene_t, bq_on), (unsigned)offsetof(scene_t, tempo),
             (unsigned)offsetof(scene_t, bq_len), (unsigned)offsetof(scene_t, ba_mode),
             (unsigned)offsetof(scene_t, bq_gate), (unsigned)offsetof(scene_t, nbarp), (unsigned)offsetof(scene_t, barp),
             (unsigned)offsetof(scene_t, bs_weight), (unsigned)offsetof(scene_t, bs_space), (unsigned)offsetof(scene_t, gl_vib),
-            (unsigned)offsetof(scene_t, dq_on), (unsigned)offsetof(scene_t, dnote), (unsigned)SC_REC);
+            (unsigned)offsetof(scene_t, dq_on), (unsigned)offsetof(scene_t, dnote), (unsigned)offsetof(scene_t, tp_flutter),
+            (unsigned)SC_REC);
     fprintf(f, "\"scenes_t\":{\"size\":%u,\"magic\":%u,\"used\":%u,\"s\":%u,\"rec\":%u},\n", (unsigned)sizeof(scenes_t),
             (unsigned)offsetof(scenes_t, magic), (unsigned)offsetof(scenes_t, used), (unsigned)offsetof(scenes_t, s),
             (unsigned)SCN_BYTES);
@@ -3867,14 +4703,36 @@ static int schema_write(const char *path)
     /* OBJ_DSEQ (3.0), the scenes' drone sequences: after its magic, each scene's DSQ_SCENE bytes, its NDQ settings as
      * scene_t has them from dq (ON, RATE, SEQ LENGTH - 1, GATE, CHANCE, TRANSPOSE), then its SC_DSEQ x DQ_NOTES notes
      * (scene_t's dnote, step by step) seven bits each, note j at bits 7j .. 7j + 6 of the bytes read as one little-endian
-     * stream (dsq_pack); absent (an earlier FRASIL's store or backup): every scene's drone sequence none (dseq.none) */
-    fprintf(f, "\"dseqs_t\":{\"size\":%u,\"magic\":0,\"s\":4,\"scene\":%u,\"set\":%u,\"bits\":7},\n",
-            (unsigned)DSQ_BYTES, (unsigned)DSQ_SCENE, (unsigned)DSQ_SET);
+     * stream (dsq_pack), then LOFI TAPE II's four (scene_t's tp_flutter, tp_tone, tp_noise, tp_dropout) at "tape" (3.0's
+     * FRDQ, "old": without them, DSQ_SCENE_FRDQ a scene); absent (an earlier FRASIL's store or backup): every scene's drone
+     * sequence none (dseq.none), the four as the tape was (tape.none: TAPE_NONE, TAPE SPEED x1.00, TONE 0; not their
+     * defaults) */
+    fprintf(f, "\"dseqs_t\":{\"size\":%u,\"magic\":0,\"s\":4,\"scene\":%u,\"set\":%u,\"bits\":7,\"tape\":%u,"
+               "\"old\":{\"magic\":", (unsigned)DSQ_BYTES, (unsigned)DSQ_SCENE, (unsigned)DSQ_SET, (unsigned)DSQ_SCENE_FRDQ);
+    js_magic(f, DSQ_FRDQ);
+    fprintf(f, ",\"size\":%u,\"scene\":%u}},\n", (unsigned)DSQ_BYTES_FRDQ, (unsigned)DSQ_SCENE_FRDQ);
+    fprintf(f, "\"tape\":{\"none\":[%u,%u,%u,%u]},\n", TAPE_NONE[0], TAPE_NONE[1], TAPE_NONE[2], TAPE_NONE[3]);
+    /* OBJ_NAMES (3.0.1; FRNO 3.1), what of each scene the records above have no room for: after its magic, each slot's
+     * "scene" bytes: at "sum" the sum of its record in OBJ_SCENES as written with it (FNV-1a over its "rec" bytes, 32 bits
+     * little-endian: rec_sum), then scene_t's name_more, lfo_amt and swell as they are (at "more"). Read onto the slot
+     * whose record has that sum (its own first, then any other's: a scene moved); a slot none has: more.none. FRNM
+     * ("old"): the sum, then name_more alone (the AMOUNTs, SWELL: more.none). FRNN ("pct", 3.0.2-b5's): this layout,
+     * the AMOUNTs in percent, each made |v - 100| (one past 200: more.none's). Absent (an earlier FRASIL's store or
+     * backup): every slot's more.none. more.none, a scene's (every shard before FRS|, made over) and the settings' (every
+     * layout before FRSR): name_more all 0, each lfo_amt "lfo_amt", swell "swell" */
+    fprintf(f, "\"names_t\":{\"size\":%u,\"magic\":0,\"s\":4,\"scene\":%u,\"sum\":0,\"more\":4,\"bytes\":%u,"
+               "\"pct\":{\"magic\":", (unsigned)NMS_BYTES, (unsigned)NMS_SCENE, (unsigned)NMS_MORE);
+    js_magic(f, NMS_FRNN);
+    fprintf(f, "},\"old\":{\"magic\":");
+    js_magic(f, NMS_FRNM);
+    fprintf(f, ",\"size\":%u,\"scene\":%u,\"bytes\":%u}},\n", (unsigned)NMS_BYTES_FRNM, (unsigned)NMS_SCENE_FRNM, SC_MORE);
+    fprintf(f, "\"more\":{\"none\":{\"lfo_amt\":%u,\"swell\":%u}},\n", PD[P_L1_AMT1].def, PD[P_SWELL].def);
     fprintf(f, "\"settings_t\":{\"size\":%u,\"magic\":%u,\"v\":%u,\"octave\":%u,\"keys\":%u,\"channel\":%u,"
                "\"scene\":%u,\"tempo\":%u,\"ch_glint\":%u,\"ch_bass\":%u,\"seq\":%u,\"metro_off\":%u,\"speaker_off\":%u,"
                "\"load\":%u,\"learn_cc\":%u,\"learn_p\":%u,\"bnote\":%u,\"bq_on\":%u,\"bq_steps\":%u,"
                "\"bq_trans\":%u,\"anim\":%u,\"clock\":%u,\"bq_len\":%u,\"ba\":%u,\"gate\":%u,\"bs\":%u,\"bs_space\":%u,\"gl_vib\":%u,"
-               "\"ky\":%u,\"metro\":%u,\"metro_on\":%u,\"count_in\":%u,\"arp_snap\":%u,\"saver_off\":%u},\n",
+               "\"ky\":%u,\"metro\":%u,\"metro_on\":%u,\"count_in\":%u,\"arp_snap\":%u,\"saver_off\":%u,\"tp\":%u,"
+               "\"lfo_amt\":%u,\"swell\":%u},\n",
             (unsigned)sizeof(settings_t), (unsigned)offsetof(settings_t, magic), (unsigned)offsetof(settings_t, v),
             (unsigned)offsetof(settings_t, octave), (unsigned)offsetof(settings_t, keys),
             (unsigned)offsetof(settings_t, channel), (unsigned)offsetof(settings_t, scene),
@@ -3891,7 +4749,8 @@ static int schema_write(const char *path)
             (unsigned)offsetof(settings_t, gl_vib), (unsigned)offsetof(settings_t, ky),
             (unsigned)offsetof(settings_t, metro), (unsigned)offsetof(settings_t, metro_on),
             (unsigned)offsetof(settings_t, count_in), (unsigned)offsetof(settings_t, arp_snap),
-            (unsigned)offsetof(settings_t, saver_off));
+            (unsigned)offsetof(settings_t, saver_off), (unsigned)offsetof(settings_t, tp_flutter),
+            (unsigned)offsetof(settings_t, lfo_amt), (unsigned)offsetof(settings_t, swell));
     fprintf(f, "\"magic\":{\"scenes\":");
     js_magic(f, SCN_MAGIC);
     fprintf(f, ",\"bseqs\":");
@@ -3902,13 +4761,15 @@ static int schema_write(const char *path)
     js_magic(f, DSQ_MAGIC);
     fprintf(f, ",\"upresets\":");
     js_magic(f, UPR_MAGIC);
+    fprintf(f, ",\"names\":");
+    js_magic(f, NMS_MAGIC);
     fprintf(f, ",\"settings\":");
     js_magic(f, SET_MAGIC);
     fprintf(f, ",\"backup\":");
     js_magic(f, APP_BACKUP_MAGIC);
-    fprintf(f, "},\n\"objs\":{\"settings\":%d,\"panel\":%d,\"scenes\":%d,\"bseqs\":%d,\"dseqs\":%d,\"upresets\":%d},\n\"seq\":{\"rest\":%u,\"tie\":%u,"
+    fprintf(f, "},\n\"objs\":{\"settings\":%d,\"panel\":%d,\"scenes\":%d,\"bseqs\":%d,\"dseqs\":%d,\"upresets\":%d,\"names\":%d},\n\"seq\":{\"rest\":%u,\"tie\":%u,"
                "\"accent\":%u},\n",
-            OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, SQ_REST, SQ_TIE, SQ_ACC);
+            OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES, SQ_REST, SQ_TIE, SQ_ACC);
     /* OBJ_UPRE (3.0), the player's presets: after its magic NUP of the drone's, of GLINT's, of the bass's, each its bytes
      * (the engine's "FRp": "FRp", version, track, n, name of SC_NAME, n pairs of setting and value; its first byte 0: none);
      * absent (an earlier FRASIL's store or backup): none */
@@ -3934,11 +4795,22 @@ static int schema_write(const char *path)
     /* a shard of an earlier layout: its name and NV sounds, then the rest of its scene up to the bass's sequence (to
      * REC: GLINT's sequence in it), then its bass's sequence (SIZE - REC bytes, from bnote on, the old one's: bseq.old;
      * none in FRSh's: an empty one's, TEMPO at its default); SCATTER where GLINT's RELEASE is, made over (scatter_gone):
-     * FRSy (this layout to gl_vib: the drone's sequence none, dseq.none: same), FRSx (that but its last byte, AUTO VIB: 0, its bass kept: same), FRSw (and SPACE before it, the same), FRSu (grid: its bass's sequence on
+     * FRS| (this layout, "pct": its twelve AMOUNTs in percent, each made |v - 100|, one past 200 more.none's),
+     * FRS{ (this layout to tp_dropout: name_more, lfo_amt, swell more.none: same), FRSz (to dnote's end: and LOFI TAPE
+     * II's four tape.none: same), FRSy (this layout to gl_vib: the drone's sequence none, dseq.none: same), FRSx (that but its last byte, AUTO VIB: 0, its bass kept: same), FRSw (and SPACE before it, the same), FRSu (grid: its bass's sequence on
      * the one grid already, this layout's to bq_len), FRSt, FRSr, FRSp, FRSn, FRSm,
      * FRSk, FRSi, then FRSh. Every one, as every old_bseqs and old_settings_over: PLAYS' 1 is 2 here (SEQUENCE on was 1),
      * the bass's arpeggio none, its settings and GATE their defaults; and every one: the drone's sequence none (dseq.none) */
     fprintf(f, "]},\n\"old_shards\":[{\"magic\":");
+    js_magic(f, SHARD_FRSBAR);           /* (3.0.2-b5's: this layout, its AMOUNTs in percent, pct: |v - 100| each) */
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":0,\"grid\":1,\"same\":1,\"pct\":1},{\"magic\":",
+            (unsigned)sizeof(scene_t), (unsigned)NSOUND, (unsigned)(SC_NAME + NSOUND + SC_TAIL));
+    js_magic(f, SHARD_FRSTP);            /* (3.0.2's: this layout to tp_dropout; name_more, lfo_amt, swell: more.none) */
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":0,\"grid\":1,\"same\":1},{\"magic\":",
+            (unsigned)offsetof(scene_t, name_more), (unsigned)NSOUND, (unsigned)(SC_NAME + NSOUND + SC_TAIL));
+    js_magic(f, SHARD_FRSZ);             /* (3.0's: this layout to dnote's end; LOFI TAPE II's four as the tape was, tape.none) */
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":0,\"grid\":1,\"same\":1},{\"magic\":", FRSZ_SCENE,
+            (unsigned)NSOUND, (unsigned)(SC_NAME + NSOUND + SC_TAIL));
     js_magic(f, SHARD_FRSY);
     fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":0,\"grid\":1,\"same\":1},{\"magic\":", FRSY_SCENE,
             (unsigned)NSOUND, (unsigned)(SC_NAME + NSOUND + SC_TAIL));
@@ -3989,8 +4861,21 @@ static int schema_write(const char *path)
     js_layouts(f, OLD_SET, sizeof OLD_SET / sizeof OLD_SET[0], 0);
     /* the settings settings_over makes over byte by byte: this layout with NV sounds (a setting learned after them
      * numbered so), SIZE bytes, those after the sound to END as this one's (the bass's sequence: none, empty): FRSI,
-     * FRSH, FRSG */
+     * FRSH, FRSG. Every one: the LFOs' AMOUNTs and SWELL more.none but where "pct" (FRSR, 3.0.2-b5's: this layout, its
+     * AMOUNTs in percent, each made |v - 100|, one past 200 more.none's; its SWELL kept); LOFI TAPE II's four tape.none
+     * but where "tape" (FRSQ, FRSR have them) */
     fprintf(f, ",\n\"old_settings_over\":[{\"magic\":");
+    js_magic(f, SET_FRSR);               /* (3.0.2-b5's: this layout whole, the AMOUNTs in percent) */
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u,\"scatter\":0,\"speaker\":1,\"anim\":1,\"grid\":1,\"keys\":1,"
+               "\"kept\":1,\"tape\":1,\"pct\":1},{\"magic\":", (unsigned)sizeof(settings_t), (unsigned)NSOUND,
+            (unsigned)sizeof(settings_t));
+    js_magic(f, SET_FRSQ);              /* (3.0.2's: this layout to tp_dropout, its KEYS kept; the AMOUNTs, SWELL: more.none) */
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u,\"scatter\":0,\"speaker\":1,\"anim\":1,\"grid\":1,\"keys\":1,"
+               "\"kept\":1,\"tape\":1},{\"magic\":", FRSQ_BYTES, (unsigned)NSOUND, FRSQ_BYTES);
+    js_magic(f, SET_FRSP);               /* (3.0's before LOFI TAPE II: this layout to saver_off, its KEYS kept; the four at their
+                                          * defaults) */
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u,\"scatter\":0,\"speaker\":1,\"anim\":1,\"grid\":1,\"keys\":1,"
+               "\"kept\":1},{\"magic\":", FRSP_BYTES, (unsigned)NSOUND, FRSP_BYTES);
     js_magic(f, SET_FRSO);               /* (3.0's before KEYS: this layout to gl_vib, then KEYS as at the start, its KEY MODE
                                           * read in as the drone's and the bass's LATCH) */
     fprintf(f, ",\"size\":%u,\"nv\":%u,\"end\":%u,\"scatter\":0,\"speaker\":1,\"anim\":1,\"grid\":1,\"keys\":1},{\"magic\":",
@@ -4043,7 +4928,7 @@ static int schema_write(const char *path)
     ID(PG_TAPE), ID(PG_EQ), ID(PG_EQ2), ID(PG_ROUTING), ID(PG_SCREEN), ID(P_FL_PRE), ID(P_TP_PRE), ID(P_PUMP_CLOUD);
     ID(P_PN_DRONE), ID(P_PN_BASS), ID(P_PN_GLINT), ID(P_PN_CLOUD), ID(P_CH_SOFT), ID(PG_CHOEUR2), ID(PG_CHOEUR3);
     ID(P_FREEZE), ID(P_SWELL), ID(P_KB), ID(P_BA_MODE), ID(P_BA_RANGE), ID(P_BA_CHANCE), ID(P_BQ_GATE), ID(P_BQ_ACC);
-    ID(P_BQ_NEW), ID(P_BQ_UNDO), ID(P_SQ_NLEN), ID(P_BS_WEIGHT), ID(P_BS_PUNCH), ID(P_BS_BITE), ID(P_BS_SPACE), ID(P_GL_VIB_AUTO), ID(P_DQ_ON), ID(P_DQ_RATE), ID(P_DQ_LEN), ID(P_DQ_GATE), ID(P_DQ_CHANCE), ID(P_DQ_TRANS), ID(P_DQ_REC), ID(P_DQ_CLEAR), ID(P_DQ_STEP), ID(P_DQ_NOTES), ID(P_DQ_NLEN), ID(P_DQ_UNDO), ID(P_GA_LATCH), ID(P_BA_LATCH), ID(P_KY_DR_HARM), ID(P_KY_GL_HARM), ID(P_KY_BS_HARM), ID(P_METRO), ID(P_COUNT_IN), ID(P_ARP_SNAP), ID(P_SAVER), ID(PG_BARP), ID(PG_BSEQ3), ID(PG_BDRIVE), ID(PG_CSEND), ID(P_SQ_REC), ID(PG_ARP2), ID(PG_BARP2), ID(PG_DSEQ), ID(PG_DSEQ2), ID(PG_DSEQ3), ID(PG_NOARP), ID(PG_KEYS), ID(PG_RECORD), ID(PG_SAVE), ID(PG_SAVEAS);
+    ID(P_BQ_NEW), ID(P_BQ_UNDO), ID(P_SQ_NLEN), ID(P_BS_WEIGHT), ID(P_BS_PUNCH), ID(P_BS_BITE), ID(P_BS_SPACE), ID(P_GL_VIB_AUTO), ID(P_DQ_ON), ID(P_DQ_RATE), ID(P_DQ_LEN), ID(P_DQ_GATE), ID(P_DQ_CHANCE), ID(P_DQ_TRANS), ID(P_DQ_REC), ID(P_DQ_CLEAR), ID(P_DQ_STEP), ID(P_DQ_NOTES), ID(P_DQ_NLEN), ID(P_DQ_UNDO), ID(P_GA_LATCH), ID(P_BA_LATCH), ID(P_KY_DR_HARM), ID(P_KY_GL_HARM), ID(P_KY_BS_HARM), ID(P_METRO), ID(P_COUNT_IN), ID(P_ARP_SNAP), ID(P_SAVER), ID(P_TP_FLUTTER), ID(P_TP_TONE), ID(P_TP_NOISE), ID(P_TP_DROPOUT), ID(PG_TAPE2), ID(P_L1_AMT1), ID(P_L1_AMT2), ID(P_L1_AMT3), ID(P_L1_AMT4), ID(P_L2_AMT1), ID(P_L2_AMT2), ID(P_L2_AMT3), ID(P_L2_AMT4), ID(P_L3_AMT1), ID(P_L3_AMT2), ID(P_L3_AMT3), ID(P_L3_AMT4), ID(PG_LFO1T), ID(PG_LFO2T), ID(PG_LFO3T), ID(PG_BARP), ID(PG_BSEQ3), ID(PG_BDRIVE), ID(PG_CSEND), ID(P_SQ_REC), ID(PG_ARP2), ID(PG_BARP2), ID(PG_DSEQ), ID(PG_DSEQ2), ID(PG_DSEQ3), ID(PG_NOARP), ID(PG_KEYS), ID(PG_RECORD), ID(PG_SAVE), ID(PG_SAVEAS);
 #undef ID
     fprintf(f, "},\n\"params\":[\n");
     for (p = 0; p < NPARAM; p++) {       /* each with its words for every value, as the screen writes them */
@@ -4317,6 +5202,8 @@ static void test_scene(void)
                                  0, 0, {{0}}, {0}, -1, {0}, {0}, 0, 15, 14, 60, 0, 0, 1, 127, 127, 0, 0, 0, 0, {0}, 0, 0,
                                  0, 4, 3, 127, 127, 14, {{0}}};   /* (the drone's sequence none) */
     scene_t sc = MIST;
+    more_none(&sc);                      /* (its LFOs whole, no SWELL: as it was) */
+    tape_none(&sc);                      /* (LOFI TAPE II as it was: TAPE SPEED x1.00, not 0, x0.25) */
     glint_preset(sc.v, sc.v[P_GL_PRESET]);
     arp_defaults(sc.v);
     later_defaults(sc.v, P_BS_DRIVE);
@@ -4336,8 +5223,39 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     (void)c;
     (void)d;
 #ifndef PLAT_WEB
+    if (!strcmp(cmd, "cpuload")) {       /* cpuload N: the load the simulator reads now, N % (load_watch sheds over
+                                          * 82, gives back at 75 or less: shed.txt) */
+        host_load = (uint32_t)atoi(a);
+        return 1;
+    }
     if (!strcmp(cmd, "saveridle")) {     /* saveridle MS: the screensaver after MS untouched (0: its ten minutes) */
         saver.after = (uint32_t)atoi(a);
+        return 1;
+    }
+    if (!strcmp(cmd, "saveraim")) {      /* saveraim N: N starts drawn and run (saver_aim_check; expect saver_aim*) */
+        saver_aim_check((uint32_t)atoi(a));
+        return 1;
+    }
+    if (!strcmp(cmd, "saverbyte")) {     /* saverbyte N: the stored settings' SCREENSAVER byte made N (then reboot: as
+                                          * a record of 3.0, or of a later FRASIL, reads) */
+        set.saver_off = (uint8_t)atoi(a);
+        plat_store_save(OBJ_SETTINGS, &set, sizeof set);
+        return 1;
+    }
+    if (!strcmp(cmd, "a4byte")) {        /* a4byte N: the stored settings' TUNE A4 byte made N (-128 .. 127; then reboot:
+                                          * as a later FRASIL's reads) */
+        set.a4 = (int8_t)atoi(a);
+        plat_store_save(OBJ_SETTINGS, &set, sizeof set);
+        return 1;
+    }
+    if (!strcmp(cmd, "saverseed")) {     /* saverseed R: the screensaver's next starts drawn from R (0: from the time) */
+        saver_seed = (uint32_t)strtoul(a, 0, 10);
+        return 1;
+    }
+    if (!strcmp(cmd, "saverinfo")) {     /* saverinfo: where the screensaver is (the shots' scripts) */
+        printf("  saverinfo on %u steps %d aim %d corners %u party %u at %d,%d way %d,%d now %u step_at %u\n",
+               (unsigned)saver.on, (int)saver.steps, (int)saver.aim, (unsigned)saver.corners, (unsigned)saver.party,
+               saver.x, saver.y, saver.dx, saver.dy, (unsigned)plat_ms(), (unsigned)saver.step_at);
         return 1;
     }
     if (!strcmp(cmd, "savermark")) {     /* savermark: where the logo is now (expect saver_dist: how far since) */
@@ -4345,15 +5263,30 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         saver_mark[1] = saver.y;
         return 1;
     }
-    if (!strcmp(cmd, "uicost")) {        /* uicost: the UI's frames since the last, awake and asleep: how many, their
-                                          * time each (the host's CPU), the pixels the saver's sent each */
+#ifndef PLAT_WEB
+    if (!strcmp(cmd, "framecost")) {     /* framecost: ANCHOR's frame, what it sent the screen alone since the last (its
+                                          * bands' parts aside: drawn with them) */
+        printf("  framecost: %u pixels in %u fills\n", (unsigned)af_px, (unsigned)af_fills);
+        af_px = af_fills = 0;
+        return 1;
+    }
+#endif
+    if (!strcmp(cmd, "uicost")) {        /* uicost: the UI's frames since the last, awake, asleep and a corner's: how
+                                          * many, their time each and the longest (the host's CPU), the pixels the
+                                          * saver's steps sent each, a corner's frames' pixels and blits */
+        static const char *const KN[3] = {"awake", "saver", "corner"};
         uint32_t k;
-        for (k = 0; k < 2u; k++)
-            printf("  uicost %s: %u frames in %u ms, %.1f us each%s", k ? "saver" : "awake", (unsigned)ui_cost.n[k],
+        for (k = 0; k < 3u; k++) {
+            printf("  uicost %s: %u frames in %u ms, %.1f us each, %.1f us the longest%s", KN[k], (unsigned)ui_cost.n[k],
                    (unsigned)ui_cost.ms[k], ui_cost.n[k] ? (double)ui_cost.ticks[k] / PLAT_TICKS_US / ui_cost.n[k] : 0.0,
-                   k ? "" : "\n");
-        printf(", %u steps drawn, %.0f pixels each\n", (unsigned)ui_cost.draws,
-               ui_cost.draws ? (double)ui_cost.px / ui_cost.draws : 0.0);
+                   (double)ui_cost.tmax[k] / PLAT_TICKS_US, k == 1u ? "" : "\n");
+            if (k == 1u)
+                printf(", %u steps drawn, %.0f pixels each\n", (unsigned)ui_cost.draws,
+                       ui_cost.draws ? (double)ui_cost.px / ui_cost.draws : 0.0);
+        }
+        printf("  uicost corner: %u frames drawn, %.0f pixels and %.1f blits each, %u pixels the most\n",
+               (unsigned)ui_cost.pframes, ui_cost.pframes ? (double)ui_cost.ppx / ui_cost.pframes : 0.0,
+               ui_cost.pframes ? (double)ui_cost.prun / ui_cost.pframes : 0.0, (unsigned)ui_cost.pmax);
         memset(&ui_cost, 0, sizeof ui_cost);
         return 1;
     }
@@ -4362,10 +5295,93 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         test_scene();
         return 1;
     }
+    if (!strcmp(cmd, "scnstore")) {      /* scnstore N NAME: the sound stored into slot N (1 .. 16) under NAME (_ a space;
+                                          * SC_LONG at most), as STORE and NAME IT do (scene_write) */
+        char t[SC_LONG + 1];
+        uint32_t i;
+        for (i = 0; i < SC_LONG && b[i]; i++)
+            t[i] = b[i] == '_' ? ' ' : b[i];
+        t[i] = 0;
+        scene_write((uint32_t)(atoi(a) - 1) % NSCENES, t);
+        return 1;
+    }
+    if (!strcmp(cmd, "dropnames")) {     /* dropnames: OBJ_NAMES none, the rest of the store as it is (3.0's store) */
+        plat_store_save(OBJ_NAMES, raw, 0);
+        return 1;
+    }
+    if (!strcmp(cmd, "frnm")) {          /* frnm: OBJ_NAMES written again as 3.0.1 wrote it (FRNM: the names' rest alone),
+                                          * from the scenes as the store has them; the rest of the store as it is */
+        uint32_t s, sum[NSCENES];
+        if (plat_store_load(OBJ_SCENES, raw, sizeof raw) != (int)SCN_BYTES)
+            return 1;
+        for (s = 0; s < NSCENES; s++)
+            sum[s] = rec_sum(raw + 8u + s * SC_REC, SC_REC);
+        for (s = 0; s < 4u; s++)
+            raw[s] = (uint8_t)(NMS_FRNM >> (8u * s));
+        for (s = 0; s < NSCENES; s++) {
+            uint8_t *o = raw + 4u + s * NMS_SCENE_FRNM;
+            o[0] = (uint8_t)sum[s], o[1] = (uint8_t)(sum[s] >> 8), o[2] = (uint8_t)(sum[s] >> 16), o[3] = (uint8_t)(sum[s] >> 24);
+            memcpy(o + 4, scn.s[s].name_more, SC_MORE);
+        }
+        plat_store_save(OBJ_NAMES, raw, NMS_BYTES_FRNM);
+        return 1;
+    }
+    if (!strcmp(cmd, "frsq")) {          /* frsq: the settings written again as 3.0.2 wrote them (FRSQ: to LOFI TAPE II's
+                                          * four), from the record as last saved */
+        settings_t o = set;
+        o.magic = SET_FRSQ;
+        plat_store_save(OBJ_SETTINGS, &o, FRSQ_BYTES);
+        return 1;
+    }
+    if (!strcmp(cmd, "frnn") || !strcmp(cmd, "frsr")) {   /* frnn: OBJ_NAMES, frsr: the settings, written again as
+                                          * 3.0.2-b5 wrote them (FRNN, FRSR: each AMOUNT in percent, x0.00 .. x1.00 as
+                                          * 0 % .. +100 %, past x1.00 +100 %), from the store as it is */
+        uint32_t s, k;
+        int nn = cmd[2] == 'n';
+        uint8_t *a;
+        if (nn ? plat_store_load(OBJ_NAMES, raw, sizeof raw) != (int)NMS_BYTES
+               : plat_store_load(OBJ_SETTINGS, raw, sizeof raw) != (int)sizeof(settings_t))
+            return 1;
+        for (s = 0; s < 4u; s++)
+            raw[s] = (uint8_t)((nn ? NMS_FRNN : SET_FRSR) >> (8u * s));
+        for (s = 0; s < (nn ? NSCENES : 1u); s++) {
+            a = nn ? raw + 4u + s * NMS_SCENE + 4u + SC_MORE : raw + offsetof(settings_t, lfo_amt);
+            for (k = 0; k < 12u; k++)
+                a[k] = (uint8_t)(a[k] > 100u ? 200u : 100u + a[k]);
+        }
+        plat_store_save(nn ? OBJ_NAMES : OBJ_SETTINGS, raw, nn ? NMS_BYTES : (uint32_t)sizeof(settings_t));
+        return 1;
+    }
+    if (!strcmp(cmd, "store30")) {       /* store30 N: slot N (1 .. 16) stored again as 3.0 stores it: the sound as it is
+                                          * now, the name's first sixteen, OBJ_NAMES left as it was */
+        uint32_t s = (uint32_t)(atoi(a) - 1) % NSCENES, i;
+        for (i = 0; i < NSOUND; i++)
+            scn.s[s].v[i] = kept_v(i);
+        scene_notes_take(&scn.s[s]);
+        scenes_store(0);
+        return 1;
+    }
 #ifndef PLAT_WEB
     if (!strcmp(cmd, "renderhash")) {    /* renderhash: every sample rendered since the start, hashed (tests/engine.txt:
                                           * the engine's output, bit for bit) */
         printf("  renderhash %016llx %llu frames\n", (unsigned long long)render_hash, (unsigned long long)render_frames);
+        return 1;
+    }
+    if (!strcmp(cmd, "pitch")) {         /* pitch HZ: the output's pitch near HZ measured from now (pz), 0: no more */
+        pz.near = atof(a);
+        pz.on = (uint8_t)(pz.near > 0.0);
+        pz.n = 0;
+        pz.hz = 0.0;
+        return 1;
+    }
+    if (!strcmp(cmd, "edges")) {        /* edges: the blocks' edges measured from now (eg; expect edgedb) */
+        eg.edge = eg.mid = 0.0;
+        eg.on = 1;
+        return 1;
+    }
+    if (!strcmp(cmd, "pitchref")) {      /* pitchref: the pitch measured so far kept, for pitchcents */
+        pz.ref = pz_pitch();
+        printf("  pitchref %.3f Hz\n", pz.ref);
         return 1;
     }
 #endif

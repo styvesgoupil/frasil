@@ -1,0 +1,59 @@
+# names.sh's second part (after names.txt): backups made from names.txt's (long.frasil), restored. moved.frasil: slot 13's
+# scene moved to slot 16 as a River moves it (its records copied, slot 13 empty, OBJ_NAMES passed through as it was): its
+# name whole there. for30.frasil: tools/backup_for_3_0.py's copy (OBJ_NAMES left out, as FRASIL 3.0 restores it): every
+# name its first sixteen, the rest of the scene the same.
+#   app/build/host/frasil_host app/tests/names_moved.txt OUTDIR   (OUTDIR: names.sh's, with the two backups in it)
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+wait 600
+testscene
+wait 100
+restore out:moved.frasil
+wait 50
+expect restore_rc 0
+tap SEL
+wait 30
+expect namesstored 1
+expect used12 0
+expect used15 1
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 16
+wait 30
+tap PLAY
+wait 100
+expect scene 15
+expect scnchar0 84
+expect scnchar16 86
+expect scnchar31 82
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 14
+wait 30
+tap PLAY
+wait 100
+expect scene 13
+expect scnchar18 79
+restore out:for30.frasil
+wait 50
+expect restore_rc 0
+tap SEL
+wait 30
+expect namesstored 0
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 13
+wait 30
+tap PLAY
+wait 100
+expect scene 12
+expect scnchar15 79
+expect scnchar16 0

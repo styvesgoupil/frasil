@@ -1,0 +1,237 @@
+# FRASIL in the host simulator: GLO > RECORD's K3, TUNE A4 (card #108): ./build.sh --host, then
+#   app/build/host/frasil_host app/tests/tune.txt app/build/host
+# The device's reference, not the scene's: A4 at 415 .. 466 Hz, a hertz a detent, 440 at first; every voice's pitch
+# moves by A4 / 440 (with TAPE SPEED), the notes and MIDI as they are. Kept in the settings' record's byte after
+# HEADER, in its padding (300 bytes still): TUNE A4 less 440, 0 as an earlier record reads it (440).
+# Each track alone, one note (HARMONY off), its pitch measured from the output (pitch HZ: the spectrum's peak within
+# 100 cents of HZ, to a twentieth of a cent) at 440, then held while TUNE A4 turns to 432: 12 log2(432 / 440) = -31.77
+# cents (expect pitchcents, x 10), its frequency then A4's 432 / 440 of what it was
+keysstay 1
+master 4096
+wait 600
+expect a4 440
+# the page: RECORD, K3 (no setting of the schema: past NPARAM)
+gopage 59
+wait 100
+expect page 59
+expect knob3 248
+shot tune-440.png
+# each track one note, its pitch alone: HARMONY off (the three), GLINT on its keys (no arpeggio), the cloud, the
+# warmth, the LFOs and PUMP out of it (an LFO on a filter moves the phase, the pitch measured with it)
+param 211 0
+param 215 0
+param 219 0
+param 123 0
+param 76 0
+param 3 0
+param 96 0
+param 104 0
+param 117 0
+param 66 0
+param 67 0
+param 68 0
+# -- DRONE: the choir alone, one harmonic, no detune, no motion (A3: 220 Hz)
+param 74 0
+param 75 0
+param 1 0
+param 2 0
+param 4 0
+param 5 0
+param 16 0
+param 18 0
+param 32 0
+param 153 127
+wait 300
+midi 90 39 64
+wait 1500
+expect voices 1
+pitch 220
+wait 3000
+expect pitchhz >21990
+expect pitchhz <22010
+pitchref
+turn K3 -8
+wait 300
+expect a4 432
+shot tune-432.png
+pitch 216
+wait 3000
+expect pitchcents >-321
+expect pitchcents <-315
+expect pitchhz >21590
+expect pitchhz <21610
+midi 80 39 00
+wait 2000
+turn K3 8
+wait 300
+expect a4 440
+# -- GLINT: BRIGHT 0 (FM's index 0: a sine), no PING, no VIBRATO, AUTO VIB 0, held at SUSTAIN's top, none in the cloud
+# nor in its delay (A4 an octave up, OCTAVE's: 880 Hz, its glint's own few cents apart)
+param 73 0
+param 75 100
+param 39 0
+param 50 0
+param 63 0
+param 196 0
+param 93 127
+param 43 0
+param 54 0
+wait 300
+midi 91 45 64
+wait 1500
+pitch 880
+wait 3000
+expect pitchhz >87000
+expect pitchhz <89000
+pitchref
+turn K3 -8
+wait 300
+expect a4 432
+pitch 864
+wait 3000
+expect pitchcents >-321
+expect pitchcents <-315
+midi 81 45 00
+wait 2000
+turn K3 8
+wait 300
+expect a4 440
+# -- BASS: its filter low (some 120 Hz), no RESONANCE, no DRIVE, none in the cloud (A2 an octave under, OCTAVE's:
+# 55 Hz)
+param 75 0
+param 74 100
+param 56 30
+param 64 0
+param 55 0
+param 195 0
+wait 300
+midi 92 2d 64
+wait 1500
+pitch 55
+wait 3000
+expect pitchhz >5495
+expect pitchhz <5505
+pitchref
+turn K3 -8
+wait 300
+expect a4 432
+pitch 54
+wait 3000
+expect pitchcents >-321
+expect pitchcents <-315
+expect pitchhz >5395
+expect pitchhz <5405
+midi 82 2d 00
+wait 2000
+# -- the knob: a hertz a detent, 415 .. 466; a quick turn across 432 or 440 stops there, the next detent goes on
+turn K3 1
+wait 100
+expect a4 433
+turn K3 -1
+wait 100
+expect a4 432
+turn K3 -20 5
+wait 100
+expect a4 415
+spin K3 -10
+wait 100
+expect a4 415
+spin K3 30
+wait 100
+expect a4 432
+spin K3 30
+wait 100
+expect a4 440
+spin K3 30
+wait 100
+expect a4 466
+spin K3 10
+wait 100
+expect a4 466
+shot tune-466.png
+spin K3 -30
+wait 100
+expect a4 440
+spin K3 -30
+wait 100
+expect a4 432
+# kept: a reboot keeps it (the byte -8), and the voices play at it then
+prefs
+expect a4byte -8
+reboot
+wait 600
+expect a4 432
+gopage 59
+wait 100
+expect knob3 248
+param 74 0
+param 75 0
+param 73 100
+midi 90 39 64
+wait 1500
+pitch 216
+wait 3000
+expect pitchhz >21590
+expect pitchhz <21610
+midi 80 39 00
+wait 2000
+# a backup has it: 432 in the backup, 440 now, the backup restored: 432 again
+backup out:tune-432.frasil
+turn K3 8
+wait 100
+expect a4 440
+restore out:tune-432.frasil
+wait 300
+expect a4 432
+tap SEL
+wait 100
+# the byte as a later FRASIL may write it: -25 (415) and +26 (466) read, past them 440
+a4byte -25
+reboot
+wait 600
+expect a4 415
+a4byte 26
+reboot
+wait 600
+expect a4 466
+a4byte 27
+reboot
+wait 600
+expect a4 440
+a4byte -26
+reboot
+wait 600
+expect a4 440
+# an earlier record (3.0.2's FRSQ, before the byte; 3.0's first builds' FRSO): 440
+a4byte -8
+reboot
+wait 600
+expect a4 432
+frsq
+reboot
+wait 600
+expect a4 440
+gopage 59
+wait 100
+turn K3 -8
+wait 100
+expect a4 432
+prefs
+expect a4byte -8
+oldfrso 1
+reboot
+wait 600
+expect a4 440
+# no settings at all (a new FM-1): 440
+gopage 59
+wait 100
+turn K3 -8
+wait 100
+expect a4 432
+prefs
+expect a4byte -8
+nosettings
+reboot
+wait 600
+expect a4 440
+expect a4byte 0

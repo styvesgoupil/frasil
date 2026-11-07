@@ -44,11 +44,17 @@ on the FM-1 takes the next 0.9.x (0.9.1, 0.9.2 ...); the first release is 1.0, t
    `tools/public_snapshot.sh` keeps what `tools/public_allowlist.txt` names (the firmware, its tests, docs and
    release tools) and nothing of the websites, the River's service or the apps. The release must be a full release,
    not a pre-release: the hub and GitHub's "latest" take full releases. The site is not published from here.
-6. Announce it on Discord, by hand, once the GitHub release is live, from the private repository (nothing posts by itself). First the dry run, which posts nothing: `python3 tools/discord_announce.py X.Y`. Read the message it
+   A release DELIVERed from the admin's RELEASES (`tools/runner/README.md`, RELEASES) already has its section in
+   `CHANGELOG.md` (its RELEASE NOTES): once this GitHub release exists, the runner sets its notes to that text (`gh
+   release edit`, outside office hours; it never makes the release, the tag or the snapshot) and then does step 6
+   itself. The release's sheet shows each one (site, GitHub, Discord).
+6. Announce it on Discord once the GitHub release is live, from the private repository: by hand only for a release not
+   DELIVERed from the admin (the runner announces those itself, once). First the dry run, which posts nothing: `python3 tools/discord_announce.py X.Y`. Read the message it
    builds from the `## X.Y` section of `CHANGELOG.md` (the bold leads of New and of Fixes and changes, the links)
    and the length checks. Then `python3 tools/discord_announce.py X.Y --post` sends it to #announcements, a copy
-   to the product's news channel (`--product`, default fm-1: #fm1-news), and publishes both to the servers following them. `--summary FILE` replaces the description with a Markdown
-   file you wrote; `--channel ID` skips the lookup. The bot's token is read from `~/.config/frasil/discord-bot.token`.
+   to the product's news channel (`--product`, default fm-1: #fm1-news; `none`: #announcements alone), and publishes both to the servers following them. `--summary FILE` replaces the description with a Markdown
+   file you wrote; `--channel ID` skips the lookup; `--state FILE` keeps each message so a second run never posts
+   again. The bot's token is read from `~/.config/frasil/discord-bot.token`.
 7. The first time only: ask for the listing (below).
 
 ## Getting listed (once)

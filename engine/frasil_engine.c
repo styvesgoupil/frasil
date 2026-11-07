@@ -10,6 +10,9 @@
 
 _Static_assert(sizeof(scene_t) == FRS_SCENE_BYTES && FRS_KEYS == FRS_NKEYS && ENG_LIVE == FRS_LIVE,
                "frasil_engine.h's sizes are the engine's");
+_Static_assert(offsetof(scene_t, name_more) == 590u && offsetof(scene_t, lfo_amt) == 606u &&
+                   offsetof(scene_t, swell) == FRS_SCENE_BYTES - 1u && P_L3_AMT4 + 1u - P_L1_AMT1 == SC_LFO_AMT,
+               "\"FRS}\": the layout README.md has (the stream's SWELL its last byte)");
 _Static_assert(sizeof(((frs_view_t *)0)->dnote) == sizeof dnote && sizeof(((frs_view_t *)0)->dq_snd) == sizeof dq.snd &&
                    FRS_DQ_STEPS == SC_DSEQ && FRS_DQ_NOTES == DQ_NOTES && FRS_DQ_TIE == DQ_TIE,
                "frs_view_t holds the drone's sequence");
@@ -767,6 +770,48 @@ void frs_cut(void)
     eng_cut();
 }
 
+/* CUT as the iPad's transport has it: every track stopped (as frs_track_play stops it), each keeping what it plays (the
+ * drones' chords, the arpeggios' notes, the bass's note, the sequences), then the sound emptied as frs_cut empties it;
+ * PLAY (frs_play: frs_play_all) or a track's own play brings each back. RESTORE's notes as they were (the transport
+ * keeps them now). Styves 2026-11-05: RESILIENCE, its tracks stopped, CUT, PLAY: the bass's sequence alone came back,
+ * frs_cut's RELEASE ALL had let the drone's chords and GLINT's arpeggio go with what the transport kept */
+static void arp_notes_back(arp_t *to, const arp_t *from)   /* (its notes as kept; its steps and the grid's from the CUT) */
+{
+    memcpy(to->held, from->held, sizeof to->held);
+    memcpy(to->in, from->in, sizeof to->in);
+    memcpy(to->prs, from->prs, sizeof to->prs);
+    to->ins = from->ins;
+    to->n = from->n;
+    to->vel = from->vel;
+    to->latch = from->latch;
+    to->paused = from->paused;
+    to->chg_ms = from->chg_ms;
+    to->hand_ms = from->hand_ms;
+    to->dirty = 1;
+}
+
+void frs_cut_stop(void)
+{
+    static scene_t r;
+    static arp_t a, b;
+    uint8_t rv = rst_valid;
+    uint32_t t;
+    count_stop();
+    eng_holds_release();
+    fingers_forget();
+    mq_r = mq_w;
+    for (t = 0; t < 3u; t++)
+        tr_stop(t);                      /* (a stopped one too: a note latched since, kept) */
+    a = arp;                             /* (their notes waiting: sound_off lets them go) */
+    b = barp;
+    memcpy(&r, &rst, sizeof r);
+    eng_cut();
+    arp_notes_back(&arp, &a);
+    arp_notes_back(&barp, &b);
+    memcpy(&rst, &r, sizeof rst);
+    rst_valid = rv;
+}
+
 void frs_render_i24(int32_t *lr, uint32_t n)
 {
     uint32_t i;
@@ -819,7 +864,8 @@ uint32_t frs_param_kind(uint32_t p)
         return FRS_P_NONE;
     if (p < NSOUND || p == P_TEMPO || p == P_BQ_ON || p == P_BQ_STEPS || p == P_BQ_TRANS || p == P_BQ_LEN ||
         p == P_BA_MODE || p == P_BA_RANGE || p == P_BA_CHANCE || p == P_BQ_GATE || p == P_BS_WEIGHT || p == P_BS_PUNCH ||
-        p == P_BS_BITE || p == P_BS_SPACE || p == P_GL_VIB_AUTO || (p >= P_DQ_ON && p <= P_DQ_TRANS))
+        p == P_BS_BITE || p == P_BS_SPACE || p == P_GL_VIB_AUTO || (p >= P_DQ_ON && p <= P_DQ_TRANS) ||
+        (p >= P_TP_FLUTTER && p <= P_TP_DROPOUT) || (p >= P_L1_AMT1 && p <= P_L3_AMT4) || p == P_SWELL)
         return FRS_P_SCENE;
     if (p == P_KEYS || p == P_CANAL || p == P_CH_GLINT || p == P_CH_BASS || p == P_LOAD || p == P_CLOCK ||
         (p >= P_KY_DR_HARM && p <= P_KY_BS_STACK) || p == P_ARP_SNAP)
@@ -836,7 +882,7 @@ uint32_t frs_param_kind(uint32_t p)
     if (p == P_SQ_CLEAR || p == P_SQ_NEW || p == P_SQ_UNDO || p == P_BQ_CLEAR || p == P_BQ_NEW || p == P_BQ_UNDO ||
         p == P_DQ_CLEAR || p == P_DQ_UNDO)
         return FRS_P_ACTION;
-    return FRS_P_MOMENT;                 /* (FREEZE, SWELL, KEYS, MORPH, RECORD, STEP, ARP II's LATCH) */
+    return FRS_P_MOMENT;                 /* (FREEZE, KEYS, MORPH, RECORD, STEP, ARP II's LATCH) */
 }
 
 uint32_t frs_param_get(uint32_t p) { return p < NPARAM ? st.v[p] : 0u; }
@@ -1362,12 +1408,18 @@ static int tr_keeps(void)
            (tr.stop[2] && (bass_on_seq() || (barp.n && st.v[P_BQ_ON] == SQT_ARP))) || (tr.stop[0] && drone_on_seq());
 }
 
+/* what the transport stopped kept, and nothing else playing */
+static int tr_only(void)
+{
+    return tr_keeps() && !(lit[0] | lit[1] | lit[2] | lit[3] || bass_note >= 0 || sq.run || bq.run || dq.run ||
+                           (arp.n && !arp.paused && arp_plays()) ||
+                           (barp.n && !barp.paused && st.v[P_BQ_ON] == SQT_ARP));
+}
+
 int frs_play(void)
 {
     int was = holding_any();             /* (the FM-1's: a second tap quick after it, RELEASE ALL: frs_release) */
-    if (tr_keeps() && !(lit[0] | lit[1] | lit[2] | lit[3] || bass_note >= 0 || sq.run || bq.run || dq.run ||
-                        (arp.n && !arp.paused && arp_plays()) ||
-                        (barp.n && !barp.paused && st.v[P_BQ_ON] == SQT_ARP))) {
+    if (tr_only()) {
         frs_play_all(1);                 /* what the transport stopped, nothing else playing: back as it was (not the
                                           * scene's notes over what it kept) */
         return was;
@@ -1438,6 +1490,11 @@ void frs_release_all(void)
     count_stop();
     eng_holds_release();                 /* (the fingers' notes let go first: RESTORE never has them) */
     fingers_forget();
+    if (tr_only()) {                     /* (RESTORE: what the transport stopped, back, frs_cut_stop's too) */
+        frs_play_all(1);
+        eng_say("RESTORED", "");
+        return;
+    }
     tr_reset();                          /* (what a stopped track kept: gone too) */
     eng_release_all(&taken_sc);          /* (RESTORE, nothing kept: the scene given last's notes) */
 }
@@ -1496,6 +1553,7 @@ void frs_scene_store(uint8_t *out, const uint8_t *from)
         memcpy(&sc, from, sizeof sc);
     else
         new_shard(&sc);
+    anchor_settle();                     /* (ANCHOR's way back under way: stored where it goes) */
     for (i = 0; i < NSOUND; i++)
         sc.v[i] = kept_v(i);
     notes_in();                          /* (a stopped track's notes as it would play them) */
@@ -1504,6 +1562,36 @@ void frs_scene_store(uint8_t *out, const uint8_t *from)
     sound_mark();
     taken_sc = sc;
     memcpy(out, &sc, sizeof sc);
+}
+
+/* ---------------------------------------------------------------- ANCHOR --- */
+_Static_assert(ANCHOR_MS == FRS_ANCHOR_MS, "the FM-1's long press is the API's");
+void frs_anchor_set(void) { anchor_set(); }
+int frs_anchor_back(uint32_t ms) { return anchor_back(ms); }
+void frs_anchor_drop(void) { anc.on = 0; }
+int frs_anchor_state(float *k) { return anchor_state(k); }
+uint32_t frs_anchor_get(uint8_t *out)
+{
+    if (!anc.on)
+        return 0;
+    memcpy(out, &anc.sc, sizeof anc.sc);
+    return (uint32_t)sizeof anc.sc;
+}
+void frs_anchor_put(const uint8_t *scene)
+{
+    anchor_settle();
+    memcpy(&anc.sc, scene, sizeof anc.sc);
+    anc.on = 1;
+}
+uint32_t frs_param_heard(uint32_t p)     /* (the FM-1's app.c vh_n: morph_off on its value, rounded, in its range) */
+{
+    float v;
+    if (p >= NPARAM)
+        return 0u;
+    if (!mo.on || !mo.anc || p >= NMORPH)
+        return st.v[p];
+    v = (float)st.v[p] + morph_off[p] + 0.5f;
+    return v < 0.0f ? 0u : v > (float)PD[p].max ? PD[p].max : (uint32_t)v;
 }
 
 void frs_scene_edited(const uint8_t *played, uint8_t *out)
@@ -1536,10 +1624,15 @@ int frs_scene_over(uint8_t *scene, uint32_t n)
     if (n == FRS_SCENE_BYTES)
         return 0;
     memcpy(&sc, scene, sizeof sc);       /* (the caller's bytes: no alignment of its own needed) */
-    if (scene_over(&sc, n))              /* (core.c: FRSy's 324 .. FRSt's 297) */
+    if (scene_over(&sc, n))              /* (core.c: FRS{'s 590 .. FRSt's 297) */
         return -1;
     memcpy(scene, &sc, sizeof sc);
     return 0;
+}
+
+void frs_scene_amt_over(uint8_t *scene)
+{
+    amt_pct_over(scene + offsetof(scene_t, lfo_amt));   /* (core.c: the FM-1's FRNN and FRSR too) */
 }
 
 int frs_scene_factory(uint32_t i, uint8_t *out)

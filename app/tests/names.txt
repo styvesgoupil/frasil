@@ -1,0 +1,495 @@
+# 3.0.1: a scene's name 32 characters on the FM-1. Its first sixteen in the scene as 3.0 keeps it (OBJ_SCENES, the shard's
+# FRSz), the rest apart (OBJ_NAMES), known by the sum of the scene's record it was written with. A 3.0 store and its
+# backups load as they are (names-3.0.frasil: a backup 3.0.1's firmware made before this, three slots named on NAME IT); a
+# name past sixteen survives a reboot, a backup and its restore; a slot an earlier FRASIL stored again, or a restore of a
+# backup without OBJ_NAMES, has its first sixteen alone, never another's rest. NAME IT: 32 places for a scene, 16 for a
+# preset (the engine's). On SOUND, a name that does not fit rolls in its room: still, along, still, back; in LOAD's list
+# (SCENES) too, the one K1 points at, in the list's FONT_B, never smaller (3.0.2-b3). Shots:
+# OUTDIR/names-*.png. (names.sh: then a backup the River moved a scene in, the same without OBJ_NAMES.)
+#   app/build/host/frasil_host app/tests/names.txt OUTDIR
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+wait 600
+testscene
+wait 100
+# never saved: nothing in OBJ_NAMES, and storing names of sixteen at most writes none (the flash as 3.0 wrote it)
+expect namesstored 0
+scnstore 12 SIXTEEN_CHARS_16
+wait 50
+expect scene 11
+expect scnchar15 54
+expect scnchar16 0
+expect namesstored 0
+# a 3.0 store's backup restored: every name as it was, nothing past it, OBJ_NAMES none
+restore app/tests/names-3.0.frasil
+wait 50
+expect restore_rc 0
+tap SEL
+wait 30
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 9
+wait 30
+tap PLAY
+wait 100
+expect scene 8
+expect scnchar0 78
+expect scnchar15 50
+expect scnchar16 0
+expect namesstored 0
+reboot
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+wait 600
+# (3.0's settings FRSP and drone sequences FRDQ: made over at load, the store still in them: LOFI TAPE II's)
+expect storeold 3
+expect namesstored 0
+expect used8 1
+expect used9 1
+expect used10 1
+expect used11 0
+# (the sound from those settings: LOFI TAPE II as the tape was, 64, 64, 0, 0, not its defaults)
+expect p227 64
+expect p228 64
+expect p229 0
+expect p230 0
+# a name of 32 (slot 13), one of 20 (slot 14): whole after a reboot
+scnstore 13 THE_LONG_NIGHT_OVER_FROZEN_RIVER
+wait 50
+expect scene 12
+expect scnchar0 84
+expect scnchar15 79
+expect scnchar16 86
+expect scnchar31 82
+expect namesstored 1
+scnstore 14 NORTHERN_LIGHTS_TWO
+wait 50
+expect scnchar18 79
+expect scnchar19 0
+# (past 32: cut there)
+scnstore 15 ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+wait 50
+expect scnchar31 53
+reboot
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+wait 600
+expect namesstored 1
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 13
+wait 30
+tap PLAY
+wait 100
+expect scene 12
+expect scnchar16 86
+expect scnchar31 82
+# backed up, then a 3.0 store's backup restored (its names alone), then this one again: the long names back
+prefs
+backup out:long.frasil
+restore app/tests/names-3.0.frasil
+wait 50
+expect restore_rc 0
+tap SEL
+wait 30
+expect namesstored 0
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 13
+wait 30
+tap PLAY
+wait 100
+expect scene 12
+expect used12 0
+restore out:long.frasil
+wait 50
+expect restore_rc 0
+tap SEL
+wait 30
+expect namesstored 1
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 13
+wait 30
+tap PLAY
+wait 100
+expect scene 12
+expect scnchar16 86
+expect scnchar31 82
+# slot 13 stored again as 3.0 stores it (its sound changed, OBJ_NAMES as it was): at the next boot its first sixteen
+# alone; slot 14's whole (its record the same)
+setp 0 99
+store30 13
+reboot
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+wait 600
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 13
+wait 30
+tap PLAY
+wait 100
+expect scene 12
+expect scnchar15 79
+expect scnchar16 0
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 14
+wait 30
+tap PLAY
+wait 100
+expect scene 13
+expect scnchar18 79
+# OBJ_NAMES gone (a store an earlier FRASIL left): every name its first sixteen
+dropnames
+reboot
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+wait 600
+expect namesstored 0
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 14
+wait 30
+tap PLAY
+wait 100
+expect scene 13
+expect scnchar14 83
+expect scnchar15 32
+expect scnchar16 0
+# NAME IT after STORE: 32 places, two rows; the cursor to the last; a letter there stored past the sixteenth
+scnstore 14 NORTHERN_LIGHTS_TWO
+wait 50
+expect scnchar18 79
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 14
+wait 30
+press SAVE
+tap REC
+release SAVE
+wait 50
+expect naming 1
+expect namelen 32
+shot names-edit.png
+turn K1 40
+wait 30
+expect namecur 31
+turn K4 26
+wait 30
+shot names-edit-end.png
+tap SEL
+wait 50
+expect naming 0
+expect scnchar18 79
+expect scnchar19 32
+expect scnchar31 90
+shot names-scenes.png
+# a preset's name: sixteen places (the engine's "FRp" keeps sixteen)
+gopage 0
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+turn K1 1
+wait 30
+expect svwhat 1
+tap SEL
+wait 30
+expect naming 1
+expect nameflow 1
+expect namelen 16
+shot names-preset.png
+turn K1 40
+wait 30
+expect namecur 15
+tap FX
+wait 30
+tap FX
+wait 30
+tap FX
+wait 30
+# SOUND: a name fit_text draws whole, drawn as before, still (SLOW ICE-MELT 16, beside CHORD . DRONE: in FONT_XS); one it
+# would cut, rolling: NORTHERN LIGHTS2, whose 2 3.0 lost there; a long one
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 10
+wait 30
+tap PLAY
+wait 100
+gopage 0
+wait 1500
+expect page 0
+expect scene 9
+expect rolling 0
+shot names-head-16.png
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 9
+wait 30
+tap PLAY
+wait 100
+gopage 0
+wait 1500
+expect scene 8
+expect rolling 1
+expect rolldist >0
+expect rolldist <60
+shot names-head-16b.png
+gopage 0
+wait 30
+scnstore 13 THE_LONG_NIGHT_OVER_FROZEN_RIVER
+wait 100
+expect scene 12
+wait 1400
+expect rolling 1
+expect rolloff 0
+shot names-head-0.png
+wait 1000
+expect rolloff 0
+expect rolldraws 0
+wait 1000
+expect rolloff >5
+expect rolloff <20
+expect rolldraws >10
+shot names-head-1.png
+wait 8000
+shot names-head-2.png
+wait 4000
+expect rolling 1
+uicost
+expect rolldraws >100
+expect rollpx >10000
+# LOAD (SAVE, K1 to LOAD, SEL: SCENES, K1 on the scene loaded): a long name keeps the list's FONT_B, as a short one does
+# (until 3.0.2-b2: FONT_S, then FONT_XS, cut); the one K1 points at rolls in its room as SOUND's does (still, along,
+# still, back, the same pace), its window alone drawn between the list's frames; the others show their start, their end
+# faded into the row. A name that fits stays still
+tap SAVE
+wait 50
+turn K1 -1
+wait 50
+tap SEL
+wait 100
+expect page 43
+expect pick 12
+expect lrolling 1
+expect lrollfont 1
+expect lrolldist >60
+expect lrolloff 0
+shot names-load-0.png
+wait 1000
+expect lrolloff 0
+expect lrolldraws 0
+wait 1500
+expect lrolloff >10
+expect lrolloff <30
+expect lrolldraws >10
+shot names-load-1.png
+wait 3000
+expect lrolloff >60
+shot names-load-2.png
+expect lrollpx >0
+wait 1400
+expect lrolling 1
+expect lrollw <190
+expect lrollpx <60000
+# NORTHERN LIGHTS TWO, the next: rolls from its start; SIXTEEN CHARS 16 fits: still
+turn K1 1
+wait 100
+expect pick 13
+expect lrolling 1
+expect lrolloff 0
+shot names-load-3.png
+turn K1 -2
+wait 100
+expect pick 11
+expect lrolling 0
+shot names-load-4.png
+tap FX
+wait 50
+# 3.1 (FRNO): with each scene in OBJ_NAMES, its LFOs' twelve AMOUNTs and SWELL (#44, #67). A name of 32, two AMOUNTs
+# and SWELL stored into slot 16: after a reboot the settings have them (the sound as last saved), and the slot loads
+# them; a backup, a 3.0 store's restored over it, then the backup again: back. OBJ_NAMES as 3.0.1 wrote it (FRNM): the
+# names whole, the AMOUNTs x1.00, SWELL 0, the store said old (a backup saves it first). The settings as 3.0.2 wrote
+# them (FRSQ): LOFI TAPE II's kept, the AMOUNTs x1.00, SWELL 0. OBJ_NAMES and the settings as 3.0.2-b5 wrote them
+# (FRNN, FRSR: the AMOUNTs in percent): each AMOUNT its size as a multiplier, SWELL kept
+setp 98 1
+setp 231 30
+setp 238 150
+setp 165 77
+setp 227 40
+scnstore 16 THIRTY_TWO_CHARACTERS_AND_SWELL!
+wait 50
+expect scene 15
+expect scnchar16 67
+expect scnchar31 33
+expect scnamt0 30
+expect scnamt7 150
+expect scnamt11 100
+expect scnswell 77
+expect namesstored 1
+expect dirty 0
+reboot
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+wait 600
+expect storeold 0
+expect p231 30
+expect p238 150
+expect p165 77
+setp 231 100
+setp 238 100
+setp 165 0
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 16
+wait 30
+tap PLAY
+wait 100
+expect scene 15
+expect scnchar31 33
+expect p231 30
+expect p238 150
+expect p239 100
+expect p165 77
+expect dirty 0
+prefs
+backup out:amounts.frasil
+restore app/tests/names-3.0.frasil
+wait 50
+expect restore_rc 0
+tap SEL
+wait 30
+expect namesstored 0
+restore out:amounts.frasil
+wait 50
+expect restore_rc 0
+tap SEL
+wait 30
+expect namesstored 1
+setp 231 100
+setp 165 0
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 16
+wait 30
+tap PLAY
+wait 100
+expect scene 15
+expect scnchar16 67
+expect scnchar31 33
+expect p231 30
+expect p238 150
+expect p165 77
+# OBJ_NAMES in 3.0.1's layout (FRNM): the names' rest read, the AMOUNTs and SWELL none
+frnm
+reboot
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+wait 600
+expect storeold 1
+expect namesstored 1
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 16
+wait 30
+tap PLAY
+wait 100
+expect scene 15
+expect scnchar16 67
+expect scnchar31 33
+expect scnamt0 100
+expect scnamt7 100
+expect scnswell 0
+expect p231 100
+expect p238 100
+expect p165 0
+# the settings in 3.0.2's layout (FRSQ): LOFI TAPE II's FLUTTER RATE kept, the AMOUNTs +100 %, SWELL 0
+setp 231 30
+setp 165 77
+scnstore 16 THIRTY_TWO_CHARACTERS_AND_SWELL!
+wait 50
+expect storeold 0
+expect scnamt0 30
+frsq
+reboot
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+wait 600
+expect storeold 2
+expect p227 40
+expect p231 100
+expect p165 0
+# OBJ_NAMES and the settings as 3.0.2-b5 wrote them (FRNN, FRSR: the AMOUNTs in percent, written here as 130, 175,
+# 200): x0.30 and x0.75 back as they were, x3.00 as x1.00 (+100 %, the most b5 had), SWELL kept; the store said old
+setp 231 30
+setp 238 75
+setp 239 150
+setp 165 77
+scnstore 16 THIRTY_TWO_CHARACTERS_AND_SWELL!
+wait 50
+prefs
+expect storeold 0
+expect scnamt8 150
+frnn
+frsr
+reboot
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+wait 600
+expect storeold 3
+expect namesstored 1
+expect p231 30
+expect p238 75
+expect p239 100
+expect p165 77
+expect scnamt0 30
+expect scnamt7 75
+expect scnamt8 100
+expect scnswell 77

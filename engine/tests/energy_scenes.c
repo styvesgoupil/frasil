@@ -2,8 +2,9 @@
  * Copyright (C) 2026 Styves Goupil */
 /* ENERGY's test scenes (engine/tools/test.sh): factory scene 0 with the drones alone (GLINT and the bass on KEYS, nothing
  * latched on them, no SPARK, the drone's sequence off), and the same with LFO 1 fast and deep on the drone's FILTER (what
- * ENERGY doesn't count: it must read as calm as the other).
- *   energy_scenes OUT_DIR: OUT_DIR/drones.frscene, OUT_DIR/drones-lfo.frscene */
+ * ENERGY doesn't count: it must read as calm as the other); factory scene 0 as it is, and with GLINT's and the bass's
+ * ATTACK at their slowest (a strike that swells in counts next to nothing).
+ *   energy_scenes OUT_DIR: OUT_DIR/drones.frscene, OUT_DIR/drones-lfo.frscene, OUT_DIR/sharp.frscene, OUT_DIR/soft.frscene */
 #include <stdio.h>
 #include "../frasil_engine.h"
 #include "../frasil_params.h"
@@ -40,5 +41,13 @@ int main(int argc, char **argv)
     frs_param_set(P_L1_RATE, 60);          /* (free: some 6 Hz) */
     frs_param_set(P_L1_DEPTH, 127);
     frs_param_set(P_L1_T1, 9);             /* (the drone's FILTER) */
-    return put(argv[1], "drones-lfo.frscene");
+    if (put(argv[1], "drones-lfo.frscene"))
+        return 1;
+    frs_scene_factory(0, s);               /* factory scene 0 as it is (GLINT's and the bass's strikes sharp), then the */
+    frs_scene_take(s);                     /* same with GLINT's and the bass's ATTACK at their slowest: the same notes, */
+    if (put(argv[1], "sharp.frscene"))     /* swelling in (it must read far calmer) */
+        return 1;
+    frs_param_set(P_GL_ATTACK, 127);
+    frs_param_set(P_BS_ATTACK, 127);
+    return put(argv[1], "soft.frscene");
 }

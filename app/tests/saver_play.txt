@@ -1,7 +1,8 @@
 # The screensaver changes nothing that plays: a drone latched, GLINT's arpeggio latched, the drone's sequence recording
 # LIVE (a take under way, a chord in it), MIDI notes and a MIDI clock coming in, all of it left for minutes untouched
-# with SCREENSAVER ON, the screen asleep. saver.sh runs it a second time with it OFF (the lines "setp 226 1" and "expect
-# saver 1" made 0): the renders (renderhash, every sample) and the MIDI sent must be the same, bit for bit.
+# with SCREENSAVER ON, the screen asleep (its first corner celebrated meanwhile). saver.sh runs it a second time with
+# it OFF (the lines "setp 226 1", "expect saver 1" and "expect saver_corners 1" made 0): the renders (renderhash, every
+# sample) and the MIDI sent must be the same, bit for bit.
 #   app/build/host/frasil_host app/tests/saver_play.txt OUTDIR
 master 3000
 wait 600
@@ -48,5 +49,6 @@ wait 3000
 midi 80 45 0
 wait 60000
 expect saver 1
+expect saver_corners 1
 expect held >0
 renderhash

@@ -152,8 +152,8 @@ expect page 1
 tap ARP
 wait 30
 expect page 57
-expect knob1 227
-expect knob2 227
+expect knob1 243
+expect knob2 243
 expect arpled 3
 tap ARP
 wait 30
@@ -189,9 +189,9 @@ turn K1 -1
 wait 30
 expect p123 0
 expect page 13
-expect knob2 227
-expect knob3 227
-expect knob4 227
+expect knob2 243
+expect knob3 243
+expect knob4 243
 tap ARP
 wait 30
 expect page 13
@@ -202,7 +202,7 @@ expect p45 0
 tap SEQ
 wait 30
 expect page 14
-expect knob2 227
+expect knob2 243
 tap SEQ
 wait 30
 expect page 14
@@ -225,7 +225,7 @@ expect page 16
 expect knob1 48
 expect knob2 112
 expect knob3 171
-expect knob4 227
+expect knob4 243
 tap SEQ
 wait 30
 expect page 14
@@ -289,11 +289,11 @@ expect page 44
 turn K1 -1
 wait 30
 expect p177 0
-expect knob2 227
+expect knob2 243
 tap ARP
 wait 30
 expect page 48
-expect knob2 227
+expect knob2 243
 turn K1 1
 wait 30
 expect p177 1
@@ -331,7 +331,7 @@ tap SEQ
 wait 30
 expect page 54
 expect p197 0
-expect knob2 227
+expect knob2 243
 tap SEQ
 wait 30
 expect page 54
@@ -354,7 +354,7 @@ expect page 56
 expect knob1 201
 expect knob2 202
 expect knob3 208
-expect knob4 227
+expect knob4 243
 # NOTES: a step REST, the keys held (dseq_held), TIE; turned back they are kept
 tap SEQ
 tap SEQ
@@ -1468,7 +1468,11 @@ wait 30
 tap PLAY
 wait 200
 expect scene 16
-# NEW SHARD: KEYS back to their defaults
+# NEW SHARD: KEYS back to their defaults; LOFI TAPE II at its (3.1's: TAPE SPEED x1.00, TONE +10, NOISE, DROPOUT 0)
+expect p227 64
+expect p228 74
+expect p229 0
+expect p230 0
 expect p211 1
 expect p212 1
 expect p213 1
@@ -2761,7 +2765,7 @@ expect p175 2
 expect knob1 176
 expect knob2 174
 expect knob3 190
-expect knob4 227
+expect knob4 243
 tap REC
 wait 30
 expect p175 1
@@ -2782,7 +2786,7 @@ expect p163 2
 expect knob1 110
 expect knob2 46
 expect knob3 171
-expect knob4 227
+expect knob4 243
 tap REC
 wait 30
 expect knob1 160
@@ -3334,3 +3338,118 @@ setp 166 0
 gopage 0
 wait 100
 expect stacktag 0
+# 3.1: an AMOUNT for each LFO TARGET (#44), a multiplier. LFO held and K2 on DRONE TONE: TIMBRE onto LFO 1's first free
+# TARGET, at x1.00; SEL held and K2: that TARGET's AMOUNT, the header LFO 1 AMOUNT and its value large, a bar from its
+# middle under them, the scene changed; SEL let go: no HARMONY page. A setting on no LFO: NO LFO. On LFO 1 TARGETS, K1 ..
+# K4 their own slots'; an empty one: NO TARGET; a TARGET not at x1.00 shows its AMOUNT under it. Routed again: x1.00
+setp 98 0
+setp 99 0
+setp 100 0
+setp 101 0
+setp 106 0
+setp 107 0
+setp 108 0
+setp 109 0
+setp 119 0
+setp 120 0
+setp 121 0
+setp 122 0
+setp 231 120
+gopage 1
+wait 30
+press LFO
+turn K2 1
+release LFO
+wait 30
+expect p98 1
+expect p231 100
+scnstore 16 AMOUNTS
+wait 1400
+expect dirty 0
+press SEL
+spin K2 -5
+wait 30
+expect p231 95
+expect sayamt 1
+said LFO 1 AMOUNT 0.95
+wait 100
+spin K2 -60
+wait 30
+expect p231 35
+said LFO 1 AMOUNT 0.35
+expect dirty 1
+shot amount-header.png
+release SEL
+wait 30
+expect page 1
+expect p31 >0
+press SEL
+spin K1 1
+wait 30
+said NO LFO
+expect sayamt 0
+release SEL
+wait 30
+expect page 1
+gopage 23
+wait 1400
+shot amount-targets.png
+press SEL
+spin K1 90
+wait 30
+expect p231 125
+said LFO 1 AMOUNT 2.00
+wait 100
+spin K2 1
+wait 30
+said NO TARGET
+wait 100
+spin K1 -1
+wait 30
+expect sayamt 1
+shot amount-targets-turning.png
+release SEL
+wait 30
+expect page 23
+# LFO held, TIMBRE off its LFO and back on: x1.00 again
+gopage 1
+wait 30
+press LFO
+turn K2 -1
+wait 30
+expect p98 0
+turn K2 1
+wait 30
+release LFO
+wait 30
+expect p98 1
+expect p231 100
+# SWELL (#67): GENERATIVE FX's K1 is the scene's (the dirty dot, kept by STORE); ENV held and CC 11 stay of the moment
+scnstore 16 AMOUNTS
+wait 1400
+expect dirty 0
+gopage 29
+wait 30
+press ENV
+wait 900
+release ENV
+wait 30
+expect dirty 0
+midi B0 0B 64
+wait 100
+midi B0 0B 00
+wait 30
+expect dirty 0
+turn K1 20
+wait 30
+expect p165 20
+expect dirty 1
+scnstore 16 AMOUNTS
+wait 50
+expect scnswell 20
+expect dirty 0
+turn K1 -20
+wait 30
+expect dirty 1
+gopage 0
+wait 30

@@ -29,7 +29,14 @@ extern "C" {
 #endif
 
 #define FST_VERSION 1u
-#define FST_SCENE_LAYOUT "FRSz"          /* the scenes in it (the River's name): the engine's FRS_SCENE_BYTES */
+#define FST_SCENE_LAYOUT "FRS}"          /* the scenes in it (the River's name): the engine's FRS_SCENE_BYTES. "FRS|"
+                                          * (3.0.2-b5's test builds, never released: their AMOUNTs, in the scenes, the
+                                          * state and the moves, in percent) is refused. The older
+                                          * ones read too, their scenes made over as they are played (frasil_stream.c
+                                          * OLD_LAYOUT: "FRS{" 590, 3.0.2's, before the name's rest, the LFOs' AMOUNTs and
+                                          * SWELL; "FRSz" 586, 3.0's, before LOFI TAPE II too: frs_scene_over, and SWELL as
+                                          * it is when one is played, as their engines left it); the stream itself is not
+                                          * changed (its CRC stays) */
 #define FST_BUDGET 2048u                 /* what a block may ask of a replay (fst_read's walk): an event 1, a scene, PANIC,
                                           * CUT or a state 16, an opening 512; a take can't reach it, a damaged or made-up file is refused */
 #define FST_DENS 64u                     /* DENS's bytes */
@@ -40,12 +47,17 @@ extern "C" {
 /* the ops (stable numbers). Top bits: 00 no args, 01 two, 10 four, 11 a length byte, then that many */
 enum {
     FST_CUT = 0x01, FST_PLAY = 0x02, FST_PANIC = 0x03,
+    FST_CUT_STOP = 0x04,                 /* frs_cut_stop (the iPad's CUT since 2026-11-05): written just before an FST_CUT,
+                                          * which a reader that knows it skips (one that doesn't skips this, plays that) */
     FST_PARAM = 0x40, FST_HOLD_OFF = 0x41, FST_CLEAR = 0x42, FST_TRACK_PLAY = 0x43, FST_PLAY_ALL = 0x44, FST_KEY_UP = 0x45,
     FST_SCENE = 0x46, FST_SCENE_NOW = 0x47,   /* (a u16 index into SCNS: frs_scene_go, frs_scene_take) */
     FST_LATCH = 0x80, FST_HOLD = 0x81, FST_KEY_DOWN = 0x82,
     FST_MIDI = 0x83,                     /* (status, d1, d2, the milliseconds ahead of its stamp it is taken) */
     FST_STORE = 0x84,                    /* (a u16 index into SCNS, 0, 0: frs_scene_store, into nothing kept) */
     FST_RECORDING = 0x85,                /* (COUNT-IN, OVERDUB, a take's ticks, 0: forced off in a replay) */
+    FST_ANCHOR_DROP = 0x20,              /* frs_anchor_drop */
+    FST_ANCHOR = 0x60,                   /* (a u16 index into SCNS: the anchor set as it was, frs_anchor_put) */
+    FST_ANCHOR_BACK = 0x61,              /* (a u16: the glide's ms, 0 at once: frs_anchor_back) */
     FST_DSTEP = 0xC0,                    /* (the step, its notes: frs_dseq_step) */
     FST_STATE = 0xC1,                    /* (frs_state_load's bytes) */
     FST_OPEN = 0xC2,                     /* (the engine opened again: a u16 index into SCNS, tracks, rate u32, state's length,
@@ -96,6 +108,8 @@ typedef struct {
     int64_t created;
     uint16_t nparam;
     uint8_t tracks, flags;
+    uint16_t sbytes;                     /* a scene's bytes in the file: FRS_SCENE_BYTES, or an older layout's (590 "FRS{",
+                                          * 586 "FRSz") */
     char engine[9], layout[5];
     const uint8_t *scene, *state, *moves, *dens, *scns, *evts;
     uint32_t state_n, moves_n, nscns, evts_n;
@@ -120,9 +134,11 @@ typedef struct {
 typedef struct {
     fst_file f;
     uint32_t at, t, missed;              /* the place in EVTS, the last event's stamp, ops not known */
+    uint8_t cut_stop;                    /* the last event applied an FST_CUT_STOP: the FST_CUT after it skipped */
     int have;                            /* next, decoded and waiting */
     fst_dec next;
     uint8_t scratch[FRS_SCENE_BYTES];
+    uint8_t conv[FRS_SCENE_BYTES];       /* a scene of an old layout, made over (scene_at's) */
 } fst_player;
 void fst_begin(fst_player *p, const fst_file *f);
 /* the next event stamped at or before now, 1, or 0 none yet. Ops not known are skipped, counted */

@@ -362,7 +362,8 @@ turn K4 -1
 wait 30
 expect freeze 0
 tap HOME
-# octave
+# octave. OCT- and OCT+ together: ANCHOR (anchor.txt), no octave step (the first one's undone, either first); again,
+# held, BACK
 tap OCT-
 wait 30
 expect octave -2
@@ -371,6 +372,18 @@ press OCT+
 wait 30
 release OCT-
 release OCT+
+expect octave -2
+expect anchor 1
+press OCT+
+press OCT-
+wait 450
+release OCT+
+release OCT-
+wait 30
+expect anchor 0
+expect octave -2
+tap OCT+
+wait 30
 expect octave -1
 # held notes instead of latched: KEYS (HOME's second), K3 LATCH, OFF on a second detent the same way (the first: TURN AGAIN)
 gopage 58
@@ -2482,7 +2495,8 @@ wait 30
 expect scene 5
 # STORE names the scene: its name on the screen at once (SAVE, still down from STORE, keeps nothing); OCT- and
 # OCT+ move the cursor, K4 its letter, K3 its digit; SEL (OK) stores it, FX leaves it as stored. Meanwhile its
-# answers lit, SEL and FX, SAVE and PLAY dark. The cursor stops at the sixteenth place (a space in every proposed name)
+# answers lit, SEL and FX, SAVE and PLAY dark. The cursor goes past the sixteenth place (3.0.1: a scene's name has 32)
+# and stops at the thirty-second, K1 moving it too (a space in every proposed name)
 wait 80
 gopage 43
 wait 30
@@ -2536,15 +2550,22 @@ tap OCT+
 wait 20
 tap OCT+
 wait 20
-expect namecur 15
+expect namecur 16
+expect namelen 32
+turn K1 40
+wait 30
+expect namecur 31
+tap OCT+
+wait 20
+expect namecur 31
 turn K4 1
 wait 30
 expect scene 12
-expect scnchar15 0
+expect scnchar31 0
 tap SEL
 wait 50
 expect naming 0
-expect scnchar15 65
+expect scnchar31 65
 press SAVE
 tap REC
 release SAVE
@@ -2587,7 +2608,8 @@ wait 30
 tap FX
 wait 50
 expect naming 0
-expect scnchar15 65
+expect scnchar31 65
+expect scnchar16 32
 expect page 43
 # 1.1's first scenes (FRSg, names of ten) made over at power-on into names of sixteen: a name of all ten kept whole,
 # nothing after it; the arpeggio's and the sequence's notes as kept (they had SEQ: GLINT's OCTAVE not taken off)
@@ -4019,10 +4041,11 @@ wait 850
 release REC
 wait 30
 expect metro 1
-expect size_scene 586
+expect size_scene 619
 expect size_scenes 3672
 expect size_bseqs 1524
-expect size_settings 280
+expect size_settings 300
+expect size_names 532
 expect at_scene 161
 # a page button held and SELECT turned: that button's pages, a detent each, as its taps go, round (from another
 # button's page: its first; turned back, its last); KEYS (p166) stays. Let go: nothing more, no tap (the page stays)
