@@ -199,8 +199,11 @@ static struct {
                                           * from TEMPO; wraps at 9600 (GLINT's every step size divides it) */
     uint32_t wraps;                      /* how often, since its top (the bass's 8 and 16 BARS do not divide it) */
     uint32_t last_ms, clk_new;           /* the last run; MIDI clocks come in since it */
-    uint32_t clk, clk_at, clk_dt;        /* MIDI clocks since the last step; when the last came; ms between */
-    float clk_ms;                        /* ms between clocks, smoothed finely (the tempo, for the delay) */
+    uint32_t clk, clk_at;                /* MIDI clocks since the last step; when the last came */
+    float clk_ms;                        /* ms between clocks: the tempo as followed (clock_in; the delay's, PUMP's) */
+    float clk_due;                       /* when the next is due, ms after the last (clock_in) */
+    uint32_t clk_n, clk_beat;            /* the clocks since this clock began (clock_in); when the beat measured began */
+    int32_t clk_far;                     /* that beat's last: far over the tempo (1), far under (-1), else 0 */
 } grid;
 
 /* LOFI TAPE II's TAPE SPEED as it plays (tape_run): the octaves it moves (params.c tape_oct), gliding to its setting's as
@@ -216,6 +219,81 @@ static int grid_clocked(uint32_t now) { return now - grid.clk_at < 500u && grid.
 static float grid_ms_tick(uint32_t now)
 {
     return grid_clocked(now) ? grid.clk_ms : 2500.0f / ((float)(st.v[P_TEMPO] + 30u) * tape_tk);
+}
+
+/* a MIDI clock come in, now: its tempo followed (grid.clk_ms). A clock's time is when the brain reads it: on the FM-1
+ * between two frames of its screen, a few together and up to a frame's drawing late; in a browser or on the iPad, at an
+ * audio block. Each clock's own gap is too uneven to take (card #123: the tempo off by up to 2 %, GLINT's delay moved
+ * at nearly every clock and its echoes slid in pitch), so an alpha-beta filter follows the clocks' times instead (when
+ * the next is due, the period): as the clock begins, a straight line through all its clocks so far (least squares);
+ * then gains of a bar or two (CLK_A, CLK_B: Benedict-Bordner's pair). Linear, so a lateness that comes and goes
+ * averages out (cut short, it would pull the tempo: a frame drawn in 45 ms made it 1.3 % slow). Not measured, only
+ * counted: a clock read with the one before (the same millisecond), and one off its time by a clock and a half
+ * (CLK_LATE): late, the brain was held up (a STORE: the clocks held back with it come together after it) or the clock
+ * paused or lost some (late again, none together: its time is the clock's from there, the tempo kept). A beat (24
+ * clocks) off the tempo by 8 % twice in a row is a new tempo: that beat's, learnt again from there (a jump followed
+ * within a bar, not over four; a tempo the filter follows alone, under 8 % off, is never more than a clock off) */
+#define CLK_A 0.04f
+#define CLK_B (CLK_A * CLK_A / (2.0f - CLK_A))
+#define CLK_LATE(ms) ((ms) * 1.5f > 10.0f ? (ms) * 1.5f : 10.0f)   /* (ms: a clock and a half, at least 10) */
+static void clock_in(uint32_t now)
+{
+    uint32_t dt = now - grid.clk_at;
+    float e, a = CLK_A, b = CLK_B;
+    if (dt >= 500u) {                    /* it begins (again): its tempo learnt from here */
+        grid.clk_at = grid.clk_beat = now;
+        grid.clk_n = 0u;
+        grid.clk_far = 0;
+        grid.clk_due = grid.clk_ms;
+        return;
+    }
+    if (++grid.clk_n >= 0x60000000u)     /* (kept large, a whole number of beats: clk_n % 24 the beat still) */
+        grid.clk_n -= 0x30000000u;
+    if (grid.clk_n % 24u == 0u) {        /* a beat: far off the tempo twice in a row, the tempo is that beat's */
+        float pb = (float)(now - grid.clk_beat) * (1.0f / 24.0f), d = pb - grid.clk_ms;
+        int32_t far = d > grid.clk_ms * 0.08f ? 1 : d < grid.clk_ms * -0.08f ? -1 : 0;
+        grid.clk_beat = now;
+        if (far && far == grid.clk_far && grid.clk_n >= 48u) {
+            grid.clk_ms = grid.clk_due = pb;
+            grid.clk_at = now;
+            grid.clk_n = 24u;
+            grid.clk_far = 0;
+            return;
+        }
+        grid.clk_far = far;
+    }
+    if (grid.clk_n == 1u || grid.clk_ms <= 1.0f) {   /* its first gap: the tempo, for now (read together: the next) */
+        if (dt) {
+            grid.clk_at = now;
+            grid.clk_ms = grid.clk_due = (float)dt;
+        } else {
+            grid.clk_n = 0u;
+        }
+        return;
+    }
+    e = (float)dt - grid.clk_due;
+    grid.clk_at = now;
+    if (!dt) {                           /* read with the one before: counted, the next due a period later */
+        grid.clk_due += grid.clk_ms;
+        return;
+    }
+    if (grid.clk_n >= 24u && (e > CLK_LATE(grid.clk_ms) || e < -CLK_LATE(grid.clk_ms))) {   /* far off its time,
+                                          * the tempo learnt (a beat in; before, its first gap may be far off itself):
+                                          * counted, not measured */
+        if (grid.clk_due < 0.0f || e < 0.0f)   /* late again, nothing read together since (clocks lost, a pause), or
+                                                * early after those (their times lost): its time the clock's from here */
+            grid.clk_due = grid.clk_ms;
+        else                             /* late: those held back with it may come together, the next due on time */
+            grid.clk_due += grid.clk_ms - (float)dt;
+        return;
+    }
+    if (grid.clk_n < 100u) {             /* the least squares' gains over its clk_n + 1 clocks, until they are CLK_A's */
+        float m = (float)(grid.clk_n + 1u), am = 2.0f * (2.0f * m - 1.0f) / (m * (m + 1.0f)), bm = 6.0f / (m * (m + 1.0f));
+        a = am > a ? am : a;
+        b = bm > b ? bm : b;
+    }
+    grid.clk_ms += b * e;
+    grid.clk_due = grid.clk_ms + (a - 1.0f) * e;
 }
 
 /* GLINT's step sequencer (GLINT I's PLAYS on SEQ): SC_SEQ steps, a byte each, its note (SQ_REST, a note, or SQ_TIE: the
@@ -2145,6 +2223,60 @@ static void rec_keys(int p)
     param_set(P_KB, st.v[p] ? (p == P_BQ_REC ? 2 : p == P_DQ_REC ? 0 : 1) : g ? 1 : b ? 2 : 0);
 }
 
+/* ------------------------------------------------ a setting's kind, the state --- */
+/* what a setting is (frasil_engine.h's FRS_P_*, the same numbers: frs_param_kind), and the engine's state beside a scene
+ * (frs_state_save): the brain's, so that the FM-1's PERFORM STATE (app.c) says them as the engine alone does */
+enum { PK_SCENE = 1, PK_STATE, PK_MOMENT, PK_STEP, PK_ACTION, PK_NONE };
+static uint32_t param_kind(uint32_t p)
+{
+    if (p >= NPARAM || p == P_SC_GONE)
+        return PK_NONE;
+    if (p < NSOUND || p == P_TEMPO || p == P_BQ_ON || p == P_BQ_STEPS || p == P_BQ_TRANS || p == P_BQ_LEN ||
+        p == P_BA_MODE || p == P_BA_RANGE || p == P_BA_CHANCE || p == P_BQ_GATE || p == P_BS_WEIGHT || p == P_BS_PUNCH ||
+        p == P_BS_BITE || p == P_BS_SPACE || p == P_GL_VIB_AUTO || (p >= P_DQ_ON && p <= P_DQ_TRANS) ||
+        (p >= P_TP_FLUTTER && p <= P_TP_DROPOUT) || (p >= P_L1_AMT1 && p <= P_L3_AMT4) || p == P_SWELL)
+        return PK_SCENE;
+    if (p == P_KEYS || p == P_CANAL || p == P_CH_GLINT || p == P_CH_BASS || p == P_LOAD || p == P_CLOCK ||
+        (p >= P_KY_DR_HARM && p <= P_KY_BS_STACK) || p == P_ARP_SNAP)
+        return PK_STATE;
+    if (p == P_SPEAKER || p == P_ANIM || p == P_METRO || p == P_COUNT_IN || p == P_SAVER)   /* (the FM-1's: its output,
+                                                                                            * its screen, its GLO ›
+                                                                                            * RECORD; the engine alone's
+                                                                                            * frs_metronome,
+                                                                                            * frs_count_in) */
+        return PK_NONE;
+    if (p == P_SQ_NOTE || p == P_SQ_ACC || p == P_SQ_NLEN || p == P_BQ_NOTE || p == P_BQ_NLEN || p == P_BQ_ACC ||
+        p == P_DQ_NOTES || p == P_DQ_NLEN)
+        return PK_STEP;
+    if (p == P_SQ_CLEAR || p == P_SQ_NEW || p == P_SQ_UNDO || p == P_BQ_CLEAR || p == P_BQ_NEW || p == P_BQ_UNDO ||
+        p == P_DQ_CLEAR || p == P_DQ_UNDO)
+        return PK_ACTION;
+    return PK_MOMENT;                    /* (FREEZE, KEYS, MORPH, RECORD, STEP, ARP II's LATCH) */
+}
+
+/* the engine's state beside a scene: "FRst", its version, then pairs (a setting, its value; 255: the metronome) */
+#define STATE_METRO 255u
+#define STATE_V 3u                       /* 2.6's numbers (2: 2.5's, its settings past its NSOUND, 153, one lower; 1:
+                                          * 2.0's, past 130, 24 lower) */
+#define STATE_BYTES 64u                  /* at most (frasil_engine.h's FRS_STATE_BYTES) */
+static uint32_t state_save(uint8_t *out)
+{
+    uint32_t n = 0, p;
+    out[n++] = 'F';
+    out[n++] = 'R';
+    out[n++] = 's';
+    out[n++] = 't';
+    out[n++] = STATE_V;
+    for (p = 0; p < NPARAM; p++)
+        if (param_kind(p) == PK_STATE) {
+            out[n++] = (uint8_t)p;
+            out[n++] = st.v[p];
+        }
+    out[n++] = STATE_METRO;
+    out[n++] = st.metro;
+    return n;
+}
+
 /* ------------------------------------------------------- saving, scenes --- */
 static void arp_stop(arp_t *a);          /* (the arpeggiator, below) */
 
@@ -3176,6 +3308,7 @@ static void lfo_run(void)
         dg = 0.0f;
     lfo_grid = g;
     memset(mod, 0, sizeof mod);
+    memset(mod_tp, 0, sizeof mod_tp);
     for (i = 0; i < NLFO; i++) {
         const uint8_t *L = &st.v[LFO_BASE[i]];
         float depth = (float)L[2] * (1.0f / 127.0f), w, off;
@@ -3204,8 +3337,9 @@ static void lfo_run(void)
             if (L[4u + k]) {             /* each TARGET times its AMOUNT (x0.00 .. x1.00 .. x5.00: at its middle, 1
                                           * exactly, the LFOs as they were; the setting stays in its range, u7) */
                 uint32_t p = LFO_TGT[L[4u + k] % NLFO_TGT], v = st.v[P_L1_AMT1 + 4u * i + k];
-                float a = (float)(v <= 100u ? v : 100u + 4u * (v - 100u)) / 100.0f;
-                mod[p] += off * a * (float)PD[p].max;
+                float a = (float)(v <= 100u ? v : 100u + 4u * (v - 100u)) / 100.0f, *m = mod_at(p);
+                if (m)                       /* (LOFI TAPE II's four past the sound's: mod_tp) */
+                    *m += off * a * (float)PD[p].max;
             }
     }
     lfo_restart = 0;
@@ -4025,14 +4159,9 @@ static void eng_midi(uint32_t pkt)
         if ((st8 == 0xF8u || st8 == 0xFAu) && st.v[P_CLOCK])   /* CLOCK INTERNAL: clocks and Start not taken */
             return;
         if (st8 == 0xF8u) {              /* clock: the arpeggiator follows it */
-            uint32_t now = eng_ms(), dt = now - grid.clk_at;
-            if (dt < 200u) {
-                grid.clk_dt = grid.clk_dt ? (grid.clk_dt * 3u + dt) / 4u : dt;
-                grid.clk_ms = grid.clk_ms > 0.0f ? grid.clk_ms + ((float)dt - grid.clk_ms) * 0.05f : (float)dt;
-            }
+            clock_in(eng_ms());
             grid.clk++;
             grid.clk_new++;
-            grid.clk_at = now;
             return;
         }
         if (st8 == 0xFAu) {              /* start: the grid from its top, the sequences (each layer's PLAYS on SEQ) from
@@ -5515,6 +5644,7 @@ static void eng_reset(void)
     seq_shift = bseq_shift = 0;
     memset(morph_off, 0, sizeof morph_off);
     memset(mod, 0, sizeof mod);
+    memset(mod_tp, 0, sizeof mod_tp);
     morph_at = swell_at = 0;
 }
 
@@ -5552,7 +5682,8 @@ static void eng_power_on(void)
 static void tape_run(void)              /* TAPE SPEED: some 120 ms a time constant (a tape slowing, never a jump) */
 {
     uint32_t now = eng_ms(), dt = now - tape_at;
-    float to = tape_oct(st.v[P_TP_FLUTTER]), d = to - tape_l2;
+    float to = tape_octf((float)st.v[P_TP_FLUTTER] + mod_of(P_TP_FLUTTER)), d = to - tape_l2;   /* (an LFO on it
+                                                                             * too: glided as the knob is) */
     uint8_t clocked = (uint8_t)grid_clocked(now);
     tape_at = now;
     if (d != 0.0f) {
@@ -5596,3 +5727,5 @@ static void eng_moves(void)
     if (count_own)                       /* (COUNT-IN: the FM-1's here, the engine alone's in its own place) */
         count_run();
 }
+
+#include "live.c"                        /* the running state Perform LIVE tells (live_save, live_load: card #131) */

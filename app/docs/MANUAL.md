@@ -152,7 +152,9 @@ during a take the title says the take: GLINT LIVE, DRONE STEP. The octave isn't 
 large over the strip for a moment, the page staying. Beside them: FREEZE while the cloud is held
 (on the play page a flake, when the name leaves it no room); a small dot for 3 seconds after the engine lightened the
 sound (section 14, Crackles); on GLOBAL, the processor's load. When it is full, the least important items step aside.
-A long title is drawn smaller beside CHORD · DRONE.
+A long title is drawn smaller beside CHORD · DRONE. At the far right, in the margin, the battery: it fills with green,
+turns yellow at 30 % and under, red at 10 % and under. It moves slowly, so a loud chord or plugging in USB doesn't
+make it jump; plugged in, it fills up again.
 
 ![GLINT I, CHORD · GLINT at the right of the header: GLINT's keys play chords](img/screen-head-chord-glint.png "KEYS' NOTES on CHORD")
 
@@ -799,7 +801,8 @@ GLINT's pages are in section 6, BASS's in section 7, the DRONE's sequence in sec
 
 **GLOBAL** (GLO): TEMPO, the grid's when no MIDI clock comes in (the arpeggiators, the sequences, GLINT's delay, PUMP,
 the LFOs on the grid), each scene its own (section 10); LOW CUT; TUNE; ARP SNAP, where a new chord joins an arpeggio
-(section 6), kept through power-off.
+(section 6), kept through power-off. While a MIDI clock leads (CLOCK on AUTO), TEMPO reads **TEMPO (EXT)**: the
+clock's tempo, greyed, K1 not turning it. Your TEMPO stays as it was, and comes back when the clock stops.
 
 ![GLOBAL: TEMPO 90 BPM, LOW CUT 83 HZ, TUNE 0 CT, ARP SNAP 1/4; the processor's load in the header](img/screen-global.png "GLO")
 
@@ -856,7 +859,8 @@ often as it grows, up to about twice a second, the level dips for a tenth of a s
 does; a deep one nearly silences it). A new scene starts at ×1.00, TONE +10, NOISE 0 and DROPOUT 0. A scene made
 before this page comes in at ×1.00, TONE 0, NOISE 0 and DROPOUT 0, so it sounds as it did, its flutter at 5 Hz.
 The page is there only while TAPE is ON: when it is OFF, FX goes past it (the page is skipped, not greyed), and SELECT
-turned with FX held does the same. The cassette's reels are on this page too. These four are not LFO targets.
+turned with FX held does the same. The cassette's reels are on this page too. The four are LFO targets: TAPE SPEED,
+TAPE TONE, TAPE NOISE and DROPOUT (an LFO on TAPE SPEED glides it as the knob does, a tape slowing and speeding up).
 
 When MASTER FILTER's TYPE or LOFI TAPE's TAPE is OFF, the page's other settings are grey; they still turn.
 
@@ -956,18 +960,18 @@ its targets.
   the top of their turn.
 - **DEPTH:** 0 is off. Up, it reaches the whole range of each target.
 - **POLARITY:** BIPOLAR moves a setting both ways around where you set it, UP only above, DOWN only below.
-- **TARGET 1–4:** each OFF or one of 57 settings, as the screen writes them: TIMBRE, SPACE, MOTION, WARMTH, CHOIR,
+- **TARGET 1–4:** each OFF or one of 61 settings, as the screen writes them: TIMBRE, SPACE, MOTION, WARMTH, CHOIR,
   PARTIALS, BREATH; CHOIR's CH DETUNE, CH FILTER, CH SHAPE, CH RESO, CH SOFT; PARTIALS' PA TILT, PA ODD, PA STRETCH,
   PA EVOLVE, PA BEAT, PA FORMANT, PA PEAK; BREATH's BR RESO, BR COLOR, BR GRAIN, BR TONE, BR AIR, BR SPREAD; GLINT's
   GL LEVEL, GL BRIGHT, GL PING, GL SPACE, GL CHANCE (the arpeggiator's and the sequencer's CHANCE), SEQ LEN (its SEQ
   LENGTH), GL ATTACK, GL DECAY, GL SUSTAIN, GL RELEASE; the bass's BS FILTER, BS RESO, BS DRIVE (they glide, so a
   FILTER swept by an LFO is a smooth wobble), BS ATTACK, BS DECAY, BS SUSTAIN, BS RELEASE; DRONE LVL, GLINT LVL and
   BASS LVL (the MIXER's), BODY, SPARKLE, BLUR, SINK, MS CUTOFF and MS RESO (MASTER FILTER's), DRONE PAN, BASS PAN,
-  GLINT PAN and CLOUD PAN (the MIXER's pans: chosen here, the MIXER's knobs being the levels), TAPE SAT and WOBBLE (LOFI TAPE's SATURATION and WOBBLE; they sound once TAPE is on). Each is written in its
+  GLINT PAN and CLOUD PAN (the MIXER's pans: chosen here, the MIXER's knobs being the levels), TAPE SAT and WOBBLE (LOFI TAPE's SATURATION and WOBBLE), TAPE SPEED, TAPE TONE, TAPE NOISE and DROPOUT (LOFI TAPE II's four; the tape's six sound once TAPE is on). Each is written in its
   track's colour: GLINT's ice blue (the GL ones, GLINT LVL, SEQ LEN, SPARKLE, GLINT PAN), BASS's orange (the BS ones,
-  BASS LVL, BASS PAN), the drone's white, the whole mix's green (MS CUTOFF, MS RESO, BLUR, SINK, CLOUD PAN, TAPE SAT, WOBBLE). TARGET's
-  list opens in the name grid, in its four sections (section 3): you hear a target as you stop on it, SEL keeps it,
-  FX goes back to the one before.
+  BASS LVL, BASS PAN), the drone's white, the whole mix's green (MS CUTOFF, MS RESO, BLUR, SINK, CLOUD PAN, the tape's six). TARGET's
+  list opens in the name grid, on five pages by section, the tape's six on the last, LOFI TAPE (section 3): you hear a
+  target as you stop on it, SEL keeps it, FX goes back to the one before.
 
 An LFO runs freely and without end while it is on, with DEPTH up and a target set; a key does not start or restart
 it. Its four targets move together, each by its AMOUNT (below), and LFOs on one setting add up. The setting keeps the

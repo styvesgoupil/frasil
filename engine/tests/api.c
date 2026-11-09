@@ -2,7 +2,8 @@
  * Copyright (C) 2026 Styves Goupil */
 /* The engine's API alone (frasil_engine.h, nothing else of it), as an iPad or a plug-in calls it: its renders the same
  * whatever the frames asked at a time; one open at a time; a scene taken and stored; THE KEYS (latch, hold, clear); the
- * keys as the FM-1 has them (KEYS, KEY MODE); MIDI, time-stamped in the host's buffer; a host's tempo; a setting set,
+ * keys as the FM-1 has them (KEYS, KEY MODE); MIDI, time-stamped in the host's buffer; a MIDI clock read as unevenly as
+ * the FM-1 reads it; a host's tempo; a setting set,
  * edited, in words, of a kind; the state beside a scene; PANIC; the transport; the views, the snapshot.
  *   engine/tests/run.sh, or: api */
 #include <stdio.h>
@@ -192,9 +193,93 @@ static float clocked(uint32_t buf)
     return v.tempo;
 }
 
+/* a MIDI clock as the FM-1's main loop reads it (card #123): between two frames of its screen (one every 16 ms, drawn
+ * in 4 to 12 ms, every 50th in 45), a clock come in during a drawing read at its end (after a long one, two in the same
+ * millisecond), USB's frame before (up to 1 ms late); every clock time-stamped at that millisecond, at 48 kHz in
+ * buffers of 256 frames. 8 bars at 120 BPM, then 8 at 90; hold > 0: the main loop held up that long at 120's fifth bar
+ * (a STORE). *spread: the tempo followed at 120, its highest over its lowest less 1, from its second bar (from the bar
+ * after the hold, with one), GLINT's delay moving past 0.3 %; *off: the farthest from 90 (over 90), from 90's second
+ * bar on */
+static uint32_t lcg(uint32_t *s) { return *s = *s * 1664525u + 1013904223u; }
+static void uneven_clock(uint32_t hold, float *spread, float *off)
+{
+    static uint32_t stamp[1536];
+    frs_view_t v;
+    uint32_t seed = 0x2545F491u, k, n = 0, at = 0;
+    double t = 0.0;
+    float lo = 1e9f, hi = 0.0f, far = 0.0f;
+    for (k = 0; k < 1536u; k++) {        /* (the clocks' milliseconds as read) */
+        double a, f, d;
+        uint32_t h;
+        t += 2500.0 / (k < 768u ? 120.0 : 90.0);
+        a = t + (double)(lcg(&seed) >> 8) * (1.0 / 16777216.0);
+        f = floor(a / 16.0) * 16.0;
+        h = (uint32_t)(f / 16.0) * 2654435761u;
+        d = (uint32_t)(f / 16.0) % 50u == 49u ? 45.0 : 4.0 + (double)((h >> 16) % 9u);
+        if (a < f + d)
+            a = f + d;
+        if (hold && a >= 8000.0 && a < 8000.0 + (double)hold)
+            a = 8000.0 + (double)hold;
+        stamp[k] = (uint32_t)ceil(a);
+        if (k && stamp[k] < stamp[k - 1u])   /* (read in turn: a long drawing holds the next frame back) */
+            stamp[k] = stamp[k - 1u];
+    }
+    frs_close();
+    frs_init(48000.0f);
+    while (n < 1536u) {
+        while (n < 1536u && stamp[n] * 48u < at + 256u) {
+            frs_midi_at(stamp[n] * 48u - at, 0xF8, 0, 0);
+            n++;
+        }
+        rms(256);
+        at += 256u;
+        frs_view(&v);
+        if (at / 48u >= (hold ? 10000u : 2000u) && at / 48u < 16000u) {
+            lo = v.tempo < lo ? v.tempo : lo;
+            hi = v.tempo > hi ? v.tempo : hi;
+        }
+        if (at / 48u >= 16000u + 2667u && fabsf(v.tempo - 90.0f) > far)
+            far = fabsf(v.tempo - 90.0f);
+    }
+    *spread = hi / lo - 1.0f;
+    *off = far / 90.0f;
+}
+
 /* TAPE SPEED at x: what sounds alone (track 2 the bass, a sine wide open, on A1; track 1 a glint, BRIGHT 0, a sine, on
  * A4), its frequency from its rising zero crossings over a second, 3 s in; a host at 120 BPM playing, or not. *grid: the
  * grid's MIDI clocks a second, from 1 s in to 3 */
+/* LFO 1 on TARGET t, held at its far end while a test runs: SQUARE at its slowest (its first 100 s at +1), DEPTH at the
+ * top, UP (pol 1) or DOWN (2) */
+static void lfo_far(uint32_t t, uint32_t pol)
+{
+    frs_param_set(P_L1_SHAPE, 4);
+    frs_param_set(P_L1_RATE, 0);
+    frs_param_set(P_L1_DEPTH, 127);
+    frs_param_set(P_L1_POL, pol);
+    frs_param_set(P_L1_T1, t);
+    frs_param_set(P_L1_T2, 0);           /* (NEW SHARD's LFO 1 is on TIMBRE and BREATH: t alone; 0, the LFO off) */
+    frs_param_set(P_L1_T3, 0);
+    frs_param_set(P_L1_T4, 0);
+}
+
+static float hf(uint32_t frames)         /* (the mean square of each step from the sample before: the highs) */
+{
+    double e = 0.0;
+    float ll = 0.0f;
+    uint32_t done = 0, i;
+    while (done < frames) {
+        uint32_t n = frames - done < 4096u ? frames - done : 4096u;
+        frs_render(l_, r_, n);
+        for (i = 0; i < n; i++) {
+            e += (double)(l_[i] - ll) * (l_[i] - ll);
+            ll = l_[i];
+        }
+        done += n;
+    }
+    return (float)(e / frames);
+}
+
+static uint32_t hz_lfo;                  /* (tape_hz with LFO 1 DOWN on this TARGET: lfo_far) */
 static double tape_hz(uint32_t x, uint32_t track, int host, float *grid)
 {
     uint8_t sc[FRS_SCENE_BYTES];
@@ -223,6 +308,8 @@ static double tape_hz(uint32_t x, uint32_t track, int host, float *grid)
     frs_param_set(P_GD_MIX, 0);
     frs_param_set(track == 2u ? P_MX_GLINT : P_MX_BASS, 0);
     frs_param_set(P_TP_FLUTTER, x);
+    if (hz_lfo)
+        lfo_far(hz_lfo, 2u);
     for (k = 0; k < 4u * 48000u / 1024u; k++) {
         if (host) {
             frs_host_tempo(120.0, beat, 1);
@@ -389,6 +476,16 @@ int main(void)
     check(fabsf(clocked(256) - 120.0f) < 0.5f && fabsf(clocked(1024) - 120.0f) < 0.5f &&
               fabsf(clocked(2048) - 120.0f) < 0.5f && fabsf(clocked(333) - 120.0f) < 0.5f,
           "MIDI clock at 120 BPM, time-stamped (buffers of 256, 1024, 2048, 333): 120 BPM followed");
+    {
+        float spread, off, spread_h, off_h;
+        uneven_clock(0u, &spread, &off);
+        uneven_clock(300u, &spread_h, &off_h);
+        printf("  (uneven clock: 120 BPM within %.3f %%, 90 within %.3f %%; held up 300 ms: %.3f %%, %.3f %%)\n",
+               (double)spread * 100.0, (double)off * 100.0, (double)spread_h * 100.0, (double)off_h * 100.0);
+        check(spread < 0.003f && off < 0.003f && spread_h < 0.003f && off_h < 0.003f,
+              "MIDI clock read as the FM-1 reads it (between its screen's frames): its tempo held within 0.3 % (GLINT's "
+              "delay still), 120 then 90 BPM, followed within a bar; the same after the main loop held up 300 ms");
+    }
 
     /* a host's tempo and transport */
     frs_close();
@@ -476,15 +573,26 @@ int main(void)
     frs_host_tempo(0.0, 0.0, 0);
     frs_param_set(P_CLOCK, 0);
     frs_param_text(P_L1_T1, 41, t);
-    check(frs_lfo_targets() == 57u && frs_lfo_target(0) == -1 && frs_lfo_target(58) == -1 &&
+    check(frs_lfo_targets() == 61u && frs_lfo_target(0) == -1 && frs_lfo_target(62) == -1 &&
               frs_lfo_target(1) == P_TIMBRE && frs_lfo_target(41) == P_FL_CUT && frs_lfo_target(42) == P_FL_RESO &&
               frs_lfo_target(43) == P_PN_DRONE && frs_lfo_target(46) == P_PN_CLOUD &&
               frs_lfo_target(47) == P_CH_SOFT && !strcmp(t, "MS CUTOFF") &&
               frs_lfo_target(48) == P_GL_ATTACK && frs_lfo_target(49) == P_GL_DECAY && frs_lfo_target(50) == P_GL_SUSTAIN &&
               frs_lfo_target(51) == P_GL_RELEASE && frs_lfo_target(52) == P_BS_ATTACK && frs_lfo_target(53) == P_BS_DECAY &&
               frs_lfo_target(54) == P_BS_SUSTAIN && frs_lfo_target(55) == P_BS_RELEASE &&
-              frs_lfo_target(56) == P_TP_SAT && frs_lfo_target(57) == P_TP_WOBBLE,
-          "LFO TARGET: 57 choices, 41 MS CUTOFF .. 46 CLOUD PAN, 47 CH SOFT (2.6's) as they were, 48 .. 55 the ADSRs, 56 TAPE SAT, 57 WOBBLE, OFF none");
+              frs_lfo_target(56) == P_TP_SAT && frs_lfo_target(57) == P_TP_WOBBLE &&
+              frs_lfo_target(58) == P_TP_FLUTTER && frs_lfo_target(59) == P_TP_TONE && frs_lfo_target(60) == P_TP_NOISE &&
+              frs_lfo_target(61) == P_TP_DROPOUT,
+          "LFO TARGET: 61 choices, 41 MS CUTOFF .. 46 CLOUD PAN, 47 CH SOFT (2.6's) as they were, 48 .. 55 the ADSRs, 56 TAPE SAT, 57 WOBBLE, 58 .. 61 LOFI TAPE II's, OFF none");
+    {
+        char t1[FRS_TEXT], t2[FRS_TEXT], t3[FRS_TEXT], t4[FRS_TEXT];
+        frs_param_text(P_L1_T1, 58, t1);
+        frs_param_text(P_L1_T1, 59, t2);
+        frs_param_text(P_L1_T1, 60, t3);
+        frs_param_text(P_L1_T1, 61, t4);
+        check(!strcmp(t1, "TAPE SPEED") && !strcmp(t2, "TAPE TONE") && !strcmp(t3, "TAPE NOISE") && !strcmp(t4, "DROPOUT"),
+              "  58 .. 61: TAPE SPEED, TAPE TONE, TAPE NOISE, DROPOUT");
+    }
     frs_param_text(P_FL_TRACKS, FRS_TRACKS_GLINT_BASS, t);
     check(frs_tracks_bits(FRS_TRACKS_ALL) == 7u && frs_tracks_bits(FRS_TRACKS_DRONE) == FRS_TRK_DRONE &&
               frs_tracks_bits(FRS_TRACKS_BASS) == FRS_TRK_BASS &&
@@ -727,6 +835,78 @@ int main(void)
         }
         check(n0 > 0.0f && n1 < 0.97f * n0, "DROPOUT at the top: the level dips now and then, the drone quieter by its dips");
         frs_param_set(P_TP_DROPOUT, 0);
+        frs_param_set(P_TP_ON, 0);
+        frs_release_all();
+        rms(48000);
+    }
+
+    /* LFO TARGETs 58 .. 61 (3.2): TAPE SPEED, TAPE TONE, TAPE NOISE, DROPOUT, LOFI TAPE II's four (past NSOUND: params.c
+     * mod_tp); an LFO held at its far end (lfo_far) sounds as the knob there */
+    {
+        float g1, g0, gl, n0, n1, nk, lv[3];
+        double b1 = tape_hz(64, 2, 0, &g1), b0 = tape_hz(0, 2, 0, &g0), bl;
+        uint32_t k;
+        hz_lfo = 58u;
+        bl = tape_hz(64, 2, 0, &gl);
+        hz_lfo = 0;
+        printf("       the bass on A1: %.3f Hz at X1.00, %.3f at X0.25, %.3f at X1.00 with LFO 1 DOWN on TAPE SPEED; the grid "
+               "%.2f, %.2f, %.2f clocks a second\n", b1, b0, bl, g1, g0, gl);
+        check(b0 > 0.0 && fabs(bl / b0 - 1.0) < 1e-3 && fabsf(gl / g0 - 1.0f) < 0.02f,
+              "LFO on TAPE SPEED (DOWN, at the top): the bass and the grid as at X0.25, glided there");
+        for (k = 0; k < 3u; k++) {       /* (the same drone: TONE at 64; at 0; at 64, LFO 1 DOWN on TAPE TONE) */
+            frs_close();
+            frs_init(48000.0f);
+            frs_scene_new(sc);
+            frs_scene_take(sc);
+            frs_param_set(P_TP_ON, 1);
+            frs_param_set(P_TP_SAT, 0);
+            frs_param_set(P_TP_WOBBLE, 0);
+            frs_param_set(P_TP_TONE, k == 1u ? 0 : 64);
+            lfo_far(k == 2u ? 59u : 0u, 2u);
+            frs_latch(0, 48, FRS_CHORD_HARMONY);
+            rms(96000);
+            lv[k] = hf(96000);
+        }
+        printf("       the drone's highs: %.3g at TONE 0 (64), %.3g at -64 (0), %.3g at 0 with LFO 1 DOWN on TAPE TONE\n",
+               lv[0], lv[1], lv[2]);
+        check(lv[1] < 0.97f * lv[0] && fabsf(lv[2] / lv[1] - 1.0f) < 0.005f,
+              "LFO on TAPE TONE (DOWN, at the top): the tape as dark as TONE at its bottom");
+        frs_close();                     /* (nothing playing: the tape silent, then the LFO's hiss, then NOISE's) */
+        frs_init(48000.0f);
+        frs_scene_new(sc);
+        frs_scene_take(sc);
+        frs_param_set(P_TP_ON, 1);
+        frs_param_set(P_TP_SAT, 0);
+        frs_param_set(P_TP_WOBBLE, 0);
+        rms(48000);
+        n0 = rms(24000);
+        lfo_far(60u, 1u);
+        rms(24000);
+        n1 = rms(48000);
+        frs_param_set(P_L1_T1, 0);
+        frs_param_set(P_TP_NOISE, 127);
+        rms(24000);
+        nk = rms(48000);
+        printf("       a silent tape: %.3g, %.3g with LFO 1 UP on TAPE NOISE, %.3g at NOISE 127\n", n0, n1, nk);
+        check(n1 > 10.0f * n0 && fabsf(n1 / nk - 1.0f) < 0.1f, "LFO on TAPE NOISE (UP, at the top): NOISE's hiss at its top");
+        frs_param_set(P_TP_NOISE, 0);
+        for (k = 0; k < 2u; k++) {       /* (the same drone twice from the start, the second with LFO 1 UP on DROPOUT) */
+            frs_close();
+            frs_init(48000.0f);
+            frs_scene_new(sc);
+            frs_scene_take(sc);
+            frs_param_set(P_TP_ON, 1);
+            frs_param_set(P_TP_SAT, 0);
+            frs_param_set(P_TP_WOBBLE, 0);
+            lfo_far(k ? 61u : 0u, 1u);
+            frs_latch(0, 48, FRS_CHORD_HARMONY);
+            rms(96000);
+            lv[k] = rms(480000);         /* (10 s: some twenty dropouts) */
+        }
+        printf("       the drone's level over 10 s: %.4g, %.4g with LFO 1 UP on DROPOUT\n", lv[0], lv[1]);
+        check(lv[0] > 0.0f && lv[1] < 0.97f * lv[0], "LFO on DROPOUT (UP, at the top): the level dips now and then");
+        frs_param_set(P_L1_T1, 0);
+        frs_param_set(P_L1_DEPTH, 0);
         frs_param_set(P_TP_ON, 0);
         frs_release_all();
         rms(48000);

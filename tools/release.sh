@@ -3,6 +3,8 @@
 # Copyright (C) 2026 Styves Goupil
 # A FRASIL release (RELEASING.md).
 #   tools/release.sh             the checks, then the package app/build/frasil-VERSION.fwsc (VERSION's), verified
+#   RELEASE_NOTES_LATER=1 tools/release.sh   the same before CHANGELOG.md has its section (the runner's PREPARE:
+#                                DELIVER writes it from the RELEASE NOTES)
 #   tools/release.sh --publish   refuses: this repository's history is private. The public repository gets one snapshot
 #                                commit of the firmware only (tools/public_snapshot.sh), tagged there (RELEASING.md).
 # The FM-1 Firmware Hub takes the newest GitHub release of the public repository by itself.
@@ -24,8 +26,15 @@ trap 'rm -rf "$TMP"' EXIT
 export JIELI_TOOLCHAIN="${JIELI_TOOLCHAIN:-$HOME/.jieli/toolchain}"
 export AC79_SDK="${AC79_SDK:-$HOME/fw-AC79_AIoT_SDK}"
 
-# the version in CHANGELOG.md, and a tree with nothing uncommitted (the release is the source at its tag)
-grep -q "^## $V " CHANGELOG.md || grep -q "^## $V\$" CHANGELOG.md || { echo "release: no '## $V' section in CHANGELOG.md"; exit 1; }
+# the version in CHANGELOG.md, and a tree with nothing uncommitted (the release is the source at its tag).
+# RELEASE_NOTES_LATER=1 (the runner's PREPARE): the section is DELIVER's, written from the RELEASE NOTES: a word, not a stop
+if ! grep -q "^## $V " CHANGELOG.md && ! grep -q "^## $V\$" CHANGELOG.md; then
+    if [ "${RELEASE_NOTES_LATER:-}" = 1 ]; then
+        echo "release: no '## $V' section in CHANGELOG.md yet (DELIVER writes it from the RELEASE NOTES)"
+    else
+        echo "release: no '## $V' section in CHANGELOG.md"; exit 1
+    fi
+fi
 if [ -n "$(git status --porcelain)" ]; then
     echo "release: uncommitted changes (commit them first: the release is the source at its tag)"
     [ "$PUBLISH" = "--publish" ] && exit 1

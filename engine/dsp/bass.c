@@ -71,6 +71,52 @@ void bass_reset(void)
 }
 #endif
 
+/* Perform LIVE's (frasil_lv): the note sounding as it is now, its envelope, its glides, its phases and its filter's
+ * states (a held bass goes on as it was, no attack again) */
+void bass_lv(br_live *c)
+{
+    uint8_t x = (uint8_t)b.note, o = (uint8_t)b.octv, m = (uint8_t)b.model;
+    c->u8(c, &x);
+    b.note = (int8_t)x;
+    if (b.note < 0)
+        return;
+    c->u8(c, &o);
+    c->u8(c, &b.gate);
+    c->u8(c, &b.dec);
+    c->u8(c, &b.let_dec);
+    c->u8(c, &b.set);
+    c->u8(c, &m);
+    b.octv = (int8_t)o;
+    b.model = m;
+    c->u32(c, &b.again);
+    c->u32(c, &b.ph);
+    c->u32(c, &b.ph2);
+    c->u32(c, &b.phs);
+    c->u32(c, &b.phw);
+    c->f16(c, &b.ts);
+    c->f16(c, &b.let_ts);
+    c->f16(c, &b.mg);
+    c->f16(c, &b.vel);
+    c->f16(c, &b.vel_t);
+    c->f32(c, &b.oct);                   /* (the pitch: bit for bit, no beat against itself) */
+    c->f32(c, &b.oct_t);
+    c->f16(c, &b.env);
+    c->f16(c, &b.lvl);
+    c->f16(c, &b.prs);
+    c->f16(c, &b.prs_t);
+    c->f16(c, &b.s1);
+    c->f16(c, &b.s2);
+    c->f16(c, &b.flt);
+    c->f16(c, &b.res);
+    c->f16(c, &b.drv);
+    c->f16(c, &b.wgt);
+    c->f16(c, &b.pch);
+    c->f16(c, &b.bit);
+    c->f16(c, &b.pe);
+    c->f16(c, &b.hl);
+    c->f16(c, &b.hz);
+}
+
 static int sounding(int note, int octave)   /* a note with OCTAVE on it, C1 at the lowest (under it, nothing a
                                              * speaker plays) */
 {

@@ -25,6 +25,41 @@ static uint8_t test_arp_log;             /* (arplog 1: each arpeggio's step and 
 #include "core.c"                       /* (FRASIL's engine: every setting, the scenes, the brain; its hooks below) */
 #include "pages.c"
 
+/* PERFORM's LIVE (below, after PERFORM over USB): each input the FM-1 gives the engine, told to a page that asks, as it
+ * is given, so that a fresh engine fed them in their order sounds as this one. app.c's param_set calls from here on are
+ * the hand's (the panel's, MIDI learn's, the tests'): each one told; the engine's own, inside its calls, are not (the
+ * same call makes them on the other side) */
+#include "frasil_stream.h"               /* (the ops: SHARD STREAM's numbers, its args) */
+/* the FM-1's gestures frasil_stream.h has no op for (yet), each one frs_ call; a reader that doesn't know one skips it
+ * (an op's top bits: its args' length) */
+#define LV_RELEASE 0x05u                 /* frs_release: PLAY tapped twice quick (RELEASE ALL) */
+#define LV_RELEASE_ALL 0x06u             /* frs_release_all: PLAY held (RELEASE ALL, or RESTORE) */
+#define LV_KEY_PRESSURE 0x48u            /* (key, pressure): frs_key_pressure (the iPad's FST_KEY_PRESSURE) */
+#define LV_SWELL 0x49u                   /* (held, 0): frs_swell, ENV held */
+#define LV_COMPARE 0x4Au                 /* (on, 0): frs_compare, OCT- and EDIT held */
+#define LV_RECORD 0x4Bu                  /* (layer, 0): frs_record_layer, REC tapped */
+#define LV_KEY_SINGLE 0x86u              /* (key, note, track, velocity): FST_KEY_DOWN's, a single note (SEL held:
+                                          * frs_key_down's single) */
+#define LV_ANC 0x7Fu                     /* lv_long's src: the ANCHOR's scene (else a slot, scene_get's) */
+static uint8_t lv_on;                    /* a page wants them (HELLO's flags, bit 1) */
+static uint8_t lv_cc_took;               /* the MIDI in hand was MIDI learn's (eng_cc): its setting told, not the CC */
+static void lv_key(uint32_t k, int note, uint32_t vel, int single);
+static void lv_key_up(uint32_t k);
+static void lv_pressure(uint32_t k, uint8_t p);
+static void lv_midi(uint32_t pkt);
+static void lv_op(uint32_t op, uint32_t a0, uint32_t a1);
+static void lv_long(uint32_t op, uint32_t src);
+static void lv_set(uint32_t p, uint32_t v);
+static void lv_preset(const uint8_t *in, uint32_t n);
+static void lv_record_off(void);
+static void lv_rec(uint32_t layer);
+static void lv_watch(int swell);
+static void lv_pump(void);
+#ifndef PLAT_WEB
+static void lv_param_set(int p, int32_t x);
+#define param_set(p, x) lv_param_set((p), (x))
+#endif
+
 #define SET_MAGIC 0x53535246u            /* "FRSS": the settings record (a new one when its layout changes) */
 #define SET_FRSR 0x52535246u             /* "FRSR": 3.0.2-b5's test builds', this one with the LFOs' AMOUNTs in percent
                                           * (-100 % .. +100 %, 100 its 0 %): each made a multiplier, |v - 100| */
@@ -1001,6 +1036,70 @@ uint32_t app_log_word(void)
 }
 static int cpu_over(void) { return over_at && plat_ms() - over_at < 3000u; }
 
+/* the header's battery (ui.c batt_draw, #125): the divider's reading (plat_battery, a sample a second) in millivolts
+ * (APP_BATT_RAW_4V2: what it reads at 4.20 V), smoothed over about half a minute (a chord's load lowers it a little,
+ * USB raises it: neither makes the colour jump), then a percent along a Li-ion cell's curve. The level drawn moves
+ * only once the reading has gone 2 % from it; its colour (green; yellow at 30 % and under; red at 10 % and under)
+ * stays until the level is 3 % back past the line it crossed. No reading (the browser; the simulator until its script
+ * gives one) or one of nothing (no divider): no battery, and the next reading starts it again, unsmoothed; its first
+ * ten seconds followed quicker (the first reading comes as the sound and Bluetooth start, the cell at its lowest) */
+static const int16_t BATT_MV[] = {3400, 3500, 3600, 3650, 3700, 3800, 3900, 4000, 4100, 4200};
+static const int8_t BATT_PCT[] = {0, 4, 10, 18, 28, 47, 64, 79, 90, 100};
+static struct {
+    int32_t mv16;                        /* the millivolts smoothed, x 16; 0: none yet */
+    int32_t raw;                         /* the last reading (-1 none) */
+    uint32_t at;                         /* when (plat_ms | 1; 0: never) */
+    int8_t pct;                          /* the level drawn, 0..100; -1: no battery */
+    uint8_t zone;                        /* its colour: 0 green, 1 yellow, 2 red */
+    uint8_t n;                           /* the readings since it started, up to ten */
+} batt = {0, -1, 0, -1, 0, 0};
+
+static int batt_curve(int32_t mv)       /* a Li-ion cell's level at mv, 0..100 */
+{
+    uint32_t i;
+    if (mv <= BATT_MV[0])
+        return 0;
+    for (i = 1; i < sizeof BATT_MV / sizeof BATT_MV[0]; i++)
+        if (mv < BATT_MV[i])
+            return BATT_PCT[i - 1] +
+                   (int)((mv - BATT_MV[i - 1]) * (BATT_PCT[i] - BATT_PCT[i - 1]) / (BATT_MV[i] - BATT_MV[i - 1]));
+    return 100;
+}
+
+static uint8_t batt_zone(int p, uint8_t z)   /* level p's colour, z the one drawn: down at once, up 3 % past the line */
+{
+    if (p <= 10 || (z == 2u && p < 13))
+        return 2u;
+    if (p <= 30 || (z && p < 33))
+        return 1u;
+    return 0;
+}
+
+static void batt_tick(void)             /* each UI frame: a reading a second */
+{
+    uint32_t now = plat_ms();
+    int32_t mv;
+    int p;
+    if (batt.at && now - batt.at < 1000u)
+        return;
+    batt.at = now | 1u;
+    batt.raw = plat_battery();
+    if (batt.raw < 16) {                 /* (none, or nothing on the divider) */
+        batt.mv16 = 0;
+        batt.pct = -1;
+        batt.n = 0;
+        return;
+    }
+    mv = batt.raw * 4200 / APP_BATT_RAW_4V2;
+    batt.mv16 = batt.mv16 ? batt.mv16 + (mv * 16 - batt.mv16) / (batt.n < 10u ? 4 : 32) : mv * 16;
+    batt.n += batt.n < 10u;
+    p = batt_curve(batt.mv16 / 16);
+    if (batt.pct < 0 || p >= batt.pct + 2 || p <= batt.pct - 2) {
+        batt.zone = batt_zone(p, batt.pct < 0 ? 0u : batt.zone);
+        batt.pct = (int8_t)p;
+    }
+}
+
 static void load_watch(void)
 {
     static uint32_t calm_since, seen, back_at, calm_ms = 4000u, ahead_at;
@@ -1081,6 +1180,7 @@ static void scene_load(uint32_t s)
     scene_get(s, &sc);
     fm.scene = (uint8_t)s;
     scene_take(&sc);
+    lv_long(FST_SCENE_NOW, s);
     up_cur[0] = up_cur[1] = up_cur[2] = -1;
 }
 
@@ -1100,9 +1200,16 @@ static void scene_go(uint32_t s)
     scene_get(s, &sc);
     fm.scene = (uint8_t)s;
     eng_scene_go(&sc);
+    lv_long(FST_SCENE, s);
     up_cur[0] = up_cur[1] = up_cur[2] = -1;   /* (the scene's sound now, no preset's) */
     if (s >= NSCENES && !test_keys_stay) {   /* NEW SCENE: KEYS back to their defaults */
+        uint8_t was[P_KY_BS_STACK + 1u - P_KY_DR_HARM];
+        uint32_t p;
+        memcpy(was, &st.v[P_KY_DR_HARM], sizeof was);
         eng_keys_defaults();
+        for (p = P_KY_DR_HARM; p <= P_KY_BS_STACK; p++)   /* (each that moved, as frs_keys_defaults sets them) */
+            if (was[p - P_KY_DR_HARM] != st.v[p])
+                lv_set(p, st.v[p]);
         if (set.magic == SET_MAGIC)
             prefs_later();
     }
@@ -1381,6 +1488,7 @@ static int scene_write(uint32_t s, const char *name)
     if (scenes_save() == 0 && store_all() == 0) {
         store_old = 0;
         sound_mark();
+        lv_long(FST_STORE, s);           /* (frs_scene_store: the scene as saved now, the sound marked so) */
         say2[0] = (char)('0' + (s + 1u) / 10u);   /* "03 ABYSS" */
         say2[1] = (char)('0' + (s + 1u) % 10u);
         say2[2] = ' ';
@@ -2162,8 +2270,11 @@ static void midi_in(void)
 {
     uint32_t pkt;
     int port;
-    while (plat_midi_in(&pkt, &port))
+    while (plat_midi_in(&pkt, &port)) {
+        lv_cc_took = 0;
         eng_midi(pkt);
+        lv_midi(pkt);
+    }
 }
 
 /* the engine's hooks (engine/core.c): the FM-1's clock, its header's words, GLINT SEQ's pages, MIDI learn, its slots */
@@ -2181,6 +2292,7 @@ static int eng_cc(uint32_t cc, uint32_t v)
     if (b_held(B_GLO) && cc) {           /* GLO held: MIDI learn */
         b_used(B_GLO);
         cc_learn(cc);
+        lv_cc_took = 1;
         return 1;
     }
     for (i = 0; i < NLEARN; i++)         /* a learned one first */
@@ -2188,6 +2300,7 @@ static int eng_cc(uint32_t cc, uint32_t v)
             param_set(set.learn_p[i], ((int32_t)v * PD[set.learn_p[i]].max + 63) / 127);
             learned = 1;
         }
+    lv_cc_took = (uint8_t)learned;
     return learned;
 }
 static void eng_program(uint32_t n)      /* Program Change: a slot */
@@ -2296,6 +2409,7 @@ static void hold_undo(uint32_t b)
         } else {
             arp_keep_held(a);
         }
+        lv_set(bs ? P_BA_LATCH : P_GA_LATCH, a->latch);   /* (ARP II's LATCH as it is: its notes kept back, not told) */
         if (arp_was.typed) {
             arp_was.typed = 0;
             param_set(bs ? P_BQ_ON : P_SQ_TYPE, arp_was.type);
@@ -2453,12 +2567,13 @@ static uint8_t test_no_grid;             /* (basic.txt's older parts: these sett
 /* a sequence's STEP, and its SEQ LENGTH: STEP goes no further than the last step */
 static int step_len_p(int p) { return p == P_SQ_STEP ? P_SQ_LEN : p == P_BQ_STEP ? P_BQ_STEPS : p == P_DQ_STEP ? P_DQ_LEN : -1; }
 static int len_step_p(int p) { return p == P_SQ_LEN ? P_SQ_STEP : p == P_BQ_STEPS ? P_BQ_STEP : p == P_DQ_LEN ? P_DQ_STEP : -1; }
-/* an LFO's TARGET in the grid: four pages, in sections, what each moves together; a scene keeps LFO_TGT's numbers, this is
+/* an LFO's TARGET in the grid: five pages, in sections, what each moves together; a scene keeps LFO_TGT's numbers, this is
  * the order they are shown in. A slot: a number of LFO_TGT, TH_NONE, or a section's name (TH(n), TGT_HEAD) */
-#define NG_TPAGES 4u
+#define NG_TPAGES 5u
 #define TH_NONE (-1)
 #define TH(n) (-2 - (n))
-static const char *const TGT_HEAD[8] = {"DRONE", "CHOIR", "PARTIALS", "BREATH", "GLINT", "GLINT II", "BASS", "GLOBAL"};
+static const char *const TGT_HEAD[9] = {"DRONE", "CHOIR", "PARTIALS", "BREATH", "GLINT", "GLINT II", "BASS", "GLOBAL",
+                                        "LOFI TAPE"};
 static const int8_t TGT_SLOTS[NG_TPAGES * NG_PER] = {
     0, TH(0), 1, 2, 3, 35, 4, 29, 43, TH_NONE,                                   /* OFF; TIMBRE .. WARMTH, level, pan */
     TH_NONE, TH(1), 5, 8, 9, 10, 11, 47, TH_NONE, TH_NONE,
@@ -2467,7 +2582,9 @@ static const int8_t TGT_SLOTS[NG_TPAGES * NG_PER] = {
     TH(4), 30, 45, 25, 26, 27, 28, TH_NONE, TH_NONE, TH_NONE,                    /* level, pan, its sound */
     TH(5), 48, 49, 50, 51, 36, 37, 38, TH_NONE, TH_NONE,                         /* ADSR, CHANCE, SEQ LEN, SPARKLE */
     TH(6), 34, 44, 31, 32, 33, 52, 53, 54, 55,
-    TH(7), 41, 42, 39, 40, 46, 56, 57, TH_NONE, TH_NONE,
+    TH(7), 41, 42, 39, 40, 46, TH_NONE, TH_NONE, TH_NONE, TH_NONE,
+    TH(8), 56, 57, 58, 59, 60, 61, TH_NONE, TH_NONE, TH_NONE,                    /* LOFI TAPE's two, LOFI TAPE II's four */
+    TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE,
 };
 static uint32_t tgt_at(uint32_t i)       /* the number at place i in the list */
 {
@@ -2510,8 +2627,27 @@ static uint32_t vh_n(uint32_t p)          /* ... as a value of its own (gliding:
     v = vh(p) + 0.5f;
     return v < 0.0f ? 0u : v > (float)PD[p].max ? PD[p].max : (uint32_t)v;
 }
+/* GLOBAL's TEMPO while a MIDI clock leads the grid (the engine's own grid_clocked: CLOCK on AUTO, a clock in this half
+ * second; INTERNAL lets it go at once): TEMPO (EXT), the clock's tempo greyed, K1 not turning it (card #137). TEMPO
+ * stays as it was (a STORE keeps it; the clock gone, it is back), this only the screen's. The clock's tempo in whole
+ * BPM, the one shown moved only when the clock's is over HYST off it: the USB's jitter and the clocks read together
+ * (clock_in's filter: within some 0.2 %) never make it blink 79/80/81. 0: no clock */
+#define EXT_BPM_HYST 0.7f
+static uint32_t ext_bpm(void)
+{
+    static uint32_t shown;
+    float b;
+    if (!grid_clocked(eng_ms()))
+        return shown = 0u;
+    b = 2500.0f / grid.clk_ms;
+    if (!shown || b > (float)shown + EXT_BPM_HYST || b < (float)shown - EXT_BPM_HYST)
+        shown = (uint32_t)(b + 0.5f);
+    return shown;
+}
 static uint32_t pv_shown(int p)
 {
+    if (p == P_TEMPO && ext_bpm())       /* (a MIDI clock's: its gauge in TEMPO's range) */
+        return ext_bpm() < 30u ? 0u : ext_bpm() - 30u > PD[P_TEMPO].max ? PD[P_TEMPO].max : ext_bpm() - 30u;
     if (!ng.on || ng.p != (uint8_t)p || ng.v > PD[p].max)
         return vh_n((uint32_t)p);
     return PD[p].fmt == F_LTGT ? tgt_at(ng.v) : ng.v;
@@ -2549,12 +2685,15 @@ static void list_take(uint32_t p, uint32_t i)
     if (i > PD[p].max) {
         uint32_t u = i - PD[p].max - 1u;
         eng_preset_apply(up_at((uint32_t)t, u), up_bytes((uint32_t)t));
+        lv_preset(up_at((uint32_t)t, u), up_bytes((uint32_t)t));
         up_cur[t] = (int8_t)u;
         return;
     }
     if (t >= 0) {
-        if (up_cur[t] >= 0 && st.v[p] == i)   /* (the same factory one again: its sound back) */
+        if (up_cur[t] >= 0 && st.v[p] == i) {   /* (the same factory one again: its sound back) */
             st.v[p] = (uint8_t)(i ? i - 1u : i + 1u);
+            lv_set(p, st.v[p]);          /* (told as a turn: the other side's sound comes back the same) */
+        }
         up_cur[t] = -1;
     }
     param_set((int)p, (int32_t)i);
@@ -2581,8 +2720,10 @@ static void grid_keep(void)              /* the grid opened: the sound as it is,
 static void grid_back(void)              /* FX: the sound as it was */
 {
     int t = list_track(gk.p);
-    if (gk.n)
+    if (gk.n) {
         eng_preset_apply(gk.b, gk.n);
+        lv_preset(gk.b, gk.n);
+    }
     if (t >= 0) {
         st.v[gk.p] = gk.old;             /* (its name back, the sound the preset's bytes) */
         up_cur[t] = gk.up;
@@ -2835,6 +2976,8 @@ static void encoders(void)
             }
             if (p >= NPARAM)                 /* an empty slot */
                 continue;
+            if (p == P_TEMPO && ext_bpm())   /* TEMPO (EXT): the MIDI clock's, nothing to turn */
+                continue;
         }
         if (fm.page == PG_MIXER && b_held(B_OCTDN) && !b_held(B_OCTUP) && e >= EN_K1) {   /* MIXER, OCT- held: K1 .. K4
                                                                                         * each track's PAN (OCT- a
@@ -2907,7 +3050,10 @@ static void track_clear(void)
  * begun, the track's steps shown: its SEQ II (else the page staying) */
 static void rec_tap(void)
 {
-    int was = rec_any(), r = eng_record_on(st.v[P_KB], 1);
+    uint32_t layer = st.v[P_KB];         /* (before: RECORD moves the keys, rec_keys) */
+    int was = rec_any(), r;
+    lv_rec(layer);                       /* (first: the take's COUNT-IN and OVERDUB as they are, FST_RECORDING) */
+    r = eng_record_on(layer, 1);
     if (r && !was) {
         fm.logo = 0;
         fm.help = 0;
@@ -2929,6 +3075,7 @@ static void play_tap(void)
         twice = 0;
         sound_off();
         grid_top(0);
+        lv_op(LV_RELEASE, 0, 0);
         app_say("RELEASE ALL", rst_valid ? "HOLD PLAY: RESTORE" : "");
         return;
     }
@@ -2941,15 +3088,17 @@ static void play_tap(void)
         if (idle) {
             rst_valid = 0;
             scene_get(fm.scene, &sc);
-            eng_scene_again(&sc);
+            if (eng_scene_again(&sc))
+                lv_op(FST_PLAY, 0, 0);   /* (frs_play from silence: the scene given last, again) */
         }
     } else {                             /* nothing playing at all: its three tracks, as PLAY held; else the transport;
                                           * stopping a take ends it, RECORD off */
         int ran = sq.run || bq.run || dq.run || cnt.run;
         scene_get(fm.scene, &sc);
         eng_play_tap(&sc);
+        lv_op(FST_PLAY, 0, 0);
         if (ran && rec_any() && !sq.run && !bq.run && !dq.run && !cnt.run) {
-            eng_record_off();
+            lv_record_off();
             app_say("STOPPED", "RECORD OFF");
         }
     }
@@ -2961,8 +3110,9 @@ static void play_hold(void)
     scene_t sc;
     scene_get(fm.scene, &sc);
     eng_release_all(&sc);
+    lv_op(LV_RELEASE_ALL, 0, 0);
     if (rec_any())
-        eng_record_off();
+        lv_record_off();
 }
 
 /* PLAY being held, for the screen: 0 not yet (or not held), else how far to its hold, 0..1 (from 200 ms) */
@@ -3076,6 +3226,7 @@ static void buttons_down(uint32_t btn)
 static void anchor_back_to(uint32_t ms)
 {
     anchor_back(ms);
+    lv_op(FST_ANCHOR_BACK, ms & 0xFFu, ms >> 8 & 0xFFu);
     fm.octave = fm.anc_oct;
     app_say(ms ? "MORPH" : "BACK", "TO " ANCHOR_NAME);
 }
@@ -3088,9 +3239,11 @@ static void anchor_press(void)           /* the two down */
         fm.anc_at = plat_ms();
     } else if (mo.on && mo.anc) {
         anchor_back(0);
+        lv_op(FST_ANCHOR_BACK, 0, 0);
         app_say("BACK", "TO " ANCHOR_NAME);
     } else {
         anchor_set();
+        lv_long(FST_ANCHOR, LV_ANC);     /* (its bytes: frs_anchor_put) */
         fm.anc_oct = fm.octave;
         app_say(ANCHOR_NAME, "SET");
     }
@@ -3189,6 +3342,7 @@ static void buttons(uint32_t btn)
             b_used(B_OCTDN);
             b_used(B_PLAY);
             eng_cut();
+            lv_op(FST_CUT, 0, 0);
             app_say("CUT", "ALL SOUND");
         } else if (k == B_EDIT && (btn >> B_OCTDN & 1u) && !(btn >> B_OCTUP & 1u)) {   /* OCT- held, EDIT: COMPARE,
                                                                                        * the scene as saved, while EDIT
@@ -3226,6 +3380,7 @@ static void holds(void)
             if (!st.bass && !st.glint)
                 continue;                /* (nothing done: nothing for SELECT to undo, hold_acted stays off) */
             a->latch ^= 1u;
+            lv_set(bs ? P_BA_LATCH : P_GA_LATCH, a->latch);   /* (as ARP II's LATCH sets it) */
             arp_was.a = a;
             arp_was.typed = 0;
             if (!a->latch) {             /* off: only the keys still down go on (the rest kept for hold_undo) */
@@ -3290,10 +3445,17 @@ static void holds(void)
     }
 }
 
+static int swell_held(uint32_t btn)     /* ENV held, as the engine hears it (eng_swell; STATE's running state too) */
+{
+    return (btn >> B_ENV & 1u) && plat_ms() - fm.hold_at[B_ENV] >= HOLD_MS &&
+           (fm.hold_acted >> B_ENV & 1u);   /* (ENV's hold: none once SELECT took it) */
+}
+
 static void swell_update(uint32_t btn)
 {
-    eng_swell((btn >> B_ENV & 1u) && plat_ms() - fm.hold_at[B_ENV] >= HOLD_MS &&
-              (fm.hold_acted >> B_ENV & 1u));   /* (ENV's hold: none once SELECT took it) */
+    int held = swell_held(btn);
+    eng_swell(held);
+    lv_watch(held);                      /* (ENV held, COMPARE: told as they change) */
 }
 
 static int32_t white_of(uint32_t k)     /* key k's place among the white ones (F2's key the first), -1: black */
@@ -3365,6 +3527,7 @@ static void key_down(uint32_t k, uint32_t vel)
     if (b_held(B_SEL))                   /* (SEL with a key: no HARMONY on its release, whatever the keys play) */
         b_used(B_SEL);
     eng_key_down(k, 53 + (int)k + 12 * fm.octave, vel, b_held(B_SEL));   /* (SEL held: a single note) */
+    lv_key(k, 53 + (int)k + 12 * fm.octave, vel, b_held(B_SEL));
 }
 
 static void keys_scan(void)
@@ -3374,12 +3537,16 @@ static void keys_scan(void)
     keys = saver_keys(touch_keys());     /* (a key that woke the screen: no note) */
     for (k = 0; k < NKEYS; k++) {
         uint32_t bit = 1u << k;
-        if ((keys & bit) && !(keys_prev & bit))
+        if ((keys & bit) && !(keys_prev & bit)) {
             key_down(k, touch_vel(k));
-        else if (!(keys & bit) && (keys_prev & bit))
+        } else if (!(keys & bit) && (keys_prev & bit)) {
             key_up(k);
-        else if (keys & bit)
-            key_pressure(k, touch_pressure(k));
+            lv_key_up(k);
+        } else if (keys & bit) {
+            uint8_t p = touch_pressure(k);
+            lv_pressure(k, p);           /* (before: it reads what the key had) */
+            key_pressure(k, p);
+        }
     }
     keys_prev = keys;
 }
@@ -3487,7 +3654,7 @@ static void input(void)
     grid_tick();
     if (rec_any() && !test_rec_anywhere && PAGES[fm.page].button != B_SEQ && PAGES[fm.page].button != B_ARP) {   /* a take lives on the SEQ and ARP
                                                                                             * pages: leaving them ends it */
-        eng_record_off();
+        lv_record_off();
         app_say("RECORD OFF", "");
     }
     {                                    /* SCENES left: its LOAD kept, if it changed (MORPH: CUT at every start) */
@@ -3509,6 +3676,7 @@ static void input(void)
     swell_update(btn);
     if (st.engine_dirty)
         engine_push();
+    lv_pump();                           /* (what this pass gave the engine, to a LIVE page) */
     if (pop.on) {                        /* a pop-up: every light out but SEL's, its one way out (back after) */
         oct_soft = 0;
         lights_set(1u << B_SEL, 0, 0, 0, 0, 0);
@@ -3726,9 +3894,11 @@ void app_ui_init(void)
  * stage, a film). The page asks and the FM-1 tells; nothing is built or sent while no page listens (a DAW on the port
  * never sees a byte), and never from the render: the main loop, once a UI frame, from what the screen knows already.
  * SysEx over USB-MIDI, F0 7D 46 50 cmd .. F7 ("FP"; design/perform/README.md):
- *   page -> FM-1  1 HELLO ver     listen (again every ~2 s: a page not heard for 5 s is gone; each one has SCENE and
- *                                 PAGE told again, a frame the page may have missed)
+ *   page -> FM-1  1 HELLO ver, flags   listen (again every ~2 s: a page not heard for 5 s is gone; each one has SCENE
+ *                                 and PAGE told again, a frame the page may have missed); flags 1 COMPUTER AUDIO,
+ *                                 2 LIVE (the engine's inputs as OPs, below: PERFORM's LIVE)
  *                 2 BYE           stop
+ *                 9 STATE?        LIVE's start (below)
  *   FM-1 -> page  1 HELLO ver, NPARAM (2), the version (ASCII)            the answer to each HELLO
  *                 2 SCENE slot (16: NEW SHARD), dirty, name (16 ASCII)     at HELLO, and when one of them changes
  *                 3 VALUES first (2), n, then n values (2 each)            every setting: at HELLO, after a load
@@ -3741,12 +3911,22 @@ void app_ui_init(void)
  *                   transport (bits), LOFI TAPE's drag under way (how much slower: 127 is 8 %); a note 127: none;
  *                   levels 0..127
  *                 7 BUTTON b (B_*), down
+ *                 8 KEYS the keys held (bit k: key k), four 7-bit bytes
+ *                 9 STATE, 10 OP, 11 OP in parts: PERFORM's LIVE (below)
+ *                12 BATTERY raw (2), mV (2), level        after each HELLO's answer: the divider's last reading
+ *                   (16383: none), the millivolts smoothed (APP_BATT_RAW_4V2's scale), the level drawn (127: none);
+ *                   the calibration's (design/perform/scripts/fm1_listen.py)
  * Two bytes: 7-bit high, low. Each frame goes whole or not at all, never waiting (plat_sysex_try): one that does not
  * fit now (the computer not reading, a backup or the screen reader on the wire) is tried again at the next UI frame.
  * A backup streaming (app_backup_hold): quiet. */
 #ifndef PLAT_WEB
-#define PF_VER 1u
+#define PF_VER 1u                        /* (LIVE too: a page that doesn't ask never sees it) */
 #define PF_DUMP 48u                      /* settings in one VALUES (a SysEx ring's third) */
+#define LV_PART 120u                     /* a LIVE part's packed bytes at most (fifteen sevens: 105 of its own) */
+#define LV_LIVE 2048u                    /* STATE's running state at most (live_save: some 1.5 KB a busy scene; more
+                                          * would not fit: none told) */
+#define LV_STATE (2u + FRS_SCENE_BYTES + 1u + STATE_BYTES + 1u + 2u * FST_MOVES + 1u + 2u + LV_LIVE)   /* STATE's bytes,
+                                          * at most */
 static struct {
     uint32_t heard, frame_at, btn, kd;   /* (kd: the keys held, as the page knows them) */
     uint8_t on, page, oct, keys, scene, dirty, dump;   /* dump: the next VALUES' first setting + 1 (0: none due) */
@@ -3763,16 +3943,44 @@ static void pf_quiet(int q)
     plat_speaker(st.v[P_SPEAKER] && !spk_page);
 }
 
+#ifdef PLAT_HOST
+static struct {                          /* the tests' (pfhello, pfop, pfstate ...): LIVE's frames as sent */
+    uint8_t b[16384];                    /* each: its length (2), its bytes */
+    uint32_t n, rd, jam, fails;          /* jam: the next ones refused, a ring full (pfjam) */
+    uint8_t want[LV_STATE];              /* the STATE pfstate asked for, as the tests make it then (pfc_want) */
+    uint32_t want_n, want_ms;            /* (want_ms: the millisecond its running state says, plat_ms() + 1 then) */
+    int still, still_fd, still_got;      /* pfstill (pfc_still): 1 the run without the asks, 2 the one with them; the
+                                          * first's pipe, its renderhash come */
+    uint32_t asks;                       /* (the STATEs asked since pfstill) */
+    uint64_t still_hash;
+} pfc;
+#endif
+
 static int pf_send(const uint8_t *b, uint32_t n)   /* F0 7D 46 50 b.. F7, whole or not at all: 0 = sent */
 {
-    uint8_t f[4u + 2u * PF_DUMP + 8u];
+    uint8_t f[5u + 3u + LV_PART];        /* (the longest: a LIVE part, cmd, part, parts, its bytes) */
     uint32_t i;
+    _Static_assert(4u + 2u * PF_DUMP <= 3u + LV_PART, "a VALUES fits pf_send's frame");
     if (n + 5u > sizeof f)
         return -1;
     f[0] = 0xF0u, f[1] = 0x7Du, f[2] = 0x46u, f[3] = 0x50u;
     for (i = 0; i < n; i++)
         f[4u + i] = b[i] & 0x7Fu;
     f[4u + n] = 0xF7u;
+#ifdef PLAT_HOST
+    if (n && b[0] >= 9u && b[0] <= 11u) {   /* (LIVE's, for the checks) */
+        if (pfc.jam) {
+            pfc.jam--;
+            return -1;
+        }
+        if (pfc.n + 2u + n + 5u <= sizeof pfc.b) {
+            pfc.b[pfc.n] = (uint8_t)(n + 5u);
+            pfc.b[pfc.n + 1u] = (uint8_t)((n + 5u) >> 8);
+            memcpy(pfc.b + pfc.n + 2u, f, n + 5u);
+            pfc.n += 2u + n + 5u;
+        }
+    }
+#endif
     return plat_sysex_try(f, n + 5u);
 }
 
@@ -3785,6 +3993,25 @@ static uint32_t pf_two(uint8_t *b, uint32_t v)
 
 static uint8_t pf_note(int n) { return n < 0 || n > 126 ? 127u : (uint8_t)n; }
 static uint8_t pf_lvl(float l) { return (uint8_t)(br_clamp01(l) * 127.0f + 0.5f); }
+
+#ifdef PLAT_HOST
+static uint8_t pf_batt_last[6];          /* (the tests': the last BATTERY sent, pfbatt; how many, pfbattn) */
+static uint32_t pf_batt_n;
+#endif
+static void pf_battery(void)             /* 12 BATTERY: the reading (16383 none), the millivolts, the level (127 none) */
+{
+    uint8_t b[6];
+    b[0] = 12u;
+    pf_two(b + 1, batt.raw < 0 ? 16383u : (uint32_t)batt.raw);
+    pf_two(b + 3, (uint32_t)(batt.mv16 / 16));
+    b[5] = batt.pct < 0 ? 127u : (uint8_t)batt.pct;
+    if (pf_send(b, 6u))
+        return;
+#ifdef PLAT_HOST
+    memcpy(pf_batt_last, b, sizeof b);
+    pf_batt_n++;
+#endif
+}
 
 static int pf_scene(void)
 {
@@ -3858,6 +4085,321 @@ static void pf_frame(void)
     pf_send(b, (uint32_t)(p - b));
 }
 
+/* ------------------------------------------------------------ PERFORM's LIVE --- */
+/* A page with LIVE's bit (HELLO's flags, 2) hears what the hands give the engine, as SHARD STREAM's ops, so that its
+ * listeners' engines, a fresh one each fed them in order, play what this one plays (design/perform/LIVE.md, 1):
+ *   page -> FM-1  9 STATE?        answered once, as the queue reaches it (a STATE asked while one waits: that one)
+ *   FM-1 -> page  9 STATE part, parts, packed: joined and unpacked (little-endian), u16 scene_n, the scene as it sounds
+ *                   now (STORE's: its sound, its notes, unsaved), u8 state_n, frs_state_save's bytes, u8 moves_n,
+ *                   (setting, value) for each FRS_P_MOMENT one, u8 tracks (FRAME's transport), then (card #131) u16
+ *                   live_n, the engine's running state at the same instant (engine/live.c's live_save: "FRlv" and its
+ *                   head, the brain, the sound's; LV_LIVE at most, 0 none: it did not fit). A page of #114 stops at
+ *                   tracks; 27 parts at most (LV_STATE)
+ *                10 OP packed: op, its args (frasil_stream.h's, the gestures it has none for LV_*'s); KEY_DOWN's fourth
+ *                   the velocity. An op whose file has an index into SCNS (FST_SCENE, FST_SCENE_NOW, FST_STORE,
+ *                   FST_ANCHOR) carries the scene itself, FRS_SCENE_BYTES: too long for one frame, it goes as
+ *                11 OP part, parts, packed: joined and unpacked, op, the scene
+ * "packed": MIDI's 8-to-7, each seven bytes a byte of their top bits (bit i: byte i's), then their low seven; a part
+ * LV_PART packed bytes at most. Each op is queued as the engine gets it (lv_q: their order, the STATE among them where
+ * it was asked), the queue sent from the main loop as the wire takes it (lv_pump: each pass, a part a pass), never from
+ * the render; without the page's bit, nothing. The queue full: the op dropped (lv.lost; the page's next STATE puts its
+ * listeners right), a key's pressure leaving room for the rest */
+#define LV_RAW (LV_PART / 8u * 7u)       /* a part's own bytes */
+#define LV_Q 512u                        /* the queue's bytes: an op n (1 + its args), op, args; a long one 0x80, op,
+                                          * src (lv_long); STATE 0x81 (512: a STATE with its running state holds the wire
+                                          * some 60 ms, card #131; 192 before) */
+#define LV_KEEP 48u                      /* the room a pressure leaves */
+static struct {
+    uint16_t r, n;                       /* the queue: its first byte, its bytes */
+    uint8_t part, state;                 /* the head's next part (a long op's, STATE's); a STATE queued (lv_big) */
+    uint8_t swell, compare;              /* as last told */
+    uint32_t kd, lost;                   /* the keys whose down was told; the ops dropped */
+} lv;
+static uint8_t lv_q[LV_Q] PLAT_POOL;
+static uint8_t lv_big[LV_STATE] PLAT_POOL;   /* STATE's */
+static uint16_t lv_big_n;
+_Static_assert(sizeof(scene_t) == FRS_SCENE_BYTES && FRS_NKEYS <= 32u, "a scene told is FRS_SCENE_BYTES; lv.kd's keys");
+_Static_assert(LV_STATE <= 127u * LV_RAW, "STATE's parts counted in a 7-bit byte");
+
+/* MIDI's 8-to-7: s's n bytes into o, each seven a byte of their top bits (bit i: byte i's), then their low seven bits;
+ * the packed length (n and a byte a seven) */
+static uint32_t pf_pack(uint8_t *o, const uint8_t *s, uint32_t n)
+{
+    uint32_t i, j, k = 0;
+    for (i = 0; i < n; i += 7u) {
+        uint32_t h = k++;
+        o[h] = 0;
+        for (j = 0; j < 7u && i + j < n; j++) {
+            o[h] |= (uint8_t)((s[i + j] >> 7) << j);
+            o[k++] = s[i + j] & 0x7Fu;
+        }
+    }
+    return k;
+}
+
+static uint8_t lv_at(uint32_t i) { return lv_q[(lv.r + i) % LV_Q]; }
+static void lv_drop(uint32_t n)
+{
+    lv.r = (uint16_t)((lv.r + n) % LV_Q);
+    lv.n = (uint16_t)(lv.n - n);
+}
+static void lv_put(const uint8_t *b, uint32_t n, uint32_t keep)   /* a record whole, or none (keep: room left after) */
+{
+    uint32_t i;
+    if (!lv_on && b[0] != 0x81u)
+        return;
+    if (LV_Q - lv.n < n + keep) {
+        lv.lost++;
+        return;
+    }
+    for (i = 0; i < n; i++)
+        lv_q[(lv.r + lv.n + i) % LV_Q] = b[i];
+    lv.n = (uint16_t)(lv.n + n);
+}
+
+/* an op and its args (as many as its top bits say: 0, 2 or 4) */
+static void lv_ev(uint32_t op, uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t keep)
+{
+    uint32_t n = op >> 6 == 1u ? 2u : op >> 6 == 2u ? 4u : 0u;
+    uint8_t b[6] = {(uint8_t)(1u + n), (uint8_t)op, (uint8_t)a0, (uint8_t)a1, (uint8_t)a2, (uint8_t)a3};
+    lv_put(b, 2u + n, keep);
+}
+static void lv_op(uint32_t op, uint32_t a0, uint32_t a1) { lv_ev(op, a0, a1, 0, 0, 0); }
+static void lv_set(uint32_t p, uint32_t v) { lv_ev(FST_PARAM, p, v, 0, 0, 0); }
+static void lv_long(uint32_t op, uint32_t src)   /* src: a slot (scene_get's), LV_ANC the ANCHOR's: read as sent */
+{
+    uint8_t b[3] = {0x80u, (uint8_t)op, (uint8_t)src};
+    lv_put(b, 3u, 0);
+}
+
+/* app.c's param_set (the macro, top): a setting that moves, told first (as param_set clamps it), but the FM-1's alone
+ * (SPK/JACK, the screen's, the metronome: its ticks the player's; COUNT-IN: with REC, FST_RECORDING) */
+static void lv_param_set(int p, int32_t x)
+{
+    if (lv_on && p >= 0 && p < (int)NPARAM && st.v[p] != (uint8_t)clamp(x, 0, PD[p].max) &&
+        param_kind((uint32_t)p) != PK_NONE)
+        lv_set((uint32_t)p, (uint32_t)clamp(x, 0, PD[p].max));
+    (param_set)(p, x);
+}
+
+/* REC tapped: the take's COUNT-IN and OVERDUB as they are (FST_RECORDING: frs_count_in, frs_overdub), then the record
+ * itself on the layer (LV_RECORD: frs_record_layer, eng_record_on's) */
+static void lv_rec(uint32_t layer)
+{
+    lv_ev(FST_RECORDING, st.v[P_COUNT_IN] != 0, overdub != 0, 0, 0, 0);
+    lv_op(LV_RECORD, layer, 0);
+}
+
+static void lv_key(uint32_t k, int note, uint32_t vel, int single)
+{
+    if (!lv_on || k >= 32u)
+        return;
+    lv.kd |= 1u << k;
+    lv_ev(single ? LV_KEY_SINGLE : FST_KEY_DOWN, k, (uint32_t)clamp(note, 0, 127), st.v[P_KB],
+          vel < 1u ? 1u : vel > 127u ? 127u : vel, 0);
+}
+static void lv_key_up(uint32_t k)        /* (a key whose down was told: SAVE's, EDIT's keys never were) */
+{
+    if (k >= 32u || !(lv.kd >> k & 1u))
+        return;
+    lv.kd &= ~(1u << k);
+    lv_ev(FST_KEY_UP, k, 0, 0, 0, 0);
+}
+static void lv_pressure(uint32_t k, uint8_t p)   /* before key_pressure: told when it acts (past its 2 either way, to 0,
+                                                  * its first press in) */
+{
+    uint32_t was = key[k].prs;
+    if (k < 32u && (lv.kd >> k & 1u) &&
+        (p > was + 2u || p + 2u < was || (p == 0 && was) || (p > 12u && !key[k].pressed_in)))
+        lv_ev(LV_KEY_PRESSURE, k, p, 0, 0, LV_KEEP);
+}
+
+/* MIDI in, as eng_midi took it (the clock and Start, the channels' messages on FRASIL's channels, All Sound Off on
+ * any); MIDI learn's CC not (its setting told instead: lv_cc_took) */
+static void lv_midi(uint32_t pkt)
+{
+    uint32_t s = pkt >> 8 & 0xFFu, ch = (s & 15u) + 1u, d1 = pkt >> 16 & 0x7Fu, d2 = pkt >> 24 & 0x7Fu;
+    if (!lv_on || lv_cc_took)
+        return;
+    if (s == 0xF8u || s == 0xFAu) {
+        if (st.v[P_CLOCK])               /* (CLOCK INTERNAL: not taken) */
+            return;
+    } else if (s < 0x80u || s >= 0xF0u ||
+               (!((s & 0xF0u) == 0xB0u && d1 == 120u) && !on_ch(P_CANAL, ch) && !on_ch(P_CH_GLINT, ch) &&
+                !on_ch(P_CH_BASS, ch))) {
+        return;
+    }
+    lv_ev(FST_MIDI, s, d1, d2, 0, 0);    /* (taken at once: 0 ms ahead) */
+}
+
+/* a preset taken (eng_preset_apply): its settings, in its order, as it sets them */
+static void lv_preset(const uint8_t *in, uint32_t n)
+{
+    int l = preset_layer(in, n);
+    uint32_t i;
+    if (!lv_on || l < 0)
+        return;
+    for (i = 0; i < in[5]; i++) {
+        uint32_t p = in[PRESET_HEAD + 2u * i];
+        if (p < NPARAM && preset_has((uint32_t)l, p))
+            lv_set(p, (uint32_t)clamp(in[PRESET_HEAD + 2u * i + 1u], 0, PD[p].max));
+    }
+}
+
+/* RECORD OFF (eng_record_off), told as the settings it turns: the three off, the track's PLAYS back */
+static void lv_record_off(void)
+{
+    static const uint8_t RP[3] = {P_SQ_REC, P_BQ_REC, P_DQ_REC}, TP[3] = {P_DQ_ON, P_SQ_TYPE, P_BQ_ON};
+    uint8_t rec[3], plays[3];
+    uint32_t i;
+    if (!lv_on) {
+        eng_record_off();
+        return;
+    }
+    for (i = 0; i < 3u; i++) {
+        rec[i] = st.v[RP[i]];
+        plays[i] = st.v[TP[i]];
+    }
+    eng_record_off();
+    for (i = 0; i < 3u; i++)
+        if (rec[i])
+            lv_set(RP[i], 0);
+    for (i = 0; i < 3u; i++)
+        if (plays[i] != st.v[TP[i]])
+            lv_set(TP[i], st.v[TP[i]]);
+}
+
+static void lv_watch(int swell)          /* each pass: ENV held, COMPARE, told as they change */
+{
+    if (!lv_on)
+        return;
+    if ((uint8_t)(swell != 0) != lv.swell) {
+        lv.swell = (uint8_t)(swell != 0);
+        lv_op(LV_SWELL, lv.swell, 0);
+    }
+    if (st.compare != lv.compare) {
+        lv.compare = st.compare;
+        lv_op(LV_COMPARE, lv.compare, 0);
+    }
+}
+
+/* a FRS_P_MOMENT setting as it is (ARP II's LATCH: the arpeggio's own, ARP held turns it alone) */
+static uint8_t lv_moment(uint32_t p)
+{
+    return p == P_GA_LATCH ? arp.latch : p == P_BA_LATCH ? barp.latch : st.v[p];
+}
+
+/* STATE asked: the start, as it is now, into lv_big, then the engine's running state at the same instant (live_save:
+ * the brain whole, the sound's read between two blocks; its scenes XORed with this start's), queued where it was asked
+ * (each op before it, made before it). Each only read: taking it changes nothing of the sound or the brain */
+static void lv_state(void)
+{
+    static const uint8_t H = 0x81u;
+    scene_t sc;
+    uint8_t *o = lv_big;
+    uint32_t i, n, p, m = 0, at, ln;
+    if (lv.state)
+        return;
+    scene_get(fm.scene, &sc);            /* (as STORE makes it, the scene's: its name, what it plays now) */
+    for (i = 0; i < NSOUND; i++)
+        sc.v[i] = kept_v(i);
+    scene_notes_take(&sc);
+    o[0] = (uint8_t)(FRS_SCENE_BYTES & 0xFFu);
+    o[1] = (uint8_t)(FRS_SCENE_BYTES >> 8);
+    memcpy(o + 2, &sc, FRS_SCENE_BYTES);
+    n = 2u + FRS_SCENE_BYTES;
+    o[n] = (uint8_t)state_save(o + n + 1u);
+    n += 1u + o[n];
+    at = n++;
+    for (p = 0; p < NPARAM && p < 256u && m < FST_MOVES; p++)   /* (as fst_capture takes them) */
+        if (param_kind(p) == PK_MOMENT) {
+            o[n++] = (uint8_t)p;
+            o[n++] = lv_moment(p);
+            m++;
+        }
+    o[at] = (uint8_t)m;
+    o[n++] = pf_playing();
+    ln = live_save(o + n + 2u, LV_LIVE, o + 2, swell_held(btn_now), 0, 1);   /* (ENV held as the last pass gave it;
+                                          * no engine alone's part; 0: it did not fit, none told) */
+    o[n] = (uint8_t)(ln & 0xFFu);
+    o[n + 1u] = (uint8_t)(ln >> 8);
+    n += 2u + ln;
+    lv_big_n = (uint16_t)n;
+    i = lv.lost;
+    lv_put(&H, 1u, 0);
+    lv.state = lv.lost == i;
+}
+
+/* the head's next part (a long op's, STATE's): cmd 11 or 9, part, parts, LV_RAW bytes packed. A long op's scene read
+ * where it is, each part (a slot's, NEW SHARD's, the ANCHOR's) */
+static void lv_part(uint32_t h, uint8_t *b, uint8_t *raw)
+{
+    scene_t sc;
+    const uint8_t *s = lv_big;
+    uint32_t n = lv_big_n, op = 0, at = (uint32_t)lv.part * LV_RAW, i, k, parts;
+    if (h == 0x80u) {
+        uint32_t src = lv_at(2);
+        op = lv_at(1);
+        if (src == LV_ANC) {
+            s = (const uint8_t *)&anc.sc;
+        } else {
+            scene_get(src, &sc);
+            s = (const uint8_t *)&sc;
+        }
+        n = 1u + FRS_SCENE_BYTES;
+    }
+    parts = (n + LV_RAW - 1u) / LV_RAW;
+    for (i = 0; i < LV_RAW && at + i < n; i++)
+        raw[i] = h == 0x81u ? s[at + i] : at + i == 0u ? (uint8_t)op : s[at + i - 1u];
+    b[0] = h == 0x81u ? 9u : 11u;
+    b[1] = lv.part;
+    b[2] = (uint8_t)parts;
+    k = pf_pack(b + 3, raw, i);
+    if (pf_send(b, 3u + k))
+        return;
+    if (++lv.part < parts)
+        return;
+    lv.part = 0;
+    lv_drop(h == 0x81u ? 1u : 3u);
+    if (h == 0x81u)
+        lv.state = 0;
+}
+
+/* each pass: the queue to the page as the wire takes it, an op a frame, a long one's part a pass */
+static void lv_pump(void)
+{
+    uint8_t b[3u + LV_PART], raw[LV_RAW];
+    while (lv.n) {
+        uint32_t h = lv_at(0), i;
+        if (h >= 0x80u) {
+            lv_part(h, b, raw);
+            return;
+        }
+        for (i = 0; i < h; i++)
+            raw[i] = lv_at(1u + i);
+        b[0] = 10u;
+        if (pf_send(b, 1u + pf_pack(b + 1, raw, h)))
+            return;
+        lv_drop(1u + h);
+    }
+}
+
+static void lv_live(int on)              /* HELLO's bit: from its first, what STATE doesn't hold told as it changes */
+{
+    if (on && !lv_on) {
+        lv.kd = 0;
+        lv.swell = lv.compare = 0;
+    }
+    lv_on = (uint8_t)(on != 0);
+}
+static void lv_end(void)                 /* the page gone: nothing more, nothing waiting */
+{
+    lv_on = 0;
+    lv.r = lv.n = 0;
+    lv.part = lv.state = 0;
+    lv.kd = 0;
+}
+
 /* a UI frame: what changed since the page last heard, then what sounds (20 a second) */
 static void pf_tick(void)
 {
@@ -3868,6 +4410,7 @@ static void pf_tick(void)
     if (now - pf.heard > 5000u) {
         pf.on = 0;
         pf_quiet(0);
+        lv_end();
         return;
     }
     if (fm.store_hold)                   /* a backup streaming: its frames alone on the wire */
@@ -3942,11 +4485,18 @@ int app_sysex(const uint8_t *p, uint32_t n)
     if (p[3] == 2u) {
         pf.on = 0;
         pf_quiet(0);
+        lv_end();
+        return 1;
+    }
+    if (p[3] == 9u) {                    /* STATE? (a page listening: LIVE's start) */
+        if (pf.on)
+            lv_state();
         return 1;
     }
     if (p[3] != 1u)
         return 1;
-    pf_quiet(n > 5u && p[5] < 0x80u && (p[5] & 1u));   /* (HELLO: version, then flags: 1 COMPUTER AUDIO) */
+    pf_quiet(n > 5u && p[5] < 0x80u && (p[5] & 1u));   /* (HELLO: version, then flags: 1 COMPUTER AUDIO, 2 LIVE) */
+    lv_live(n > 5u && p[5] < 0x80u && (p[5] & 2u));
     if (!pf.on) {                        /* a page arrives: everything, from the start */
         pf.on = 1;
         pf.scene = 0xFFu, pf.page = 0xFFu, pf.dump = 1u;
@@ -3962,11 +4512,24 @@ int app_sysex(const uint8_t *p, uint32_t n)
     pf_two(b + 2, NPARAM);
     for (i = 0; ver[i]; i++)
         b[4u + i] = (uint8_t)ver[i];
-    pf_send(b, 4u + i);
+    if (!pf_send(b, 4u + i))
+        pf_battery();
     return 1;
 }
 #else
 static void pf_tick(void) {}
+static void lv_key(uint32_t k, int note, uint32_t vel, int single) {}
+static void lv_key_up(uint32_t k) {}
+static void lv_pressure(uint32_t k, uint8_t p) {}
+static void lv_midi(uint32_t pkt) {}
+static void lv_op(uint32_t op, uint32_t a0, uint32_t a1) {}
+static void lv_long(uint32_t op, uint32_t src) {}
+static void lv_set(uint32_t p, uint32_t v) {}
+static void lv_preset(const uint8_t *in, uint32_t n) {}
+static void lv_record_off(void) { eng_record_off(); }
+static void lv_rec(uint32_t layer) {}
+static void lv_watch(int swell) {}
+static void lv_pump(void) {}
 #endif
 
 void app_frame(void)
@@ -3977,6 +4540,7 @@ void app_frame(void)
 #endif
     input();
     load_watch();
+    batt_tick();
     saver_tick();
 #if defined PLAT_HOST && !defined PLAT_WEB
     k = saver.on ? 1u + saver.party : 0u;
@@ -4265,7 +4829,11 @@ int app_expect(const char *what, int *got)
     } else if (!strcmp(what, "metro")) {
         *got = st.metro;
     } else if (!strcmp(what, "extclock")) {  /* a MIDI clock leading the grid now (one came in this half second) */
-        *got = plat_ms() - grid.clk_at < 500u;
+        *got = grid_clocked(eng_ms());
+    } else if (!strcmp(what, "extbpm")) {    /* GLOBAL's TEMPO (EXT): the MIDI clock's tempo as shown, whole BPM; 0 none */
+        *got = (int)ext_bpm();
+    } else if (!strcmp(what, "clkbpm")) {    /* the MIDI clock's tempo as followed (grid.clk_ms), BPM x 100; 0 none */
+        *got = grid_clocked(eng_ms()) ? (int)(250000.0f / grid.clk_ms + 0.5f) : 0;
     } else if (!strcmp(what, "prefsdue")) {  /* the settings asked to be kept, not yet (something sounding) */
         *got = fm.prefs_due;
     } else if (!strcmp(what, "sparkles")) {  /* SPARKLE's glints played */
@@ -4379,6 +4947,12 @@ int app_expect(const char *what, int *got)
             }
         *got = n;
     }
+    else if (!strcmp(what, "pf_lost"))   /* PERFORM's LIVE: the ops dropped (its queue full), the bytes queued, on */
+        *got = (int)lv.lost;
+    else if (!strcmp(what, "pf_queued"))
+        *got = lv.n;
+    else if (!strcmp(what, "pf_live"))
+        *got = lv_on;
 #endif
     else if (!strcmp(what, "overlay"))   /* a value shown large over the strip */
         *got = overlay_on();
@@ -4407,6 +4981,19 @@ int app_expect(const char *what, int *got)
         *got = bq.run;
     else if (!strcmp(what, "headdark"))  /* GLO > SCREEN's HEADER: 1 DARK, 0 INVERT; headbyte: the settings' record's */
         *got = hdr.dark;
+    else if (!strcmp(what, "battpct"))   /* the header's battery: its level drawn (-1 none), its colour (0 green, 1
+                                          * yellow, 2 red), the millivolts smoothed */
+        *got = batt.pct;
+    else if (!strcmp(what, "battzone"))
+        *got = batt.zone;
+    else if (!strcmp(what, "battmv"))
+        *got = batt.mv16 / 16;
+#ifndef PLAT_WEB
+    else if (!strcmp(what, "pfbatt"))    /* the last BATTERY a PERFORM page got: its level (127 none); pfbattn: how many */
+        *got = pf_batt_last[5];
+    else if (!strcmp(what, "pfbattn"))
+        *got = (int)pf_batt_n;
+#endif
     else if (!strcmp(what, "headbyte"))
         *got = set.head;
     else if (!strcmp(what, "a4"))        /* GLO > RECORD's TUNE A4, Hz; a4byte: the settings' record's (less 440) */
@@ -5212,6 +5799,303 @@ static void test_scene(void)
     scene_take(&sc);
 }
 
+#ifndef PLAT_WEB
+#include <fcntl.h>                       /* (pfstill: the simulator forked, pfc_still) */
+#include <sys/wait.h>
+#include <unistd.h>
+/* PERFORM's LIVE as a page reads it (the tests': pfc, LIVE's frames as pf_send sent them). The checks' own 7-to-8 */
+static uint32_t pfc_unpack(uint8_t *o, const uint8_t *s, uint32_t n)
+{
+    uint32_t i = 0, k = 0, j, h;
+    while (i < n) {
+        h = s[i++];
+        for (j = 0; j < 7u && i < n; j++, i++)
+            o[k++] = (uint8_t)(s[i] | (h >> j & 1u) << 7);
+    }
+    return k;
+}
+
+/* the next message: its cmd (10 an op; 9 STATE, 11 a long op: their parts joined, each in its place, every one but the
+ * last LV_PART bytes, none over), its bytes unpacked into o (*on); 0 none, -1 a frame wrong */
+static int pfc_next(uint8_t *o, uint32_t *on, uint32_t max)
+{
+    uint32_t parts = 0, part = 0, cmd = 0;
+    *on = 0;
+    while (pfc.rd < pfc.n) {
+        uint32_t len = pfc.b[pfc.rd] | (uint32_t)pfc.b[pfc.rd + 1u] << 8, k;
+        const uint8_t *f = pfc.b + pfc.rd + 2u;
+        pfc.rd += 2u + len;
+        if (len < 6u || f[0] != 0xF0u || f[1] != 0x7Du || f[2] != 0x46u || f[3] != 0x50u || f[len - 1u] != 0xF7u)
+            return -1;
+        if (f[4] == 10u) {
+            if (parts || len - 6u > 16u)
+                return -1;               /* (an op amid a long one's parts) */
+            *on = pfc_unpack(o, f + 5, len - 6u);
+            cmd = 10;
+            break;
+        }
+        k = len - 8u;                    /* (9, 11: part, parts, its bytes) */
+        if (len < 9u || f[5] != part || !f[6] || (parts && (f[6] != parts || f[4] != cmd)) || k > LV_PART ||
+            (part + 1u < f[6] && k != LV_PART) || *on + LV_RAW > max)
+            return -1;
+        cmd = f[4];
+        parts = f[6];
+        *on += pfc_unpack(o + *on, f + 7, k);
+        if (++part == parts)
+            break;
+    }
+    if (pfc.rd >= pfc.n)
+        pfc.rd = pfc.n = 0;              /* (all read: room again) */
+    return part == parts ? (int)cmd : -1;
+}
+
+static void pfc_say(int ok, const char *what, const char *got)
+{
+    printf("%s %s%s%s\n", ok ? "  ok" : "FAIL", what, ok ? "" : ": got ", ok ? "" : got);
+    pfc.fails += !ok;
+}
+
+/* pfstate: the STATE asked now, as the tests make it (LIVE.md's layout, from the FM-1 as it is: the scene STORE would
+ * make, frs_state_save's, each FRS_P_MOMENT setting, FRAME's transport, then the running state live_save gives at this
+ * very instant, nothing rendered between, from that scene: the bytes lv_state's must be), for pfcheck; one asked while
+ * one waits: that one */
+static void pfc_want(void)
+{
+    scene_t sc;
+    uint8_t *w = pfc.want, st_b[STATE_BYTES];
+    uint32_t i, n, sb = state_save(st_b), m = 0, ln;
+    pfc.asks++;
+    if (lv.state)
+        return;
+    scene_get(fm.scene, &sc);
+    for (i = 0; i < NSOUND; i++)
+        sc.v[i] = kept_v(i);
+    scene_notes_take(&sc);
+    w[0] = (uint8_t)sizeof sc;
+    w[1] = (uint8_t)(sizeof sc >> 8);
+    memcpy(w + 2, &sc, sizeof sc);
+    n = 2u + (uint32_t)sizeof sc;
+    w[n++] = (uint8_t)sb;
+    memcpy(w + n, st_b, sb);
+    n += sb;
+    for (i = 0; i < NPARAM; i++)
+        m += param_kind(i) == PK_MOMENT;
+    w[n++] = (uint8_t)m;
+    for (i = 0; i < NPARAM; i++)
+        if (param_kind(i) == PK_MOMENT) {
+            w[n++] = (uint8_t)i;
+            w[n++] = i == P_GA_LATCH ? arp.latch : i == P_BA_LATCH ? barp.latch : st.v[i];
+        }
+    w[n++] = pf_playing();
+    ln = live_save(w + n + 2u, LV_LIVE, w + 2, swell_held(btn_now), 0, 1);
+    w[n++] = (uint8_t)ln;
+    w[n++] = (uint8_t)(ln >> 8);
+    pfc.want_n = n + ln;
+    pfc.want_ms = plat_ms() + 1u;        /* (the millisecond the engine runs next: the main loop ran this one's) */
+}
+
+/* the start, as STATE says it: each part in place, its layout whole (scene, state, moves, tracks, the running state,
+ * nothing after), the state frs_state_save's ("FRst" 3, each FRS_P_STATE setting, the metronome last), the moves each
+ * FRS_P_MOMENT's, the running state's head as a listener reads it ("FRlv", its version 1, the sound's part in it, the
+ * scene's length, NPARAM, the millisecond plat_ms() + 1 at the ask, the body's length; LV_LIVE at most), and every byte
+ * what pfstate asked for then (pfc_want) */
+static void pfc_state(void)
+{
+    static uint8_t o[LV_STATE + LV_RAW];
+    char t[128];
+    uint32_t n = 0, sn, sb, mn, tr, ln, i, ns = 0, nm = 0, bad = 0;
+    const uint8_t *lv_b;
+    int c = pfc_next(o, &n, sizeof o);
+    if (c != 9) {
+        snprintf(t, sizeof t, "cmd %d, not a STATE", c);
+        pfc_say(0, "pfstate", t);
+        return;
+    }
+    sn = o[0] | (uint32_t)o[1] << 8;
+    sb = n > 2u + sn ? o[2u + sn] : 0u;
+    mn = n > 3u + sn + sb ? o[3u + sn + sb] : 0u;
+    tr = 2u + sn + 1u + sb + 1u + 2u * mn;   /* (tracks' place, the running state after it) */
+    ln = n >= tr + 3u ? o[tr + 1u] | (uint32_t)o[tr + 2u] << 8 : 0u;
+    if (sn != FRS_SCENE_BYTES || n != tr + 3u + ln) {
+        snprintf(t, sizeof t, "%u bytes: scene %u, state %u, moves %u, live %u", (unsigned)n, (unsigned)sn,
+                 (unsigned)sb, (unsigned)mn, (unsigned)ln);
+        pfc_say(0, "pfstate layout", t);
+        return;
+    }
+    lv_b = o + tr + 3u;
+    for (i = 0; i < NPARAM; i++) {
+        ns += param_kind(i) == PK_STATE;
+        nm += param_kind(i) == PK_MOMENT;
+    }
+    bad |= n != pfc.want_n || memcmp(o, pfc.want, n) ? 1u : 0u;
+    bad |= memcmp(o + 3u + sn, "FRst\3", 5) || sb != 5u + 2u * ns + 2u || o[1u + sn + sb] != STATE_METRO ? 2u : 0u;
+    for (i = 0; i < ns; i++)
+        bad |= param_kind(o[8u + sn + 2u * i]) != PK_STATE ? 2u : 0u;
+    for (i = 0; i < mn; i++)
+        bad |= param_kind(o[4u + sn + sb + 2u * i]) != PK_MOMENT ? 4u : 0u;
+    bad |= mn != nm ? 4u : 0u;
+    bad |= o[tr] > 7u ? 8u : 0u;
+    bad |= ln < 16u || ln > LV_LIVE || memcmp(lv_b, "FRlv\1", 5) || lv_b[5] != LIVE_F_DSP ||   /* (the sound's part
+                                          * in it: nothing rendered while it was read, here; no engine alone's) */
+           (lv_b[6] | (uint32_t)lv_b[7] << 8) != FRS_SCENE_BYTES || (lv_b[8] | (uint32_t)lv_b[9] << 8) != NPARAM ||
+           (lv_b[10] | (uint32_t)lv_b[11] << 8 | (uint32_t)lv_b[12] << 16 | (uint32_t)lv_b[13] << 24) != pfc.want_ms ||
+           16u + (lv_b[14] | (uint32_t)lv_b[15] << 8) != ln ? 16u : 0u;
+    snprintf(t, sizeof t, "%s%s%s%s%s (scene %u, state %u, moves %u, tracks %u, live %u)",
+             bad & 1u ? "not as asked, " : "", bad & 2u ? "the state, " : "", bad & 4u ? "the moves, " : "",
+             bad & 8u ? "the tracks, " : "", bad & 16u ? "the running state" : "", (unsigned)sn, (unsigned)sb,
+             (unsigned)mn, (unsigned)o[tr], (unsigned)ln);
+    pfc_say(!bad, "pfstate", t);
+    if (!bad)
+        printf("  pfstate: scene %u, state %u, moves %u, tracks %u, live %u (ms %u), %u bytes in %u parts\n",
+               (unsigned)sn, (unsigned)sb, (unsigned)mn, (unsigned)o[tr], (unsigned)ln, (unsigned)pfc.want_ms,
+               (unsigned)n, (unsigned)((n + LV_RAW - 1u) / LV_RAW));
+}
+
+/* pfop HEX [slot S | anchor]: the next message is that op (cmd 10, its bytes HEX), or that long op (cmd 11: the op,
+ * then slot S's scene, the ANCHOR's) */
+static void pfc_op(const char *hex, const char *src, const char *s)
+{
+    static uint8_t o[1024], w[1 + FRS_SCENE_BYTES];
+    char t[64];
+    uint32_t n = 0, wn = 0, i;
+    int c = pfc_next(o, &n, sizeof o), want = 10;
+    for (i = 0; hex[2u * i] && hex[2u * i + 1u] && wn < 16u; i++) {
+        unsigned v;
+        sscanf(hex + 2u * i, "%2x", &v);
+        w[wn++] = (uint8_t)v;
+    }
+    if (!strcmp(src, "slot") || !strcmp(src, "anchor")) {
+        scene_t sc;
+        if (*src == 's')
+            scene_get((uint32_t)atoi(s), &sc);
+        else
+            sc = anc.sc;
+        memcpy(w + 1, &sc, FRS_SCENE_BYTES);
+        wn = 1u + FRS_SCENE_BYTES;
+        want = 11;
+    }
+    t[0] = 0;
+    for (i = 0; i < n && i < 16u; i++)
+        snprintf(t + 2u * i, sizeof t - 2u * i, "%02x", o[i]);
+    if (c != want || n != wn || memcmp(o, w, wn)) {
+        char g[96];
+        snprintf(g, sizeof g, "cmd %d, %u bytes %s%s", c, (unsigned)n, t, n > 16u ? "..." : "");
+        pfc_say(0, "pfop", g);
+        return;
+    }
+    snprintf(t + (n > 16u ? 32u : 2u * n), 32, "%s", n > 16u ? "... (a scene)" : "");
+    printf("  ok pfop %s\n", t);
+}
+
+/* pfpack: MIDI's 8-to-7 on what is known of it, each case its bytes as the page unpacks them */
+static void pfc_pack(void)
+{
+    static const struct {
+        uint8_t n, in[9], m, out[11];
+    } K[] = {
+        {1, {0x00}, 2, {0x00, 0x00}},
+        {1, {0x80}, 2, {0x01, 0x00}},
+        {3, {0xFF, 0x01, 0x80}, 4, {0x05, 0x7F, 0x01, 0x00}},
+        {7, {0x81, 0x02, 0x83, 0x04, 0x85, 0x06, 0x87}, 8, {0x55, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}},
+        {8, {0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80}, 10, {0x7F, 0, 0, 0, 0, 0, 0, 0, 0x01, 0x00}},
+        {9, {0x40, 0x10, 0x7F, 0, 0, 0, 0, 0xC0, 0x7F}, 11, {0x00, 0x40, 0x10, 0x7F, 0, 0, 0, 0, 0x01, 0x40, 0x7F}},
+    };
+    uint8_t o[300], r[300], s[256];
+    uint32_t i, m, bad = 0;
+    for (i = 0; i < sizeof K / sizeof K[0]; i++) {
+        m = pf_pack(o, K[i].in, K[i].n);
+        if (m != K[i].m || memcmp(o, K[i].out, m)) {
+            printf("FAIL pfpack case %u: %u bytes\n", (unsigned)i, (unsigned)m);
+            bad++;
+        }
+    }
+    for (i = 0; i < sizeof s; i++)
+        s[i] = (uint8_t)(255u - i);
+    m = pf_pack(o, s, sizeof s);         /* (each byte 7-bit, n + a seventh, back as it was) */
+    for (i = 0; i < m; i++)
+        bad += o[i] > 0x7Fu;
+    bad += m != sizeof s + (sizeof s + 6u) / 7u || pfc_unpack(r, o, m) != sizeof s || memcmp(r, s, sizeof s);
+    m = pf_pack(o, s, 0);
+    bad += m != 0u;
+    pfc.fails += bad != 0u;
+    printf("%s pfpack (%u cases, 256 bytes back)\n", bad ? "FAIL" : "  ok", (unsigned)(sizeof K / sizeof K[0]));
+}
+
+/* pfstill, then pfstill same: a STATE asked changes nothing. At pfstill the simulator forks: the other run goes through
+ * the lines to pfstill same without the asks (its pfstate and pfcheck not made; its output and its files nowhere), and
+ * hands its renderhash back; this one waits for it, puts the files it reads back where they were (the script: its next
+ * line), then runs the same lines asking: at pfstill same, the same renderhash */
+static void pfc_still(int same)
+{
+    char t[112];
+    int p[2], fd;
+    off_t at[64];
+    pid_t pid;
+    if (same) {
+        int got = pfc.still == 2 && pfc.still_got, ok = got && pfc.asks && render_hash == pfc.still_hash;
+        if (pfc.still == 1) {            /* (the run without the asks: its hash to the other, and gone) */
+            ssize_t w = write(pfc.still_fd, &render_hash, sizeof render_hash);
+            _exit(w == (ssize_t)sizeof render_hash ? 0 : 1);
+        }
+        snprintf(t, sizeof t, "renderhash %016llx with %u STATEs asked, %016llx without%s",
+                 (unsigned long long)render_hash, (unsigned)pfc.asks, (unsigned long long)pfc.still_hash,
+                 got ? "" : " (none: no pfstill, or the other run cut short)");
+        pfc_say(ok, "pfstill", t);
+        if (ok)
+            printf("  pfstill: %u STATEs asked, the same renders as none (renderhash %016llx)\n", (unsigned)pfc.asks,
+                   (unsigned long long)render_hash);
+        pfc.still = 0;
+        return;
+    }
+    fflush(NULL);                        /* (nothing of this one's output twice) */
+    if (pipe(p)) {
+        pfc_say(0, "pfstill", "no pipe");
+        return;
+    }
+    for (fd = 0; fd < 64; fd++)
+        at[fd] = lseek(fd, 0, SEEK_CUR); /* (-1: none, or not a file) */
+    pid = fork();
+    if (pid < 0) {
+        close(p[0]);
+        close(p[1]);
+        pfc_say(0, "pfstill", "no fork");
+        return;
+    }
+    if (!pid) {                          /* the run without the asks: it writes into nothing but its pipe */
+        int nul = open("/dev/null", O_WRONLY);
+        if (nul < 0)
+            _exit(1);                    /* (its output nowhere to go: cut short, the other says so) */
+        for (fd = 1; fd < 64; fd++) {
+            int fl = fcntl(fd, F_GETFL);
+            if (fd != p[1] && fd != nul && fl >= 0 && (fl & O_ACCMODE) != O_RDONLY)
+                dup2(nul, fd);
+        }
+        close(p[0]);
+        pfc.still = 1;
+        pfc.still_fd = p[1];
+        return;
+    }
+    close(p[1]);
+    pfc.still_got = read(p[0], &pfc.still_hash, sizeof pfc.still_hash) == (ssize_t)sizeof pfc.still_hash;
+    close(p[0]);
+    waitpid(pid, 0, 0);
+    for (fd = 0; fd < 64; fd++)          /* (the other read on from the same places: back to where this one was) */
+        if (at[fd] >= 0)
+            lseek(fd, at[fd], SEEK_SET);
+    pfc.still = 2;
+    pfc.asks = 0;
+}
+#endif
+
+int app_host_fails(void)                 /* (the app's own checks: PERFORM's LIVE) */
+{
+#ifndef PLAT_WEB
+    return (int)pfc.fails;
+#else
+    return 0;
+#endif
+}
+
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
 {
     static const uint8_t SCN_OF[12] = {0, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10};   /* L's scenes layout */
@@ -5223,6 +6107,100 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     (void)c;
     (void)d;
 #ifndef PLAT_WEB
+    if (!strcmp(cmd, "pfstill")) {       /* pfstill, pfstill same: the lines between run twice, with the STATEs asked
+                                          * and without, the same renderhash (pfc_still) */
+        pfc_still(!strcmp(a, "same"));
+        return 1;
+    }
+    if (pfc.still == 1 && (!strcmp(cmd, "pfstate") || !strcmp(cmd, "pfcheck")))
+        return 1;                        /* (pfstill's run without the asks) */
+    if (!strcmp(cmd, "pfhello") || !strcmp(cmd, "pfbye") || !strcmp(cmd, "pfstate")) {   /* pfhello FLAGS, pfbye,
+                                          * pfstate: a PERFORM page's HELLO (1 COMPUTER AUDIO, 2 LIVE), BYE, STATE? */
+        uint8_t m[6] = {0x7Du, 0x46u, 0x50u, cmd[2] == 'h' ? 1u : cmd[2] == 'b' ? 2u : 9u, PF_VER,
+                        (uint8_t)(atoi(a) & 0x7F)};
+        if (m[3] == 9u && pf.on)
+            pfc_want();
+        app_sysex(m, m[3] == 1u ? 6u : 4u);
+        return 1;
+    }
+    if (!strcmp(cmd, "pfmany")) {        /* pfmany OP N: the next messages, N or more of that op (a pressure's run) */
+        uint8_t o[1024];
+        uint32_t n, k2 = 0, r, rn;
+        unsigned op = 0;
+        char t[40];
+        sscanf(a, "%2x", &op);
+        for (;;) {                       /* (a look ahead: the one after the run left for the next read) */
+            r = pfc.rd;
+            rn = pfc.n;
+            if (pfc_next(o, &n, sizeof o) != 10 || o[0] != op) {
+                pfc.rd = r;
+                pfc.n = rn;
+                break;
+            }
+            k2++;
+        }
+        snprintf(t, sizeof t, "%u of op %02x", (unsigned)k2, op);
+        pfc_say(k2 >= (uint32_t)atoi(b), "pfmany", t);
+        return 1;
+    }
+    if (!strcmp(cmd, "pfflood")) {       /* pfflood N: FREEZE turned N times, as a hand turns it (the queue's room) */
+        int i2;
+        for (i2 = 0; i2 < atoi(a); i2++)
+            param_set(P_FREEZE, !st.v[P_FREEZE]);
+        return 1;
+    }
+    if (!strcmp(cmd, "pfjam")) {         /* pfjam N: LIVE's next N frames refused (the wire full) */
+        pfc.jam = (uint32_t)atoi(a);
+        return 1;
+    }
+    if (!strcmp(cmd, "pfop")) {          /* pfop HEX [slot S | anchor]: the next LIVE message, that op (pfc_op) */
+        pfc_op(a, b, c);
+        return 1;
+    }
+    if (!strcmp(cmd, "pfnone")) {        /* pfnone: no LIVE message since the last read */
+        uint8_t o[1024];
+        uint32_t n;
+        int k2 = pfc_next(o, &n, sizeof o);
+        char t[24];
+        snprintf(t, sizeof t, "cmd %d, %u bytes", k2, (unsigned)n);
+        pfc_say(k2 == 0, "pfnone", t);
+        return 1;
+    }
+    if (!strcmp(cmd, "pfsave")) {        /* pfsave FILE: the next LIVE message, a STATE, its bytes joined and unpacked into
+                                          * FILE (engine/tests/snap.c loads an FM-1's into the engine alone) */
+        static uint8_t o[LV_STATE + LV_RAW];
+        uint32_t n;
+        FILE *f;
+        int ok = pfc_next(o, &n, sizeof o) == 9 && (f = fopen(a, "wb")) != NULL;
+        if (ok) {
+            ok = fwrite(o, 1, n, f) == n;
+            fclose(f);
+        }
+        pfc_say(ok, "pfsave", a);
+        return 1;
+    }
+    if (!strcmp(cmd, "pfdump")) {        /* pfdump: every LIVE message since the last read, printed (read) */
+        static uint8_t o[LV_STATE + LV_RAW];
+        uint32_t n, i;
+        int k2;
+        while ((k2 = pfc_next(o, &n, sizeof o)) != 0) {
+            printf("  pf: cmd %d, %u bytes ", k2, (unsigned)n);
+            for (i = 0; i < n && i < 24u; i++)
+                printf("%02x", o[i]);
+            printf("%s\n", n > 24u ? "..." : "");
+            if (k2 < 0)
+                break;
+        }
+        return 1;
+    }
+    if (!strcmp(cmd, "pfcheck")) {       /* pfcheck: the next LIVE message a STATE, as the FM-1 is now (pfc_state) */
+        pfc_state();
+        return 1;
+    }
+    if (!strcmp(cmd, "pfpack")) {        /* pfpack: MIDI's 8-to-7 (pf_pack) on known cases */
+        pfc_pack();
+        return 1;
+    }
     if (!strcmp(cmd, "cpuload")) {       /* cpuload N: the load the simulator reads now, N % (load_watch sheds over
                                           * 82, gives back at 75 or less: shed.txt) */
         host_load = (uint32_t)atoi(a);

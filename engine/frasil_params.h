@@ -125,7 +125,8 @@ enum {
                                           * black, the logo drifting), OFF; the FM-1's, kept with its settings (3.0) */
     P_TP_FLUTTER, P_TP_TONE, P_TP_NOISE, P_TP_DROPOUT,   /* LOFI TAPE II: TAPE SPEED (FLUTTER RATE's until it), the tone, the hiss, the
                                           * dropouts; kept in the scene, after its drone's sequence (scene_t's tp_flutter ..;
-                                          * numbered last; not LFO targets) */
+                                          * numbered last; LFO targets since 3.2: TAPE SPEED, TAPE TONE, TAPE NOISE,
+                                          * DROPOUT) */
     /* LFO AMOUNT: each LFO's on each of its TARGETs (P_L1_AMT1 + 4 x the LFO + the TARGET's 0 .. 3), a multiplier
      * (0 .. 200: x0.00 .. x1.00 by 0.01, then .. x5.00 by 0.04; 100, x1.00, as the LFOs moved them before); kept in the scene, after LOFI TAPE II's four (scene_t's
      * lfo_amt; numbered last; not LFO targets) */

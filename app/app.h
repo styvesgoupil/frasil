@@ -24,6 +24,10 @@ uint32_t app_log_word(void);
 void app_splash(void);
 #define APP_TICK                         /* 1 kHz, in the scan's interrupt: OCT's soft blink (app.c) */
 void app_tick(void);
+#define APP_BATT_RAW_4V2 651             /* the battery's divider (plat_battery) at 4.20 V, the header's battery's scale
+                                          * (app.c batt): a first guess (a divider in two halves, the converter's 3.3 V)
+                                          * until an FM-1 full on USB says (Perform's BATTERY, its raw reading:
+                                          * design/perform/scripts/fm1_listen.py) */
 #define APP_TAGLINE "DRONE TEXTURES FROZEN IN MOTION"
 #define APP_AUTHOR "by Styves Goupil"
 #define APP_SITE "frasilsynth.com"               /* the logo's screen, up in the sky */
@@ -70,3 +74,5 @@ void app_say(const char *a, const char *b);   /* a short message on the screen a
 int app_expect(const char *what, int *got);
 #define APP_HOST_CMD                     /* "oldstore": records in the layout before BASS (app.c) */
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d);
+#define APP_HOST_FAILS                   /* the app's own checks' failures (PERFORM's LIVE: pfop, pfcheck, pfpack) */
+int app_host_fails(void);

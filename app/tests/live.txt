@@ -1,0 +1,307 @@
+# PERFORM's LIVE (card #114) in the host simulator: ./build.sh --host, then
+#   app/build/host/frasil_host app/tests/live.txt app/build/host
+# A page with LIVE's bit (HELLO's flags, 2) hears each input the FM-1 gives the engine as SHARD STREAM's op (cmd 10,
+# packed; one that carries a scene as cmd 11, in parts), in the engine's order, and LIVE's start when it asks (STATE?,
+# cmd 9: the scene as it sounds now, frs_state_save's, the moves, the tracks, then the engine's running state taken at
+# the same instant: card #131). pfhello/pfbye/pfstate are the page's; pfop HEX reads the next message (its op and args),
+# pfcheck the next STATE against the FM-1 at the ask (its running state's head, its bytes as live_save gave them
+# then), pfnone: nothing more; pfstill runs the lines to pfstill same twice, with the STATEs asked and without
+# (app.c's host commands; design/perform/LIVE.md, sections 1 and 6)
+keysstay 1
+wait 600
+# MIDI's 8-to-7 on known bytes
+pfpack
+# no page, then an old Perform's HELLO (COMPUTER AUDIO alone): nothing of it
+tapkey 5
+pfnone
+pfhello 1
+wait 50
+tapkey 5
+turn K1 1
+midi 90 3C 64
+pfnone
+expect pf_live 0
+# LIVE: a key, its velocity, its pressure as it acts, its up (key 5 at octave -1: note 46, the drones: track 0)
+pfhello 2
+expect pf_live 1
+tapkey 5
+pfop 82052e0064
+pfop 450500
+key 7 down 90 80
+wait 300
+key 7 up
+wait 10
+pfop 820730005a
+pfop 480711
+pfmany 48 3
+pfop 450700
+# SEL held: a single note (LV_KEY_SINGLE)
+press SEL
+tapkey 9
+release SEL
+pfop 8609320064
+pfop 450900
+# a setting turned once (FREEZE, 157), the same value again nothing; the FM-1's own (SPK/JACK, the metronome) never
+setp 157 1
+setp 157 1
+setp 180 0
+setp 223 2
+wait 10
+pfop 409d01
+pfnone
+setp 157 0
+wait 10
+pfop 409d00
+# MIDI in: on FRASIL's channels as it came, the clock; on another nothing
+midi 90 3C 64
+midi 80 3C 00
+clock 2
+midi 9F 3C 64
+midi 8F 3C 00
+wait 10
+pfop 83903c6400
+pfop 83803c0000
+pfop 83f8000000
+pfop 83f8000000
+pfnone
+# MIDI learn: GLO held and a CC, nothing told; the CC learned, its setting told, never the CC
+turn K1 1
+wait 10
+pfop 400056
+press GLO
+midi B0 4A 40
+release GLO
+wait 10
+pfnone
+midi B0 4A 7F
+wait 10
+pfop 40007f
+pfnone
+# PLAY tapped (frs_play), tapped twice quick (LV_RELEASE), held (LV_RELEASE_ALL), CUT
+tap PLAY
+wait 400
+pfop 02
+tapkey 5
+tap PLAY
+tap PLAY
+wait 20
+pfop 82052e0064
+pfop 450500
+pfop 02
+pfop 05
+press PLAY
+wait 800
+release PLAY
+wait 20
+pfop 06
+press OCT-
+press PLAY
+release PLAY
+release OCT-
+wait 20
+pfop 01
+# COMPARE (OCT- and EDIT held), SWELL (ENV held): told as they change
+press OCT-
+press EDIT
+wait 50
+release EDIT
+release OCT-
+wait 20
+pfop 4a0100
+pfop 4a0000
+press ENV
+wait 600
+release ENV
+wait 20
+pfop 490100
+pfop 490000
+pfnone
+# ANCHOR: set, its scene in parts (cmd 11), then MORPH back over 8 s (8000 ms, little-endian)
+pfhello 2
+press OCT-
+press OCT+
+wait 30
+release OCT+
+release OCT-
+wait 30
+pfop 60 anchor
+press OCT-
+press OCT+
+wait 30
+release OCT+
+release OCT-
+wait 30
+pfop 61401f
+# a scene (SAVE held, a white key: slot 3, RESILIENCE): its scene's bytes in parts, a key right after it after it
+press SAVE
+tapkey w2
+release SAVE
+tapkey 5
+wait 50
+pfop 46 slot 2
+pfop 82052e0064
+pfop 450500
+pfnone
+# STATE: the start as it is now (a chord latched, an unsaved setting) and the running state with it, once however
+# often asked while one waits (some 23 parts, a part a pass)
+setp 157 1
+tapkey 9
+wait 50
+pfop 409d01
+pfop 8209320064
+pfop 450900
+pfjam 4
+pfstate
+pfstate
+wait 60
+pfcheck
+pfnone
+# the wire full a moment: the ops wait, in their order, the STATE among them where it was asked
+pfjam 3
+setp 157 0
+pfstate
+setp 157 1
+wait 60
+expect pf_queued 0
+pfop 409d00
+pfcheck
+pfop 409d01
+# an op made while a STATE's parts go out: after them, whole (the STATE as it was at the ask)
+pfstate
+wait 8
+setp 157 0
+wait 60
+pfcheck
+pfop 409d00
+pfnone
+# a STATE without LIVE's bit (a page that asks it alone): answered; the ops not
+pfhello 0
+wait 10
+expect pf_live 0
+pfstate
+tapkey 5
+wait 60
+pfcheck
+pfnone
+# REC: the take's COUNT-IN and OVERDUB (FST_RECORDING), then the record on the drones (LV_RECORD, layer 0); again,
+# STEP, again, OFF; leaving the SEQ pages while it records: RECORD OFF, told as the settings it turns (P_DQ_REC 203
+# off, the drone's PLAYS, P_DQ_ON 197, back: the take wrote nothing)
+pfhello 2
+tap REC
+wait 20
+pfop 8501010000
+pfop 4b0000
+tap REC
+wait 20
+tap REC
+wait 20
+pfop 8501010000
+pfop 4b0000
+pfop 8501010000
+pfop 4b0000
+pfnone
+tap REC
+wait 20
+tap HOME
+wait 20
+pfop 8501010000
+pfop 4b0000
+pfop 40cb00
+pfop 40c500
+pfnone
+# the wire held long: the queue full, the ops past it dropped (counted), then the wire back: nothing waiting
+pfjam 100000
+pfflood 200
+wait 20
+expect pf_lost >0
+pfjam 0
+wait 100
+expect pf_queued 0
+pfmany 40 40
+pfnone
+# a STATE asked changes nothing of the sound or the brain: GLINT's arpeggio at random (MODE RANDOM, CHANCE 60), LFO 1
+# RANDOM and LFO 2 DRIFT on their TARGETs, a drone's chord; the next 3 s twice (pfstill: the simulator forked), a
+# STATE asked every 250 ms in one, each as it should be, none in the other: the same renderhash
+pfhello 0
+setp 166 0
+tapkey 9
+setp 166 1
+setp 123 1
+setp 45 3
+setp 48 60
+setp 94 5
+setp 95 60
+setp 96 90
+setp 98 1
+setp 102 6
+setp 103 70
+setp 104 60
+setp 106 3
+tapkey 0
+tapkey 4
+tapkey 7
+setp 166 0
+wait 500
+pfhello 2
+pfnone
+pfstill
+pfstate
+wait 60
+pfcheck
+wait 190
+pfstate
+wait 60
+pfcheck
+wait 190
+pfstate
+wait 60
+pfcheck
+wait 190
+pfstate
+wait 60
+pfcheck
+wait 190
+pfstate
+wait 60
+pfcheck
+wait 190
+pfstate
+wait 60
+pfcheck
+wait 190
+pfstate
+wait 60
+pfcheck
+wait 190
+pfstate
+wait 60
+pfcheck
+wait 190
+pfstate
+wait 60
+pfcheck
+wait 190
+pfstate
+wait 60
+pfcheck
+wait 190
+pfstate
+wait 60
+pfcheck
+wait 190
+pfstate
+wait 60
+pfcheck
+wait 190
+pfstill same
+pfnone
+# BYE, or no HELLO for 5 s: nothing more
+pfbye
+tapkey 5
+pfnone
+expect pf_live 0
+pfhello 2
+wait 5200
+tapkey 5
+pfnone
+expect pf_live 0

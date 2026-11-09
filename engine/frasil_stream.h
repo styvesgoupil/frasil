@@ -49,9 +49,17 @@ enum {
     FST_CUT = 0x01, FST_PLAY = 0x02, FST_PANIC = 0x03,
     FST_CUT_STOP = 0x04,                 /* frs_cut_stop (the iPad's CUT since 2026-11-05): written just before an FST_CUT,
                                           * which a reader that knows it skips (one that doesn't skips this, plays that) */
+    FST_RELEASE = 0x05,                  /* frs_release (the FM-1's PLAY tapped twice: RELEASE ALL) */
+    FST_RELEASE_ALL = 0x06,              /* frs_release_all (PLAY held: RELEASE ALL, or RESTORE) */
     FST_PARAM = 0x40, FST_HOLD_OFF = 0x41, FST_CLEAR = 0x42, FST_TRACK_PLAY = 0x43, FST_PLAY_ALL = 0x44, FST_KEY_UP = 0x45,
     FST_SCENE = 0x46, FST_SCENE_NOW = 0x47,   /* (a u16 index into SCNS: frs_scene_go, frs_scene_take) */
-    FST_LATCH = 0x80, FST_HOLD = 0x81, FST_KEY_DOWN = 0x82,
+    FST_KEY_PRESSURE = 0x48,             /* (the key, its pressure: frs_key_pressure; the iPad's number) */
+    FST_SWELL = 0x49,                    /* (held, 0: frs_swell, the FM-1's ENV held) */
+    FST_COMPARE = 0x4A,                  /* (on, 0: frs_compare, the FM-1's EDIT held) */
+    FST_RECORD = 0x4B,                   /* (the layer, 0: frs_record_layer, REC; an FST_RECORDING just before it) */
+    FST_LATCH = 0x80, FST_HOLD = 0x81,
+    FST_KEY_DOWN = 0x82,                 /* (key, note, track: P_KB set first, velocity: 0 reads as 100, a touch's) */
+    FST_KEY_SINGLE = 0x86,               /* (as FST_KEY_DOWN's: frs_key_down's single, one note on the drones, SEL held) */
     FST_MIDI = 0x83,                     /* (status, d1, d2, the milliseconds ahead of its stamp it is taken) */
     FST_STORE = 0x84,                    /* (a u16 index into SCNS, 0, 0: frs_scene_store, into nothing kept) */
     FST_RECORDING = 0x85,                /* (COUNT-IN, OVERDUB, a take's ticks, 0: forced off in a replay) */
@@ -159,6 +167,51 @@ int fst_air_open(fst_air *a, const fst_file *f, float fs);   /* a fresh engine a
 void fst_air_skip(fst_air *a, uint32_t ms);   /* the stream's millisecond ms, nothing rendered (frs_skip_to) */
 void fst_air_after(fst_air *a);          /* after each frs_render: an opening the hook put off */
 uint32_t fst_air_ms(const fst_air *a);   /* the stream's clock */
+
+/* ---- a performance heard live, no file: each op applied by itself as it comes (Perform LIVE's listener,
+ * design/perform/LIVE.md). fst_apply's own code: an op does what it does in a replay, a scene given by its bytes where a
+ * file has its index. The thread that renders, between two renders (an op acts at the next block); nothing allocates */
+#define FST_LQ 256u                      /* ops given ahead, waiting for their millisecond (fst_live_at) */
+#define FST_LQ_SCN 8u                    /* scenes among them */
+typedef struct {
+    uint32_t ms;                         /* the engine's millisecond it is taken in (frs_ms's) */
+    uint8_t op, n, kind, sc;             /* kind: 0 an op, 1 a scene's (sc: its place in scn), 2 the running state */
+    uint8_t a[FRS_STATE_BYTES];          /* (the longest: FST_STATE's) */
+} fst_lq;
+typedef struct {
+    fst_player p;                        /* (what fst_apply keeps from one op to the next: a CUT after a CUT_STOP) */
+    uint32_t done, missed, refused;      /* ops applied; not known (ignored); refused (nothing done) */
+    uint32_t late, loads, same, full;    /* ops taken after their millisecond; states loaded; states found the very
+                                          * same (left); ops or states that found no room (dropped) */
+    fst_lq q[FST_LQ];
+    uint32_t qr, qw, scn_w, scn_n;
+    uint8_t scn[FST_LQ_SCN][FRS_SCENE_BYTES];
+    uint8_t st[FRS_LIVE_BYTES], st_scene[FRS_SCENE_BYTES], tmp[FRS_LIVE_BYTES];
+    uint32_t st_n;
+    uint8_t st_on, st_cmp;
+} fst_live;
+/* a fresh engine at s (fst_fresh), quiet as on air: no metronome, no take's ticks, no count-in (the artist's, not the
+ * listener's); its queue's hook in every millisecond (fst_live_at); 0, or -1 it would not open */
+int fst_live_open(fst_live *l, const fst_start *s, float fs);
+/* the running state that goes with the start just opened (frs_live_load, the start's scene): 0, or -1 not this engine's
+ * (then as the start alone opened it: open again to be sure) */
+int fst_live_state(fst_live *l, const uint8_t *st, uint32_t n, const uint8_t *scene);
+/* card #131: an op given ahead, taken first in the engine's millisecond ms (as on air: the same op the same millisecond
+ * on every engine that has it), at once if it has gone by (late); in the order given. 0, or -1 no room (full) */
+int fst_live_at(fst_live *l, uint32_t ms, uint8_t op, const uint8_t *a, uint32_t n, const uint8_t *scene);
+/* a running state among them (a snap's: frs_live_save's with its start's scene), loaded at its place, in ms: the engine
+ * runs on from it (frs_ms its own millisecond then). cmp: left as it is when this engine's own is the very same (same).
+ * One waits at most: 0, or -1 one waits already or it is too long */
+int fst_live_at_state(fst_live *l, uint32_t ms, const uint8_t *st, uint32_t n, const uint8_t *scene, int cmp);
+uint32_t fst_live_state_ms(const fst_live *l);   /* the millisecond a waiting state is taken in, 0xFFFFFFFF none */
+void fst_live_cut(fst_live *l);          /* the queue from its waiting state on dropped (an engine copied to fade out) */
+/* op, its args a[n] as fst_ev has them (an op of a length byte: without it, n its length); scene: the FRS_SCENE_BYTES
+ * FST_SCENE, FST_SCENE_NOW, FST_ANCHOR and FST_STORE name (in a file, a u16 index into SCNS: not given here), else 0.
+ * 0 done; 1 an op not known, ignored (missed); -1 refused, nothing done (refused): its args too short, a scene's op
+ * without its scene, FST_DSTEP of no step or more than 9 bytes, FST_STATE past FRS_STATE_BYTES, FST_OPEN (an engine
+ * opened again: fst_live_open). FST_MIDI at the engine's millisecond its stamp says (frs_midi_ms, as on air); after
+ * FST_STATE or METRONOME (P_METRO) set, quiet again */
+int fst_op(fst_live *l, uint8_t op, const uint8_t *a, uint32_t n, const uint8_t *scene);
 
 uint32_t fst_crc(const uint8_t *b, size_t n);
 

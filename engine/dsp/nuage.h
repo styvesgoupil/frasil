@@ -5,6 +5,7 @@
  * each time round. All its lines share one 128 KiB buffer of 16-bit samples (the pool). */
 #pragma once
 #include <stdint.h>
+#include "brlive.h"
 
 typedef struct {
     float size;        /* 0..1: the space, 0.15x .. 1x of the longest lines (about 60 .. 140 ms) */
@@ -23,6 +24,8 @@ typedef struct {
 
 void nuage_init(void);
 void nuage_hush(void);                   /* the tail gone at once, the settings kept (frasil_silence) */
+void nuage_lv(br_live *c);               /* Perform LIVE's state (frasil_lv): the lines' sways (their phases), FREEZE's
+                                          * and the glides' where they are; never the room itself */
 void nuage_clear(void);                     /* the room emptied, its settings kept (the render's: CUT) */
 void nuage_set(const nuage_params_t *p);    /* the targets; it glides to them (main loop or between blocks) */
 /* the wet signal of n frames of stereo input (n a multiple of 16) */

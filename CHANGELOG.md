@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.2 (2026-11-08)
+
+**New**
+
+- **LIVE**: play the FM-1 live for listeners with Perform (perform.frasilsynth.com). Everyone hears the sound as the FM-1 plays it, with its LFOs, random arpeggios, sequences and clock in step, and someone who joins late is in step at once. You can plan the live at a later time and if you made it public it will be visible in the home page of River.
+
+- **River**: completed redesign of River, with featured songs (new, most liked, most played will have a role determining which one to feature at each visit).
+
+- **LFO TARGETS**: all the remaining parameters of the tape FX join them.
+
+- **TEMPO (EXT)**: when an external MIDI clock comes in, GLO > TEMPO says so and shows the tempo it receives (your DAW sends 80, you read 80). The value is greyed and K1 leaves it alone. When the clock stops, or CLOCK is set to INTERNAL, TEMPO is yours again, at the value you had set.
+
+- **BATTERY**: level indicator on the screen.
+
+- **SCREEN**: darker background, more contrast, easier to read.
+
+**Fixes and changes**
+
+- **Newer FM-1s**: FM-1s sold since autumn 2026 have a different memory chip, and 3.1 did not recognise it. On those, scenes and settings were lost at power-off, backup and restore were refused, and updates from the Firmware Hub stopped. 3.2 recognises the new chip, so scenes and settings are kept, and backup, restore and updates work. If the update to 3.2 stops on such an FM-1, hold OCT− and OCT+ for 10 seconds to enter UPDATE MODE and install it from there.
+
+- **DELAY** stays steady when the tempo comes from an external MIDI clock.
+
 ## 3.1 (2026-11-06)
 
 **New**

@@ -1519,9 +1519,145 @@ void frasil_skip_done(void)
 }
 #endif
 
+/* ------------------------------------------------------------- LIVE's state --- */
+/* a voice loaded (frasil_lv): what it was not told, as the same on every engine that loads it. Its place from its note
+ * (voice_start's), its partials' phasors at phases from its slot and number (no draw: the generator is the one told),
+ * the filters' and resonators' states and BEAT's levels from nothing, what each block makes (voice_block) left to it */
+static void voice_lv_rest(voice_t *v, uint32_t slot)
+{
+    uint32_t k;
+    v->pan = (float)(((v->note * 7) % 12) - 6) * (1.0f / 6.0f);
+    for (k = 0; k < 3u; k++)
+        v->cw[k] = 0.5f;
+    v->csh = 0.0f;
+    for (k = 0; k < 4u; k++)
+        v->clp[k] = 0.0f;
+    for (k = 0; k < 6u; k++)
+        v->cint[k] = 0.0f;
+    v->sp0 = v->sc0;
+    v->sp1 = v->sc1;
+    v->sp2 = v->sc2;
+    v->csvf = 0;
+    for (k = 0; k < NP; k++) {
+        float ph = (float)((slot * 5u + k * 3u) % 16u) * (6.2831853f / 16.0f);
+        v->px[k] = fm_cosf(ph);
+        v->py[k] = fm_sinf(ph);
+        v->ps[k] = 0.0f;
+        v->pc[k] = 1.0f;
+        v->pac[k] = v->pda[k] = 0.0f;
+    }
+    for (k = 0; k < NR; k++)
+        v->r1[k] = v->r2[k] = 0.0f;
+}
+
+void frasil_live_done(void)              /* (a state loaded: the settings the main loop set, heard at once, no glide; the
+                                          * glints ringing left as they are, not a skip's) */
+{
+    T = pend;
+    P = pend;
+}
+
+void frasil_lv(br_live *c)
+{
+    uint32_t i, k;
+    uint8_t n = 0, x;
+    c->u32(c, &rng);
+    c->u32(c, &ages);
+    c->f32(c, &tide_ph);
+    c->f32(c, &tide_v);
+    c->f32(c, &pump_ph);
+    c->f32(c, &pump_d);
+    c->f32(c, &comp_env);
+    c->f32(c, &comp_g);
+    c->f32(c, &tp_ph1);                  /* LOFI TAPE: the wow's and the flutter's phases, where the wow wanders, a dropout
+                                          * or a drag under way, the hiss's generator */
+    c->f32(c, &tp_ph2);
+    c->f32(c, &tp_ph3);
+    c->f32(c, &tp_rate);
+    c->f32(c, &tp_rate_to);
+    c->f32(c, &tp_do_t);
+    c->f32(c, &tp_do_n);
+    c->f32(c, &tp_do_depth);
+    c->f32(c, &tp_x);
+    c->f32(c, &tp_drag);
+    c->f32(c, &tp_drag_n);
+    c->f32(c, &tp_drag_s);
+    c->u32(c, &tp_nz);
+    /* the notes the brain gave since the last block, still to come: told, and queued again as they were */
+    if (c->save)
+        n = (uint8_t)(ev_w - ev_r > NEV ? NEV : ev_w - ev_r);
+    c->u8(c, &n);
+    if (!c->save)
+        ev_r = ev_w = 0;
+    for (i = 0; i < n && i < NEV; i++) {
+        ev_t e = c->save ? evq[(ev_r + i) & (NEV - 1u)] : (ev_t){0, 0, 0.0f};
+        uint8_t nt = (uint8_t)e.note;
+        c->u8(c, &e.type);
+        c->u8(c, &nt);
+        c->f32(c, &e.v);
+        if (!c->save) {
+            evq[i] = e;
+            evq[i].note = (int8_t)nt;
+            ev_w = i + 1u;
+        }
+    }
+    for (i = 0; i < NV; i++) {
+        voice_t *v = &vo[i];
+        x = (uint8_t)(v->note >= 0);
+        c->u8(c, &x);
+        if (!x) {
+            if (!c->save) {
+                v->note = -1;
+                v->gate = 0;
+            }
+            continue;
+        }
+        {
+            uint8_t nt = (uint8_t)v->note, wt = v->wait;
+            c->u8(c, &nt);
+            c->u8(c, &v->gate);
+            c->u8(c, &v->shed);
+            c->u8(c, &wt);
+            v->note = (int8_t)(nt & 0x7Fu);
+            v->wait = wt;
+        }
+        c->u32(c, &v->age);
+        c->f16(c, &v->vel);
+        c->f16(c, &v->prs);
+        c->f16(c, &v->prs_t);
+        c->f16(c, &v->env);
+        c->f16(c, &v->lvl);
+        for (k = 0; k < 3u; k++) {
+            c->f16(c, &v->ou_c[k]);
+            c->f16(c, &v->cph[k]);
+            c->f16(c, &v->cpw[k]);
+        }
+        c->f16(c, &v->ou_cut);
+        c->f16(c, &v->ou_pan);
+        for (k = 0; k < NP; k++) {
+            c->f16(c, &v->ou_pa[k]);
+            c->f16(c, &v->ou_pf[k]);
+            c->f16(c, &v->pbt[k]);
+        }
+        for (k = 0; k < NR; k++)
+            c->f16(c, &v->ou_r[k]);
+        if (!c->save) {
+            v->np = 0;
+            voice_lv_rest(v, i);
+        }
+    }
+    glint_lv(c);
+    bass_lv(c);
+    nuage_lv(c);
+}
+
+static volatile uint32_t renders;        /* (frasil_renders) */
+uint32_t frasil_renders(void) { return renders; }
+
 void frasil_render(int32_t *lr, uint32_t n, float gain)
 {
     uint32_t off = 0;
+    renders = renders + 1u;
     /* the steps made for 44.1 kHz, at the rate: a sample's (the DC blocker, the tick's fall), a block's (the meters'
      * fall, PUMP's nudge), a chunk's (the filter's glides, the pans', PUMP on the cloud's, the tape's) */
     const float kdc = br_k(0.0014f), ckd = br_d(0.9925f), md = br_d(0.94f), pkd = br_d(0.97f), kpn = br_k(0.05f);

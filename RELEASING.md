@@ -35,6 +35,13 @@ on the FM-1 takes the next 0.9.x (0.9.1, 0.9.2 ...); the first release is 1.0, t
    real package.
 5. Publish, from the private repository, outside office hours. This repository's history is private: the public one
    (origin, styvesgoupil/frasil) holds the firmware only, one snapshot commit per release.
+   A release DELIVERed from the admin's RELEASES (`tools/runner/README.md`, RELEASES) does this step and the next
+   itself, for a firmware release (area FM-1, or none), outside office hours: the snapshot of the merged commit, `main`
+   pushed (never forced: refused, it stops and says so), the annotated tag `vX.Y` on it (by FRASIL runner), the
+   GitHub release with PREPARE's package (`frasil-X.Y.fwsc`, its sha256 checked) and the release notes, then the
+   site (its status, `X.Y · out now`, is in the same commit as the CHANGELOG's section: the site goes once the GitHub
+   release is live), then Discord. Each step is skipped when already done; a GitHub release made by hand gets the notes
+   only. The release's sheet shows each one (GitHub, site, Discord). By hand, for a release made without the admin:
    ```
    SNAP=$(tools/public_snapshot.sh dev --commit "FRASIL X.Y" | awk '/^snapshot/{print $2}')   # local, pushes nothing
    git push origin "${SNAP}:refs/heads/main"
@@ -43,13 +50,11 @@ on the FM-1 takes the next 0.9.x (0.9.1, 0.9.2 ...); the first release is 1.0, t
    ```
    `tools/public_snapshot.sh` keeps what `tools/public_allowlist.txt` names (the firmware, its tests, docs and
    release tools) and nothing of the websites, the River's service or the apps. The release must be a full release,
-   not a pre-release: the hub and GitHub's "latest" take full releases. The site is not published from here.
-   A release DELIVERed from the admin's RELEASES (`tools/runner/README.md`, RELEASES) already has its section in
-   `CHANGELOG.md` (its RELEASE NOTES): once this GitHub release exists, the runner sets its notes to that text (`gh
-   release edit`, outside office hours; it never makes the release, the tag or the snapshot) and then does step 6
-   itself. The release's sheet shows each one (site, GitHub, Discord).
-6. Announce it on Discord once the GitHub release is live, from the private repository: by hand only for a release not
-   DELIVERed from the admin (the runner announces those itself, once). First the dry run, which posts nothing: `python3 tools/discord_announce.py X.Y`. Read the message it
+   not a pre-release: the hub and GitHub's "latest" take full releases. By hand, the site's status
+   (`website/site.toml`, `status = "X.Y · out now"`) is then committed and the site deployed
+   (`tools/site-deploy.sh frasil`).
+6. Announce it on Discord once the GitHub release is live and the site says so, from the private repository: by hand
+   only for a release not DELIVERed from the admin (the runner announces those itself, once). First the dry run, which posts nothing: `python3 tools/discord_announce.py X.Y`. Read the message it
    builds from the `## X.Y` section of `CHANGELOG.md` (the bold leads of New and of Fixes and changes, the links)
    and the length checks. Then `python3 tools/discord_announce.py X.Y --post` sends it to #announcements, a copy
    to the product's news channel (`--product`, default fm-1: #fm1-news; `none`: #announcements alone), and publishes both to the servers following them. `--summary FILE` replaces the description with a Markdown

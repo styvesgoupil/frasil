@@ -13,7 +13,7 @@
  * the value large over the river for a moment instead.
  * Part of the unity build (app.c includes it): gfx.c's canvas (cv_px, byte-swapped RGB565) is in scope. */
 
-#define C_BG RGB(10, 13, 18)
+#define C_BG RGB(0, 0, 0)               /* the night, pitch black: the most contrast (card #124) */
 #define C_STEEL RGB(38, 48, 60)          /* structure: gauge tracks */
 #define C_SLATE RGB(74, 85, 99)          /* quiet marks, the waterline */
 #define C_MIST RGB(139, 149, 164)        /* labels */
@@ -21,9 +21,11 @@
 #define C_LAMP RGB(242, 166, 90)         /* warm: the hand (pressure, what is being turned, what changed) */
 #define C_ICE RGB(110, 208, 255)         /* cold: the ice (PARTIALS' crystals, GLINT, FREEZE, a choice made) */
 #define C_HAZE RGB(51, 65, 79)
-#define C_SINK RGB(10, 100, 176)         /* SINK's water, a clear blue over the river (C_BG's red) */
+#define C_SINK RGB(10, 100, 176)         /* SINK's water, a clear blue over the river */
 #define C_GLOB RGB(169, 210, 188)         /* an LFO's TARGET that is no track's: the master, the cloud, the effects */
 #define C_RED RGB(255, 56, 56)           /* a setting let go of its LFO (LFO held, a knob turned: NO LFO) */
+#define C_BATT RGB(72, 214, 120)         /* the header's battery: its charge (yellow at 30 %, C_RED at 10 %) */
+#define C_BATT_LOW RGB(255, 208, 64)
 
 #define ML 14                            /* margins */
 #define MR 226
@@ -326,7 +328,10 @@ static void value_big(int32_t x, int32_t y, int p, int32_t maxw, const felucca_f
         int k = list_track((uint32_t)p), un = k >= 0 ? up_in_use((uint32_t)k) : -1;
         if (un >= 0)                     /* a preset of the player's: its name */
             up_name((uint32_t)k, (uint32_t)un, t);
-        else
+        else if (p == P_TEMPO && ext_bpm()) {   /* TEMPO (EXT): the clock's, past TEMPO's 240 too */
+            int_text((int32_t)ext_bpm(), t);
+            text_cat(t, " BPM");
+        } else
             value_text(p, (uint8_t)pv_shown(p), t);
     }
     if (t[0] == '\xC3' && t[1] == '\x97') {   /* (UTF-8's ×: the fonts have none) */
@@ -1168,9 +1173,32 @@ static void roll_tick(roll_t *r, uint32_t now)
     r->px += (uint32_t)r->w * ROLL_H;
 }
 
-/* the header's band to the screen (DARK: no line under it, Styves 2026-11-06, after #105's hairline) */
+/* the battery (#125, app.c batt), in the header's right margin: 6 x 12, its body from the titles' capitals' top to
+ * their baseline (rows 10 .. 20), its tip 2 wide on row 9, its two bottom corners off (the band's colour, band); its
+ * frame in ink (the band's: the letters'); inside (4 x 9), the charge from the bottom (at least a row), the rest
+ * C_SLATE. None: nothing */
+static void batt_draw(uint16_t band, uint16_t ink)
+{
+    int32_t n;
+    uint16_t c;
+    if (batt.pct < 0)
+        return;
+    n = ((int32_t)batt.pct * 9 + 50) / 100;
+    n = n < 1 ? 1 : n;
+    c = batt.zone == 2u ? C_RED : batt.zone ? C_BATT_LOW : C_BATT;
+    cv_rect(230, 10 - oy, 6, 11, ink);
+    bl(230, 20, band, 32);
+    bl(235, 20, band, 32);
+    cv_rect(232, 9 - oy, 2, 1, ink);
+    cv_rect(231, 11 - oy, 4, 9 - n, C_SLATE);
+    cv_rect(231, 20 - n - oy, 4, n, c);
+}
+
+/* the header's band to the screen (DARK: no line under it, Styves 2026-11-06, after #105's hairline); the battery on
+ * it (SAVE's red: in the night) */
 static void head_blit(void)
 {
+    batt_draw(fm.page == PG_SAVEAS ? C_RED : band_col(), fm.page == PG_SAVEAS ? C_BG : C_ONBAND);
     band_blit(R1);
 }
 
@@ -1364,7 +1392,7 @@ static uint16_t tgt_col(uint32_t t)
     if (p >= NPARAM)
         return C_MIST;
     if (p == P_FL_CUT || p == P_FL_RESO || p == P_GX_BLUR || p == P_GX_SINK || p == P_PN_CLOUD ||
-        p == P_TP_SAT || p == P_TP_WOBBLE)
+        (p >= P_TP_SAT && p <= P_TP_WOBBLE) || (p >= P_TP_FLUTTER && p <= P_TP_DROPOUT))
         return C_GLOB;
     if (p == P_GL_LEVEL || p == P_GL_BRIGHT || p == P_GL_PING || p == P_GL_SPACE || p == P_MX_GLINT || p == P_ARP_CHANCE ||
         p == P_SQ_LEN || p == P_GX_SPARK || p == P_PN_GLINT || p == P_GL_ATTACK || p == P_GL_DECAY || p == P_GL_SUSTAIN ||
@@ -1381,6 +1409,8 @@ static const char *cell_name(int p)
 {
     if (fm.page == PG_CSEND)
         return p == P_ESPACE ? "DRONE" : p == P_GL_SPACE ? "GLINT" : "BASS";
+    if (p == P_TEMPO && ext_bpm())       /* (a MIDI clock leads: its tempo, app.c ext_bpm) */
+        return "TEMPO (EXT)";
     return PD[p].name;
 }
 
@@ -1412,7 +1442,7 @@ static int param_off(int p)
 static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its name, its value, a gauge or its
                                                               * choices, w wide */
 {
-    int hot, f;
+    int hot, f, ext;
     if (p == (int)K_ARP || p == (int)K_SEQ) {   /* ARP's and SEQ's ON, OFF */
         int on = ways_on(PAGES[fm.page].track, p == (int)K_ARP ? SQT_ARP : SQT_SEQ);
         badge_of(x + 7, y + 7, p, -1);
@@ -1465,9 +1495,10 @@ static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its
         return;
     hot = touched_now() && fm.touched == p;
     f = PD[p].fmt;
-    ui_off = (uint8_t)param_off(p);
+    ext = p == P_TEMPO && ext_bpm();     /* TEMPO (EXT): its value and gauge slate, its name read as any */
+    ui_off = (uint8_t)(param_off(p) || ext);
     badge_of(x + 7, y + 7, p, -1);
-    text_t(x + BADGE_W, y, &FONT_XS, cell_name(p), ui_off ? (hot ? C_MIST : C_SLATE) : hot ? C_LAMP : C_MIST, 1);
+    text_t(x + BADGE_W, y, &FONT_XS, cell_name(p), ext ? C_MIST : ui_off ? (hot ? C_MIST : C_SLATE) : hot ? C_LAMP : C_MIST, 1);
     value_big(x, y + 15, p, w + 4, &FONT_M, ui_off ? C_SLATE : ng.on && ng.pick && ng.p == (uint8_t)p ? C_LAMP
                                             : f == F_LTGT ? tgt_col(st.v[p]) : C_FOG, 0);   /* (picked under OCT-: lamp) */
     if (notes_why(p))
@@ -1490,8 +1521,8 @@ static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its
                                                : (float)pv_shown(p) / (float)PD[p].max,
               ui_off ? C_SLATE : hot ? C_LAMP : C_MIST);
     ui_off = 0;
-    if (p < NSOUND && mod[p] != 0.0f && PD[p].max > 16u) {   /* an LFO on it: where it is now, in ice */
-        float u = br_clamp01((vh(p) + mod[p]) / (float)PD[p].max);
+    if (mod_of((uint32_t)p) != 0.0f && PD[p].max > 16u) {   /* an LFO on it: where it is now, in ice */
+        float u = br_clamp01((vh(p) + mod_of((uint32_t)p)) / (float)PD[p].max);
         int32_t n = clamp((int32_t)(u * (float)w + 0.5f), 1, w);
         cv_rect(x + n - 1, y + 41 - 3 - oy, 1, 7, C_ICE);
     }
@@ -3283,6 +3314,8 @@ static void help_screen(void)
                         k == (int32_t)pg ? C_ICE : C_SLATE);
             badge(MR - HELP_PAGES * 8 - 10, 15, 'A', 0);
             hline(ML, MR, 30, C_STEEL);
+            if (!b)
+                batt_draw(C_BG, C_WHITE);
         }
         for (i = 0; i < 4; i++) {
             const help_t *h = &HELP[pg][i];
@@ -3427,6 +3460,8 @@ static void name_screen(void)
             cv_rect(0, 0 - oy, 240, 32, band_col());
             title_at(ML, "NAME IT", 1);
             track_tag(MR - tw + 1);
+            if (!b)
+                batt_draw(band_col(), C_ONBAND);
             text_t(ML, 42, &FONT_XS, t, C_MIST, 1);
         } else {
             for (k = 0; k < 49; k++) {   /* the light */
@@ -3502,7 +3537,7 @@ static void round_box(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
 /* an LFO's TARGET: each section a rounded box, column by column, from its name to its last */
 static void tgt_boxes(uint32_t first)
 {
-    static const uint16_t HC[8] = {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB};
+    static const uint16_t HC[9] = {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB, C_GLOB};
     uint32_t c, r;
     for (c = 0; c < 2u; c++) {
         int32_t top = -1, last = -1;
@@ -3551,6 +3586,8 @@ static void grid_screen(void)
         } else {
             text_r(MR, 9, &FONT_XS, at, C_ONBAND, 1);
         }
+        if (!b)
+            batt_draw(band_col(), C_ONBAND);
         if (tg) {
             tgt_boxes(first);
             for (i = 0, at_t = 0; i < first; i++)
@@ -3563,7 +3600,7 @@ static void grid_screen(void)
             if (sl == TH_NONE)
                 continue;
             if (sl < TH_NONE) {          /* a section's name, in its colour */
-                static const uint16_t HC[8] = {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB};
+                static const uint16_t HC[9] = {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB, C_GLOB};
                 text_t(cx + 6, cy + 2, &FONT_XS, TGT_HEAD[-sl - 2], HC[-sl - 2], 2);
                 continue;
             }
@@ -3976,6 +4013,15 @@ static void ui_frame(void)
         ui.full = 1;
         ui.help_sig = ~0u;
     }
+    {                                    /* (the battery moved: NAME IT's and the grid's headers drawn again) */
+        static uint32_t batt_was;
+        uint32_t bn = (uint32_t)(batt.pct + 1) | (uint32_t)batt.zone << 8;
+        if (bn != batt_was) {
+            batt_was = bn;
+            nm.drawn = 0;
+            ng.drawn = 0;
+        }
+    }
     if (pop.on) {                        /* a pop-up: over everything, drawn once */
         if (!pop.drawn || !ui.was_pop)
             popup_screen();
@@ -4007,7 +4053,7 @@ static void ui_frame(void)
         uint32_t hs = fm.help_page | (uint32_t)st.bass << 4 | (uint32_t)st.glint << 5 |
                       (uint32_t)(st.bass ? barp.latch : arp.latch) << 6 |
                       (uint32_t)rec_any() << 7 | (uint32_t)fm.page << 8 |
-                      (uint32_t)st.v[P_FREEZE] << 16;
+                      (uint32_t)st.v[P_FREEZE] << 16 | (uint32_t)(batt.pct + 1) << 20 | (uint32_t)batt.zone << 28;
         if (!ui.was_map || hs != ui.help_sig)
             help_screen();
         ui.help_sig = hs;
@@ -4043,6 +4089,7 @@ static void ui_frame(void)
                          (uint32_t)st.dirty << 19 | (uint32_t)st.compare << 20 | (uint32_t)cpu_over() << 21 |
                          (uint32_t)(mo.on && !mo.anc) << 22 | (uint32_t)fm.scene << 23);
     s1 = sig_add(s1, hdr.dark);          /* (HEADER: INVERT, DARK) */
+    s1 = sig_add(s1, (uint32_t)(batt.pct + 1) | (uint32_t)batt.zone << 8);   /* (the battery) */
     s1 = sig_add(s1, st.v[P_BQ_ON] | (uint32_t)st.v[P_BQ_REC] << 2 | (uint32_t)barp.latch << 4 | (uint32_t)st.v[P_DQ_REC] << 5 |
                          (uint32_t)st.v[P_DQ_ON] << 7 | (uint32_t)cnt.run << 8 | (uint32_t)cnt.beat << 9 |
                          (uint32_t)sv.load << 12);
@@ -4066,11 +4113,12 @@ static void ui_frame(void)
     for (i = 0; i < 4u; i++) {           /* (and where an LFO has them) */
         uint8_t p = page_knob(fm.page, i);
         s3 = sig_add(s3, p);
-        s3 = sig_add(s3, p < NPARAM ? st.v[p]
+        s3 = sig_add(s3, p == P_TEMPO ? st.v[p] | ext_bpm() << 8   /* (TEMPO (EXT): the clock's, as it comes and goes) */
+                         : p < NPARAM ? st.v[p]
                          : p == K_IDLE ? saver.min | (uint32_t)(saver.min_at && now - saver.min_at < TOUCH_MS) << 8
                          : p == K_HEAD ? hdr.dark | (uint32_t)(hdr.at && now - hdr.at < TOUCH_MS) << 8
                          : p == K_TUNE ? a4.hz | (uint32_t)(a4.at && now - a4.at < TOUCH_MS) << 9 : 0u);
-        s3 = sig_add(s3, p < NSOUND ? (uint32_t)(int32_t)(mod[p] * 2.0f) : 0u);
+        s3 = sig_add(s3, p < NPARAM ? (uint32_t)(int32_t)(mod_of(p) * 2.0f) : 0u);
         if (tgt_slot(p) < 12u)           /* (a TARGET's AMOUNT, lit while SEL + K turns it) */
             s3 = sig_add(s3, st.v[P_L1_AMT1 + tgt_slot(p)] |
                                  (uint32_t)(now < say.msg_until && say.amt == tgt_slot(p) + 1u) << 8);

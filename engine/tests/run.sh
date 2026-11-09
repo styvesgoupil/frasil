@@ -20,6 +20,12 @@
 #   "FRS{" (engine/tests/old-streams-3.0.2/), the same;
 # - ANCHOR (engine/tests/anchor: set, BACK and MORPH bit for bit, a hand, a STORE and a scene during it; a take with it
 #   journaled and played on air, every sample the live one's, joined inside its MORPH), also under ASan and UBSan;
+# - a performance heard live (engine/tests/live: fst_op, each op by itself, a scene by its bytes: every sample, setting
+#   and note a replay of its file's; ops not known or too short ignored or refused, counted), also under ASan and UBSan;
+# - a listener opened on a snap (engine/tests/snap: the running state, card #131: opened 30 s in, the same ops after
+#   in their milliseconds, the brain bit for bit the first engine's to the end, the sound within the buffers'; without
+#   the state, elsewhere; late ops then the snap at its place, the brain again; on a MIDI clock, card #123's, the same),
+#   also under ASan and UBSan;
 # - ENERGY, FRASIL STREAM's measure of a piece (engine/tools/test.sh: the drones alone calm, a busy sequence high, the
 #   same piece the same numbers);
 #   engine/tests/run.sh [OUT_DIR]
@@ -64,7 +70,11 @@ ${CC:-cc} $CF -DFRASIL_EV_LOG=skip_log -o "$OUT/skip" engine/tests/skip.c engine
 ${CC:-cc} $CF -o "$OUT/old_streams" engine/tests/old_streams.c engine/frasil_stream.c engine/frasil_engine.c $DSP -lm
 ${CC:-cc} $CF -o "$OUT/anchor" engine/tests/anchor.c engine/frasil_stream.c engine/frasil_engine.c $DSP -lm
 ${CC:-cc} $CF $SAN -o "$OUT/anchor-san" engine/tests/anchor.c engine/frasil_stream.c engine/frasil_engine.c $DSP -lm
-for t in api api-c11 inside api-san inside-san rate threads skip old_streams anchor anchor-san; do
+${CC:-cc} $CF -o "$OUT/live" engine/tests/live.c engine/frasil_stream.c engine/frasil_engine.c $DSP -lm
+${CC:-cc} $CF $SAN -o "$OUT/live-san" engine/tests/live.c engine/frasil_stream.c engine/frasil_engine.c $DSP -lm
+${CC:-cc} $CF -o "$OUT/snap" engine/tests/snap.c engine/frasil_stream.c $DSP -lm
+${CC:-cc} $CF $SAN -o "$OUT/snap-san" engine/tests/snap.c engine/frasil_stream.c $DSP -lm
+for t in api api-c11 inside api-san inside-san rate threads skip old_streams anchor anchor-san live live-san snap snap-san; do
     "$OUT/$t" > "$OUT/$t.txt" 2>&1 || { cat "$OUT/$t.txt"; echo "run.sh: $t failed"; exit 1; }
     tail -1 "$OUT/$t.txt"
 done
@@ -84,3 +94,14 @@ else
 fi
 "$OUT/alone" app/tests/engine_alone.txt 48000 "$OUT/alone-48000.wav" > /dev/null
 python3 engine/tests/rates.py "$OUT/alone-44100.wav" "$OUT/alone-48000.wav"
+# an FM-1's STATE (the simulator's, GLINT's arpeggio at random, LFOs, a chord, a key down) into the engine alone (card #131)
+printf '%s\n' "keysstay 1" "wait 600" "setp 166 1" "setp 123 1" "setp 45 3" "setp 48 60" "setp 94 5" "setp 95 60" \
+    "setp 96 90" "tapkey 0" "tapkey 4" "tapkey 7" "setp 166 0" "wait 800" "key 9 down 90 80" "wait 50" "pfhello 2" \
+    "pfnone" "pfstate" "wait 80" "pfsave $OUT/fm1-state.bin" "key 9 up" > "$OUT/fm1_state.txt"
+app/build/host/frasil_host "$OUT/fm1_state.txt" "$OUT" > "$OUT/fm1_state.log" 2>&1 && ! grep -q '^FAIL' "$OUT/fm1_state.log" ||
+    { cat "$OUT/fm1_state.log"; echo "run.sh: the simulator's STATE not saved"; exit 1; }
+for t in snap snap-san; do
+    "$OUT/$t" "$OUT/fm1-state.bin" > "$OUT/$t-fm1.txt" 2>&1 || { cat "$OUT/$t-fm1.txt"; echo "run.sh: $t (an FM-1's STATE) failed"; exit 1; }
+done
+grep -h "an FM-1's STATE" "$OUT/snap-fm1.txt"
+tail -1 "$OUT/snap-fm1.txt"

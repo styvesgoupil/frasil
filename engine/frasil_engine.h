@@ -44,7 +44,7 @@
 extern "C" {
 #endif
 
-#define FRS_VERSION "3.1"           /* the FRASIL this engine is (VERSION's: engine/tests/run.sh checks them alike) */
+#define FRS_VERSION "3.2"           /* the FRASIL this engine is (VERSION's: engine/tests/run.sh checks them alike) */
 #define FRS_BLOCK 256u                   /* frames the engine renders at a time (frs_render takes any count) */
 #define FRS_SCENE_BYTES 619u             /* a scene, a shard ("FRS}": its name's characters 17 .. 32, the LFOs' AMOUNTs and
                                           * SWELL last; the same bytes in "FRS|", 3.0.2-b5's test builds', its AMOUNTs as
@@ -85,6 +85,8 @@ void frs_cut_stop(void);                 /* CUT as the iPad's transport has it: 
                                           * RESTORE's notes as they were. frs_cut as it was (a stream's CUT from
                                           * before it) */
 uint32_t frs_ms(void);                   /* the engine's clock: the millisecond it runs next */
+uint32_t frs_ms_after(uint32_t frames);  /* frs_ms once frames more are rendered (each block runs the milliseconds before
+                                          * it: what a render of them runs is frs_ms() up to this, less one) */
 /* a recipe played from any place (a stream, FRASIL STREAM's radio). frs_tick_hook: fn first in every millisecond of the
  * brain, inside frs_render and frs_skip_to, there to call what a replay calls; from the thread that renders, never
  * frs_close, frs_init or frs_render inside it; 0 takes it off, and frs_init does. frs_skip_to: the brain alone from here
@@ -120,7 +122,8 @@ int frs_param_info(uint32_t p, const char **name, uint32_t *max, uint32_t *def);
 uint32_t frs_param_kind(uint32_t p);
 /* LFO TARGET's choices (P_L1_T1 .. P_L3_T4: 0 OFF, then 1 .. frs_lfo_targets()): the setting choice t moves (frs_param_*'s
  * number), or -1 (OFF, or none t). 2.5's: the 40 before, then MASTER FILTER's CUTOFF and RESONANCE, the four pans;
- * 2.6's 47th: CHOIR III's SOFT */
+ * 2.6's 47th: CHOIR III's SOFT; then the ADSRs (48 .. 55), TAPE SAT and WOBBLE (56, 57); 3.2's 58 .. 61: LOFI TAPE II's
+ * TAPE SPEED, TONE, NOISE, DROPOUT */
 uint32_t frs_lfo_targets(void);
 int frs_lfo_target(uint32_t t);
 /* MASTER FILTER's and LOFI TAPE's TRACKS (P_FL_TRACKS, P_TP_TRACKS): the setting's values, and the tracks each is on
@@ -153,6 +156,25 @@ uint32_t frs_state_save(uint8_t *out);   /* the engine's state beside a scene (F
                                           * numbers made over; one before 3.0's, with KEY MODE and no KEYS: KEY MODE
                                           * read in as the drones' and the bass's LATCH) */
 int frs_state_load(const uint8_t *in, uint32_t n);   /* back (what it doesn't know left as it is): 0, or -1 not one */
+/* the running state (Perform LIVE, card #131, engine/live.c): what a start (a scene, the state, the moves) does not hold,
+ * so that an engine opened on the same start goes on as this one does: the brain whole (the notes and what holds them,
+ * the keys down, the arpeggiators and their draws, the sequences where they are and their takes, the grid and its
+ * clock, the LFOs where in their turns, SPARKLE, MORPH, ANCHOR, SWELL, COUNT-IN, RESTORE's notes, UNDO's, the sound as
+ * saved, TUNE A4), the sound's at half precision (each voice's drift, envelope, pressure and phases, the bass, the tide,
+ * the generators, the cloud's sways, the tape's phases), the engine alone's own (the tracks stopped, the fingers). Not
+ * the buffers: the cloud's room, GLINT's echoes and ringing glints, the tape's loop, a filter's state. scene: the
+ * start's scene it goes with (FRS_SCENE_BYTES: the scene's bytes in it are kept against it), or 0. Compact (noughts in
+ * runs): a few hundred bytes to some 2 KB, FRS_LIVE_BYTES at most.
+ *   frs_live_save: its length, or 0 (max too small). Between two renders, from the thread that renders.
+ *   frs_live_load: after the start was opened (fst_fresh), or in an engine that played on from somewhere near it: the
+ *   engine runs on from that millisecond (frs_ms its), every sample as the saved one's would have been but for what the
+ *   buffers held, the DSP's half precision, and on the FM-1's a block's own place in time. 0, or -1: another engine's
+ *   (FRS_VERSION's layout, NPARAM, the scene's length), or cut short (the engine as it was, or partly loaded: open it
+ *   again). From the thread that renders, between two renders or inside a frs_tick_hook */
+#define FRS_LIVE_BYTES 4096u
+uint32_t frs_live_save(uint8_t *out, uint32_t max, const uint8_t *scene);
+int frs_live_load(const uint8_t *in, uint32_t n, const uint8_t *scene);
+uint32_t frs_live_ms(const uint8_t *in, uint32_t n);   /* the millisecond a running state runs next (0: not one) */
 
 /* --------------------------------------------------------------- playing --- */
 /* a key down (key: 0 .. FRS_KEYS - 1, its note as played, MIDI's numbers; vel 1 .. 127): what the keys play (KEYS:

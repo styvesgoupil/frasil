@@ -793,3 +793,206 @@ wait 1500
 tap REC
 wait 1600
 shot screen-seq-live.png
+# the header's battery (#125): the divider's reading (battery N, plat_battery; -1 none) as a level along a Li-ion
+# cell's curve (APP_BATT_RAW_4V2: 651 at 4.20 V). None until a reading; the first one drawn at once, the next ones
+# smoothed (about half a minute), the level drawn moving 2 % at least; green, yellow at 30 % and under, red at 10 %
+# and under, back only 3 % past the line; a PERFORM page's HELLO answered with a BATTERY too. Its shots
+# (battery-*.png, not the manual's): 100, 60, 29, 10 and 5 % on the play page, INVERT and DARK; GLINT's, BASS's,
+# HELP's, the grid's, SAVE's and NAME IT's headers. The screensaver OFF (the readings' minutes)
+setp 226 0
+tap REC
+wait 300
+tap PLAY
+wait 300
+setp 123 0
+setp 166 0
+gopage 0
+wait 1100
+expect battpct -1
+pfhello 0
+expect pfbatt 127
+battery 651
+wait 1100
+expect battpct 100
+expect battzone 0
+expect battmv 4200
+pfhello 0
+expect pfbatt 100
+pfbye
+shot battery-invert-100.png
+battery -1
+wait 1100
+expect battpct -1
+battery 601
+wait 1100
+expect battpct 60
+expect battzone 0
+shot battery-invert-60.png
+# past its first ten seconds, a sudden drop (a load) moves it slowly: a second later, the same level drawn; then it
+# gets there
+wait 10000
+battery 575
+wait 1100
+expect battpct 60
+wait 200000
+expect battpct <33
+expect battzone 1
+# its first ten seconds quicker: a drop then is followed within seconds
+battery -1
+wait 1100
+battery 601
+wait 1100
+expect battpct 60
+battery 575
+wait 4000
+expect battpct <50
+battery -1
+wait 1100
+battery 575
+wait 1100
+expect battpct 29
+expect battzone 1
+shot battery-invert-29.png
+# yellow until 3 % past its line: 31 % still yellow, 33 % green
+battery 577
+wait 200000
+expect battpct 31
+expect battzone 1
+battery 579
+wait 200000
+expect battpct 33
+expect battzone 0
+battery -1
+wait 1100
+battery 558
+wait 1100
+expect battpct 10
+expect battzone 2
+shot battery-invert-10.png
+# red until 3 % past its line: 12 % still red, 14 % yellow
+battery 561
+wait 200000
+expect battpct 12
+expect battzone 2
+battery 563
+wait 200000
+expect battpct 14
+expect battzone 1
+battery -1
+wait 1100
+battery 546
+wait 1100
+expect battpct 5
+expect battzone 2
+shot battery-invert-5.png
+# the other headers at 60 %: GLINT's, BASS's, HELP's, the grid's, SAVE's (its red), NAME IT's
+battery -1
+wait 1100
+battery 601
+wait 1100
+setp 166 1
+wait 300
+shot battery-invert-glint.png
+setp 166 2
+wait 300
+shot battery-invert-bass.png
+setp 166 0
+wait 300
+press HOME
+wait 500
+release HOME
+wait 100
+shot battery-invert-help.png
+tap HOME
+wait 300
+turn PRESET 6
+wait 100
+shot battery-invert-grid.png
+tap FX
+wait 2500
+tap SAVE
+wait 300
+tap SAVE
+wait 300
+shot battery-invert-save.png
+tap SEL
+wait 300
+shot battery-invert-name.png
+tap FX
+tap FX
+tap FX
+wait 200
+gopage 0
+wait 300
+# the same in DARK
+gopage 47
+wait 100
+turn K4 1
+wait 100
+expect headdark 1
+gopage 0
+wait 300
+shot battery-dark-60.png
+battery -1
+wait 1100
+battery 651
+wait 1100
+shot battery-dark-100.png
+battery -1
+wait 1100
+battery 575
+wait 1100
+shot battery-dark-29.png
+battery -1
+wait 1100
+battery 558
+wait 1100
+shot battery-dark-10.png
+battery -1
+wait 1100
+battery 546
+wait 1100
+shot battery-dark-5.png
+battery -1
+wait 1100
+battery 575
+wait 1100
+setp 166 1
+wait 300
+shot battery-dark-glint.png
+setp 166 2
+wait 300
+shot battery-dark-bass.png
+setp 166 0
+wait 300
+press HOME
+wait 500
+release HOME
+wait 100
+shot battery-dark-help.png
+tap HOME
+wait 300
+turn PRESET 6
+wait 100
+shot battery-dark-grid.png
+tap FX
+wait 2500
+tap SAVE
+wait 300
+tap SAVE
+wait 300
+shot battery-dark-save.png
+tap SEL
+wait 300
+shot battery-dark-name.png
+tap FX
+tap FX
+tap FX
+wait 200
+gopage 0
+wait 300
+# none again: no battery drawn
+battery -1
+wait 1100
+expect battpct -1
+shot battery-dark-none.png

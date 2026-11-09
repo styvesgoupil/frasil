@@ -21,7 +21,7 @@ typedef struct {
     uint8_t max, def, fmt;
 } pdesc_t;
 
-#define NLFO_TGT 58u                     /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below) */
+#define NLFO_TGT 62u                     /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below) */
 #define NDRONE 33u                       /* the settings a drone preset sets (DRONE_P, below) */
 #define NDPRESET 36u
 #define NPULSE 7u                        /* PULSE's choices: OFF, then its divisions (PULSE_TICKS, below) */
@@ -630,9 +630,10 @@ static const uint8_t LFO_TGT[NLFO_TGT] = {NPARAM, P_TIMBRE, P_ESPACE, P_MOUVEMEN
                                     P_ARP_CHANCE, P_SQ_LEN, P_GX_SPARK, P_GX_BLUR, P_GX_SINK, P_FL_CUT, P_FL_RESO,
                                     P_PN_DRONE, P_PN_BASS, P_PN_GLINT, P_PN_CLOUD, P_CH_SOFT, P_GL_ATTACK, P_GL_DECAY,
                                     P_GL_SUSTAIN, P_GL_RELEASE, P_BS_ATTACK, P_BS_DECAY, P_BS_SUSTAIN,
-                                    P_BS_RELEASE, P_TP_SAT, P_TP_WOBBLE};   /* (GLINT's CHANCE,
-                                                                * its SEQ LENGTH, SPARKLE: app.c's, arp_chance,
-                                                                * seq_len, sparkle_run) */
+                                    P_BS_RELEASE, P_TP_SAT, P_TP_WOBBLE, P_TP_FLUTTER, P_TP_TONE, P_TP_NOISE,
+                                    P_TP_DROPOUT};   /* (GLINT's CHANCE, its SEQ LENGTH, SPARKLE: app.c's,
+                                                      * arp_chance, seq_len, sparkle_run; LOFI TAPE II's four past
+                                                      * NSOUND: mod_tp) */
 static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MOTION", "WARMTH", "CHOIR", "PARTIALS",
                                              "BREATH", "CH DETUNE", "CH FILTER", "CH SHAPE", "CH RESO", "PA TILT", "PA ODD",
                                              "PA STRETCH", "PA EVOLVE", "PA BEAT", "PA FORMANT", "PA PEAK", "BR RESO", "BR COLOR",
@@ -642,7 +643,8 @@ static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MO
                                              "SPARKLE", "BLUR", "SINK", "MS CUTOFF", "MS RESO", "DRONE PAN", "BASS PAN",
                                              "GLINT PAN", "CLOUD PAN", "CH SOFT", "GL ATTACK", "GL DECAY", "GL SUSTAIN",
                                              "GL RELEASE", "BS ATTACK", "BS DECAY", "BS SUSTAIN",
-                                             "BS RELEASE", "TAPE SAT", "WOBBLE"};   /* (new ones at the end: a saved TARGET
+                                             "BS RELEASE", "TAPE SAT", "WOBBLE", "TAPE SPEED", "TAPE TONE",
+                                             "TAPE NOISE", "DROPOUT"};   /* (new ones at the end: a saved TARGET
                                                                          * keeps its setting) */
 static float lfo_hz(uint32_t r) { return 0.005f * fm_powf(2000.0f, (float)r / (float)(LFO_NFREE - 1u)); }
 /* GLINT's OCTAVE, in semitones: every glint is played without it, the engine puts it on (a key's, a MIDI note's, the
@@ -661,6 +663,15 @@ static uint8_t dq_view_n, dq_view_note;
 static float morph_off[NMORPH];
 /* what the LFOs add to each setting now, in its own steps (app.c, lfo_run); params_to_engine takes them */
 static float mod[NSOUND];
+/* the same for LOFI TAPE II's four, past NSOUND (TAPE SPEED, TONE, NOISE, DROPOUT): beside mod, not in it, so mod keeps
+ * its length (a LIVE snapshot's); lfo_run writes them anew every 10 ms */
+static float mod_tp[4];
+static float *mod_at(uint32_t p)         /* where setting p's LFO offset is; 0: no LFO moves it */
+{
+    return p < NSOUND ? &mod[p] : p >= P_TP_FLUTTER && p <= P_TP_DROPOUT ? &mod_tp[p - P_TP_FLUTTER] : 0;
+}
+static float mod_of(uint32_t p) { const float *m = mod_at(p); return m ? *m : 0.0f; }
+_Static_assert(P_TP_DROPOUT == P_TP_FLUTTER + 3 && P_TP_FLUTTER >= NMORPH, "LOFI TAPE II's four: mod_tp, no MORPH");
 
 /* GLINT's delay, in MIDI clocks (24 a quarter note): T triplets, D dotted */
 static const uint8_t GD_TICKS[12] = {3, 4, 6, 8, 9, 12, 16, 18, 24, 32, 36, 48};
@@ -766,6 +777,20 @@ static float tape_oct(uint32_t x)
                     : fm_log2f((float)(36u + x) * 0.01f);
 }
 
+/* ... between its detents too (an LFO on it, TARGET's TAPE SPEED: x, 0 .. 127, with what it adds), from one detent's
+ * octaves to the next's; on a detent, tape_oct's own */
+static float tape_octf(float x)
+{
+    uint32_t i;
+    if (x <= 0.0f)
+        return tape_oct(0);
+    if (x >= 127.0f)
+        return tape_oct(127);
+    i = (uint32_t)x;
+    x -= (float)i;
+    return x == 0.0f ? tape_oct(i) : tape_oct(i) + (tape_oct(i + 1u) - tape_oct(i)) * x;
+}
+
 /* the half-tones TAPE SPEED at x moves the pitch, when it lands on one: 12 log2 of its factor within 0.1 of a whole
  * number, and nearer it than the detents beside (one detent a half-tone: X1.50, not X1.49, for the fifth); 0 at
  * X1.00 and between them (LOFI TAPE II, between the reels: -3 as "-1.5 TONES") */
@@ -787,7 +812,8 @@ static const uint8_t TAPE_NONE[4] = {64, 64, 0, 0};
 
 static float u7(const uint8_t *v, int p)  /* a setting, 0..1, with what the LFOs add to it */
 {
-    float x = ((float)v[p] + (p < NSOUND ? mod[p] + morph_off[p] : p < NMORPH ? morph_off[p] : 0.0f)) / (float)PD[p].max;
+    float x = ((float)v[p] + (p < NSOUND ? mod[p] + morph_off[p] : p < NMORPH ? morph_off[p] : mod_of((uint32_t)p))) /
+              (float)PD[p].max;
     return x < 0.0f ? 0.0f : x > 1.0f ? 1.0f : x;
 }
 
@@ -896,7 +922,11 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
         b->tp_sat = u7(v, P_TP_SAT);
         b->tp_wobble = u7(v, P_TP_WOBBLE);
         b->tp_flutter = 5.0f;            /* (fixed since TAPE SPEED took its byte; 7.3 HZ before) */
-        b->tp_tone = v[P_TP_TONE] == 64u ? 1.0f : fm_powf(2.0f, ((float)v[P_TP_TONE] - 64.0f) * (1.0f / 32.0f));
+        {
+            float t = (float)v[P_TP_TONE] + mod_of(P_TP_TONE);   /* (with what an LFO adds: TARGET's TAPE TONE) */
+            t = t < 0.0f ? 0.0f : t > 127.0f ? 127.0f : t;
+            b->tp_tone = t == 64.0f ? 1.0f : fm_powf(2.0f, (t - 64.0f) * (1.0f / 32.0f));
+        }
         b->tp_noise = u7(v, P_TP_NOISE);
         b->tp_dropout = u7(v, P_TP_DROPOUT);
         b->tp_tracks = TRK[v[P_TP_TRACKS] % 7u];

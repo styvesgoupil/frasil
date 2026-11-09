@@ -10,6 +10,7 @@
  * The engine (frasil.c) calls these from the render, with its queued events. */
 #pragma once
 #include <stdint.h>
+#include "brlive.h"
 
 #define BASS_NMODEL 8
 
@@ -33,6 +34,8 @@ typedef struct {
 
 void bass_init(void);
 void bass_reset(void);                   /* everything as at power-on (frasil_reset) */
+void bass_lv(br_live *c);                /* Perform LIVE's state (frasil_lv): the note sounding, its envelope, glides,
+                                          * phases and filter */
 void bass_on(int note, float vel, const bass_params_t *p);   /* render side: to this note (OCTAVE on it), from
                                                                * where it is if it sounds */
 void bass_off(void);

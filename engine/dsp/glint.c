@@ -175,6 +175,15 @@ void glint_hush(void)                    /* every glint silent at once, the dela
 }
 #endif
 
+/* Perform LIVE's (frasil_lv): SPREAD's draws and the glints' ages, so that the next strikes take the same place and the
+ * same voice on every engine; the glints ringing now are each engine's own (a short tail). (On the FM-1 too: its STATE
+ * saves them) */
+void glint_lv(br_live *c)
+{
+    c->u32(c, &sp_rng);
+    c->u32(c, &sp_age);
+}
+
 void glint_off(int note, const glint_params_t *p)
 {
     uint32_t i;

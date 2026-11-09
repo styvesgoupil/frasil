@@ -653,6 +653,8 @@ static int known(uint8_t op)
     case FST_PLAY_ALL: case FST_KEY_UP: case FST_SCENE: case FST_SCENE_NOW: case FST_LATCH: case FST_HOLD: case FST_KEY_DOWN:
     case FST_MIDI: case FST_STORE: case FST_RECORDING: case FST_DSTEP: case FST_STATE: case FST_OPEN:
     case FST_ANCHOR: case FST_ANCHOR_BACK: case FST_ANCHOR_DROP:
+    case FST_RELEASE: case FST_RELEASE_ALL: case FST_KEY_PRESSURE: case FST_SWELL: case FST_COMPARE: case FST_RECORD:
+    case FST_KEY_SINGLE:
         return 1;
     default:
         return 0;
@@ -712,9 +714,16 @@ int fst_apply(fst_player *p, const fst_dec *e, uint64_t frames)
     case FST_LATCH: frs_latch(a[0], a[1], (int8_t)a[2]); break;
     case FST_HOLD: frs_hold(a[0], a[1], a[2], (int8_t)a[3]); break;
     case FST_KEY_DOWN:                   /* (the keys play the track: KEYS' P_KB, set before each) */
+    case FST_KEY_SINGLE:
         frs_param_set(P_KB, a[2]);
-        frs_key_down(a[0], a[1], 100, 0);
+        frs_key_down(a[0], a[1], a[3] ? a[3] : 100u, e->op == FST_KEY_SINGLE);   /* (its velocity; 0, a touch's: 100) */
         break;
+    case FST_KEY_PRESSURE: frs_key_pressure(a[0], a[1]); break;
+    case FST_RELEASE: frs_release(); break;
+    case FST_RELEASE_ALL: frs_release_all(); break;
+    case FST_SWELL: frs_swell(a[0]); break;
+    case FST_COMPARE: frs_compare(a[0]); break;
+    case FST_RECORD: frs_record_layer(a[0]); break;
     case FST_MIDI: {                     /* (taken at the millisecond it was: the frame that says so, or at once) */
         double fs = (double)frs_rate(), at = (double)(frs_ms() + (uint32_t)a[3]), f2 = (double)(uint64_t)((at - 1.0) * fs / 1000.0) + 1.0;
         frs_midi_at(f2 > (double)frames ? (uint32_t)(f2 - (double)frames) : 0u, a[0], a[1], a[2]);
@@ -833,4 +842,184 @@ void fst_air_skip(fst_air *a, uint32_t ms)
             return;
         frs_skip_to((uint64_t)frs_ms() + (a->opens ? 1u : ms - at));   /* (with an opening ahead: to its very millisecond) */
     }
+}
+
+/* ------------------------------------------------------------------ live --- */
+static void live_quiet(void)             /* (as the start opened it: the artist's ticks and count are not the listener's) */
+{
+    frs_count_in(0);
+    air_quiet();
+}
+
+/* the running state waiting, at its place: loaded, or left (cmp: this engine's own the very same) */
+static void live_state_here(fst_live *l)
+{
+    l->st_on = 0;
+    if (l->st_cmp) {
+        uint32_t n = frs_live_save(l->tmp, sizeof l->tmp, l->st_scene);
+        if (n == l->st_n && !memcmp(l->tmp, l->st, n)) {
+            l->same++;
+            return;
+        }
+    }
+    if (frs_live_load(l->st, l->st_n, l->st_scene)) {
+        l->refused++;
+        return;
+    }
+    live_quiet();
+    l->loads++;
+}
+
+/* first in each millisecond: what is due by now, in the order given */
+static void live_tick(void *user)
+{
+    fst_live *l = user;
+    while (l->qr != l->qw) {
+        fst_lq *e = &l->q[l->qr % FST_LQ];
+        if (e->ms > frs_ms())
+            return;
+        l->qr++;
+        if (e->kind == 2u) {
+            live_state_here(l);
+            continue;
+        }
+        if (e->ms < frs_ms())
+            l->late++;
+        fst_op(l, e->op, e->a, e->n, e->kind == 1u ? l->scn[e->sc] : 0);
+        if (e->kind == 1u)
+            l->scn_n--;
+    }
+}
+
+int fst_live_open(fst_live *l, const fst_start *s, float fs)
+{
+    memset(l, 0, sizeof *l);
+    if (fst_fresh(s, fs))
+        return -1;
+    live_quiet();
+    frs_tick_hook(live_tick, l);
+    return 0;
+}
+
+int fst_live_state(fst_live *l, const uint8_t *st, uint32_t n, const uint8_t *scene)
+{
+    if (frs_live_load(st, n, scene)) {
+        l->refused++;
+        return -1;
+    }
+    live_quiet();
+    l->loads++;
+    return 0;
+}
+
+int fst_live_at(fst_live *l, uint32_t ms, uint8_t op, const uint8_t *a, uint32_t n, const uint8_t *scene)
+{
+    fst_lq *e;
+    if (l->qw - l->qr >= FST_LQ || n > sizeof e->a || (scene && l->scn_n >= FST_LQ_SCN)) {
+        l->full++;
+        return -1;
+    }
+    e = &l->q[l->qw % FST_LQ];
+    e->ms = ms;
+    e->op = op;
+    e->n = (uint8_t)n;
+    e->kind = 0;
+    if (n)
+        memcpy(e->a, a, n);
+    if (scene) {
+        e->kind = 1;
+        e->sc = (uint8_t)(l->scn_w++ % FST_LQ_SCN);
+        memcpy(l->scn[e->sc], scene, FRS_SCENE_BYTES);
+        l->scn_n++;
+    }
+    l->qw++;
+    return 0;
+}
+
+int fst_live_at_state(fst_live *l, uint32_t ms, const uint8_t *st, uint32_t n, const uint8_t *scene, int cmp)
+{
+    fst_lq *e;
+    if (l->st_on || n > sizeof l->st || l->qw - l->qr >= FST_LQ) {
+        l->full++;
+        return -1;
+    }
+    memcpy(l->st, st, n);
+    l->st_n = n;
+    if (scene)
+        memcpy(l->st_scene, scene, FRS_SCENE_BYTES);
+    else
+        memset(l->st_scene, 0, FRS_SCENE_BYTES);
+    l->st_on = 1;
+    l->st_cmp = (uint8_t)(cmp != 0);
+    e = &l->q[l->qw % FST_LQ];
+    e->ms = ms;
+    e->op = 0;
+    e->n = 0;
+    e->kind = 2;
+    l->qw++;
+    return 0;
+}
+
+uint32_t fst_live_state_ms(const fst_live *l)
+{
+    uint32_t i;
+    for (i = l->qr; l->st_on && i != l->qw; i++)
+        if (l->q[i % FST_LQ].kind == 2u)
+            return l->q[i % FST_LQ].ms;
+    return 0xFFFFFFFFu;
+}
+
+void fst_live_cut(fst_live *l)
+{
+    uint32_t i;
+    for (i = l->qr; i != l->qw; i++)
+        if (l->q[i % FST_LQ].kind == 2u)
+            break;
+    for (; l->qw != i; l->qw--)          /* (from the newest back: the scenes they held given back) */
+        if (l->q[(l->qw - 1u) % FST_LQ].kind == 1u) {
+            l->scn_n--;
+            l->scn_w--;
+        }
+    l->st_on = 0;
+}
+
+int fst_op(fst_live *l, uint8_t op, const uint8_t *a, uint32_t n, const uint8_t *scene)
+{
+    static const uint8_t first[4];       /* (a scene's index: the one given, SCNS's first) */
+    uint32_t need = op >> 6 == 3u ? 1u : op >> 6 == 2u ? 4u : 2u * (op >> 6);   /* (its args in a file: 0, 2, 4, or
+                                                                                 * a length's, one at least) */
+    fst_dec e;
+    if (!known(op)) {
+        l->missed++;
+        return 1;
+    }
+    if (op == FST_SCENE || op == FST_SCENE_NOW || op == FST_ANCHOR || op == FST_STORE) {
+        if (!scene) {
+            l->refused++;
+            return -1;
+        }
+        a = first;
+        n = need;
+    } else if (n < need || (need && !a) || op == FST_OPEN || (op == FST_DSTEP && n > 9u) ||
+               (op == FST_STATE && n > FRS_STATE_BYTES)) {
+        l->refused++;
+        return -1;
+    }
+    if (op == FST_MIDI)                  /* (no frame at hand: by its millisecond, as on air) */
+        frs_midi_ms((uint64_t)frs_ms() + a[3], a[0], a[1], a[2]);
+    else {
+        l->p.f.sbytes = FRS_SCENE_BYTES;
+        l->p.f.scns = scene;
+        l->p.f.nscns = scene ? 1u : 0u;
+        e.ms = frs_ms();
+        e.op = op;
+        e.n = (uint8_t)(op >> 6 == 3u ? n : need);
+        e.a = a;
+        fst_apply(&l->p, &e, 0);
+        l->p.f.scns = 0;
+        if (op == FST_STATE || (op == FST_PARAM && a[0] == P_METRO))
+            air_quiet();
+    }
+    l->done++;
+    return 0;
 }

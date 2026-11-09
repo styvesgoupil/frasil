@@ -397,6 +397,7 @@ static int8_t fnote[3][128];             /* each one's note as the engine took i
 static int8_t bass_fingers[16];          /* the bass's notes held (as played), the last on top */
 static uint32_t nbf;
 static uint32_t hold_rec[2][4];          /* the notes (as they came) a finger's down put into a take: GLINT's, the bass's */
+static uint8_t holds_off;               /* (frs_hold_off under way: its ups in note order, no legato from one to the next) */
 static struct {
     chord_t c[128];
     uint32_t a[4], ba[4];
@@ -742,6 +743,25 @@ const char *frs_version(void) { return FRS_VERSION; }
 float frs_rate(void) { return FRASIL_FS; }
 void frs_gain(float g) { out_gain = g > 0.0f ? (g < 1.0f ? g : 1.0f) : 0.0f; }   /* (NaN: 0) */
 uint32_t frs_ms(void) { return (uint32_t)now64; }
+uint32_t frs_ms_after(uint32_t frames)
+{
+    uint64_t now = now64;
+    double due = due_ms;
+    uint32_t at = blk_at;
+    while (frames) {
+        uint32_t k;
+        if (at == FRS_BLOCK) {           /* (next_block's: the milliseconds due before it) */
+            while (!(due <= (double)now))
+                now++;
+            due += block_ms;
+            at = 0;
+        }
+        k = FRS_BLOCK - at < frames ? FRS_BLOCK - at : frames;
+        at += k;
+        frames -= k;
+    }
+    return (uint32_t)now;
+}
 
 void frs_panic(void)
 {
@@ -858,32 +878,10 @@ int frs_param_info(uint32_t p, const char **name, uint32_t *max, uint32_t *def)
     return 0;
 }
 
-uint32_t frs_param_kind(uint32_t p)
-{
-    if (p >= NPARAM || p == P_SC_GONE)
-        return FRS_P_NONE;
-    if (p < NSOUND || p == P_TEMPO || p == P_BQ_ON || p == P_BQ_STEPS || p == P_BQ_TRANS || p == P_BQ_LEN ||
-        p == P_BA_MODE || p == P_BA_RANGE || p == P_BA_CHANCE || p == P_BQ_GATE || p == P_BS_WEIGHT || p == P_BS_PUNCH ||
-        p == P_BS_BITE || p == P_BS_SPACE || p == P_GL_VIB_AUTO || (p >= P_DQ_ON && p <= P_DQ_TRANS) ||
-        (p >= P_TP_FLUTTER && p <= P_TP_DROPOUT) || (p >= P_L1_AMT1 && p <= P_L3_AMT4) || p == P_SWELL)
-        return FRS_P_SCENE;
-    if (p == P_KEYS || p == P_CANAL || p == P_CH_GLINT || p == P_CH_BASS || p == P_LOAD || p == P_CLOCK ||
-        (p >= P_KY_DR_HARM && p <= P_KY_BS_STACK) || p == P_ARP_SNAP)
-        return FRS_P_STATE;
-    if (p == P_SPEAKER || p == P_ANIM || p == P_METRO || p == P_COUNT_IN || p == P_SAVER)   /* (the FM-1's: its output,
-                                                                                            * its screen, its GLO ›
-                                                                                            * RECORD; the engine alone's
-                                                                                            * frs_metronome,
-                                                                                            * frs_count_in) */
-        return FRS_P_NONE;
-    if (p == P_SQ_NOTE || p == P_SQ_ACC || p == P_SQ_NLEN || p == P_BQ_NOTE || p == P_BQ_NLEN || p == P_BQ_ACC ||
-        p == P_DQ_NOTES || p == P_DQ_NLEN)
-        return FRS_P_STEP;
-    if (p == P_SQ_CLEAR || p == P_SQ_NEW || p == P_SQ_UNDO || p == P_BQ_CLEAR || p == P_BQ_NEW || p == P_BQ_UNDO ||
-        p == P_DQ_CLEAR || p == P_DQ_UNDO)
-        return FRS_P_ACTION;
-    return FRS_P_MOMENT;                 /* (FREEZE, KEYS, MORPH, RECORD, STEP, ARP II's LATCH) */
-}
+_Static_assert(PK_SCENE == FRS_P_SCENE && PK_STATE == FRS_P_STATE && PK_MOMENT == FRS_P_MOMENT && PK_STEP == FRS_P_STEP &&
+                   PK_ACTION == FRS_P_ACTION && PK_NONE == FRS_P_NONE && STATE_BYTES == FRS_STATE_BYTES,
+               "the brain's kinds and state are frasil_engine.h's (core.c param_kind, state_save)");
+uint32_t frs_param_kind(uint32_t p) { return param_kind(p); }
 
 uint32_t frs_param_get(uint32_t p) { return p < NPARAM ? st.v[p] : 0u; }
 
@@ -923,27 +921,8 @@ void frs_param_text(uint32_t p, uint32_t x, char *out)
         value_text((int)p, (uint8_t)(x > PD[p].max ? PD[p].max : x), out);
 }
 
-/* the engine's state beside a scene: "FRst", its version, then pairs (a setting, its value; 255: the metronome) */
-#define STATE_METRO 255u
-#define STATE_V 3u                       /* 2.6's numbers (2: 2.5's, its settings past its NSOUND, 153, one lower; 1:
-                                          * 2.0's, past 130, 24 lower) */
-uint32_t frs_state_save(uint8_t *out)
-{
-    uint32_t n = 0, p;
-    out[n++] = 'F';
-    out[n++] = 'R';
-    out[n++] = 's';
-    out[n++] = 't';
-    out[n++] = STATE_V;
-    for (p = 0; p < NPARAM; p++)
-        if (frs_param_kind(p) == FRS_P_STATE) {
-            out[n++] = (uint8_t)p;
-            out[n++] = st.v[p];
-        }
-    out[n++] = STATE_METRO;
-    out[n++] = st.metro;
-    return n;
-}
+/* the engine's state beside a scene (core.c state_save: "FRst", its version, then pairs; STATE_METRO the metronome) */
+uint32_t frs_state_save(uint8_t *out) { return state_save(out); }
 _Static_assert(5u + 2u * 20u <= FRS_STATE_BYTES, "the state fits FRS_STATE_BYTES (its 19 settings and the metronome)");
 
 uint32_t frs_lfo_targets(void) { return NLFO_TGT - 1u; }
@@ -979,6 +958,137 @@ int frs_state_load(const uint8_t *in, uint32_t n)
     }
     tr_keys();
     tr_sync();
+    return 0;
+}
+
+/* ------------------------------------------------------- the running state --- */
+/* the engine alone's own part of it (core.c's live.c has the rest): the tracks stopped and what they keep, the
+ * fingers (THE KEYS' HOLD), the sequences' origins, the host's tempo, the scene given last, the MIDI waiting for its
+ * millisecond. Not in an FM-1's (none of it is the FM-1's): as an engine opened on its start has it, none stopped */
+static void rs_dbl(rs_io *s, double *d)
+{
+    uint32_t w[2];
+    memcpy(w, d, 8);
+    V32(w[0]);
+    V32(w[1]);
+    if (!s->c.save)
+        memcpy(d, w, 8);
+}
+static double alone_frac;                /* (alone_lv's: the next block's time after the clock's millisecond) */
+static void alone_lv(br_live *c)
+{
+    rs_io *s = (rs_io *)c;
+    uint32_t i, n = mq_w - mq_r;
+    alone_frac = due_ms - (double)now64;
+    rs_dbl(s, &alone_frac);
+    VB(tr.stop);
+    VU32S(tr.kept);
+    V8(tr.bass);
+    VB(hold_g);
+    V8(hold_bg);
+    VB(fingers);
+    VB(fnote);
+    VB(bass_fingers);
+    V32(nbf);
+    VU32S(hold_rec);
+    V8(holds_off);
+    rs_chords(s, hid.c, 128u);
+    VU32S(hid.a);
+    VU32S(hid.ba);
+    V8(hid.bn);
+    V8(hid.b);
+    rs_scene(s, &taken_sc);
+    rs_dbl(s, &host.bpm);
+    rs_dbl(s, &host.beat);
+    rs_dbl(s, (double *)&host.frame);
+    V8(host.on);
+    V8(host.playing);
+    V8(host.was);
+    rs_dbl(s, (double *)&host.clocks);
+    rs_dbl(s, &g_un);
+    VF(g_was);
+    rs_dbl(s, &org_gl.at);
+    V8(org_gl.on);
+    rs_dbl(s, &org_bs.at);
+    V8(org_bs.on);
+    V8(gl_joined);
+    V32(n);
+    if (n > MQ_N) {
+        s->bad = 1;
+        return;
+    }
+    if (!s->c.save)
+        mq_r = mq_w = 0;
+    for (i = 0; i < n; i++) {
+        uint32_t pkt = s->c.save ? mq[(mq_r + i) % MQ_N].pkt : 0u;
+        double at = s->c.save ? (double)mq[(mq_r + i) % MQ_N].at : 0.0;
+        V32(pkt);
+        rs_dbl(s, &at);
+        if (!s->c.save) {
+            mq[i].pkt = pkt;
+            mq[i].at = (uint64_t)at;
+            mq_w = i + 1u;
+        }
+    }
+}
+_Static_assert(sizeof host.frame == 8u && sizeof host.clocks == 8u, "the host's frame and clocks: 8 bytes, as a double");
+
+/* an FM-1's state has none of it: as an engine opened on its start (none stopped, no finger, the scene given last its) */
+static void alone_reset(const uint8_t *scene)
+{
+    tr_reset();
+    memset(hold_g, -1, sizeof hold_g);
+    hold_bg = -1;
+    memset(fingers, 0, sizeof fingers);
+    memset(fnote, 0, sizeof fnote);
+    memset(bass_fingers, 0, sizeof bass_fingers);
+    nbf = 0;
+    memset(hold_rec, 0, sizeof hold_rec);
+    holds_off = 0;
+    memset(&hid, 0, sizeof hid);
+    if (scene)
+        memcpy(&taken_sc, scene, sizeof taken_sc);
+    memset(&host, 0, sizeof host);
+    g_un = 0.0;
+    g_was = 0.0f;
+    org_gl.on = org_bs.on = gl_joined = 0;
+    mq_r = mq_w = 0;
+}
+
+uint32_t frs_live_save(uint8_t *out, uint32_t max, const uint8_t *scene)
+{
+    if (!open_now || !out)
+        return 0;
+    return live_save(out, max > FRS_LIVE_BYTES ? FRS_LIVE_BYTES : max, scene, swell_held, alone_lv, 1);
+}
+
+uint32_t frs_live_ms(const uint8_t *in, uint32_t n)
+{
+    uint32_t ms;
+    uint8_t flags;
+    return in && live_head(in, n, &ms, &flags) ? ms : 0u;
+}
+
+int frs_live_load(const uint8_t *in, uint32_t n, const uint8_t *scene)
+{
+    uint32_t ms;
+    uint8_t flags, held = 0;
+    int f;
+    if (!open_now || !in || !live_head(in, n, &ms, &flags))
+        return -1;
+    keymode_gone = latch_gone = 0;
+    alone_frac = 0.0;
+    f = live_load(in, n, scene, &held, alone_lv);
+    if (f < 0)
+        return -1;
+    if (!(f & LIVE_F_ALONE))
+        alone_reset(scene);
+    swell_held = held;
+    /* its millisecond next; a block begins at once, its milliseconds as the saved engine's next block had them (an
+     * FM-1's: from this one) */
+    now64 = ms;
+    due_ms = (double)ms + (alone_frac > 0.0 && alone_frac < 2.0 * block_ms ? alone_frac : 0.0);
+    blk_at = FRS_BLOCK;
     return 0;
 }
 
@@ -1111,8 +1221,7 @@ static void glint_rec(uint32_t n, int down)
         frasil_glint_off(b);
 }
 
-static uint8_t holds_off;               /* (frs_hold_off under way: its ups in note order, no legato from one to the next) */
-static int rec_finger(int p)             /* the bass's held note p (as played) went into the take at its down */
+static int rec_finger(int p)            /* the bass's held note p (as played) went into the take at its down */
 {
     uint32_t m;
     for (m = 0; m < 128u; m++)

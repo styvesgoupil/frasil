@@ -7,6 +7,7 @@
  * The engine (frasil.c) calls these from the render, with its queued events. */
 #pragma once
 #include <stdint.h>
+#include "brlive.h"
 
 #define GLINT_NV 4
 
@@ -36,6 +37,7 @@ typedef struct {
 
 void glint_init(void);
 void glint_reset(void);                  /* everything as at power-on (frasil_reset) */
+void glint_lv(br_live *c);               /* Perform LIVE's state (frasil_lv): its draws (SPREAD's), the glints' ages */
 void glint_hush(void);                   /* silent at once, the echoes too (frasil_silence) */
 void glint_cut(void);                       /* every glint silent, its echoes gone (the render's: CUT) */
 void glint_on(int note, float vel, const glint_params_t *p);      /* render side */

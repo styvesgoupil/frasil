@@ -114,6 +114,15 @@ float frasil_rate(void);
 #endif
 void frasil_reset(void);                         /* everything as at power-on (frasil_init to follow): for a platform
                                                   * that starts its engine again (the FM-1 never does) */
+/* the running state Perform LIVE tells a listener (card #131, brlive.h): the generators, the tide, PUMP's and the
+ * tape's phases, the notes queued for the next block, each voice sounding (its drift, envelope, pressure, phases), the
+ * bass, the cloud's sway, GLINT's draws. Not the buffers (the cloud, the echoes, the tape), nor a filter's state: a
+ * voice loaded starts them from nothing, as the same on every engine. Saving: the main loop's (frasil_renders around
+ * it: a block rendered meanwhile, again); loading: between two blocks, frasil_skip_done after it */
+#include "brlive.h"
+void frasil_lv(br_live *c);
+void frasil_live_done(void);                     /* after a load: the settings set heard at once (no glide) */
+uint32_t frasil_renders(void);                   /* the blocks begun (the audio interrupt's: a save's check) */
 void frasil_set(const frasil_params_t *p);        /* main loop */
 void frasil_note_on(int note, float vel);        /* main loop: vel 0..1 */
 void frasil_note_off(int note);

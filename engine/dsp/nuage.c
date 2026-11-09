@@ -213,6 +213,16 @@ void nuage_hush(void)                    /* the tail gone at once: the lines and
 }
 #endif
 
+/* Perform LIVE's (frasil_lv): the lines' sways where they are in their turns (some 7 to 16 s each: heard), the
+ * shimmer's phase; the room's own sound is each engine's */
+void nuage_lv(br_live *c)
+{
+    uint32_t j;
+    for (j = 0; j < NL; j++)
+        c->f32(c, &nu.ph[j]);
+    c->f32(c, &nu.sh_p);
+}
+
 void nuage_set(const nuage_params_t *p)
 {
     float ratio;

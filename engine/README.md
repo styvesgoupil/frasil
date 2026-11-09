@@ -12,8 +12,9 @@ lights, screen or store. The FM-1's firmware is built on it (`app/`, its shell),
 | `params.c` | every setting (its range, default and words), the scene's layout (a shard, 619 bytes, "FRS}"), the factory scenes, the presets (the drone's, GLINT's, MASTER EQ's), LFO TARGET's choices, `params_to_engine` |
 | `harmony.c` | the key (ROOT, SCALE) and what a played note becomes (CHORD, VOICING) |
 | `dsp/` | the sound, compiled apart at -O2: `frasil.c` (the voices, the mix, MASTER FILTER, MASTER EQ, LOFI TAPE, ROUTING, the pans, MASTERING, CUT), `glint.c` (GLINT and its delay), `bass.c` (BASS), `nuage.c` (CLOUD, the reverb); `fastmath.h` |
-| `frasil_stream.h`, `.c` | SHARD STREAM: a performance as a recipe. The file (`.frstream`), the journal, the replay, and `fst_air`: a stream played by the engine's own milliseconds, joined at any place (`frs_tick_hook`, `frs_skip_to`). The API alone, no platform: the same reader for the iPad and the radio |
-| `tests/` | the engine alone against the FM-1's simulator (`run.sh`; `anchor.c`: ANCHOR through the API and a stream) |
+| `frasil_stream.h`, `.c` | SHARD STREAM: a performance as a recipe. The file (`.frstream`), the journal, the replay, and `fst_air`: a stream played by the engine's own milliseconds, joined at any place (`frs_tick_hook`, `frs_skip_to`), and `fst_live`: a performance heard live, each op applied by itself as it comes (`fst_op`, fst_apply's own code, a scene by its bytes: Perform LIVE's listener). The API alone, no platform: the same reader for the iPad and the radio |
+| `live.c` | part of `core.c`: the running state Perform LIVE tells (`frs_live_save`, `frs_live_load`; the FM-1's STATE), field by field, and the DSP's (`dsp/brlive.h`: each unit's `*_lv`) |
+| `tests/` | the engine alone against the FM-1's simulator (`run.sh`; `anchor.c`: ANCHOR through the API and a stream; `live.c`: ops given one by one, a replay's every sample; `snap.c`: an engine opened on a snap goes on as the first) |
 
 ## Alone
 
@@ -31,7 +32,8 @@ FM-1's DSP is built: at 44.1 kHz alone.
   - the same render whatever the frames asked at a time;
   - one open at a time;
   - PANIC;
-  - time-stamped MIDI clock and a host's tempo followed;
+  - time-stamped MIDI clock and a host's tempo followed; a MIDI clock read as unevenly as the FM-1 reads it (between
+    its screen's frames, held up 300 ms) followed within 0.3 % (GLINT's delay still), a new tempo within a bar;
   - the state;
   - the snapshot;
   - the clock past 2^32 ms;
@@ -48,6 +50,15 @@ FM-1's DSP is built: at 44.1 kHz alone.
 - **Old streams** (`tests/old_streams.c`): `tests/old-streams/`'s takes of "FRSz" (3.0, before ARP SNAP) and
   `tests/old-streams-3.0.2/`'s of "FRS{" (3.0.2-b5's, SWELL turned through scenes and an ANCHOR among them), each as
   its engine played it, bit for bit, from the top and joined half-way.
+- **Heard live** (`tests/live.c`): a captured start, then each op by itself (`fst_op`, its scenes and its state by
+  their bytes) between the blocks its milliseconds fall on: every sample, setting and note the replay of the same take's
+  file has; ops not known ignored, ops too short refused, both counted and harmless; quiet (no metronome) as on air.
+- **Opened on a snap** (`tests/snap.c`, card #131): the running state (`frs_live_save`, `frs_live_load`: `live.c`,
+  design/perform/LIVE.md section 6) taken 30 s in, a second engine opened on it, the same ops after in their
+  milliseconds (`fst_live_at`): its brain the first one's every 100 ms and bit for bit at the end, the sound's level
+  within the buffers' (the cloud's room starts empty); without the state, the control, elsewhere; ops late by a few
+  milliseconds, then the snap at its place in the queue (`fst_live_at_state`), the first one's again; its own state at
+  its place, left (the very same).
 - **At 48 kHz:** the same sound, second by second, and measured: the bass's pitch, GLINT's echo, CLOUD's RT60,
   LOFI TAPE's delay and flutter, MASTER FILTER's 3 dB point, MASTER EQ's MID FREQ.
 
@@ -139,6 +150,11 @@ FM-1's DSP is built: at 44.1 kHz alone.
     FM-1's alone: SPK/JACK, ANIMATIONS).
   - **The engine's state beside a scene** (KEY MODE, the MIDI channels, LOAD, CLOCK, the metronome):
     `frs_state_save` and `frs_state_load`.
+  - **The running state** (Perform LIVE, card #131): `frs_live_save`, `frs_live_load`, `frs_live_ms`, what a start
+    (a scene, the state, the moves) does not hold, so that an engine opened on the same start goes on as this one does:
+    the brain whole, bit for bit, the sound's drift, envelopes and phases at half precision, not the buffers.
+    `FRS_LIVE_BYTES` at most (some 1.5 KB for a busy scene); another engine's (its version, NPARAM, the scene's length)
+    refused. `frs_ms_after(n)`: the clock once n frames more are rendered (a host that acts between two blocks).
   - **CLOCK INTERNAL:** an incoming MIDI clock and a host's tempo (`frs_host_tempo`) are not followed: the grid runs
     on TEMPO.
   - **LFO TARGET's choices** (`frs_lfo_targets`, `frs_lfo_target`): the setting each choice moves. 2.5's 46: the 40
