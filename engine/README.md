@@ -6,15 +6,15 @@ lights, screen or store. The FM-1's firmware is built on it (`app/`, its shell),
 
 | File | What |
 | --- | --- |
-| `frasil_engine.h`, `frasil_engine.c` | the engine alone: its public API (init at a rate, render, the keys, THE KEYS, MIDI, the settings, the scenes, a UI's view, the effects') |
+| `frasil_engine.h`, `frasil_engine.c` | the engine alone: its public API (init at a rate, render, the keys, THE KEYS, MIDI, the settings, the scenes, the LEAD's in a shard, a UI's view, the effects') |
 | `frasil_params.h` | the settings' numbers by name (`P_EQ_LOW` ...), the public enum `params.c` and the API share |
 | `core.c` | the brain: what a key means, the chords, GLINT's arpeggiator and step sequencer, the bass's sequence and its LIVE take, PULSE, the LFOs, SPARKLE, the metronome, the grid (MIDI clock or TEMPO), MORPH, the scenes taken and stored, RELEASE ALL and RESTORE, MIDI's meaning, THE KEYS |
-| `params.c` | every setting (its range, default and words), the scene's layout (a shard, 619 bytes, "FRS}"), the factory scenes, the presets (the drone's, GLINT's, MASTER EQ's), LFO TARGET's choices, `params_to_engine` |
+| `params.c` | every setting (its range, default and words), the scene's layout (`scene_t`, 619 bytes; a shard, "FRS~", is it and its LEAD's 25: card #152), the factory scenes, the presets (the drone's, GLINT's, MASTER EQ's, the LEAD's), MOSS's LEAD, LFO TARGET's choices, `params_to_engine` |
 | `harmony.c` | the key (ROOT, SCALE) and what a played note becomes (CHORD, VOICING) |
-| `dsp/` | the sound, compiled apart at -O2: `frasil.c` (the voices, the mix, MASTER FILTER, MASTER EQ, LOFI TAPE, ROUTING, the pans, MASTERING, CUT), `glint.c` (GLINT and its delay), `bass.c` (BASS), `nuage.c` (CLOUD, the reverb); `fastmath.h` |
+| `dsp/` | the sound, compiled apart at -O2: `frasil.c` (the voices, the mix, MASTER FILTER, MASTER EQ, LOFI TAPE, ROUTING, the pans, MASTERING, CUT), `glint.c` (GLINT and its delay), `bass.c` (BASS), `nuage.c` (CLOUD, the reverb), `lead.c` (the LEAD and its delay: with `-DFRS_LEAD=1`, the app's builds and STREAM's); `fastmath.h` |
 | `frasil_stream.h`, `.c` | SHARD STREAM: a performance as a recipe. The file (`.frstream`), the journal, the replay, and `fst_air`: a stream played by the engine's own milliseconds, joined at any place (`frs_tick_hook`, `frs_skip_to`), and `fst_live`: a performance heard live, each op applied by itself as it comes (`fst_op`, fst_apply's own code, a scene by its bytes: Perform LIVE's listener). The API alone, no platform: the same reader for the iPad and the radio |
-| `live.c` | part of `core.c`: the running state Perform LIVE tells (`frs_live_save`, `frs_live_load`; the FM-1's STATE), field by field, and the DSP's (`dsp/brlive.h`: each unit's `*_lv`) |
-| `tests/` | the engine alone against the FM-1's simulator (`run.sh`; `anchor.c`: ANCHOR through the API and a stream; `live.c`: ops given one by one, a replay's every sample; `snap.c`: an engine opened on a snap goes on as the first) |
+| `live.c` | part of `core.c`: the running state Perform LIVE tells (`frs_live_save`, `frs_live_load`; the FM-1's STATE), field by field, and the DSP's (`dsp/brlive.h`: each unit's `*_lv`); its LEAD's part apart ("FRld", card #152) |
+| `tests/` | the engine alone against the FM-1's simulator (`run.sh`; `anchor.c`: ANCHOR through the API and a stream; `live.c`: ops given one by one, a replay's every sample; `snap.c`: an engine opened on a snap goes on as the first; `lead.c`: the LEAD in a shard, a stream and LIVE) |
 
 ## Alone
 
@@ -24,7 +24,9 @@ cc -O2 -ffp-contract=off -Iengine -Iengine/dsp -c engine/frasil_engine.c engine/
 ```
 
 `-ffp-contract=off`: no fused multiply-add, the FM-1's samples bit for bit. `-DFRASIL_FS_CONST` builds it as the
-FM-1's DSP is built: at 44.1 kHz alone.
+FM-1's DSP is built: at 44.1 kHz alone. With the LEAD (the app's builds, STREAM's `stream.wasm` since card #152):
+`-DFRS_LEAD=1` and `engine/dsp/lead.c` too (NPARAM 268, the LEAD's settings 243 .. 267). Without it (the iPad's copy,
+ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
 
 `engine/tests/run.sh` (after `./build.sh --host`) runs these checks:
 - **fastmath.h:** the copy is fm1-base's, its guard aside.
@@ -47,9 +49,11 @@ FM-1's DSP is built: at 44.1 kHz alone.
 - **A stream joined anywhere** (`tests/skip.c`): takes through the real file, every factory scene, MIDI, keys, scene
   changes, CUT, an engine opened again: a skip's messages to the DSP and the brain's state at T are a render's, at any
   buffer. Controls that must differ, or the test proves nothing.
-- **Old streams** (`tests/old_streams.c`): `tests/old-streams/`'s takes of "FRSz" (3.0, before ARP SNAP) and
-  `tests/old-streams-3.0.2/`'s of "FRS{" (3.0.2-b5's, SWELL turned through scenes and an ANCHOR among them), each as
-  its engine played it, bit for bit, from the top and joined half-way.
+- **Old streams** (`tests/old_streams.c`): `tests/old-streams/`'s takes of "FRSz" (3.0, before ARP SNAP),
+  `tests/old-streams-3.0.2/`'s of "FRS{" (3.0.2-b5's, SWELL turned through scenes and an ANCHOR among them) and
+  `tests/old-streams-3.2/`'s of "FRS}" (3.2's, card #152's base, their LEAD MOSS), each as its engine played it, bit
+  for bit, from the top and joined half-way (built without the LEAD: a LEAD build's GLINT and MIXER levels glide
+  across a block, card #144, so it plays them close, not bit for bit; on air each plays on its own engine).
 - **Heard live** (`tests/live.c`): a captured start, then each op by itself (`fst_op`, its scenes and its state by
   their bytes) between the blocks its milliseconds fall on: every sample, setting and note the replay of the same take's
   file has; ops not known ignored, ops too short refused, both counted and harmless; quiet (no metronome) as on air.
@@ -61,6 +65,13 @@ FM-1's DSP is built: at 44.1 kHz alone.
   its place, left (the very same).
 - **At 48 kHz:** the same sound, second by second, and measured: the bass's pitch, GLINT's echo, CLOUD's RT60,
   LOFI TAPE's delay and flutter, MASTER FILTER's 3 dB point, MASTER EQ's MID FREQ.
+- **The LEAD** (`tests/lead.c`, card #152, built with it; `live.c`, `snap.c`, `anchor.c` with it too, as stream.wasm):
+  MOSS each setting's default, `frs_lead_take` / `_put` / `_get`, the wheels; its ops one by one; a take with it
+  journaled into "FRS~" and played on air every sample the same take live op by op (its scenes the FM-1's `scene_t`,
+  their LEAD by FST_LEAD), twice the same (the control: the scene's LEAD MOSS in the file, another sound); an "FRS}"
+  stream with MOSS; the running state's LEAD part (four keys on it across a snap: a listener opened on both parts the
+  artist's brain and voices every 100 ms, one on the first part alone none stuck, its own state at its place left);
+  an FM-1's STATE with a key on the LEAD read without the LEAD (the first part) and with it (both).
 
 - **The rate:** 44.1 kHz to 96 kHz (`frs_init`). What holds time is sized at the rate (the reverb's lines, GLINT's
   delay, LOFI TAPE's loop), and each step made for 44.1 kHz is made over for it (the filters' and the EQ's
@@ -82,7 +93,9 @@ FM-1's DSP is built: at 44.1 kHz alone.
 - **Its version** (`frs_version`, `FRS_VERSION`): the FRASIL it is, "3.0", as `VERSION` has it (`run.sh` checks
   them alike: a release changes both).
 - **One engine a process:** its state is static. `frs_init` opens it, and a second open is refused until
-  `frs_close`. Two plug-in instances in one process cannot both have it.
+  `frs_close`. Two plug-in instances in one process cannot both have it. Opened again, everything from the start, the
+  LEAD's builds' own too (card #152: GLINT's and MIXER's levels from no glide, the LEAD's voices, keys and delay): a
+  second stream on one instance plays as the first would.
 - **Threads:** none of its own. Call it from the thread that renders (an audio thread takes the UI's calls from a
   queue of its own), or serialize the calls. The callbacks' words live during the call alone.
   - **From any thread, at any time** (open or not, while the audio thread renders): `frs_param_count`,
@@ -154,7 +167,11 @@ FM-1's DSP is built: at 44.1 kHz alone.
     (a scene, the state, the moves) does not hold, so that an engine opened on the same start goes on as this one does:
     the brain whole, bit for bit, the sound's drift, envelopes and phases at half precision, not the buffers.
     `FRS_LIVE_BYTES` at most (some 1.5 KB for a busy scene); another engine's (its version, NPARAM, the scene's length)
-    refused. `frs_ms_after(n)`: the clock once n frames more are rendered (a host that acts between two blocks).
+    refused. `frs_ms_after(n)`: the clock once n frames more are rendered (a host that acts between two blocks). With
+    the LEAD (card #152), two parts, each its own head: "FRlv" (the rest, LIVE_NPARAM the 243 settings before the
+    LEAD's: the layout an engine without it reads, its version still 1) then "FRld" (the LEAD's: its settings, its keys,
+    its voices; 1024 at most), `FRS_LIVE_BYTES` 5120; `frs_live_load` takes "FRlv" alone (the keys on the LEAD let go)
+    or both; a part it doesn't know, left (design/perform/LIVE.md section 6).
   - **CLOCK INTERNAL:** an incoming MIDI clock and a host's tempo (`frs_host_tempo`) are not followed: the grid runs
     on TEMPO.
   - **LFO TARGET's choices** (`frs_lfo_targets`, `frs_lfo_target`): the setting each choice moves. 2.5's 46: the 40
@@ -163,8 +180,16 @@ FM-1's DSP is built: at 44.1 kHz alone.
   - **TRACKS** (MASTER FILTER's and LOFI TAPE's): `FRS_TRACKS_*` are its values (ALL, DRONE, GLINT, BASS, then the
     pairs), `frs_tracks_bits` the tracks each is on (`FRS_TRK_*`; DRONE has its cloud's return with it, unless
     ROUTING puts the effect before the cloud).
-- **A scene** (a shard) is 619 bytes in the River's layout (`FRS_SCENE_BYTES`, "FRS}"): a shard from the River
-  plays as it does there. Its name: its first 16 characters at 0 (NUL-padded, all 16 used: no NUL), the rest, 17 ..
+- **A shard** (card #152) is 644 bytes in the River's layout (`FRS_SHARD_BYTES`, "FRS~", `FRS_SHARD_LAYOUT`): a
+  scene's 619 (`FRS_SCENE_BYTES`, `scene_t`: what every `frs_scene_*` takes and gives), then its LEAD's 25
+  (`FRS_LEAD_BYTES`: P_LD_WAVE .. P_LD_FRELEASE in order), played as `frs_scene_play` (or `_take`, `_go`) on the first,
+  then `frs_lead_take` on the rest; stored as `frs_scene_store` then `frs_lead_get`. "FRS}" (3.1 .. 3.2's) and every
+  earlier layout: the scene alone, its LEAD MOSS (`frs_lead_none`: every setting its default). `frs_lead_take` takes a
+  LEAD as the FM-1 takes a scene's (each past its max its default, its PRESET CUSTOM: admin #870's twenty, then CUSTOM;
+  the LEAD as saved with them, its voices as they are);
+  `frs_lead_put` as an edit (MODE turned: the voices let go). ANCHOR keeps none of the LEAD.
+- **A scene** is 619 bytes (`FRS_SCENE_BYTES`, "FRS}"'s layout, the FM-1's `scene_t`): a shard from the River plays
+  as it does there. Its name: its first 16 characters at 0 (NUL-padded, all 16 used: no NUL), the rest, 17 ..
   32, at 590 (`name_more`, only after a first 16 all used). Its tail, after "FRS{"'s 590 bytes: the name's rest (590,
   16 bytes), the LFOs' AMOUNTs (606, 12: LFO 1's four TARGETs, LFO 2's, LFO 3's), SWELL (618). A scene a platform kept
   from before goes through `frs_scene_over(scene, n)` first, in a buffer of `FRS_SCENE_BYTES`: 3.0.2's 590 ("FRS{": no
@@ -174,10 +199,20 @@ FM-1's DSP is built: at 44.1 kHz alone.
   the older shards over before it gives them (2.5's 296 bytes, SOFT at 0; 2.0's 273). A user's preset keeps a name of
   16 (`FRS_PRESET_HEAD`). "FRS|" (3.0.2-b5's test builds, never released) has the same 619 bytes, its AMOUNTs in
   percent (-100 % .. +100 %): `frs_scene_amt_over(scene)` makes them multipliers (|v - 100|: +100 % x1.00, -35 % x0.35).
-- **A stream's scenes** (`frasil_stream.h`): "FRS}", or an older layout's ("FRS{", "FRSz") made over as they are
-  played, SWELL as it is then (their engines left it through a scene and an ANCHOR's way back): an old stream plays
-  as it did. The file itself is not changed (its CRC stays). An "FRS|" stream is refused (its AMOUNTs in percent in
-  its scenes, its state and its moves; only 3.0.2-b5's test builds made any).
+- **A stream's scenes** (`frasil_stream.h`, card #152): shards, "FRS~" (`FST_SCENE_LAYOUT`, `FST_SCENE_BYTES` 644),
+  each one's LEAD taken with it where a scene starts or changes (SCN0, FST_SCENE, FST_SCENE_NOW, FST_OPEN; not STORE's
+  nor ANCHOR's); or an older layout's ("FRS}" as it is, "FRS{", "FRSz" made over as they are played, SWELL as it is
+  then: their engines left it through a scene and an ANCHOR's way back), their LEAD MOSS from the start: an old stream
+  plays as it did. The file itself is not changed (its CRC stays). An "FRS|" stream is refused (its AMOUNTs in percent
+  in its scenes, its state and its moves; only 3.0.2-b5's test builds made any). A journal's scenes are shards too
+  (FSTJ_SCENE: 644; a journal of 619, "FRS}"'s, still finished as "FRS}"). HEAD's nparam: the engine's that made it
+  (268 with the LEAD): an engine without the LEAD refuses a recording made with it (FST_LAYOUT), not a shard alone on
+  air (nparam 0).
+- **The LEAD's ops** (card #152): `FST_KEY_LEAD` (0x87, KEY_DOWN's with the LEAD's track: an engine without the LEAD
+  skips it, where KEY_DOWN's track 3 would play its bass), `FST_LEAD` (0xC3: how 1 a scene's LEAD taken, 0 put; its
+  25 settings), `FST_LEAD_WHEELS` (0x88: the SMK-37's wheels), `FST_PARAM16` (0x89: a setting past 255, FST_PARAM's
+  byte too short: FEEDBACK 256 .. F.RELEASE 267). An engine without the LEAD skips the first three (missed, counted);
+  FST_PARAM16 it takes, leaving a setting past its NPARAM.
 - **ANCHOR's way back and a scene's MORPH:** SWELL glides back on ANCHOR's MORPH (as BASS TONE, the bass's SPACE,
   AUTO VIB), the AMOUNTs switch at its half with the TARGETs; on a scene's MORPH, SWELL is the scene's at once, as
   BASS TONE is.

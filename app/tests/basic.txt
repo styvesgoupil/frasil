@@ -1085,15 +1085,18 @@ turn K1 -20
 wait 30
 expect p73 80
 turn K1 20
-# OCT- held on the MIXER: K1 .. K4 each track's PAN (the drones', BASS's, GLINT's, the cloud's), the levels as they
-# are, the octave as it was (OCT- a hand); centred again
+# OCT- held on the MIXER: K1 .. K3 each track's PAN (the drones', BASS's, GLINT's), K4 the LEAD's level still (it
+# has none; admin #744: K4 the LEAD's, the cloud's return on CLOUD III), the levels as they are, the octave as it was
+# (OCT- a hand); centred again
 expect octave -1
+expect p259 100
 press OCT-
 turn K1 -10
 turn K4 6
 wait 30
 expect p149 40
-expect p152 56
+expect p259 106
+expect p152 50
 expect p73 100
 release OCT-
 wait 30
@@ -1104,7 +1107,33 @@ turn K4 -6
 release OCT-
 wait 30
 expect p149 50
+expect p259 100
 expect p152 50
+# CLOUD III's K4: the cloud's return (MIXER's before the LEAD), OCT- held its PAN, the octave as it was
+gopage 32
+wait 30
+expect knob4 76
+expect p76 100
+turn K4 -10
+wait 30
+expect p76 90
+press OCT-
+turn K4 6
+wait 30
+expect p152 56
+expect p76 90
+release OCT-
+wait 30
+expect octave -1
+press OCT-
+turn K4 -6
+release OCT-
+turn K4 10
+wait 30
+expect p152 50
+expect p76 100
+gopage 42
+wait 30
 tap HOME
 tap HOME
 wait 30

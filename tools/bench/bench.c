@@ -671,6 +671,32 @@ int main(int argc, char **argv)
             frasil_set(&p);
             frasil_bass_on(33, 0.8f);
         }
+#if FRS_LEAD
+        if (strchr(a, 'L')) {            /* voicesN...L: and LEAD (card #144; FRS_LEAD, build.sh's) at its defaults, a
+                                         * note held, its delay going; voicesN...LP: POLY, all its voices held; LW:
+                                         * WHISTLE (MONO) */
+            int poly = strchr(a, 'P') != 0;
+            p.lead = (lead_params_t){.wave = 0.19f, .cutoff = 0.46f, .resonance = 0.31f, .detune = 0.31f, .glide = 0.24f,
+                                     .fenv = 0.43f, .octave = 1, .attack = 0.12f, .decay = 0.55f, .sustain = 0.71f,
+                                     .release = 0.39f, .fattack = 0.12f, .fdecay = 0.55f, .fsustain = 0.71f,
+                                     .frelease = 0.39f, .level = 1.0f, .dtime_s = 0.22f, .dfb = 0.4f, .dmix = 0.31f,
+                                     .space = 0.55f, .drive = LEAD_DRIVE_0, .poly = poly,
+                                     .whistle = strchr(a, 'W') != 0, .breath = 0.3f * (strchr(a, 'W') != 0)};
+            frasil_set(&p);
+            if (poly) {
+                static const int CHORD[8] = {60, 64, 67, 71, 74, 77, 79, 83};
+                uint32_t k;
+                for (k = 0; k < LEAD_NV && k < 8u; k++)
+                    frasil_lead_poly_on(CHORD[k], 0.8f);
+            } else {
+                frasil_lead_on(60, 0.8f, 0);
+            }
+        }
+        if (strchr(a, 'S'))              /* voicesN...S: the shedding at its last step (FR_SHED_TOP: 8 with the LEAD):
+                                         * the most it costs then; SK: at step K (0 .. FR_SHED_TOP) */
+            frasil_shed(strchr(a, 'S')[1] >= '0' && strchr(a, 'S')[1] <= '0' + FR_SHED_TOP ? strchr(a, 'S')[1] - '0'
+                                                                                          : FR_SHED_TOP);
+#endif
         if (strchr(a, 'm')) {            /* voicesN...m: ANCHOR's MORPH the whole time: the sound's floats, each other one,
                                          * from this sound to another and back, 3.5 s a way (smoothstep), pushed every
                                          * other block (morph_run's hundred a second); its choices as they are */

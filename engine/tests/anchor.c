@@ -282,9 +282,10 @@ static void live_tick(void *user)        /* the calls a host makes, at their mil
             a[2] = (uint8_t)(int8_t)FRS_CHORD_HARMONY;
             jput(e->ms, FST_LATCH, 4, a, 0);
         } else if (e->kind == E_SET) {
-            static uint8_t an[FRS_SCENE_BYTES];
+            static uint8_t an[FST_SCENE_BYTES];   /* (as a recorder journals a scene: a shard's room, its LEAD) */
             frs_anchor_set();
             frs_anchor_get(an);
+            frs_lead_get(an + FRS_SCENE_BYTES);
             a[0] = FST_ANCHOR;
             jput(e->ms, FSTJ_SCENE, 0, a, an);
         } else if (e->kind == E_BACK && mode != 1) {

@@ -31,6 +31,9 @@ fi
 # every build carries the version in VERSION (its identity FM-1_47XXYYZZ, its number on the logo's screen), unless
 # --release names another
 V="$(tr -d ' \n' < VERSION 2>/dev/null || true)"
+# an SMK-37 build (FM1B_BOARD=smk37 FM1B_MODEL=elite, card #111) is a dev build: its model's identity ("SMK-37 Elite_",
+# 13 characters) leaves no room for FRASIL's 47 and a version within 20: SMK-37 Elite_4700, until an SMK-37 release
+[ "${FM1B_BOARD:-}" = smk37 ] && V=""
 case " $* " in
 *" --release "*) ;;
 *) [ -n "$V" ] && set -- --release "$V" "$@" ;;

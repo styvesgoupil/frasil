@@ -16,8 +16,18 @@
 #define VIB_HZ 5.2f                     /* AUTO VIB: its rate, each glint up to VIB_APART apart; the strike straight, */
 #define VIB_APART 0.25f                 /* its depth there after VIB_IN seconds */
 #define VIB_IN 0.35f
+#if defined FRS_LEAD && FRS_LEAD
+#define LV_GLIDE 1                      /* the level (LEVEL, MIXER's GLINT) gliding across a block (the SMK-37's faders,
+                                         * admin #613; the FM-1's knobs too, #741: the app's builds, FRS_LEAD's; the
+                                         * engine's own a block at a time, for their cards) */
+#else
+#define LV_GLIDE 0
+#endif
 
 static float sintab[TN + 1u];
+#if LV_GLIDE
+static float lv_was = -1.0f;            /* the level the last block ended at (-1: none yet) */
+#endif
 
 typedef struct {
     int8_t note;                         /* as it was played (OCTAVE not on it) */
@@ -160,6 +170,9 @@ void glint_reset(void)
     sp_age = 0;
     sp_rng = 0x6C8E9CF5u;
     sounding = 0;
+#if LV_GLIDE
+    lv_was = -1.0f;                      /* (an engine opened again: its first block from no glide, as a first engine's) */
+#endif
     delay_clear();
 }
 
@@ -214,6 +227,10 @@ void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, 
     float lv = p->level, snd = p->space, kf = br_k(0.3f), kl = br_k(0.4f), kw = br_k(0.03f);   /* (a block's, at
                                                                                                * 44.1 kHz) */
     uint8_t calm_n = (uint8_t)(br_n(17.0f) + 0.5f);   /* 100 ms of blocks */
+#if LV_GLIDE
+    float lv0 = lv_was < 0.0f ? lv : lv_was;   /* (from there to lv in each glint's pressure ramp: no more a sample) */
+    lv_was = lv;
+#endif
     sounding = 0;
     for (j = 0; j < GLINT_NV; j++) {
         glint_t *s = &sp[j];
@@ -230,8 +247,13 @@ void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, 
             s->toff += (float)n * BR_INV_FS * br_tk;
         /* pressure: louder (up to +8 dB, gliding across the block), and while the key is held the bell rings on
          * (its decay slowed as it is pressed) */
+#if LV_GLIDE
+        pg = s->pg * lv0;
+        dpg = ((1.0f + 1.5f * s->prs) * lv - pg) * (1.0f / (float)n);
+#else
         pg = s->pg;
         dpg = (1.0f + 1.5f * s->prs - pg) * (1.0f / (float)n);
+#endif
         s->pg = 1.0f + 1.5f * s->prs;
         dc = s->dc;
         pc = s->pc;
@@ -276,8 +298,13 @@ void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, 
             ki = fm_exp2f(fm_log2f(ki) * br_tk);
             katt = 1.0f - fm_exp2f(fm_log2f(1.0f - katt) * br_tk);
         }
+#if LV_GLIDE
+        gl = s->gl;                      /* (the level in pg) */
+        gr = s->gr;
+#else
         gl = s->gl * lv;
         gr = s->gr * lv;
+#endif
         for (i = 0; i < n; i++) {
             float m = tsin(pm), y;
             pm += dm;

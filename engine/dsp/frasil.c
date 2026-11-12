@@ -36,7 +36,12 @@
 
 /* ---------------------------------------------------------------- events --- */
 enum { EV_ON = 1, EV_OFF, EV_ALLOFF, EV_PRS, EV_SPON, EV_SPOFF, EV_SPPRS, EV_BON, EV_BOFF, EV_BPRS, EV_BPUL, EV_CLICK,
-       EV_BRET };
+       EV_BRET
+#if FRS_LEAD
+       , EV_LON, EV_LLEG, EV_LOFF, EV_LPRS, EV_LMOD, EV_LBEND,  /* LEAD (card #144): struck, legato, let go, pressed, the wheels; */
+       EV_LPON, EV_LPOFF                                    /* POLY's: a voice struck, let go */
+#endif
+ };
 typedef struct {
     uint8_t type;
     int8_t note;
@@ -78,6 +83,15 @@ void frasil_bass_pressure(float p) { ev_push(EV_BPRS, 0, p); }
 void frasil_bass_pulse(float gap) { ev_push(EV_BPUL, 0, gap); }
 void frasil_bass_retune(int note, float vel) { ev_push(EV_BRET, note, vel); }
 void frasil_click(int accent) { ev_push(EV_CLICK, 0, accent ? 1.0f : 0.0f); }
+#if FRS_LEAD
+void frasil_lead_on(int note, float vel, int legato) { ev_push(legato ? EV_LLEG : EV_LON, note, vel); }
+void frasil_lead_off(void) { ev_push(EV_LOFF, 0, 0.0f); }
+void frasil_lead_poly_on(int note, float vel) { ev_push(EV_LPON, note, vel); }
+void frasil_lead_poly_off(int note) { ev_push(EV_LPOFF, note, 0.0f); }
+void frasil_lead_pressure(int note, float p) { ev_push(EV_LPRS, note, p); }
+void frasil_lead_mod(float m) { ev_push(EV_LMOD, 0, m); }
+void frasil_lead_bend(float semis) { ev_push(EV_LBEND, 0, semis); }
+#endif
 
 /* ---------------------------------------------------------------- voices --- */
 typedef struct {
@@ -143,8 +157,16 @@ static float np_cap = (float)NP;        /* the partials the shedding allows, gli
 static float bud_tps, cost_base, cost_voice;
 static uint32_t rv_ticks, rv_vs;         /* this render's: the voices' ticks, and voices times samples */
 static volatile float swell;             /* frasil_swell */
+#if FRS_LEAD                             /* with the LEAD (admin #636, #639; the FM-1's too, #741): the drone gives
+                                          * first, a step ahead of its old steps (below), the LEAD (lead.c LD_CAP) a
+                                          * voice fewer at 5; past it (admin #653) the drone a voice a step, down to
+                                          * one, the LEAD a voice fewer at 7, 8 */
+static const uint8_t SHED_NP[FR_SHED_TOP + 1] = {NP, 5, 4, 3, 3, 3, 3, 3, 3},
+                     SHED_NV[FR_SHED_TOP + 1] = {NV, 7, 6, 5, 4, 4, 3, 2, 1};
+#else
 static const uint8_t SHED_NP[6] = {NP, 6, 5, 4, 3, 3}, SHED_NV[6] = {NV, NV, 7, 6, 5, 4};   /* (4 and 5: a heavy
                                                                                          * preset with the effects) */
+#endif
 static float tide_ph, tide_v;
 static float nlp;                        /* TONE's filter on the noise */
 static float dcl, dcr;
@@ -154,6 +176,33 @@ static float peak;
 static float noise[MAXN];
 static float mixl[MAXN], mixr[MAXN], wetl[MAXN], wetr[MAXN];
 static float spl[MAXN], spr[MAXN], rinl[MAXN], rinr[MAXN];   /* the glints dry, and the reverb's input */
+#if FRS_LEAD
+static float ldb[MAXN];                  /* LEAD's left (lead_render: the dry, the left's echoes; its right the same into
+                                          * noise[], free once the voices have had it this block: RAM has no room for a
+                                          * buffer more); ld_on: it sounds this block */
+static int ld_on;
+/* MIXER's DRONE and BASS levels onto their block, from where the last block ended to this one's across it: P's glide
+ * moves them a block at a time, and a fader moved quickly made of those steps a zipper (the SMK-37's faders, admin
+ * #613; the FM-1's knobs too, #741; GLINT's in glint.c, LEAD's in lead.c). sl, sr: the same copied there (the drones'
+ * share of the cloud) */
+static float mx_was[2] = {-1.0f, -1.0f};   /* (-1: none yet) */
+static void mx_ramp(float *l, float *r, float *sl, float *sr, uint32_t n, float *was, float to)
+{
+    float g = *was < 0.0f ? to : *was, dg = (to - g) * (1.0f / (float)n);
+    uint32_t i;
+    *was = to;
+    for (i = 0; i < n; i++) {
+        g += dg;
+        l[i] *= g;
+        r[i] *= g;
+    }
+    if (sl)
+        for (i = 0; i < n; i++) {
+            sl[i] = l[i];
+            sr[i] = r[i];
+        }
+}
+#endif
 
 static const float LOG2K[NP] = {0.0f, 1.0f, 1.5849625f, 2.0f, 2.3219281f, 2.5849625f, 2.8073549f, 3.0f};
 /* SOUFFLE's ratios, COLOR 0 .. 1 across them: harmonic, odd, bell (a free bar's modes) */
@@ -311,6 +360,30 @@ static void events(void)
         case EV_BRET:
             bass_retune(e.note, e.v);
             break;
+#if FRS_LEAD
+        case EV_LON:
+        case EV_LLEG:
+            lead_on(e.note, e.v, e.type == EV_LLEG);
+            break;
+        case EV_LOFF:
+            lead_off();
+            break;
+        case EV_LPON:
+            lead_poly_on(e.note, e.v);
+            break;
+        case EV_LPOFF:
+            lead_poly_off(e.note);
+            break;
+        case EV_LPRS:
+            lead_press(e.note, e.v);
+            break;
+        case EV_LMOD:
+            lead_mod(e.v);
+            break;
+        case EV_LBEND:
+            lead_bend(e.v);
+            break;
+#endif
         case EV_CLICK:                   /* a tick: 1.7 kHz, the bar's first 2.6 kHz and louder */
             ck_ph = 0.0f;
             ck_inc = (e.v > 0.5f ? 2600.0f : 1700.0f) * BR_INV_FS;
@@ -1172,6 +1245,9 @@ static float comp_env, comp_g = 1.0f;    /* the compressor: its detector, its ga
 static float sk_l1, sk_l2, sk_r1, sk_r2; /* SINK's low-pass (state-variable, trapezoidal), each side */
 static volatile float comp_gr;
 static float meter[4];
+#if FRS_LEAD
+static float ld_meter;                   /* (the LEAD's, as the others': MIXER's K4, admin #744; PERFORM's FRAME) */
+#endif
 
 void frasil_pump(float phase, float inc)
 {
@@ -1272,6 +1348,7 @@ static uint32_t tp_w;                     /* where it writes next */
 static float tp_ph1, tp_ph2, tp_ph3, tp_d = TP_D0, tp_l, tp_r, tp_dcl, tp_dcr, tp_dip = 1.0f;
 static float tp_ai, tp_ao, tp_ei, tp_eo;  /* what goes onto the tape and comes off, a chunk's and followed: the gain
                                           * that keeps it as loud */
+static float tp_ug = 1.0f;                /* that gain, followed again (card #154) */
 static float tp_rate = 0.55f, tp_rate_to = 0.55f;   /* the wow's rate, and where it wanders to */
 static float tp_fl_g = 5.0f, tp_tn_g = 1.0f, tp_ns_g, tp_do_g;   /* the flutter's rate (Hz), TONE (times the cutoff), NOISE and
                                                                   * DROPOUT as they sound, gliding */
@@ -1683,6 +1760,9 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
     while (off < n) {
         uint32_t m = n - off > MAXN ? MAXN : n - off, i, c;
         float wd, ww, dk, dmake, dg, ka, kr, pk[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+#if FRS_LEAD
+        float pkl = 0.0f;                /* (the LEAD's peak, its two sides summed) */
+#endif
         int comp = P.comp_ratio > 1.001f || P.comp_gain > 1.001f;   /* (both glide: on and off without a step) */
         int thin = P.fullness < 0.995f;
         float ha = 1.0f - fm_expf(-6.2831853f * 20.0f * fm_powf(20.0f, 1.0f - P.fullness) * BR_INV_FS);
@@ -1705,7 +1785,11 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
         dk = 1.0f + 5.0f * P.drive * P.fullness;
         dmake = 1.0f / fm_tanhf(dk * 0.35f) * 0.35f;
         {                                /* (in passes, each a short loop: the same sums, sample for sample) */
+#if FRS_LEAD
+            const float mxd = 1.0f;      /* (the level after, gliding: mx_ramp) */
+#else
             const float mxd = P.mx_drone;
+#endif
             float l1 = dcl, r1 = dcr;
             for (i = 0; i < m; i++) {
                 spl[i] = spr[i] = bsl[i] = bsr[i] = 0.0f;
@@ -1740,6 +1824,9 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                     mixr[i] = rinr[i] = mixr[i] * mxd;
                 }
             }
+#if FRS_LEAD
+            mx_ramp(mixl, mixr, rinl, rinr, m, &mx_was[0], P.mx_drone);
+#endif
         }
         prof(FR_PROF_GLINT);
         {                                /* the glints at their level: dry beside the drones, their share into the
@@ -1751,6 +1838,10 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
         }
         prof(FR_PROF_BASS);
         bass_render(bsl, bsr, m, &T.bass);   /* the bass (its share of the reverb after the filter: below) */
+#if FRS_LEAD
+        mx_ramp(bsl, bsr, 0, 0, m, &mx_was[1], P.mx_bass);   /* (its level here, gliding: the filter, the cloud and the
+                                                               * mix have it so) */
+#endif
         prof(FR_PROF_TRACKS);
         {                                /* MASTER FILTER, a chunk at a time (before the cloud: its ROUTING) */
             uint32_t k, j;
@@ -1828,7 +1919,11 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
         /* the bass's share of the cloud: at its level and its pan, what its low end would muddy left out (a pole at some
          * 180 Hz), gliding across the block; at 0 nothing here at all */
         {
+#if FRS_LEAD
+            float g1 = T.bass.space;     /* (its level on it already) */
+#else
             float g1 = T.bass.space * P.mx_bass;
+#endif
             if (g1 > 0.0f || bs_send > 0.0f) {
                 float g = bs_send, ds = (g1 - g) * (1.0f / (float)m), hk = 1130.97f * BR_INV_FS, pn = pan_s[2];
                 float l = pn > 0.0f ? fm_sin_turns(0.25f - 0.25f * pn) : 1.0f, r = pn < 0.0f ? fm_sin_turns(0.25f + 0.25f * pn) : 1.0f;
@@ -1844,6 +1939,10 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
             }
             bs_send = g1;
         }
+#if FRS_LEAD
+        ld_on = lead_render(ldb, noise, rinl, rinr, m, &T.lead, shed);   /* (its share of the cloud with the others'; the
+                                                               * shedding: POLY's voices fewer at its last steps) */
+#endif
         /* the reverb, and the mix of dry and wet (equal power: SPACE), the cloud's return at its level */
         prof(FR_PROF_CLOUD);
         nuage_process(rinl, rinr, wetl, wetr, m);
@@ -1867,6 +1966,9 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
         /* the compressor's detector: 10 ms up, RELEASE down; its gain from it a chunk at a time */
         ka = 1.0f - fm_expf(-1.0f / (0.01f * BR_FS));
         kr = 1.0f - fm_expf(-1.0f / (P.comp_rel * BR_FS + 1.0f));
+        /* LOFI TAPE's level followers (the gain that keeps it as loud) at the pace of what is on it: its waves as far
+         * under them at every TAPE SPEED as at X1.00 (card #154) */
+        const float ktp = br_pk == 1.0f ? k02 : 1.0f - fm_powf(1.0f - k02, br_pk);
         for (c = 0; c < m; c += 32u) {
             float d1, dd, d = pump_d, g1 = 1.0f, cg, dcg, slope = 1.0f - 1.0f / (comp ? P.comp_ratio : 1.0f);
             const flk_t *f = &flk[c / 32u];
@@ -1914,6 +2016,7 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                         for (k = 0; k <= tp_m; k++)   /* (an empty tape: not what it had the last time) */
                             tp_bl[k] = tp_br[k] = 0;
                         tp_l = tp_r = tp_dcl = tp_dcr = tp_ai = tp_ao = tp_ei = tp_eo = 0.0f;
+                        tp_ug = 1.0f;
                         tp_warm = (uint32_t)((tp_d0 + tp_wg + tp_x) * (1.0f / 32.0f)) + 2u;
                     } else {
                         tp_mix = tp_mix - fx_ramp < 0.0f ? 0.0f : tp_mix - fx_ramp;
@@ -1999,11 +2102,19 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                 u = w * fm_sqrtf(w);
                 tp_d = tp_d0 + tp_wd * u * (0.7f * fm_sin_turns(tp_ph1) + 0.3f * fm_sin_turns(tp_ph2)) +
                        tp_fd * w * fm_sin_turns(tp_ph3) + tp_x;
-                tp_ei += (tp_ai - tp_ei) * k02;   /* (some 70 ms) */
-                tp_eo += (tp_ao - tp_eo) * k02;
+                if (tp_warm)             /* (the loop filling: what comes off is not yet what went on, both from 0
+                                          * together once it is) */
+                    tp_ai = tp_ao = 0.0f;
+                tp_ei += (tp_ai - tp_ei) * ktp;   /* (some 70 ms) */
+                tp_eo += (tp_ao - tp_eo) * ktp;
                 tp_ai = tp_ao = 0.0f;
                 u = (tp_ei + 1e-3f) / (tp_eo + 1e-3f);
-                tp_dip = (1.0f - 6.0f * v) * (u < 0.5f ? 0.5f : u > 4.0f ? 4.0f : u);
+                /* the gain through a second pole (card #154): what comes off is what went on 10 ms before, so the two
+                 * followers swing apart with a low sound's waves; their ratio alone wobbled the tape with them (the bass
+                 * at X1.00 ±18 % at 33 Hz, at X0.25 ±30 % at 8 Hz: a rattle) and broke its slope at every chunk (some
+                 * 2 % a chunk: a crackle at the chunks' rate, 1.4 kHz) */
+                tp_ug += ((u < 0.5f ? 0.5f : u > 4.0f ? 4.0f : u) - tp_ug) * ktp;
+                tp_dip = (1.0f - 6.0f * v) * tp_ug;
                 if (tp_do_t > 0.0f) {    /* a dropout under way: down fast, held, up fast (its middle the deepest) */
                     float q = fm_sin_turns(0.5f * tp_do_t / tp_do_n) * 3.0f;
                     q = q > 1.0f ? 1.0f : q;
@@ -2032,7 +2143,11 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                                           * then SINK, MASTER EQ, MASTERING and the tick when they are on, then out.
                                           * Sample for sample the same sums as the one loop made */
                 const float kd = 0.95f * P.pump_drone, kb = 0.95f * P.pump_bass, kg = 0.95f * P.pump_glint;
+#if FRS_LEAD
+                const float mb = 1.0f;   /* (its level on it already: mx_ramp) */
+#else
                 const float mb = P.mx_bass;
+#endif
                 uint32_t k;
                 if (!(fb | tp_bits)) {   /* (no effect: the groups summed) */
                     for (i = c; i < e; i++) {
@@ -2139,6 +2254,20 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                         }
                     }
                 }
+#if FRS_LEAD
+                if (ld_on)               /* LEAD over everything (no pump, no pan, no group effect), before SINK, MASTER EQ
+                                          * and MASTERING */
+                {
+                    for (k = 0; k < e - c; k++) {
+                        mxl[k] += ldb[c + k] * 0.70710678f;
+                        mxr[k] += noise[c + k] * 0.70710678f;   /* (its right: lead_render's, in noise[]) */
+                    }
+                    for (k = 0; k < e - c; k += 4u) {   /* (its meter: one sample in four, as the others') */
+                        float a = fm_fabsf(ldb[c + k]) + fm_fabsf(noise[c + k]);
+                        pkl = a > pkl ? a : pkl;
+                    }
+                }
+#endif
                 if (sink)
                     for (k = 0; k < e - c; k++) {
                         float l = mxl[k], r = mxr[k], v1, v2, v3 = l - sk_l2;
@@ -2239,6 +2368,10 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
         pk[3] *= 0.5f;
         for (i = 0; i < 4u; i++)
             meter[i] = pk[i] > meter[i] * md ? pk[i] : meter[i] * md;
+#if FRS_LEAD
+        pkl *= 0.5f * 0.70710678f;       /* (as it is mixed, the stereo ones' way) */
+        ld_meter = pkl > ld_meter * md ? pkl : ld_meter * md;
+#endif
         peak *= pkd;
         off += m;
         prof(FR_PROF_SETUP);
@@ -2301,6 +2434,9 @@ void frasil_init(float fs)
     nuage_init();
     glint_init();
     bass_init();
+#if FRS_LEAD
+    lead_init();
+#endif
 }
 
 /* everything as at power-on, as the FM-1's RAM starts (frasil_init to follow): for a platform that starts its engine
@@ -2342,6 +2478,12 @@ void frasil_reset(void)
     sk_l1 = sk_l2 = sk_r1 = sk_r2 = 0.0f;
     for (i = 0; i < 4u; i++)
         meter[i] = 0.0f;
+#if FRS_LEAD
+    ld_meter = 0.0f;
+    ld_on = 0;
+    mx_was[0] = mx_was[1] = -1.0f;       /* (MIXER's levels: an engine opened again from no glide, as a first one) */
+    lead_reset();
+#endif
     /* MASTER FILTER, LOFI TAPE, MASTER EQ, the pans */
     fl_type = fl_bits = tp_bits = fl_pre_on = tp_pre_on = 0;
     fl_warm = tp_warm = 0;
@@ -2363,7 +2505,7 @@ void frasil_reset(void)
     tp_w = 0;
     tp_ph1 = tp_ph2 = tp_ph3 = tp_l = tp_r = tp_dcl = tp_dcr = 0.0f;
     tp_d = TP_D0;
-    tp_dip = 1.0f;
+    tp_dip = tp_ug = 1.0f;
     tp_ai = tp_ao = tp_ei = tp_eo = 0.0f;
     tp_rate = tp_rate_to = 0.55f;
     tp_x = tp_drag = tp_drag_n = tp_drag_s = 0.0f;
@@ -2401,6 +2543,7 @@ void frasil_silence(void)
     fr_zero(tp_bl, sizeof tp_bl);
     fr_zero(tp_br, sizeof tp_br);
     tp_l = tp_r = tp_dcl = tp_dcr = tp_ai = tp_ao = tp_ei = tp_eo = 0.0f;
+    tp_ug = 1.0f;
     fr_zero(eq_z, sizeof eq_z);
     cut_at = 0;
 }
@@ -2422,6 +2565,9 @@ void frasil_panic(void)
         vo[i].env = vo[i].lvl = 0.0f;
     }
     bass_init();
+#if FRS_LEAD
+    lead_hush();
+#endif
     ev_r = ev_w;
 }
 
@@ -2437,7 +2583,7 @@ void frasil_view(frasil_view_t v[FR_NV])
 }
 
 void frasil_swell(float s) { swell = br_clampf(s, 0.0f, 1.0f); }
-void frasil_shed(int level) { shed = level < 0 ? 0 : level > 5 ? 5 : level; }
+void frasil_shed(int level) { shed = level < 0 ? 0 : level > FR_SHED_TOP ? FR_SHED_TOP : level; }
 void frasil_profile(uint32_t (*clock)(void)) { prof_clk = clock; }
 void frasil_budget(float ticks_a_sample) { bud_tps = prof_clk ? ticks_a_sample : 0.0f; }
 void frasil_profile_read(uint32_t acc[FR_PROF_N], uint32_t *samples)
@@ -2451,6 +2597,10 @@ int frasil_shed_level(void) { return shed; }
 float frasil_tide(void) { return tide_v; }
 void frasil_glint_view(glint_view_t v[GLINT_NV]) { glint_view(v); }
 void frasil_bass_view(bass_view_t *v) { bass_view(v); }
+#if FRS_LEAD
+void frasil_lead_view(lead_view_t *v) { lead_view(v); }
+float frasil_lead_meter(void) { return ld_meter > 1.0f ? 1.0f : ld_meter; }
+#endif
 void frasil_meters(float m[4])
 {
     uint32_t i;

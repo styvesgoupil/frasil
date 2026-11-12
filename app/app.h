@@ -11,6 +11,17 @@
 #define APP_PALETTE 2                    /* CYAN: the screen's steps (gfx.c PALETTES) */
 #define APP_BLOCK 256u                   /* frames per audio block: 5.8 ms at 44.1 kHz */
 #define APP_TOUCH                        /* velocity and pressure from the keys (lib/touch.h) */
+#define APP_SMK_MASTER_APP               /* the SMK-37: MASTER the app's (app.c k8_master: K8, plat_enc_free; never saved),
+                                          * K5 PRESETS; fader 4 MIXER's LEAD (Styves) */
+#define APP_SMK_PAD_ANSWERS              /* the SMK-37: pads 1, 2 CANCEL, OK (app.c pad_taps; base's restore question too) */
+#define FRS_LEAD 1                       /* LEAD, the fourth track (card #144; engine/dsp/lead.h): the FM-1's and the
+                                          * SMK-37's (Styves, admin #741: the SMK-37's features on the FM-1 but its
+                                          * pads' and controls'); the o2 units' too (fm1.toml o2_cflags), before any
+                                          * engine header */
+#ifndef APP_CPU_LINE                     /* the load's line along the screen's last row (ui.c cl_*; Styves, admin #672):
+                                          * the FM-1's too (card #147, admin #741) */
+#define APP_CPU_LINE 1
+#endif
 #define APP_OVERLOAD                     /* the render took over 90 % of its time: the engine sheds */
 void app_overload(void);
 #define APP_LOG_WORD                     /* the log's word (fm1_remote.py log, "app"): the shedding's step now, the
@@ -24,7 +35,9 @@ uint32_t app_log_word(void);
 void app_splash(void);
 #define APP_TICK                         /* 1 kHz, in the scan's interrupt: OCT's soft blink (app.c) */
 void app_tick(void);
-#define APP_BATT_RAW_4V2 651             /* the battery's divider (plat_battery) at 4.20 V, the header's battery's scale
+#define APP_BATTERY_RAW                  /* plat_battery_raw: the divider's reading, the main loop's slow average */
+#define APP_HOST_BATT_RAW 0              /* the simulator: no battery until its script says (battery N) */
+#define APP_BATT_RAW_4V2 651             /* the battery's divider (plat_battery_raw) at 4.20 V, the header's battery's scale
                                           * (app.c batt): a first guess (a divider in two halves, the converter's 3.3 V)
                                           * until an FM-1 full on USB says (Perform's BATTERY, its raw reading:
                                           * design/perform/scripts/fm1_listen.py) */
@@ -37,8 +50,12 @@ void app_tick(void);
  * drone sequences (3.0) apart again (OBJ_DSEQ), in the free pair under that one; the player's presets (OBJ_UPRE, 3.0) in
  * the next; the rest of the scenes' names (OBJ_NAMES, 3.0.1: past their sixteenth character; 3.0.3: and each scene's
  * LFO AMOUNTs and SWELL) in the next */
-enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES, OBJ_NOBJ };
-#define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDA000u, 0xD8000u, 0xD6000u, 0xD4000u, 0xD2000u}
+/* each scene's LEAD (card #144: app.c ldp_*; the FM-1's too, admin #741) in the next pair under the names (0xD0000,
+ * inside the data area on both boards: the FM-1's 0x97000..0xDFFFF, the SMK-37's 0xC2000..0xE9FFF; the flash part,
+ * Puya or UC25HQ80, the same map), the scene record as it was (the River's, the iPad's, Perform's). The settings pair
+ * at PLAT_GLOB: the FM-1's 0xFC000, the SMK-37's 0xEB000 (card #111: its map's), the rest the same on both */
+enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES, OBJ_LEAD, OBJ_NOBJ };
+#define APP_STORE_MAP {PLAT_GLOB, 0xDC000u, 0xDA000u, 0xD8000u, 0xD6000u, 0xD4000u, 0xD2000u, 0xD0000u}
 /* backup and restore over USB (fm1.toml backup = true: device/backup.c): the settings and the scenes (their bass
  * sequences and their drone sequences too), never the panel's calibration (the unit's). The version stays 1 when a
  * record's layout changes: each object carries its own magic, and a restore reloads it as a boot does (an earlier
@@ -46,7 +63,10 @@ enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NA
  * the player's presets stay as they are, app_backup_restored writes them back; without OBJ_NAMES: every name its first
  * sixteen characters, as that FRASIL had them, the AMOUNTs +100 %, SWELL 0; 3.0.1's OBJ_NAMES, FRNM: the AMOUNTs, SWELL so). An earlier FRASIL refuses a backup with more objects than it has (3.0:
  * this one's, OBJ_NAMES in it) */
-#define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES}
+#define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES, OBJ_LEAD}   /* (OBJ_LEAD:
+                                          * each scene's LEAD and the player's LEAD presets, card #144; a FRASIL before
+                                          * it refuses such a backup; one of it, without OBJ_LEAD: every scene's LEAD
+                                          * MOSS, app.c ldp_load) */
 #define APP_BACKUP_MAGIC 0x4B425246u     /* "FRBK" */
 #define APP_BACKUP_VERSION 1u
 #define APP_BACKUP_WHAT "replaces all scenes"
@@ -72,6 +92,9 @@ void app_say(const char *a, const char *b);   /* a short message on the screen a
 /* the host simulator's checks (host/plat_host.c "expect") */
 #define APP_HOST_EXPECT
 int app_expect(const char *what, int *got);
+#define APP_HOST_SPEAKDUMP               /* "speakdump": every page, value, row and help card as a screen reader gets them
+                                          * (speak.c, fm1-reader's audit) */
+void app_speak_dump(void);
 #define APP_HOST_CMD                     /* "oldstore": records in the layout before BASS (app.c) */
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d);
 #define APP_HOST_FAILS                   /* the app's own checks' failures (PERFORM's LIVE: pfop, pfcheck, pfpack) */

@@ -1,0 +1,276 @@
+# Learn's START (card #153; Styves, admin #795, #800) in the host simulator: ./build.sh --host, then
+#   app/build/host/frasil_host app/tests/start.txt OUTDIR
+# PERFORM's cmd 14 both ways: the page's START n, then n (setting (2), value (2)); the FM-1's 14 status, 0 done (after
+# VALUES, to a page that said HELLO), 1 refused (the wrong length, one under way). Nothing asked: what plays let go and
+# its fading waited for (3 s at most), a backup's end waited for; then NEW SHARD (CUT, SND+NOTES, whatever MORPH and
+# LOAD say), the play page, the pairs in order (a setting past NPARAM, a value past its max: skipped); WELCOME TO
+# LEARN MODE from the start until a button, a key or a knob, which closes it and does nothing else (admin #881); the
+# stored scenes untouched. pfwatch 3 14 keeps VALUES and the answers, pfvalues reads a whole VALUES, pfmsg 0e00 the
+# answer.
+# settings: CHOIR 0 (NEW SHARD 84, max 127), PARTIALS 1, PLAYS 123 (NEW SHARD 1: ARP), P_KB 166, MORPH 167, LOAD 168,
+# GLINT's ARP II LATCH 209, KEYS' GLINT HARMONY 215, NOTES 216 (0 SINGLE NOTE), STACK 218
+master 3000
+wait 600
+# no page said HELLO: answered all the same, at once (no VALUES), on the wire as on PERFORM's
+pfwatch 3 14
+sysex F0 7D 46 50 0E 01 01 26 00 02 F7
+wait 50
+expect learn 0
+expect scene 16
+expect p166 2
+pfmsg 0e00
+pfnone
+expect_sysex F0 7D 46 50 0E 00 F7
+sysex_out
+# the welcome up till a hand, never gone by itself (Styves, admin #881); a button closes it, and that alone: EDIT, no
+# page, its hold nothing (COMPARE), let go nothing; EDIT again, BASS I
+wait 5000
+expect welcome 1
+press EDIT
+wait 30
+expect welcome 0
+expect page 0
+wait 1500
+expect compare 0
+release EDIT
+wait 30
+expect page 0
+tap EDIT
+wait 30
+expect page 17
+gopage 0
+wait 30
+# away from NEW SHARD: CHOIR 77 stored in slot 2 (MINE); GLINT's NOTES on CHORD, PLAYS SEQ, the keys on BASS; MORPH
+# 4 S, LOAD SND ONLY; slot 2 loaded (gliding), GLINT I's page
+param 0 77
+scnstore 2 MINE
+param 216 1
+param 123 2
+param 166 2
+param 167 3
+param 168 1
+scnload 2
+wait 100
+expect morph 1
+expect scene 1
+gopage 9
+wait 50
+expect page 9
+pfhello 0
+wait 300
+pfvalues
+pfnone
+# START, seven pairs: KEYS on GLINT, GLINT's NOTES SINGLE NOTE, its STACK on, its ARP II LATCH off, CHOIR 200 (past its
+# max: skipped), setting 300 (past NPARAM: skipped), PARTIALS 20
+sysex F0 7D 46 50 0E 07 01 26 00 01 01 58 00 00 01 5A 00 01 01 51 00 00 00 00 01 48 02 2C 00 05 00 01 00 14 F7
+wait 50
+expect learnn 5
+expect welcome 1
+shot start-welcome.png
+expect scene 16
+expect page 0
+expect morph 0
+expect p166 1
+expect p216 0
+expect p215 1
+expect p218 1
+expect p209 0
+expect p0 84
+expect p1 20
+expect p123 1
+expect dirty 1
+expect p167 3
+expect p168 1
+expect glint 1
+wait 300
+expect learn 0
+pfvalues
+pfmsg 0e00
+pfnone
+# the welcome: up long after the state is in (never gone by itself: admin #881), the play page under it as after a
+# load; a key closes it, and that alone: no glint, nothing told the page (KEYS), held or let go; the next key plays,
+# told (key 9: bit 2 of KEYS' second byte)
+wait 2500
+pfhello 0
+wait 2500
+expect welcome 1
+pfwatch 3 8 14
+key 9 down 90
+wait 30
+expect welcome 0
+expect glints 0
+wait 300
+key 9 up
+wait 30
+expect glints 0
+pfnone
+expect page 0
+shot start-after.png
+tapkey 9 90
+wait 30
+expect glints >0
+pfmsg 0800040000
+pfmsg 0800000000
+pfnone
+pfwatch 3 14
+# refused: a count its pairs do not make (2, one given), none at all; nothing changed
+sysex F0 7D 46 50 0E 02 01 26 00 02 F7
+wait 50
+pfmsg 0e01
+sysex F0 7D 46 50 0E F7
+wait 50
+pfmsg 0e01
+pfnone
+expect learn 0
+expect p166 1
+expect welcome 0
+# a chord latched: let go at once (RELEASE ALL, as PLAY tapped twice), its voices fading, not cut; NEW SHARD once they
+# have (3 s at most: its tail fades on under NEW SHARD, as at a LOAD), no click (edgedb: at rest 0, a LOAD 4)
+# (the page says HELLO every 2 s, as Learn does: unheard 5 s, it is gone and START answered without VALUES)
+pfbye
+pfhello 0
+wait 300
+pfvalues
+param 166 0
+wait 30
+tapkey 9 90
+wait 1500
+pfhello 0
+expect held >0
+expect playing 1
+edges
+sysex F0 7D 46 50 0E 01 01 58 00 00 F7
+wait 30
+expect learn 1
+expect welcome 1
+expect held 0
+expect voices >0
+wait 1600
+pfhello 0
+wait 1600
+expect learn 0
+expect scene 16
+expect voices >0
+expect edgedb <30
+wait 100
+pfvalues
+pfmsg 0e00
+pfnone
+# FX closes the welcome, and that alone (no GENERATIVE FX)
+tap FX
+wait 30
+expect welcome 0
+expect page 0
+# a hand on the keys: waited for; a second START meanwhile refused, the first going on
+pfhello 0
+key 9 down 90 80
+wait 300
+sysex F0 7D 46 50 0E 00 F7
+wait 30
+expect learn 1
+sysex F0 7D 46 50 0E 00 F7
+wait 30
+pfmsg 0e01
+pfnone
+wait 500
+expect learn 1
+pfhello 0
+key 9 up
+wait 1600
+pfhello 0
+wait 1600
+expect learn 0
+pfvalues
+pfmsg 0e00
+pfnone
+# its welcome up, long after (the key let go meanwhile, down before it came: not a hand closing it); SEL closes it, and
+# that alone (no HARMONY)
+wait 1000
+pfhello 0
+wait 1100
+expect welcome 1
+tap SEL
+wait 30
+expect welcome 0
+expect page 0
+# a backup streaming: nothing until it ends (no welcome, no answer, a refusal held), then the state, VALUES, the answer
+pfwatch 14
+scnload 2
+wait 300
+pfwatch 3 14
+pfhello 0
+backuphold 1
+sysex F0 7D 46 50 0E 01 01 26 00 01 F7
+sysex F0 7D 46 50 0E 02 F7
+wait 300
+expect learn 1
+expect welcome 0
+expect scene 1
+pfnone
+backuphold 0
+wait 300
+expect learn 0
+expect scene 16
+expect p166 1
+expect welcome 1
+pfmsg 0e01
+pfvalues
+pfmsg 0e00
+pfnone
+# a button closes it, and that alone: nothing told the page (BUTTON: EDIT is 4), no page; EDIT again, GLINT I, told
+pfwatch 3 7 14
+tap EDIT
+wait 30
+expect welcome 0
+expect page 0
+pfnone
+tap EDIT
+wait 30
+expect page 9
+pfmsg 070401
+pfmsg 070400
+pfnone
+pfwatch 3 14
+gopage 0
+wait 30
+# a knob closes it, and that alone: its turn nothing while it turns on (CHOIR as NEW SHARD has it, 84); at rest, K1
+# turns CHOIR
+pfhello 0
+sysex F0 7D 46 50 0E 00 F7
+wait 300
+expect welcome 1
+pfvalues
+pfmsg 0e00
+pfnone
+turn K1 3
+wait 30
+expect welcome 0
+expect p0 84
+wait 500
+turn K1 1
+wait 30
+expect p0 85
+# a restore while a START waits for the fading: restored, then the START (NEW SHARD over the sound restored, the stored
+# scenes the backup's); slot 2 still MINE
+pfbye
+backup out:start.bak
+param 166 0
+wait 30
+tapkey 9 90
+wait 1000
+sysex F0 7D 46 50 0E 01 01 26 00 01 F7
+wait 30
+expect learn 1
+restore out:start.bak
+expect restore_rc 0
+wait 3200
+expect learn 0
+expect scene 16
+expect p166 1
+pfmsg 0e00
+pfnone
+scnload 2
+wait 100
+expect scene 1
+expect p0 77
+pfwatch

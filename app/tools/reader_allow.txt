@@ -1,0 +1,19 @@
+# Words FRASIL means that the audit's dictionary lacks (app/tools/reader_audit.sh --allow): names, music and
+# synth words, the common words file's own
+frasil
+synth
+com
+styves
+goupil
+encoder
+encoders
+screensaver
+pre-delay
+kilohertz
+lo-fi
+quartal
+kalimba
+vibes
+# the factory scenes' names
+lumiere
+whiteout

@@ -2,8 +2,9 @@
  * Copyright (C) 2026 Styves Goupil */
 /* stream.wasm: FRASIL's engine alone and a stream played on it (engine/frasil_stream.c's fst_air), for FRASIL STREAM's radio
  * (website/stream/); or a performance heard live (fst_live: Perform LIVE's listener, design/perform/listen/live-player.js).
- * Standalone WebAssembly, no imports it needs, about 200 KB. One engine an instance, a stream's or a live one's (the last
- * opened): the page makes as many as it plays at once (two across a change of tune, a third on the page for the picture).
+ * Standalone WebAssembly, no imports it needs, about 200 KB; with the LEAD (FRS_LEAD, engine/dsp/lead.c: card #152, as
+ * the FM-1 plays it). One engine an instance, a stream's or a live one's (the last opened): the page makes as many as it
+ * plays at once (two across a change of tune, a third on the page for the picture).
  *   st_alloc(n), st_free(p)        bytes in its memory (a stream's: kept while it plays)
  *   st_open(p, n, rate)            fst_read, then a fresh engine at the stream's start: 0, else fst_read's code (-1 bad, -2 its
  *                                  CRC, -3 a newer version, -4 another layout: another engine's), -9 the engine would not open
@@ -16,16 +17,21 @@
  *   st_version()                   frs_version's string
  * Live (LIVE.md section 3):
  *   st_live_open(scene_p, state_p, state_n, moves_p, moves_n, tracks, rate)   a fresh engine from a start (fst_fresh,
- *                                  quiet): the scene's st_scene_bytes(), the state's state_n bytes, moves_n (setting,
+ *                                  quiet): the scene's st_live_scene_bytes() (the FM-1's scene_t, the LEAD MOSS till
+ *                                  its running state or FST_LEAD says it), the state's state_n bytes, moves_n (setting,
  *                                  value) pairs, the tracks playing (bit 0 the drones, 1 GLINT, 2 the bass): 0, or -1
  *                                  (a state or moves too long, or the engine would not open)
  *   st_op(op, a_p, n)              an op now, its n args (fst_op): 0 done, 1 not known (ignored), -1 refused
  *   st_op_scene(op, scene_p)       FST_SCENE, FST_SCENE_NOW (FST_ANCHOR, FST_STORE) with the scene's bytes: the same
  *   st_live_counts()               done, missed, refused (u32s): the ops since st_live_open
- *   st_scene_bytes()               FRS_SCENE_BYTES: a start's scene of another length is another layout's
+ *   st_scene_bytes()               a stream's scenes' bytes, FST_SCENE_BYTES ("FRS~"'s 644, card #152: the scene, its
+ *                                  LEAD; before, FRS_SCENE_BYTES): a shard on air of another length is another layout's
+ *   st_live_scene_bytes()          LIVE's, FRS_SCENE_BYTES (619: an FM-1's scene_t, its LEAD apart): a start's scene
+ *                                  of another length is another layout's
  * Live, each op in its millisecond (card #131: every listener's engine the same as the artist's, LIVE.md section 3):
  *   st_live_state(st_p, n, scene_p)   the running state that goes with the start just opened (frs_live_load, the start's
- *                                  scene): 0, or -1 not this engine's (then as the start alone opened it)
+ *                                  scene; its "FRlv" part, the LEAD's "FRld" after it or not: card #152): 0, or -1 not
+ *                                  this engine's (then as the start alone opened it)
  *   st_now()                       the engine's clock, the millisecond it runs next (frs_ms; after a state, the artist's
  *                                  engine's)
  *   st_ms_after(n)                 st_now once n frames more are rendered (what a render of n runs: st_now up to it, less
@@ -116,7 +122,8 @@ EMSCRIPTEN_KEEPALIVE uint32_t st_pmax(uint32_t p)
 EMSCRIPTEN_KEEPALIVE const char *st_version(void) { return frs_version(); }
 
 /* ---- live */
-EMSCRIPTEN_KEEPALIVE uint32_t st_scene_bytes(void) { return FRS_SCENE_BYTES; }
+EMSCRIPTEN_KEEPALIVE uint32_t st_scene_bytes(void) { return FST_SCENE_BYTES; }
+EMSCRIPTEN_KEEPALIVE uint32_t st_live_scene_bytes(void) { return FRS_SCENE_BYTES; }
 
 EMSCRIPTEN_KEEPALIVE int st_live_open(const uint8_t *scene, const uint8_t *state, uint32_t state_n, const uint8_t *moves,
                                       uint32_t moves_n, uint32_t tracks, float fs)
@@ -124,6 +131,7 @@ EMSCRIPTEN_KEEPALIVE int st_live_open(const uint8_t *scene, const uint8_t *state
     if (state_n > FRS_STATE_BYTES || moves_n > FST_MOVES)
         return -1;
     memcpy(start.scene, scene, FRS_SCENE_BYTES);
+    frs_lead_none(start.scene + FRS_SCENE_BYTES);   /* (the FM-1's scene_t: its LEAD MOSS, till it is told) */
     if (state_n)
         memcpy(start.state, state, state_n);
     start.state_n = state_n;

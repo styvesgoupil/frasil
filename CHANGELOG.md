@@ -1,5 +1,29 @@
 # Changelog
 
+## 3.3 (2026-11-11)
+
+**New**
+
+- **FRASIL Learn** (learn.frasilsynth.com): the easiest way to learn FRASIL. Interactive lessons that follow what you play: connect your FM-1 to your computer in Chrome or Edge, and the page sets it up for you. WELCOME TO LEARN MODE shows on the FM-1's screen, then each step you play on the FM-1 gets its tick on the page, as you play it. The first lesson, GETTING STARTED, takes you through the drone, harmony, GLINT, the pages and the new LEAD. If you want more lessons (the LFOs, the sequencers, recording), click the heart on Learn's page, and I'll create them as there is demand for them.
+- **LEAD**: a fourth track, for melodies played live on top of everything (no arpeggio, no sequence). Turn SELECT one step past BASS: the header turns rose. It sounds only while you hold its keys, MONO with a glide from note to note, or POLY up to 6 notes. Each voice is built like an analog synth: two oscillators whose WAVE goes from a saw through a square to a narrow pulse, or WHISTLE, a pure tone with a breath of air; DETUNE spreads the two apart. BREATH adds noise and DRIVE adds warmth, then a 24 dB low-pass filter with RESONANCE opens with its own envelope. Each voice drifts a little in pitch, as an analog one does, and VIBRATO makes it sing. Its own stereo delay bounces left and right in time with the tempo, and it sends into the cloud's reverb like the other tracks.
+- **LEAD pages**: LEAD I, LEAD II, LEAD III and LEAD DELAY on EDIT; LEAD ADSR and LEAD FILTER on ENV.
+- **LEAD presets**: twenty sounds, different from each other, some dry and some deep in reverb and delay. SAVE › WHAT › LEAD PRESET keeps your own.
+- **LFO TARGETS**: 22 new targets move the LEAD's sound.
+- **MIXER**: K4 is now the LEAD's level. The cloud's level moves to CLOUD III, K4 (LEVEL); hold OCT− and turn it to pan the cloud.
+- **CPU line**: a thin line along the bottom of the screen shows how busy the FM-1 is. Yellow from 85 %, red from 92 %.
+- **Guides**: the guide has a new home with every way to learn FRASIL: Learn, the online guide, and books as PDF and ePub for tablets, Kindle or Kobo, small e-readers like the Xteink X4, and print.
+- **The LEAD everywhere**: shards keep the LEAD in the River, the editor and STREAM. Perform shows it, and in LIVE your listeners hear it.
+- **Screen reader support** for visually impaired players: the FM-1 tells fm1-reader what is on its screen.
+
+**Fixes and changes**
+
+- **GLINT keys**: on the KEYS page, GLINT's keys sound while you hold them, whatever LATCH says.
+- **Changing track** keeps you on the page you are on. The large track name shows on the play page only.
+- **MIXER**: DRONE, BASS and GLINT levels no longer step when you turn them fast.
+- **TAPE SPEED**: no more crackle at slow speeds.
+- **BASS PULSE**: no more click on a note that is still sounding.
+- **Scenes**: 3.3 saves scenes with the LEAD. Scenes, shards and backups from earlier versions load as before, the LEAD on its first preset. An FM-1 on 3.1 or 3.2 still loads 3.3 shards, without the LEAD.
+
 ## 3.2 (2026-11-08)
 
 **New**

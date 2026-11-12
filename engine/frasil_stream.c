@@ -73,25 +73,34 @@ static int op_len(uint8_t op, const uint8_t *b, size_t n, uint32_t *skip)
 
 /* ------------------------------------------------------------------ the start --- */
 _Static_assert(sizeof(fst_ev) == 20u, "a ring's slot, 20 bytes");
-_Static_assert(FRS_SCENE_BYTES == 619u, "FST_SCENE_LAYOUT names this size");
+_Static_assert(FRS_SCENE_BYTES == 619u && FST_SCENE_BYTES == 644u && FRS_LEAD_BYTES + 1u <= FRS_STATE_BYTES,
+               "FST_SCENE_LAYOUT names this size: a scene, then its LEAD (FST_LEAD's args in an fst_lq)");
 
-/* the older layouts a stream may have, each its scenes' bytes (made over as they are played; not "FRS|": the same bytes
- * as FRS}'s, its AMOUNTs another scale everywhere in the stream) */
+/* the older layouts a stream may have, each its scenes' bytes (made over as they are played; their LEAD MOSS: none in
+ * them; not "FRS|": the same bytes as FRS}'s, its AMOUNTs another scale everywhere in the stream) */
 static const struct {
     const char *name;
     uint16_t bytes;
-} OLD_LAYOUT[] = {{"FRS{", 590u}, {"FRSz", 586u}};
+} OLD_LAYOUT[] = {{"FRS}", 619u}, {"FRS{", 590u}, {"FRSz", 586u}};
 #define SC_SWELL (FRS_SCENE_BYTES - 1u)  /* (SWELL's byte, the scene's last: params.c scene_t) */
 
-/* a scene of sbytes (FRS_SCENE_BYTES, or an older layout's: made over, SWELL at swell) copied into o, FRS_SCENE_BYTES
- * long */
+/* the scene of one of sbytes (a shard, FST_SCENE_BYTES; or an older layout's: "FRS}"'s as it is, the ones before it
+ * made over, SWELL at swell) copied into o, FRS_SCENE_BYTES long: the scene alone */
 static void scene_copy(uint8_t *o, const uint8_t *s, uint32_t sbytes, uint8_t swell)
 {
-    memcpy(o, s, sbytes);
-    if (sbytes != FRS_SCENE_BYTES) {
+    memcpy(o, s, sbytes < FRS_SCENE_BYTES ? sbytes : FRS_SCENE_BYTES);
+    if (sbytes < FRS_SCENE_BYTES) {
         frs_scene_over(o, sbytes);
         o[SC_SWELL] = swell;
     }
+}
+/* its LEAD into o (FRS_LEAD_BYTES): a shard's own, else MOSS */
+static void lead_copy(uint8_t *o, const uint8_t *s, uint32_t sbytes)
+{
+    if (sbytes == FST_SCENE_BYTES)
+        memcpy(o, s + FRS_SCENE_BYTES, FRS_LEAD_BYTES);
+    else
+        frs_lead_none(o);
 }
 
 void fst_capture(fst_start *s, const uint8_t *from)
@@ -101,6 +110,7 @@ void fst_capture(fst_start *s, const uint8_t *from)
     frs_view(&v);
     s->tracks = v.playing;
     frs_scene_store(s->scene, from);
+    frs_lead_get(s->scene + FRS_SCENE_BYTES);
     s->state_n = frs_state_save(s->state);
     s->moves_n = 0;
     for (p = 0; p < n && p < 256u && s->moves_n < FST_MOVES; p++)
@@ -125,6 +135,7 @@ int fst_fresh(const fst_start *s, float fs)
         frs_param_set(P_ARP_SNAP, 0);
     frs_state_load(s->state, s->state_n);
     frs_scene_take(s->scene);
+    frs_lead_take(s->scene + FRS_SCENE_BYTES);   /* (its LEAD, as the FM-1 takes a scene's: card #152) */
     for (i = 0; i < s->moves_n; i++)
         frs_param_set(s->moves[2u * i], s->moves[2u * i + 1u]);
     if (s->tracks == 0u)
@@ -153,31 +164,33 @@ static uint32_t start_put(const fst_start *s, uint8_t *o)
     o[n++] = s->tracks;
     o[n++] = (uint8_t)s->state_n;
     o[n++] = s->moves_n;
-    memcpy(o + n, s->scene, FRS_SCENE_BYTES);
-    n += FRS_SCENE_BYTES;
+    memcpy(o + n, s->scene, FST_SCENE_BYTES);
+    n += FST_SCENE_BYTES;
     memcpy(o + n, s->state, s->state_n);
     n += s->state_n;
     memcpy(o + n, s->moves, 2u * s->moves_n);
     return n + 2u * s->moves_n;
 }
 
-/* its bytes, or 0: runs past n */
-static uint32_t start_get(const uint8_t *b, size_t n, fst_start *s)
+/* its bytes, or 0: runs past n. sb: the journal's scenes' bytes (FST_SCENE_BYTES; FRS_SCENE_BYTES, "FRS}"'s: its LEAD
+ * MOSS) */
+static uint32_t start_get(const uint8_t *b, size_t n, fst_start *s, uint32_t sb)
 {
     uint32_t need;
-    if (n < 3u + FRS_SCENE_BYTES)
+    if (n < 3u + sb)
         return 0;
     if (b[1] > FRS_STATE_BYTES || b[2] > FST_MOVES)
         return 0;
-    need = 3u + FRS_SCENE_BYTES + b[1] + 2u * (uint32_t)b[2];
+    need = 3u + sb + b[1] + 2u * (uint32_t)b[2];
     if (n < need)
         return 0;
     s->tracks = b[0];
     s->state_n = b[1];
     s->moves_n = b[2];
     memcpy(s->scene, b + 3, FRS_SCENE_BYTES);
-    memcpy(s->state, b + 3 + FRS_SCENE_BYTES, s->state_n);
-    memcpy(s->moves, b + 3 + FRS_SCENE_BYTES + s->state_n, 2u * s->moves_n);
+    lead_copy(s->scene + FRS_SCENE_BYTES, b + 3, sb);
+    memcpy(s->state, b + 3 + sb, s->state_n);
+    memcpy(s->moves, b + 3 + sb + s->state_n, 2u * s->moves_n);
     return need;
 }
 
@@ -188,7 +201,7 @@ uint32_t fst_jhead(const fst_start *s, uint32_t rate, int64_t created, uint8_t *
     n = 4;
     o[n++] = FST_VERSION;
     o[n++] = 0;
-    w16(o + n, FRS_SCENE_BYTES);
+    w16(o + n, FST_SCENE_BYTES);
     n += 2;
     w32(o + n, rate);
     n += 4;
@@ -215,8 +228,8 @@ uint32_t fst_jevent(const fst_ev *e, uint32_t *last, const void *scene, uint32_t
     case FSTJ_SCENE:
         o[n++] = e->a[0];
         o[n++] = e->a[2];
-        memcpy(o + n, scene, FRS_SCENE_BYTES);
-        return n + FRS_SCENE_BYTES;
+        memcpy(o + n, scene, FST_SCENE_BYTES);
+        return n + FST_SCENE_BYTES;
     case FSTJ_OPEN:
         w32(o + n, r32(e->a));
         n += 4;
@@ -232,23 +245,23 @@ uint32_t fst_jevent(const fst_ev *e, uint32_t *last, const void *scene, uint32_t
     }
 }
 
-/* the scenes a stream names, none twice */
-typedef struct { uint8_t *b; uint32_t n, cap; } scenes_t;
+/* the scenes a stream names, none twice, sb bytes each */
+typedef struct { uint8_t *b; uint32_t n, cap, sb; } scenes_t;
 static int scene_index(scenes_t *t, const uint8_t *s)
 {
     uint32_t i;
     for (i = 0; i < t->n; i++)
-        if (!memcmp(t->b + i * FRS_SCENE_BYTES, s, FRS_SCENE_BYTES))
+        if (!memcmp(t->b + i * t->sb, s, t->sb))
             return (int)i;
     if (t->n == t->cap) {
         uint32_t cap = t->cap ? 2u * t->cap : 8u;
-        uint8_t *b = realloc(t->b, (size_t)cap * FRS_SCENE_BYTES);
+        uint8_t *b = realloc(t->b, (size_t)cap * t->sb);
         if (!b)
             return -1;
         t->b = b;
         t->cap = cap;
     }
-    memcpy(t->b + (size_t)t->n * FRS_SCENE_BYTES, s, FRS_SCENE_BYTES);
+    memcpy(t->b + (size_t)t->n * t->sb, s, t->sb);
     return (int)t->n++;
 }
 
@@ -264,22 +277,26 @@ static uint8_t *chunk(uint8_t *o, const char *tag, const void *b, uint32_t n)
 uint8_t *fst_finish(const uint8_t *j, size_t n, size_t *out_n)
 {
     fst_start st;
-    scenes_t sc = {0, 0, 0};
+    scenes_t sc = {0, 0, 0, 0};
     uint8_t *ev, *out = 0, *o, head[HEAD_BYTES], dens[FST_DENS], flags = FST_F_FRESH | FST_F_HANDS;
     uint32_t *times = 0;
-    uint32_t rate, nparam, used, t = 0, nev = 0, nev_cap, lost = 0, total = 0, cap;
+    uint32_t rate, nparam, used, t = 0, nev = 0, nev_cap, lost = 0, total = 0, cap, sb;
     size_t at = 36, evn = 0;
     int64_t created;
     int ended = 0;
 
     *out_n = 0;
-    if (n < at || memcmp(j, JMAGIC, 4) || j[4] != FST_VERSION || r16(j + 6) != FRS_SCENE_BYTES)
+    if (n < at || memcmp(j, JMAGIC, 4) || j[4] != FST_VERSION)
+        return 0;
+    sb = sc.sb = r16(j + 6);             /* (its scenes: shards; a journal of before, "FRS}"'s, the scene alone: finished
+                                          * as it was, "FRS}") */
+    if (sb != FST_SCENE_BYTES && sb != FRS_SCENE_BYTES)
         return 0;
     rate = r32(j + 8);
     created = (int64_t)r64(j + 12);
     nparam = r16(j + 28);
     at = 30;
-    used = start_get(j + at, n - at, &st);
+    used = start_get(j + at, n - at, &st, sb);
     if (!used)
         return 0;
     at += used;
@@ -318,16 +335,17 @@ uint8_t *fst_finish(const uint8_t *j, size_t n, size_t *out_n)
         if (op == FSTJ_SCENE) {
             uint8_t real, sl;
             int i;
-            if (n - p < 2u + FRS_SCENE_BYTES)
+            if (n - p < 2u + sb)
                 break;
             real = j[p];
             sl = j[p + 1];
             p += 2;
-            if (real == FST_STATE) {     /* (a state: its bytes inline, not a scene) */
-                if (sl > FRS_STATE_BYTES)
+            if (real == FST_STATE || real == FST_LEAD) {   /* (a state, the LEAD whole: their bytes inline, not a
+                                                             * scene) */
+                if (sl > (real == FST_STATE ? FRS_STATE_BYTES : sb) || (real == FST_LEAD && sl < 1u + FRS_LEAD_BYTES))
                     break;
                 evn += varint_put(ev + evn, dt);
-                ev[evn++] = FST_STATE;
+                ev[evn++] = real;
                 ev[evn++] = sl;
                 memcpy(ev + evn, j + p, sl);
                 evn += sl;
@@ -344,7 +362,7 @@ uint8_t *fst_finish(const uint8_t *j, size_t n, size_t *out_n)
                     ev[evn++] = 0;
                 }
             }
-            p += FRS_SCENE_BYTES;
+            p += sb;
         } else if (op == FSTJ_OPEN) {
             fst_start s2;
             uint32_t r2;
@@ -352,7 +370,7 @@ uint8_t *fst_finish(const uint8_t *j, size_t n, size_t *out_n)
             if (n - p < 4u)
                 break;
             r2 = r32(j + p);
-            l = start_get(j + p + 4, n - p - 4, &s2);
+            l = start_get(j + p + 4, n - p - 4, &s2, sb);
             if (!l)
                 break;
             p += 4u + l;
@@ -419,13 +437,13 @@ uint8_t *fst_finish(const uint8_t *j, size_t n, size_t *out_n)
     w32(head + 4, total);
     w32(head + 8, nev);
     memcpy(head + 12, j + 20, 8);
-    memcpy(head + 20, FST_SCENE_LAYOUT, 4);
+    memcpy(head + 20, sb == FST_SCENE_BYTES ? FST_SCENE_LAYOUT : "FRS}", 4);
     w16(head + 24, nparam);
     head[26] = st.tracks;
     w32(head + 27, lost);
     w64(head + 31, (uint64_t)created);
-    cap = 8u + 8u * 8u + HEAD_BYTES + FRS_SCENE_BYTES + st.state_n + 2u * st.moves_n + FST_DENS + 2u +
-          sc.n * FRS_SCENE_BYTES + (uint32_t)evn + 4u;
+    cap = 8u + 8u * 8u + HEAD_BYTES + sb + st.state_n + 2u * st.moves_n + FST_DENS + 2u + sc.n * sb + (uint32_t)evn +
+          4u;
     out = malloc(cap);
     if (!out)
         goto done;
@@ -434,16 +452,16 @@ uint8_t *fst_finish(const uint8_t *j, size_t n, size_t *out_n)
     out[5] = flags;
     out[6] = out[7] = 0;
     o = chunk(out + 8, "HEAD", head, HEAD_BYTES);
-    o = chunk(o, "SCN0", st.scene, FRS_SCENE_BYTES);
+    o = chunk(o, "SCN0", st.scene, sb);
     o = chunk(o, "STAT", st.state, st.state_n);
     o = chunk(o, "MOVE", st.moves, 2u * st.moves_n);
     o = chunk(o, "DENS", dens, FST_DENS);
     memcpy(o, "SCNS", 4);
-    w32(o + 4, 2u + sc.n * FRS_SCENE_BYTES);
+    w32(o + 4, 2u + sc.n * sb);
     w16(o + 8, sc.n);
     if (sc.n)
-        memcpy(o + 10, sc.b, (size_t)sc.n * FRS_SCENE_BYTES);
-    o += 10u + sc.n * FRS_SCENE_BYTES;
+        memcpy(o + 10, sc.b, (size_t)sc.n * sb);
+    o += 10u + sc.n * sb;
     o = chunk(o, "EVTS", ev, (uint32_t)evn);
     {
         uint8_t crc[4];
@@ -485,6 +503,9 @@ static int walk(const fst_file *f)
                 return FST_BAD;
         } else if (op == FST_STATE) {
             if (len > (int)FRS_STATE_BYTES)
+                return FST_BAD;
+        } else if (op == FST_LEAD) {
+            if (len < (int)(1u + FRS_LEAD_BYTES))
                 return FST_BAD;
         } else if (op == FST_OPEN) {
             uint32_t sn, mn;
@@ -585,7 +606,7 @@ int fst_read(const uint8_t *b, size_t n, fst_file *f)
     if ((have & 15) != 15 || at != n)
         return FST_BAD;
     if (!memcmp(f->layout, FST_SCENE_LAYOUT, 4))
-        f->sbytes = FRS_SCENE_BYTES;
+        f->sbytes = FST_SCENE_BYTES;
     for (i = 0; !f->sbytes && i < sizeof OLD_LAYOUT / sizeof OLD_LAYOUT[0]; i++)
         if (!memcmp(f->layout, OLD_LAYOUT[i].name, 4))
             f->sbytes = OLD_LAYOUT[i].bytes;   /* (an older one's: made over as they are played) */
@@ -600,6 +621,7 @@ int fst_read(const uint8_t *b, size_t n, fst_file *f)
 void fst_start_of(const fst_file *f, fst_start *s)
 {
     scene_copy(s->scene, f->scene, f->sbytes, 0);   /* (an older layout's SWELL: its MOVE's, after it) */
+    lead_copy(s->scene + FRS_SCENE_BYTES, f->scene, f->sbytes);
     s->state_n = f->state_n;
     if (f->state_n)
         memcpy(s->state, f->state, f->state_n);
@@ -656,6 +678,10 @@ static int known(uint8_t op)
     case FST_RELEASE: case FST_RELEASE_ALL: case FST_KEY_PRESSURE: case FST_SWELL: case FST_COMPARE: case FST_RECORD:
     case FST_KEY_SINGLE:
         return 1;
+    case FST_PARAM16:                    /* (a setting past 255: card #152) */
+        return 1;
+    case FST_KEY_LEAD: case FST_LEAD: case FST_LEAD_WHEELS:   /* (the LEAD's, card #152: an engine without it skips them) */
+        return FRS_LEAD;
     default:
         return 0;
     }
@@ -679,15 +705,23 @@ int fst_next(fst_player *p, uint32_t now, fst_dec *e)
 
 int fst_more(const fst_player *p) { return p->have || p->at < p->f.evts_n; }
 
+/* the scene i (its first FRS_SCENE_BYTES: a shard's, "FRS}"'s as it is, an older one's made over into conv) */
 static const uint8_t *scene_at(fst_player *p, uint32_t i)
 {
     const uint8_t *s = p->f.scns + (size_t)i * p->f.sbytes;
-    if (p->f.sbytes == FRS_SCENE_BYTES)
+    if (p->f.sbytes >= FRS_SCENE_BYTES)
         return s;
     scene_copy(p->conv, s, p->f.sbytes, (uint8_t)frs_param_get(P_SWELL));   /* (an older layout's: made over, valid
                                                                              * till the next; SWELL as it is, as their
                                                                              * engines left it through a scene) */
     return p->conv;
+}
+/* a scene of scene_at's started or gone to: its LEAD taken with it (a shard's; an older layout's has none: the LEAD as
+ * it is, MOSS from its start) */
+static void scene_lead(const fst_player *p, const uint8_t *s)
+{
+    if (p->f.sbytes == FST_SCENE_BYTES)
+        frs_lead_take(s + FRS_SCENE_BYTES);
 }
 
 int fst_apply(fst_player *p, const fst_dec *e, uint64_t frames)
@@ -704,13 +738,24 @@ int fst_apply(fst_player *p, const fst_dec *e, uint64_t frames)
     case FST_PLAY: frs_play(); break;
     case FST_PANIC: frs_panic(); break;
     case FST_PARAM: frs_param_set(a[0], a[1]); break;
+    case FST_PARAM16: frs_param_set(r16(a), a[2]); break;
     case FST_HOLD_OFF: frs_hold_off(a[0]); break;
     case FST_CLEAR: frs_clear(a[0]); break;
     case FST_TRACK_PLAY: frs_track_play(a[0], a[1]); break;
     case FST_PLAY_ALL: frs_play_all(a[0]); break;
     case FST_KEY_UP: frs_key_up(a[0]); break;
-    case FST_SCENE: frs_scene_go(scene_at(p, r16(a))); break;
-    case FST_SCENE_NOW: frs_scene_take(scene_at(p, r16(a))); break;
+    case FST_SCENE: {
+        const uint8_t *s = scene_at(p, r16(a));
+        frs_scene_go(s);
+        scene_lead(p, s);
+        break;
+    }
+    case FST_SCENE_NOW: {
+        const uint8_t *s = scene_at(p, r16(a));
+        frs_scene_take(s);
+        scene_lead(p, s);
+        break;
+    }
     case FST_LATCH: frs_latch(a[0], a[1], (int8_t)a[2]); break;
     case FST_HOLD: frs_hold(a[0], a[1], a[2], (int8_t)a[3]); break;
     case FST_KEY_DOWN:                   /* (the keys play the track: KEYS' P_KB, set before each) */
@@ -718,6 +763,19 @@ int fst_apply(fst_player *p, const fst_dec *e, uint64_t frames)
         frs_param_set(P_KB, a[2]);
         frs_key_down(a[0], a[1], a[3] ? a[3] : 100u, e->op == FST_KEY_SINGLE);   /* (its velocity; 0, a touch's: 100) */
         break;
+    case FST_KEY_LEAD:                   /* (KEY_DOWN's, on the LEAD: its track 3) */
+        frs_param_set(P_KB, a[2]);
+        frs_key_down(a[0], a[1], a[3] ? a[3] : 100u, 0);
+        break;
+    case FST_LEAD:
+        if (e->n >= 1u + FRS_LEAD_BYTES) {
+            if (a[0] & 1u)
+                frs_lead_take(a + 1);
+            else
+                frs_lead_put(a + 1);
+        }
+        break;
+    case FST_LEAD_WHEELS: frs_lead_wheels(a[0], (int32_t)r16(a + 1) - 8192); break;
     case FST_KEY_PRESSURE: frs_key_pressure(a[0], a[1]); break;
     case FST_RELEASE: frs_release(); break;
     case FST_RELEASE_ALL: frs_release_all(); break;
@@ -739,8 +797,8 @@ int fst_apply(fst_player *p, const fst_dec *e, uint64_t frames)
     case FST_STATE: frs_state_load(a, e->n); break;
     case FST_ANCHOR: frs_anchor_put(scene_at(p, r16(a))); break;
     case FST_ANCHOR_BACK:
-        if (p->f.sbytes != FRS_SCENE_BYTES && frs_anchor_get(p->conv)) {   /* (an older layout's anchor: SWELL as it is now,
-                                                                             * as their engines left it) */
+        if (p->f.sbytes < FRS_SCENE_BYTES && frs_anchor_get(p->conv)) {   /* (an older layout's anchor, before SWELL: SWELL
+                                                                            * as it is now, as their engines left it) */
             p->conv[SC_SWELL] = (uint8_t)frs_param_get(P_SWELL);
             frs_anchor_put(p->conv);
         }
@@ -750,8 +808,10 @@ int fst_apply(fst_player *p, const fst_dec *e, uint64_t frames)
     case FST_OPEN: {
         fst_start s;
         uint32_t sn = a[7], mn = a[8 + sn];
-        memcpy(s.scene, scene_at(p, r16(a)), FRS_SCENE_BYTES);
-        if (p->f.sbytes != FRS_SCENE_BYTES)
+        const uint8_t *sc = scene_at(p, r16(a));
+        memcpy(s.scene, sc, FRS_SCENE_BYTES);
+        lead_copy(s.scene + FRS_SCENE_BYTES, sc, p->f.sbytes);
+        if (p->f.sbytes < FRS_SCENE_BYTES)
             s.scene[SC_SWELL] = 0;       /* (as fst_start_of's: its MOVE's, after it) */
         s.tracks = a[2];
         s.state_n = sn;
@@ -851,13 +911,17 @@ static void live_quiet(void)             /* (as the start opened it: the artist'
     air_quiet();
 }
 
-/* the running state waiting, at its place: loaded, or left (cmp: this engine's own the very same) */
+/* a running state's first part's bytes (its head's: 16 and its body's; the LEAD's part after it, card #152) */
+static uint32_t live_first(const uint8_t *b, uint32_t n) { return n < 16u ? n : 16u + r16(b + 14); }
+
+/* the running state waiting, at its place: loaded, or left (cmp: this engine's own the very same; one told without
+ * the LEAD's part, the very same as this one's first) */
 static void live_state_here(fst_live *l)
 {
     l->st_on = 0;
     if (l->st_cmp) {
         uint32_t n = frs_live_save(l->tmp, sizeof l->tmp, l->st_scene);
-        if (n == l->st_n && !memcmp(l->tmp, l->st, n)) {
+        if ((n == l->st_n || (l->st_n < n && live_first(l->st, l->st_n) == l->st_n)) && !memcmp(l->tmp, l->st, l->st_n)) {
             l->same++;
             return;
         }
@@ -1001,14 +1065,14 @@ int fst_op(fst_live *l, uint8_t op, const uint8_t *a, uint32_t n, const uint8_t 
         a = first;
         n = need;
     } else if (n < need || (need && !a) || op == FST_OPEN || (op == FST_DSTEP && n > 9u) ||
-               (op == FST_STATE && n > FRS_STATE_BYTES)) {
+               (op == FST_STATE && n > FRS_STATE_BYTES) || (op == FST_LEAD && n < 1u + FRS_LEAD_BYTES)) {
         l->refused++;
         return -1;
     }
     if (op == FST_MIDI)                  /* (no frame at hand: by its millisecond, as on air) */
         frs_midi_ms((uint64_t)frs_ms() + a[3], a[0], a[1], a[2]);
     else {
-        l->p.f.sbytes = FRS_SCENE_BYTES;
+        l->p.f.sbytes = FRS_SCENE_BYTES;   /* (the FM-1's scene_t: its LEAD apart, FST_LEAD) */
         l->p.f.scns = scene;
         l->p.f.nscns = scene ? 1u : 0u;
         e.ms = frs_ms();

@@ -2,8 +2,8 @@
 #   app/build/host/frasil_host app/tests/shed.txt app/build/host
 # cpuload N: the load the simulator reads, N % (never the Mac's time: a loaded Mac shed the sound and the tests' values
 # changed from pass to pass, card #85; the FM-1 and the web page measure theirs). Over 82 %: a step lighter, one a
-# second, up to 5. At 75 % or less: a step given back after a calm, 4 s at first, twice as long when the load came
-# back within 15 s of a step given back.
+# second, up to 8 (FR_SHED_TOP: the LEAD's three steps more, card #144, admin #741). At 75 % or less: a step given back
+# after a calm, 4 s at first, twice as long when the load came back within 15 s of a step given back.
 keysstay 1
 wait 600
 expect shed 0
@@ -15,25 +15,29 @@ expect shed 2
 wait 3000
 expect shed 5
 wait 2000
-expect shed 5
-# the load down: the steps given back, one every 4 s
+expect shed 7
+wait 2000
+expect shed 8
+wait 2000
+expect shed 8
+# the load down: the steps given back, one every 4 s (the last step's 4 s first)
 cpuload 60
 wait 3000
-expect shed 5
-wait 4500
-expect shed 4
+expect shed 8
+wait 2000
+expect shed 7
 wait 4000
-expect shed 3
+expect shed 6
 # up again soon after a step given back: a step lighter at once, the next calm 8 s
 cpuload 90
 wait 200
-expect shed 4
+expect shed 7
 cpuload 0
 wait 10000
-expect shed 4
+expect shed 7
 wait 3000
-expect shed 3
+expect shed 6
 wait 6000
-expect shed 3
+expect shed 6
 wait 2000
-expect shed 2
+expect shed 5

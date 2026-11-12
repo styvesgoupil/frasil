@@ -7,6 +7,13 @@
  * the FM-1's app.c layouts). For a platform's UI: the settings by name, P_EQ_LOW rather than 131 */
 #pragma once
 
+#ifndef FRS_LEAD                         /* LEAD (card #144, dsp/lead.h): the app's builds, the FM-1's and the SMK-37's
+                                          * (app.h, fm1.toml's o2_cflags: admin #741), STREAM's stream.wasm (card #152:
+                                          * tools/stream_wasm.sh); the engine's own others (the iPad, ENERGY, most
+                                          * tests, the bench) without it until theirs */
+#define FRS_LEAD 0
+#endif
+
 enum {
     P_CHOEUR, P_PARTIELS, P_SOUFFLE, P_CHALEUR,
     P_DESACCORD, P_FILTRE, P_PENTE, P_IMPAIRS,
@@ -110,7 +117,7 @@ enum {
     P_KY_DR_HARM, P_KY_DR_NOTES, P_KY_DR_LATCH, P_KY_DR_STACK,   /* KEYS (the iPad's TOUCH), each layer's: HARMONY (OFF:
                                                                   * the keys chromatic, no chord), NOTES (SINGLE NOTE,
                                                                   * CHORD), LATCH (OFF: HOLD, the keys sound while down;
-                                                                  * GLINT's: the ring of four), STACK (OFF: SWAP, a new
+                                                                  * GLINT's keys: never, card #143), STACK (OFF: SWAP, a new
                                                                   * key or chord in place of what is held); */
     P_KY_GL_HARM, P_KY_GL_NOTES, P_KY_GL_LATCH, P_KY_GL_STACK,   /* the drone's, GLINT's, the bass's (P_KY_DR_HARM + 4 x
                                                                   * the layer + 0 .. 3), kept with the settings */
@@ -133,5 +140,18 @@ enum {
     P_L1_AMT1, P_L1_AMT2, P_L1_AMT3, P_L1_AMT4,
     P_L2_AMT1, P_L2_AMT2, P_L2_AMT3, P_L2_AMT4,
     P_L3_AMT1, P_L3_AMT2, P_L3_AMT3, P_L3_AMT4,
+#if FRS_LEAD
+    /* LEAD (card #144; the app's builds, FRS_LEAD): neither a scene record's nor the settings' (each scene's LEAD in
+     * the app's own object, app.c ldp_*); a shard's, after its scene ("FRS~", card #152: frs_lead_*). From P_LD_DFB
+     * (256) on, past a byte: a stream names them by FST_PARAM16 */
+    P_LD_WAVE, P_LD_CUT, P_LD_RESO, P_LD_DETUNE,           /* LEAD I (PRESET first), DETUNE on LEAD III */
+    P_LD_GLIDE, P_LD_FENV, P_LD_VIB, P_LD_OCTAVE,          /* LEAD II */
+    P_LD_ATTACK, P_LD_DECAY, P_LD_SUSTAIN, P_LD_RELEASE,   /* LEAD ADSR */
+    P_LD_DTIME, P_LD_DFB, P_LD_DMIX, P_LD_SPACE,           /* LEAD DELAY (SPACE: CLOUD SEND's K4 too) */
+    P_MX_LEAD,                                             /* MIXER II: its level */
+    P_LD_PRESET,                                           /* LEAD I's first: the rest but MIXER II's from a preset */
+    P_LD_MODE, P_LD_BREATH, P_LD_DRIVE,                    /* LEAD III (MODE, DETUNE, BREATH, DRIVE) */
+    P_LD_FATTACK, P_LD_FDECAY, P_LD_FSUSTAIN, P_LD_FRELEASE,   /* LEAD FILTER: FILTER ENV's own ADSR (admin #619) */
+#endif
     NPARAM
 };

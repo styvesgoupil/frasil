@@ -1,0 +1,184 @@
+# The screen reader (fm1-reader, app/speak.c): what a reader listening hears as the panel is played. A reader new hears
+# the whole screen; a page its name and its four settings once it has stayed; a knob its name and its value once it
+# rests; a list its row and its place; a message at once; the name its cursor; the help its lines. ("said TEXT": some
+# message since the last check has TEXT in it; each check starts the log again.)
+#   app/build/host/frasil_host app/tests/reader.txt OUTDIR
+master 3000
+battery 600
+wait 5000
+# nothing before a HELLO
+said_none
+# a reader new: everything on the screen, at once (WHERE): the page, the scene, the hands, the settings; then the rest
+listen
+said SOUND (1/5), NEW SHARD. TRACK DRONE, PRESET CUSTOM, TIMBRE 50. CHOIR
+# ... its other parts a frame each (several at once could fill the USB queue): the modes, then what plays
+where
+wait 100
+said OCTAVE -1
+where
+wait 100
+said LFO 1 2 3 RUNNING, A MINOR, BATTERY
+# a page: its name, where it is among its button's, its four settings; once it has stayed 200 ms
+tap EDIT
+wait 100
+said_none
+wait 200
+said DRONE TONE (1/9). PRESET CUSTOM, TIMBRE 50, SPACE
+# pages flipped through: only the last one read
+tap EDIT
+wait 50
+tap EDIT
+wait 400
+said CHOIR (3/9)
+unsaid DRONE MOTION
+# a knob: its name, then its value, once it rests; at its end, turned on: nothing more
+spin K2 3
+wait 300
+said DETUNE 42
+spin K1 127
+wait 300
+said CHOIR 100
+spin K1 1
+wait 300
+said_none
+# SELECT: EDIT's page follows the track (the page read, not the turn)
+turn SELECT 1
+wait 400
+said GLINT I (1/3). PRESET
+unsaid TRACK GLINT
+# a message: at once
+press FX
+wait 600
+release FX
+wait 30
+said FREEZE ON
+press FX
+wait 600
+release FX
+wait 30
+said FREEZE OFF
+# OCT+ OCT-: the octave (-1 at first)
+tap OCT+
+wait 300
+said OCTAVE 0
+tap OCT+
+wait 300
+said OCTAVE +1
+tap OCT-
+tap OCT-
+wait 300
+said OCTAVE -1
+# a list: its setting, the row and its place; turned, the next row alone
+tap SEL
+wait 400
+said HARMONY. ROOT
+spin K2 1
+wait 400
+said SCALE: DORIAN, 4 OF 12
+spin K2 1
+wait 300
+said PHRYGIAN, 5 OF 12
+unsaid SCALE
+# its pages turned by OCT+: the row it lands on (the octave as it is)
+tap OCT+
+wait 300
+said OF 12
+unsaid OCTAVE
+tap FX
+wait 400
+# an LFO's TARGET: its section, its row, how to answer (SEL keeps it, FX gives it back)
+tap LFO
+wait 30
+tap LFO
+wait 400
+said LFO 1 TARGETS (2/6)
+spin K3 1
+wait 400
+said TARGET 3, DRONE: TIMBRE, 1 OF 83. SEL: SELECT. FX: CANCEL.
+tap FX
+wait 400
+# the help: HOME held; its page, then each line from its control
+press HOME
+wait 600
+release HOME
+wait 400
+said ENV BUTTON: ENVELOPE. HOLD: SWELL.
+turn SELECT 1
+wait 400
+said EDIT BUTTON: SOUND PAGES.
+# turned past its last page: nothing moved, nothing said (not the track under it)
+turn SELECT 9
+wait 400
+unsaid TRACK
+tap HOME
+wait 400
+# SAVE: LOAD or SAVE; WHAT and INTO; the name, its cursor and its characters
+tap SAVE
+wait 400
+said SAVE. K1: LOAD OR SAVE, NOW SAVE. SEL: NEXT. FX: BACK.
+tap SEL
+wait 400
+said WHAT: SCENE. INTO:
+spin K2 1
+wait 300
+said INTO: 9 EMPTY
+tap SEL
+wait 400
+said NAME IT, SCENE 9. NEW SHARD. CURSOR N, 1 OF 32.
+where
+said K4: LETTERS.
+turn K1 1
+wait 300
+said E, 2 OF 32
+spin K4 1
+wait 300
+said F
+unsaid OF 32
+spin K2 1
+wait 300
+said SPACE
+tap FX
+wait 30
+tap FX
+wait 30
+tap FX
+wait 400
+# a store that fails: the pop-up at once, whole; WHERE says it again; SEL closes it, the page read again
+flash_fail 1
+tap SAVE
+wait 30
+tap SEL
+wait 30
+tap SEL
+wait 30
+tap SEL
+wait 100
+said NOT STORED. THE MEMORY DID NOT TAKE IT. TRY AGAIN. SEL: OK.
+expect popup 1
+where
+said NOT STORED
+tap SEL
+wait 400
+expect popup 0
+said TARGETS
+flash_fail 0
+# CLOUD SEND: its three sends named so, the hands as everywhere
+tap HOME
+wait 30
+tap HOME
+wait 30
+tap HOME
+wait 30
+tap HOME
+wait 400
+said CLOUD SEND (4/5). DRONE SEND
+turn SELECT 1
+wait 300
+said TRACK
+unsaid SEND
+# the logo (HOME on the last of its pages)
+tap HOME
+wait 400
+said FRASIL
+where
+said DRONE TEXTURES FROZEN IN MOTION

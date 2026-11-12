@@ -1,0 +1,234 @@
+# The LEAD on the FM-1 (card #144; Styves, admin #741: the SMK-37's features on the FM-1, its pads' and controls' aside):
+# SELECT's fourth track past BASS, MOSS at the start, the presets (admin #870: twenty, then CUSTOM), MONO's legato,
+# POLY; MIXER's K4 its level (admin #744: the cloud's return on CLOUD III, basic.txt); its pages; each scene's LEAD in OBJ_LEAD (stored with the scene, another
+# scene, back); a backup with it restored, one of an earlier FRASIL (six objects, no OBJ_LEAD) restoring MOSS; a
+# player's LEAD preset by SAVE's WHAT LEAD PRESET (SEL and FX, the FM-1's); PERFORM's PAGE and FRAME with it;
+# the CPU line on the last row.
+#   app/build/host/frasil_host app/tests/lead.txt OUTDIR
+# settings: P_KB 166; LEAD's WAVE 243, FILTER 244, MIX 257, SPACE 258, its MIXER level 259, PRESET 260, MODE 261,
+# DRIVE 263; MIXER's DRONE 73 .. GLINT 75 (K1 .. K3)
+master 3000
+keysstay 1
+wait 300
+# SELECT: DRONE, GLINT, BASS, then the LEAD (its pages: LEAD I 63; the header its rose)
+expect p166 0
+turn SELECT 3
+wait 30
+expect p166 3
+expect lead 1
+turn SELECT 1
+wait 30
+expect p166 3
+# MOSS at the start: PRESET 0, MONO, the first LEAD's sound
+expect p260 0
+expect p261 0
+expect p243 24
+expect p263 32
+expect p259 100
+# the presets (admin #870): twenty, THORN the last (19: its DRIVE 96), then CUSTOM (20: its name alone, the settings as
+# they are); a number past it CUSTOM; MOSS again, its sound
+setp 260 19
+wait 30
+expect p260 19
+expect p263 96
+setp 260 20
+wait 30
+expect p260 20
+expect p263 96
+setp 260 31
+wait 30
+expect p260 20
+setp 260 0
+wait 30
+expect p260 0
+expect p263 32
+expect p244 58
+tap EDIT
+wait 30
+expect page 63
+tap EDIT
+wait 30
+expect page 64
+tap EDIT
+wait 30
+expect page 69
+tap EDIT
+wait 30
+expect page 65
+tap ENV
+wait 30
+expect page 66
+tap ENV
+wait 30
+expect page 70
+tap ARP
+wait 30
+expect page 67
+tap SEQ
+wait 30
+expect page 68
+gopage 0
+wait 30
+# MONO: a key, its note; a second while it is down glides there (not struck); let go, back to the first
+key 7 down 100 0
+wait 200
+expect leadgate 1
+expect leadons 1
+key 11 down 100 0
+wait 200
+expect leadons 1
+expect leadglides 1
+key 11 up
+wait 200
+expect leadglides 2
+key 7 up
+wait 50
+expect leadgate 0
+wait 3000
+expect leadnote -1
+# POLY: three keys at once, three voices
+setp 261 1
+wait 50
+key 0 down 100 0
+key 4 down 100 0
+key 7 down 100 0
+wait 200
+expect leadheld 3
+key 0 up
+key 4 up
+key 7 up
+wait 3000
+setp 261 0
+wait 50
+# MIXER's K4: the LEAD's level (MIXER II gone), its meter with a note
+gopage 42
+wait 30
+expect knob4 259
+key 7 down 100 0
+wait 400
+expect meter4 >0
+turn K4 -10
+wait 30
+expect p259 90
+key 7 up
+wait 3000
+# a scene with its LEAD: slot 2 stored (FILTER 30, MIX 0, MIXER 90), slot 1 loaded (none stored with it: MOSS), back
+setp 244 30
+setp 257 0
+wait 50
+scnstore 2 LEAD_TWO
+wait 100
+scnload 1
+wait 300
+expect p244 58
+expect p257 40
+expect p259 100
+scnload 2
+wait 300
+expect p244 30
+expect p257 0
+expect p259 90
+# a backup with it (OBJ_LEAD, the seventh); slot 2 stored again with another LEAD; the backup restored (SEL held
+# through the question, as basic.txt's; a pop-up says so): slot 2's LEAD the backup's
+backup out:lead.frasil
+setp 244 99
+wait 50
+scnstore 2 LEAD_TWO
+wait 100
+scnload 2
+wait 300
+expect p244 99
+press SEL
+wait 50
+restore out:lead.frasil
+expect restore_rc 0
+release SEL
+wait 50
+expect popup 2
+tap SEL
+wait 30
+expect popup 0
+scnload 2
+wait 300
+expect p244 30
+expect p259 90
+# a backup of an earlier FRASIL (its six objects: no OBJ_LEAD) restored: every scene's LEAD MOSS
+backup_trim out:lead.frasil 6
+press SEL
+wait 50
+restore out:lead.frasil
+expect restore_rc 0
+release SEL
+wait 50
+expect popup 2
+tap SEL
+wait 30
+expect popup 0
+scnload 2
+wait 300
+expect p244 58
+expect p257 40
+expect p259 100
+# SAVE's WHAT LEAD PRESET: SAVE, SAVE again (WHAT and INTO), K1 to LEAD PRESET, INTO NEW, SEL its name, SAVE stores
+setp 166 3
+setp 263 77
+wait 50
+expect upn3 0
+tap SAVE
+wait 30
+expect page 60
+tap SAVE
+wait 30
+expect page 61
+turn K1 9
+wait 50
+expect svwhat 4
+expect svinto 0
+tap SEL
+wait 30
+expect naming 1
+tap SAVE
+wait 300
+expect naming 0
+expect upn3 1
+expect upcur3 0
+# PERFORM: a page listening, the LEAD selected: PAGE's keys 3; FRAME's LEAD (after LOFI TAPE's drag: bytes 53 .. 64
+# its six voices, note and level, 65 its meter; 66 bytes, an FM-1 without it 53), the transport's LEAD bit (8)
+setp 166 3
+gopage 0
+wait 100
+pfhello 0
+wait 200
+expect pfkeys 3
+expect pfframelen 66
+expect pfframe0 6
+expect pfframe51 0
+expect pfframe53 127
+key 7 down 100 0
+wait 300
+expect pfframe51 8
+expect pfframe53 60
+expect leadnote 60
+expect pfframe54 >0
+expect pfframe55 127
+expect pfframe65 >0
+key 7 up
+wait 4000
+expect pfframe51 0
+expect pfframe53 127
+setp 166 0
+wait 200
+expect pfkeys 0
+pfbye
+wait 100
+# the CPU line along the last row, CPU before it (FONT_T, slate), as on the SMK-37
+cpuload 50
+wait 300
+expect cpuline 111
+expect cpulabel 94
+expect cpucol 0
+cpuload 95
+wait 300
+expect cpucol 2
+cpuload 0
+wait 1500

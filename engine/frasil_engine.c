@@ -896,7 +896,8 @@ void frs_param_set(uint32_t p, uint32_t x)
 {
     keymode_gone = latch_gone = 0;
     if (p < NPARAM)
-        param_set((int)p, (int32_t)(x > 255u ? 255u : x));
+        param_set((int)p, (int32_t)(x > 255u ? 255u : PD[p].fmt == F_LTGT ? sound_val(p, x) : x));   /* (a TARGET
+                                          * past this engine's list: none, as a scene's, core.c sound_val) */
     tr_keys();
     fingers_bass_on();
     tr_sync();
@@ -1055,11 +1056,25 @@ static void alone_reset(const uint8_t *scene)
     mq_r = mq_w = 0;
 }
 
+#if FRS_LEAD
+static uint8_t lead_lv_buf[LIVE_LEAD_BYTES];   /* (the LEAD's part, then after the rest) */
+#endif
 uint32_t frs_live_save(uint8_t *out, uint32_t max, const uint8_t *scene)
 {
+    uint32_t n, m = 0;
     if (!open_now || !out)
         return 0;
-    return live_save(out, max > FRS_LIVE_BYTES ? FRS_LIVE_BYTES : max, scene, swell_held, alone_lv, 1);
+    max = max > FRS_LIVE_BYTES ? FRS_LIVE_BYTES : max;
+#if FRS_LEAD
+    n = live_save(out, max, scene, swell_held, alone_lv, 1, lead_lv_buf, sizeof lead_lv_buf, &m);
+    if (n && m && m <= max - n) {        /* (the LEAD's after the rest; no room: the rest alone) */
+        memcpy(out + n, lead_lv_buf, m);
+        n += m;
+    }
+#else
+    n = live_save(out, max, scene, swell_held, alone_lv, 1, 0, 0, &m);
+#endif
+    return n;
 }
 
 uint32_t frs_live_ms(const uint8_t *in, uint32_t n)
@@ -1756,6 +1771,21 @@ int frs_scene_factory(uint32_t i, uint8_t *out)
 
 int frs_dirty(void) { return st.dirty; }
 
+/* ------------------------------------------------------------------ LEAD --- */
+_Static_assert(FRS_LEAD_BYTES == LEAD_BYTES && FRS_SHARD_BYTES == FRS_SCENE_BYTES + LEAD_BYTES,
+               "a shard: its scene, then its LEAD (core.c eng_lead_*)");
+#if FRS_LEAD
+_Static_assert(FRS_LEAD_NV == LEAD_NV, "frs_view_t's LEAD voices are dsp/lead.h's");
+#endif
+void frs_lead_none(uint8_t *out) { eng_lead_none(out); }
+void frs_lead_take(const uint8_t *in) { eng_lead_take(in); }
+void frs_lead_put(const uint8_t *in) { eng_lead_put(in); }
+void frs_lead_get(uint8_t *out) { eng_lead_get(out); }
+void frs_lead_wheels(uint32_t mod, int32_t bend)
+{
+    eng_lead_wheels(mod > 127u ? 127u : mod, bend < -8192 ? -8192 : bend > 8191 ? 8191 : bend);
+}
+
 /* the drone's sequence's steps, edited (frs_param_set's way: what the fingers hold sounds on; the shard edited) */
 int frs_dseq_step(uint32_t step, const uint8_t *notes, uint32_t n)
 {
@@ -1824,6 +1854,24 @@ void frs_view(frs_view_t *v)
     v->dseq_run = dq.run;
     v->dq_nsnd = dq.nsnd;
     memcpy(v->dq_snd, dq.snd, sizeof v->dq_snd);
+#if FRS_LEAD
+    {                                    /* the LEAD's voices (card #152: PERFORM's FRAME's lead_view) */
+        lead_view_t l;
+        uint32_t i;
+        frasil_lead_view(&l);
+        for (i = 0; i < FRS_LEAD_NV; i++) {
+            v->lead_note[i] = l.vnote[i];
+            v->lead_level[i] = l.venv[i];
+        }
+        v->lead_held = l.held;
+        v->lead_meter = frasil_lead_meter();
+    }
+#else
+    memset(v->lead_note, -1, sizeof v->lead_note);
+    memset(v->lead_level, 0, sizeof v->lead_level);
+    v->lead_held = 0;
+    v->lead_meter = 0.0f;
+#endif
 }
 
 void frs_live(float *out) { eng_live(out); }

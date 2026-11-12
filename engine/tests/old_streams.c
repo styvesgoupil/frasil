@@ -9,7 +9,11 @@
  *   engine/tests/old-streams-3.0.2/: takes of "FRS{" (3.0.2-b5's scenes, ae5ce21, this file's `make`: its swell takes
  * too, SWELL turned through scenes taken, gone to and an ANCHOR's way back), their scenes made over as they are played
  * ("FRS}": no name past sixteen, the LFOs' AMOUNTs x1.00, SWELL as it is), every hash their engine's.
- *   engine/tests/run.sh, or: old_streams engine/tests/old-streams engine/tests/old-streams-3.0.2
+ *   engine/tests/old-streams-3.2/: takes of "FRS}" (3.1 .. 3.2's scenes, 0e9a4b2: card #152's base, this file's `make`),
+ * their LEAD MOSS now that a stream's scenes are shards ("FRS~"), every hash their engine's.
+ *   But the takes that play BASS II's PULSE: since card #148 their strike comes in over 5.8 ms (dsp/bass.c PULSE_RISE),
+ * their hashes that engine's (33 of the 81; PULSE_RISE 0, every one their own engine's again).
+ *   engine/tests/run.sh, or: old_streams engine/tests/old-streams engine/tests/old-streams-3.0.2 engine/tests/old-streams-3.2
  *   old_streams make DIR             the takes, written into DIR (on the old engine: -DOLD_ENGINE)
  *   old_streams hash FILE...         each one's hashes: NAME TOP JOIN */
 #include <stdio.h>
@@ -19,6 +23,12 @@
 #include "../frasil_engine.h"
 #include "../frasil_params.h"
 #include "../frasil_stream.h"
+
+#ifdef FST_SCENE_BYTES                   /* (a journal's scene: a shard since card #152; an old engine's, its scene) */
+#define JSCENE FST_SCENE_BYTES
+#else
+#define JSCENE FRS_SCENE_BYTES
+#endif
 
 static uint32_t rs;
 static uint32_t rnd(void)
@@ -177,9 +187,12 @@ static uint8_t *take(uint32_t i, uint32_t nscenes, uint32_t len, uint32_t open, 
         e.op = ev[k].op;
         e.n = ev[k].n;
         memcpy(e.a, ev[k].a, 6);
-        if (e.op == FSTJ_SCENE) {        /* (a factory scene's bytes: perform_swell's) */
-            static uint8_t sb[FRS_SCENE_BYTES];
+        if (e.op == FSTJ_SCENE) {        /* (a factory scene's bytes: perform_swell's; a shard's room, its LEAD MOSS) */
+            static uint8_t sb[JSCENE];
             frs_scene_factory(ev[k].a[4] - 1u, sb);
+#ifdef FST_SCENE_BYTES
+            frs_lead_none(sb + FRS_SCENE_BYTES);
+#endif
             e.a[4] = 0;
             j += fst_jevent(&e, &last, sb, 0, b + j);
             continue;
@@ -498,21 +511,24 @@ int main(int argc, char **argv)
         return hash_files(argc - 2, argv + 2);
 #ifndef OLD_ENGINE
     {
-        int nfiles = 0, moved = 0, arps = 0, nfrs = 0, m2 = 0, a2 = 0, fails;
+        int nfiles = 0, moved = 0, arps = 0, nfrs = 0, m2 = 0, a2 = 0, n32 = 0, m3 = 0, a3 = 0, fails;
         const char *dir = argc >= 2 ? argv[1] : "engine/tests/old-streams";
         const char *dir2 = argc >= 3 ? argv[2] : "engine/tests/old-streams-3.0.2";
+        const char *dir3 = argc >= 4 ? argv[3] : "engine/tests/old-streams-3.2";
         fails = check_kept(dir, 1, &nfiles, &moved, &arps);
         fails += check_kept(dir2, 0, &nfrs, &m2, &a2);
+        fails += check_kept(dir3, 0, &n32, &m3, &a3);
         fails += check_new(factory_count());
         fails += check_cut_stop();
-        if (!nfiles || !nfrs)
-            return printf("FAIL old_streams: no takes in %s\n", !nfiles ? dir : dir2), 1;
+        if (!nfiles || !nfrs || !n32)
+            return printf("FAIL old_streams: no takes in %s\n", !nfiles ? dir : !nfrs ? dir2 : dir3), 1;
         if (fails)
             return printf("old_streams: %d failed\n", fails), 1;
         printf("old_streams: ok (%d takes from before ARP SNAP as their engine played them, from the top and joined; "
                "ARP SNAP 1/4 moves %d of them, all %d arpeggio takes among them; %d takes of FRS{ as 3.0.2-b5 played them; "
-               "3 new takes with their own, one with no state with the engine's; FST_CUT_STOP's pair)\n",
-               nfiles, moved, arps, nfrs);
+               "%d of FRS} as 3.2 played them; 3 new takes with their own, one with no state with the engine's; "
+               "FST_CUT_STOP's pair)\n",
+               nfiles, moved, arps, nfrs, n32);
         return 0;
     }
 #else

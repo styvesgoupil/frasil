@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (C) 2026 Styves Goupil
 // FRASIL's part of the emulator's worklet (base/web/emu/worklet.js loads it first): the River plays a shard,
-// {type: "app", op: "scene", bytes} (its scene_t: web_scene_size() bytes), and lets it go, {type: "app", op: "stop"} (app/web.c);
+// {type: "app", op: "scene", bytes} (its scene_t: web_scene_size() bytes; "FRS~"'s, card #152, its LEAD after it,
+// web_lead_size() more: into web_lead_buf; fewer, a scene alone: web_lead_none, MOSS), and lets it go, {type: "app",
+// op: "stop"} (app/web.c);
 // {type: "app", op: "quiet"}: a page without the screen (the River), the screen's frames not sent;
 // {type: "app", op: "param", p, x}: the River's editor, a setting set (web_param: as a MIDI CC learned on it sets it);
 // {type: "app", op: "latch", t, n}, {op: "clear", t}, {op: "hold", t, n, down}: THE KEYS, what it plays (web_latch,
@@ -35,8 +37,13 @@ globalThis.fm1App = {
       fm1.live = !!m.on && !!ex.web_live;
       fm1.liveAt = -1;
     } else if (m.op === "scene" && ex.web_scene_buf) {
-      const b = Uint8Array.from(m.bytes || []).subarray(0, ex.web_scene_size());
-      if (b.length !== ex.web_scene_size()) return;
+      const all = Uint8Array.from(m.bytes || []), n = ex.web_scene_size(), b = all.subarray(0, n);
+      if (b.length !== n) return;
+      if (ex.web_lead_buf) {             // (its LEAD: a shard's, else MOSS; an engine without them, as it was)
+        const k = ex.web_lead_size();
+        if (all.length >= n + k) new Uint8Array(fm1.mem.buffer, ex.web_lead_buf(), k).set(all.subarray(n, n + k));
+        else ex.web_lead_none();
+      }
       new Uint8Array(fm1.mem.buffer, ex.web_scene_buf(), b.length).set(b);
       ex.web_scene_play();
     } else if (m.op === "param" && ex.web_param) {

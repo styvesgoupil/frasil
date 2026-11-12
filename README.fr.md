@@ -19,14 +19,15 @@ construit dans la gamme que tu as choisie. Appuyer plus fort le fait gonfler. Le
 tout doucement; les notes des drones, elles, ne changent jamais. Le tout se déverse dans une grande réverb luxuriante,
 avec shimmer et freeze. Par-dessus les drones, tu peux jouer GLINT, de petites cloches FM glacées, à la main, avec un
 arpégiateur ou un séquenceur de 32 pas. Sous eux, BASS tient une note grave, ou joue son propre arpège ou une ligne
-d'au plus 32 pas. Le drone a aussi sa propre séquence : ses accords, un pas à la fois. Tous suivent l'horloge MIDI.
+d'au plus 32 pas. Le drone a aussi sa propre séquence : ses accords, un pas à la fois. Par-dessus tout, LEAD joue tes
+mélodies : ses touches sonnent seulement tant que tu les tiens. Tous suivent l'horloge MIDI.
 Le hasard n'entre que là où tu le laisses entrer (CHANCE fait sauter des pas, RANDOM et DRIFT choisissent l'ordre d'un
 arpège, SPARKLE fait tomber des glints sur les notes de tes drones).
 
 FRASIL est pensé comme une voix dans un setup plus grand. Il reçoit les notes MIDI, la pression, les CC et l'horloge
 par USB et TRS.
 
-> **FRASIL 3.1.** Installe-le à tes risques : l'installateur peut toujours remettre le firmware de M-VAVE. FRASIL
+> **FRASIL 3.3.** Installe-le à tes risques : l'installateur peut toujours remettre le firmware de M-VAVE. FRASIL
 > n'est pas affilié à M-VAVE.
 
 ## Installer
@@ -52,6 +53,7 @@ famille de firmwares de Felucca. Il n'a pas de zone à lui :
 | Les séquences du drone des scènes | `0xD6000` | pareil |
 | Les noms des scènes après leur seizième caractère | `0xD2000` | pareil |
 | Tes presets (drone, GLINT, basse) | la flash aussi | pareil |
+| Le LEAD de chaque scène, et tes presets LEAD | `0xD0000` | pareil |
 | Les réglages : le son au démarrage, les canaux MIDI, le tempo, LOAD, le métronome et COUNT-IN, KEYS, les CC appris | `0xFC000` | pareil, dans la paire de secteurs où Felucca garde ses réglages globaux |
 | La calibration du panneau | `0xDC000` | dans le format de Felucca, pour qu'elle reste valide de l'un à l'autre |
 
@@ -122,6 +124,10 @@ hors de la réverb, sauf son SPACE. Ou elle joue son propre arpège, ou sa séqu
 (de 1/16 à 16 BARS), chaque pas une NOTE, un CUT ou un HOLD, avec une LENGTH, un ACCENT et un GATE; écrite pas à pas ou
 en direct, transposée dans la gamme par les touches, une par scène.
 
+**LEAD** joue par-dessus tout : une voix chaude pour les mélodies. Ses touches sonnent seulement tant qu'elles sont
+tenues, une note à la fois avec GLIDE (MONO) ou en accords (POLY). Il a son enveloppe de filtre et son délai, ni arpège
+ni séquence.
+
 **DRONE SEQ** : la séquence du drone, jusqu'à 32 pas, chacun les notes qu'il y joue (jusqu'à huit : un accord et des
 notes par-dessus), un silence ou une liaison, sur son propre RATE (1 BAR au départ). Enregistrée en direct ou pas à
 pas avec REC, une par scène. PLAY lance et arrête les trois séquences ensemble.
@@ -135,20 +141,20 @@ plonge tout sous un passe-bas.
 | Contrôle | Ce qu'il fait |
 | --- | --- |
 | **Touches** | tap : allume un drone (il monte lentement et reste). Tape-le de nouveau : il s'estompe. Tape une autre touche : elle prend sa place, ou s'y ajoute avec le STACK de KEYS à ON. Tiens et appuie : il gonfle et s'ouvre |
-| **SELECT** (A) | TRACK : DRONE, GLINT ou BASS. Les touches la jouent, l'en-tête prend sa couleur, et EDIT, ENV, ARP, SEQ et REC agissent sur elle; sur leurs pages, la page suit. OCT− tenu en le tournant : la piste change, la page reste. Un bouton de page tenu et SELECT tourné : les pages de ce bouton |
+| **SELECT** (A) | TRACK : DRONE, GLINT, BASS ou LEAD. Les touches la jouent, l'en-tête prend sa couleur, et EDIT, ENV, ARP, SEQ et REC agissent sur elle; sur leurs pages, la page suit. OCT− tenu en le tournant : la piste change, la page reste. Un bouton de page tenu et SELECT tourné : les pages de ce bouton |
 | **PRESETS** (B) | le preset de la piste, sur toutes les pages, dans une grille des noms : celui du drone (CUSTOM, les 36, les tiens), celui de GLINT, le MODEL de la basse. Tu l'entends quand tu t'arrêtes dessus; SEL le garde, FX revient au son d'avant. OCT− tenu en le tournant : le choix se fait sans l'entendre, pris au relâchement |
-| **ALGORITHM** (C) | la brillance de la piste, sur toutes les pages : le TIMBRE du drone, le BRIGHT de GLINT, le FILTER de la basse. GLO tenu en le tournant : le CUTOFF de MASTER FILTER |
+| **ALGORITHM** (C) | la brillance de la piste, sur toutes les pages : le TIMBRE du drone, le BRIGHT de GLINT, le FILTER de la basse et du LEAD. GLO tenu en le tournant : le CUTOFF de MASTER FILTER |
 | **K1–K4** | les quatre réglages de la page à l'écran |
-| **EDIT** | le son de la piste : DRONE TONE, DRONE MOTION et les couches du drone (×9 : chaque couche et sa deuxième page, CHOIR III), GLINT I, II, DELAY, ou BASS I, II, TONE. Tenu : fa♯, sol♯ et la♯ de l'octave la plus grave s'allument et mènent aux groupes de pages de la piste. OCT- tenu, puis EDIT : COMPARE, la scène telle que sauvée |
-| **ENV** | l'enveloppe de la piste : DRONE SHAPE, GLINT ADSR, BASS ADSR. Tenu : SWELL, toutes les voix du drone gonflent ensemble |
-| **ARP** | l'arpégiateur de la piste (GLINT, BASS), qui s'ouvre sur son ON/OFF; à ON, ses pages, et la séquence à OFF. Tenu : LATCH de l'arpège. Sur le DRONE : NOT AVAILABLE FOR DRONE |
-| **SEQ** | la séquence de la piste, celle du drone comprise, qui s'ouvre sur son ON/OFF; à ON, ses trois pages, et l'arpège à OFF. Tenu : le STACK de la piste |
+| **EDIT** | le son de la piste : DRONE TONE, DRONE MOTION et les couches du drone (×9 : chaque couche et sa deuxième page, CHOIR III), GLINT I, II, DELAY, BASS I, II, TONE, ou LEAD I, II, III, DELAY. Tenu : fa♯, sol♯ et la♯ de l'octave la plus grave s'allument et mènent aux groupes de pages de la piste. OCT- tenu, puis EDIT : COMPARE, la scène telle que sauvée |
+| **ENV** | l'enveloppe de la piste : DRONE SHAPE, GLINT ADSR, BASS ADSR, ou LEAD ADSR et LEAD FILTER. Tenu : SWELL, toutes les voix du drone gonflent ensemble |
+| **ARP** | l'arpégiateur de la piste (GLINT, BASS), qui s'ouvre sur son ON/OFF; à ON, ses pages, et la séquence à OFF. Tenu : LATCH de l'arpège. Sur le DRONE et le LEAD : NOT AVAILABLE |
+| **SEQ** | la séquence de la piste, celle du drone comprise (aucune sur le LEAD), qui s'ouvre sur son ON/OFF; à ON, ses trois pages, et l'arpège à OFF. Tenu : le STACK de la piste |
 | **REC** | enregistre dans la séquence de la piste, de n'importe quelle page : LIVE (une mesure de décompte depuis le silence, tout de suite par-dessus une séquence qui joue), encore une fois STEP, encore une fois OFF. Quitter les pages SEQ et ARP termine la prise. REC clignote sur le temps tant qu'il enregistre. Tenu : éteint le métronome, ou le rallume. OCT− tenu et REC, sur une page SEQ : CLEAR |
 | **SEL** | HARMONY : fondamentale, gamme, accord, voicing. Tiens SEL et tape une touche : une note seule par-dessus ce qui est allumé, quel que soit STACK; sur la basse, elle prend la place de sa note |
 | **LFO, FX, GLO** | les trois LFO et leurs cibles (×6), GENERATIVE FX, CLOUD (×3), MASTER FILTER, LOFI TAPE et PUMP (×2), GLOBAL, MIDI, MASTERING, MASTER EQ (×2), ROUTING, SCREEN et RECORD (METRONOME, COUNT-IN, TUNE A4). FX tenu : FREEZE. LFO tenu en tournant K1–K4 : ce réglage sur un LFO. GLO tenu en bougeant un CC : MIDI learn |
 | **HOME** | la page de jeu; encore une fois : KEYS (comment les touches jouent la piste : HARMONY, NOTES, LATCH, STACK); MIXER; CLOUD SEND (le SPACE de chaque piste); l'écran du logo, vivant. Tenu : l'aide à l'écran (5 pages, tourne SELECT) |
-| **SAVE** | LOAD ou SAVE. LOAD : SCENES (K1 ou SELECT l'emplacement, ou NEW SHARD au-dessus de l'emplacement 01 pour repartir à neuf; MORPH, LOAD; PLAY charge). SAVE : WHAT (une scène, ou un preset de drone, de GLINT ou de basse), INTO (un emplacement, ou un nouveau preset ou l'un des tiens), puis NAME IT; SEL avance, FX recule, SAVE deux fois va droit à la sauvegarde. SAVE tenu + une touche blanche : charger cette scène. SAVE tenu + REC : sauvegarder la scène en cours |
-| **PLAY** | quand rien ne joue, la scène (ses trois pistes, comme tenu); sinon le transport : les trois séquences s'arrêtent ensemble ou repartent ensemble du début, les arpèges attendent ou reprennent; sur SCENES, charger. Tapé deux fois vite pendant que ça joue, ou tenu : RELEASE ALL; tenu quand rien ne joue : RESTORE, la scène de nouveau, ses séquences du début. Lancé ou tenu, il relance le temps à ce moment, comme un Start MIDI (les temps d'une horloge MIDI restent les siens) |
+| **SAVE** | LOAD ou SAVE. LOAD : SCENES (K1 ou SELECT l'emplacement, ou NEW SHARD au-dessus de l'emplacement 01 pour repartir à neuf; MORPH, LOAD; PLAY charge). SAVE : WHAT (une scène, ou un preset de drone, de GLINT, de basse ou de LEAD), INTO (un emplacement, ou un nouveau preset ou l'un des tiens), puis NAME IT; SEL avance, FX recule, SAVE deux fois va droit à la sauvegarde. SAVE tenu + une touche blanche : charger cette scène. SAVE tenu + REC : sauvegarder la scène en cours |
+| **PLAY** | quand rien ne joue, la scène (ses drones, GLINT et la basse, comme tenu); sinon le transport : les trois séquences s'arrêtent ensemble ou repartent ensemble du début, les arpèges attendent ou reprennent; sur SCENES, charger. Tapé deux fois vite pendant que ça joue, ou tenu : RELEASE ALL; tenu quand rien ne joue : RESTORE, la scène de nouveau, ses séquences du début. Lancé ou tenu, il relance le temps à ce moment, comme un Start MIDI (les temps d'une horloge MIDI restent les siens) |
 | **FREEZE** (FX tenu, ou K4 de CLOUD) | le nuage retient ce qu'il contient, plus rien n'y entre (FX vif entre-temps) |
 | **OCT− / OCT+** | octave, de −3 à +2 (les deux : retour à −1), affichée en grand un instant. Ils clignotent sur le temps. Quand une grille de noms est ouverte, ses écrans |
 
@@ -160,16 +166,17 @@ C pour les trois encodeurs de gauche. Sur la page de jeu, chaque couche du drone
 courant, c'est CHOIR, les cristaux, c'est PARTIALS, la brume, c'est BREATH; la basse, c'est une lente houle orangée,
 couleur de lampe, sur toute la rivière, l'eau plus sombre en dessous. Les quatre strates sous la ligne d'eau montrent
 le mélange exact, WARMTH avec lui. L'en-tête est celui de la piste choisie : toute la bande à sa couleur, DRONE en
-blanc, GLINT en bleu glace, BASS en orange, le nom de la page et celui de la piste écrits dessus; sur la page de jeu,
-il nomme la scène, avec un point dès que le son a changé. Des points sous le titre de chaque page disent où elle est
-parmi les pages de son bouton.
+blanc, GLINT en bleu glace, BASS en orange, LEAD en rose, le nom de la page et celui de la piste écrits dessus; sur la
+page de jeu, il nomme la scène, avec un point dès que le son a changé. Des points sous le titre de chaque page disent
+où elle est parmi les pages de son bouton. Sur la dernière rangée, une fine ligne CPU dit la charge du processeur :
+grise, jaune dès 85 %, rouge dès 92 %.
 
 **Harmonie.** 12 gammes (chromatique, les sept modes, mineure harmonique et mineure mélodique, les deux pentatoniques).
 Accords construits dans la gamme (SINGLE, FIFTH, TRIAD, SEVENTH, SUS2, SUS4, ADD9, QUARTAL) ou de type fixe (MAJ, MIN,
 MAJ7, MIN7, DOM7, AUG, DIM). Voicings : CLOSE, OPEN, WIDE. Une touche hors gamme joue la note de la gamme juste en
 dessous; les touches de la gamme s'allument. KEYS (la deuxième page de HOME) règle, pour chaque piste, HARMONY (à ON,
 ou les touches chromatiques), NOTES (une note seule ou un accord), LATCH (un tap tient la note, ou elle sonne tant que
-la touche est enfoncée) et STACK (un nouvel accord s'ajoute à ce qui est latché, ou prend sa place). Au départ, le drone et GLINT jouent des accords, la basse des notes seules, tout latché, STACK à
+la touche est enfoncée) et STACK (un nouvel accord s'ajoute à ce qui est latché, ou prend sa place). Au départ, le drone joue des accords, GLINT et la basse des notes seules, tout latché, STACK à
 OFF. KEYS sont au FM-1, pas à une scène; NEW SHARD les remet au départ.
 
 **Arpégiateur.** Avec ARP à ON, il joue les touches tenues de la piste une à une, à RATE, sur RANGE octaves. Il suit
@@ -188,7 +195,8 @@ frappée à la division suivante. Avec sa SEQUENCE en marche, les touches transp
 LIVE ou STEP); une séquence vide leur laisse la basse.
 
 **Mixer, pump, mastering.** Le troisième écran de HOME est un MIXER : un fader et un vu-mètre en direct pour DRONE,
-BASS, GLINT et CLOUD, le retour de la réverb; OCT- tenu en tournant K1-K4 : le pan de chaque piste. PUMP (FX) fait plonger chaque piste sur le temps, comme le ferait un
+BASS, GLINT et LEAD; OCT- tenu en tournant K1-K3 : le pan des trois premiers (le LEAD n'en a pas). Le niveau de la
+réverb est le K4 de CLOUD III. PUMP (FX) fait plonger chaque piste sur le temps, comme le ferait un
 sidechain, de 4 mesures au 1/8, synchronisé à l'horloge MIDI ou à TEMPO; sa remontée, son attaque et son décalage
 sont sur PUMP II. MASTERING (GLO) est un compresseur léger sur
 la sortie, avec sa réduction de gain à l'écran. MASTER FILTER (FX) est un passe-bas ou un passe-haut résonant sur les
@@ -212,8 +220,8 @@ Le manuel complet est [app/docs/MANUAL.md](app/docs/MANUAL.md). Un aide-mémoire
 
 ### MIDI (USB et TRS)
 
-Chaque piste a son propre canal, peu importe ce que jouent les touches : les drones sur 1, GLINT sur 2, BASS sur 3 par
-défaut (la deuxième page de GLO, MIDI : OFF, 1–16 ou OMNI pour chacune). Les notes des drones passent par l'harmonie,
+Le DRONE, GLINT et BASS ont chacun leur canal, peu importe ce que jouent les touches : les drones sur 1, GLINT sur 2,
+BASS sur 3 par défaut (la deuxième page de GLO, MIDI : OFF, 1–16 ou OMNI pour chacune). Le LEAD n'en a pas. Les notes des drones passent par l'harmonie,
 selon les KEYS du DRONE (HARMONY, NOTES), donc la note unique d'un séquenceur joue un accord; le sustain (CC 64) les retient. Les notes de GLINT et de BASS
 jouent telles quelles, sans gamme, avec l'OCTAVE de leur piste (elles vont dans son arpégiateur ou sa séquence quand l'un d'eux est actif); la
 basse est mono, la dernière note l'emporte. Les notes sonnent seulement tant qu'elles sont tenues. L'aftertouch
@@ -259,7 +267,7 @@ comparés au budget du FM-1.
 | Chemin | Contenu |
 | --- | --- |
 | `engine/` | le moteur de FRASIL, sans le FM-1 (il se compile aussi seul : `frasil_engine.h`) : `core.c` (les touches, les séquenceurs, les LFO, les scènes, le MIDI), `params.c`, `harmony.c` |
-| `engine/dsp/` | le son : `frasil.c` (voix), `glint.c` (GLINT et son délai), `bass.c` (BASS), `nuage.c` (CLOUD, la réverb) |
+| `engine/dsp/` | le son : `frasil.c` (voix), `glint.c` (GLINT et son délai), `bass.c` (BASS), `lead.c` (le LEAD), `nuage.c` (CLOUD, la réverb) |
 | `app/` | le firmware, l'enveloppe du FM-1 autour du moteur : `app.c` (le panneau, la mémoire, les emplacements), `pages.c`, `ui.c` (l'écran) |
 | `app/docs/`, `app/site/` | le manuel et la page d'accueil du site (`base/tools/make_site.py`) |
 | `base/` | [fm1-base](https://github.com/charlesvestal/fm1-base), la plateforme (sous-module git) |

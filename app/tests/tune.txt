@@ -14,7 +14,7 @@ expect a4 440
 gopage 59
 wait 100
 expect page 59
-expect knob3 248
+expect knob3 273
 shot tune-440.png
 # each track one note, its pitch alone: HARMONY off (the three), GLINT on its keys (no arpeggio), the cloud, the
 # warmth, the LFOs and PUMP out of it (an LFO on a filter moves the phase, the pitch measured with it)
@@ -163,7 +163,7 @@ wait 600
 expect a4 432
 gopage 59
 wait 100
-expect knob3 248
+expect knob3 273
 param 74 0
 param 75 0
 param 73 100

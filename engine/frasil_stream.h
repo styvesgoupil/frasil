@@ -29,20 +29,24 @@ extern "C" {
 #endif
 
 #define FST_VERSION 1u
-#define FST_SCENE_LAYOUT "FRS}"          /* the scenes in it (the River's name): the engine's FRS_SCENE_BYTES. "FRS|"
-                                          * (3.0.2-b5's test builds, never released: their AMOUNTs, in the scenes, the
-                                          * state and the moves, in percent) is refused. The older
-                                          * ones read too, their scenes made over as they are played (frasil_stream.c
-                                          * OLD_LAYOUT: "FRS{" 590, 3.0.2's, before the name's rest, the LFOs' AMOUNTs and
+#define FST_SCENE_LAYOUT FRS_SHARD_LAYOUT   /* the scenes in it (the River's name), "FRS~" (card #152): shards,
+                                          * FST_SCENE_BYTES, each the scene then its LEAD, taken with it where a scene
+                                          * starts or changes (SCN0, FST_SCENE, FST_SCENE_NOW, FST_OPEN; not STORE's, nor
+                                          * ANCHOR's: their scenes alone). "FRS|" (3.0.2-b5's test builds, never released:
+                                          * their AMOUNTs, in the scenes, the state and the moves, in percent) is refused.
+                                          * The older ones read too, their LEAD MOSS from the start, their scenes made over
+                                          * as they are played (frasil_stream.c OLD_LAYOUT: "FRS}" 619, 3.1 .. 3.2's, the
+                                          * scene alone; "FRS{" 590, 3.0.2's, before the name's rest, the LFOs' AMOUNTs and
                                           * SWELL; "FRSz" 586, 3.0's, before LOFI TAPE II too: frs_scene_over, and SWELL as
                                           * it is when one is played, as their engines left it); the stream itself is not
                                           * changed (its CRC stays) */
+#define FST_SCENE_BYTES FRS_SHARD_BYTES  /* a scene in a stream: a shard (644: FRS_SCENE_BYTES, then FRS_LEAD_BYTES) */
 #define FST_BUDGET 2048u                 /* what a block may ask of a replay (fst_read's walk): an event 1, a scene, PANIC,
                                           * CUT or a state 16, an opening 512; a take can't reach it, a damaged or made-up file is refused */
 #define FST_DENS 64u                     /* DENS's bytes */
 #define FST_MOVES 48u                    /* FRS_P_MOMENT's settings, at most (12 in 3.0; fst_capture stops here) */
-#define FST_JEVENT_MAX (5u + 3u + FRS_SCENE_BYTES + 8u)
-#define FST_JHEAD_MAX (64u + FRS_SCENE_BYTES + FRS_STATE_BYTES + 2u * FST_MOVES)
+#define FST_JEVENT_MAX (5u + 3u + FST_SCENE_BYTES + 8u)
+#define FST_JHEAD_MAX (64u + FST_SCENE_BYTES + FRS_STATE_BYTES + 2u * FST_MOVES)
 
 /* the ops (stable numbers). Top bits: 00 no args, 01 two, 10 four, 11 a length byte, then that many */
 enum {
@@ -60,6 +64,19 @@ enum {
     FST_LATCH = 0x80, FST_HOLD = 0x81,
     FST_KEY_DOWN = 0x82,                 /* (key, note, track: P_KB set first, velocity: 0 reads as 100, a touch's) */
     FST_KEY_SINGLE = 0x86,               /* (as FST_KEY_DOWN's: frs_key_down's single, one note on the drones, SEL held) */
+    FST_KEY_LEAD = 0x87,                 /* (as FST_KEY_DOWN's, its track the LEAD's, 3: card #152. An engine without the
+                                          * LEAD skips it, where FST_KEY_DOWN's track 3 would play its bass. Its up:
+                                          * FST_KEY_UP, its pressure FST_KEY_PRESSURE, as any key's) */
+    FST_LEAD_WHEELS = 0x88,              /* (mod 0 .. 127, the pitch wheel's u16 little-endian, -8192 .. 8191 plus 8192,
+                                          * 0: frs_lead_wheels, the SMK-37's wheels on the LEAD) */
+    FST_PARAM16 = 0x89,                  /* (the setting's u16 little-endian, its value, 0: FST_PARAM's for a setting past
+                                          * 255, FST_PARAM's byte too short: the LEAD's from FEEDBACK, P_LD_DFB 256, to
+                                          * P_LD_FRELEASE 267; card #152. A reader without it skips it) */
+    FST_LEAD = 0xC3,                     /* (how, the LEAD's FRS_LEAD_BYTES: how 1 a scene's LEAD taken with it, frs_lead_take
+                                          * (an FM-1's scene gone to: its own object's); 0 as it is now, frs_lead_put (a
+                                          * preset of the player's, FX back); more bytes after: left. In a file the
+                                          * scenes carry their LEAD; in Perform LIVE, whose scenes are the FM-1's scene_t,
+                                          * this does) */
     FST_MIDI = 0x83,                     /* (status, d1, d2, the milliseconds ahead of its stamp it is taken) */
     FST_STORE = 0x84,                    /* (a u16 index into SCNS, 0, 0: frs_scene_store, into nothing kept) */
     FST_RECORDING = 0x85,                /* (COUNT-IN, OVERDUB, a take's ticks, 0: forced off in a replay) */
@@ -71,7 +88,9 @@ enum {
     FST_OPEN = 0xC2,                     /* (the engine opened again: a u16 index into SCNS, tracks, rate u32, state's length,
                                           * its bytes, moves' count, its pairs) */
     /* the journal's alone, never in a file */
-    FSTJ_SCENE = 0xF0,                   /* (the op it stands for, a length u8, FRS_SCENE_BYTES bytes) */
+    FSTJ_SCENE = 0xF0,                   /* (the op it stands for, a length u8, FST_SCENE_BYTES bytes: a shard; a journal of
+                                          * FRS_SCENE_BYTES, "FRS}"'s, read too. FST_STATE's and FST_LEAD's: their bytes
+                                          * first in them, the length theirs: an fst_ev holds 14) */
     FSTJ_OPEN = 0xF1,                    /* (a start block, as the journal's head has it) */
     FSTJ_END = 0xF2,                     /* (lost u32) */
     FSTJ_START = 0xF3                    /* (the ring's: the start is in; the journal's head) */
@@ -84,19 +103,21 @@ typedef struct {
     uint8_t a[14];
 } fst_ev;
 
-/* what a stream starts from */
+/* what a stream starts from (its scene a shard: the scene, then its LEAD) */
 typedef struct {
-    uint8_t scene[FRS_SCENE_BYTES];
+    uint8_t scene[FST_SCENE_BYTES];
     uint8_t state[FRS_STATE_BYTES];
     uint8_t moves[2u * FST_MOVES];
     uint32_t state_n;
     uint8_t moves_n, tracks;
 } fst_start;
 
-/* the engine as it is now (the thread that renders): what fst_fresh starts from. It stores the scene (frs_scene_store), so
- * the sound reads as saved until the engine opens again */
+/* the engine as it is now (the thread that renders): what fst_fresh starts from. It stores the scene (frs_scene_store,
+ * from: FRS_SCENE_BYTES, its name's, or 0), the LEAD after it (frs_lead_get), so the sound reads as saved until the engine
+ * opens again */
 void fst_capture(fst_start *s, const uint8_t *from);
-/* a fresh engine at fs, as s says, the first block rendered; 0, or -1 it would not open (the thread that renders) */
+/* a fresh engine at fs, as s says (its scene taken, its LEAD with it: frs_lead_take), the first block rendered; 0, or -1
+ * it would not open (the thread that renders) */
 int fst_fresh(const fst_start *s, float fs);
 /* what the engine's frs_midi_at takes `offset` frames on from `frames`, in milliseconds ahead of its clock */
 uint8_t fst_midi_ahead(uint64_t frames, uint32_t offset);
@@ -104,8 +125,9 @@ uint8_t fst_midi_ahead(uint64_t frames, uint32_t offset);
 /* ---- the journal: an append-only record of a take, the recording itself until it is saved or discarded. Each piece is
  * whole or absent in what a crash leaves: fst_finish reads up to the last whole one */
 uint32_t fst_jhead(const fst_start *s, uint32_t rate, int64_t created, uint8_t *out);   /* FST_JHEAD_MAX at most */
-/* an event after the one stamped *last; scene: FSTJ_SCENE's FRS_SCENE_BYTES, FSTJ_OPEN's fst_start; else 0. FST_JEVENT_MAX
- * at most (FSTJ_OPEN: FST_JHEAD_MAX) */
+/* an event after the one stamped *last; scene: FSTJ_SCENE's FST_SCENE_BYTES (a shard: frs_scene_store's, then
+ * frs_lead_get's; FST_STATE's and FST_LEAD's, their bytes first in as many, a[2] their length), FSTJ_OPEN's fst_start;
+ * else 0. FST_JEVENT_MAX at most (FSTJ_OPEN: FST_JHEAD_MAX) */
 uint32_t fst_jevent(const fst_ev *e, uint32_t *last, const void *scene, uint32_t lost, uint8_t *out);
 /* the journal's whole pieces as a stream, malloc'd (the caller frees it); 0: none in it, or nothing was played */
 uint8_t *fst_finish(const uint8_t *j, size_t n, size_t *out_n);
@@ -116,8 +138,8 @@ typedef struct {
     int64_t created;
     uint16_t nparam;
     uint8_t tracks, flags;
-    uint16_t sbytes;                     /* a scene's bytes in the file: FRS_SCENE_BYTES, or an older layout's (590 "FRS{",
-                                          * 586 "FRSz") */
+    uint16_t sbytes;                     /* a scene's bytes in the file: FST_SCENE_BYTES, or an older layout's (619 "FRS}",
+                                          * 590 "FRS{", 586 "FRSz") */
     char engine[9], layout[5];
     const uint8_t *scene, *state, *moves, *dens, *scns, *evts;
     uint32_t state_n, moves_n, nscns, evts_n;
@@ -191,7 +213,8 @@ typedef struct {
     uint8_t st_on, st_cmp;
 } fst_live;
 /* a fresh engine at s (fst_fresh), quiet as on air: no metronome, no take's ticks, no count-in (the artist's, not the
- * listener's); its queue's hook in every millisecond (fst_live_at); 0, or -1 it would not open */
+ * listener's); its queue's hook in every millisecond (fst_live_at); 0, or -1 it would not open. Its scene a shard (an
+ * FM-1's scene_t, the LEAD MOSS after it: the running state's LEAD part, or FST_LEAD, says it) */
 int fst_live_open(fst_live *l, const fst_start *s, float fs);
 /* the running state that goes with the start just opened (frs_live_load, the start's scene): 0, or -1 not this engine's
  * (then as the start alone opened it: open again to be sure) */
@@ -206,11 +229,13 @@ int fst_live_at_state(fst_live *l, uint32_t ms, const uint8_t *st, uint32_t n, c
 uint32_t fst_live_state_ms(const fst_live *l);   /* the millisecond a waiting state is taken in, 0xFFFFFFFF none */
 void fst_live_cut(fst_live *l);          /* the queue from its waiting state on dropped (an engine copied to fade out) */
 /* op, its args a[n] as fst_ev has them (an op of a length byte: without it, n its length); scene: the FRS_SCENE_BYTES
- * FST_SCENE, FST_SCENE_NOW, FST_ANCHOR and FST_STORE name (in a file, a u16 index into SCNS: not given here), else 0.
- * 0 done; 1 an op not known, ignored (missed); -1 refused, nothing done (refused): its args too short, a scene's op
- * without its scene, FST_DSTEP of no step or more than 9 bytes, FST_STATE past FRS_STATE_BYTES, FST_OPEN (an engine
- * opened again: fst_live_open). FST_MIDI at the engine's millisecond its stamp says (frs_midi_ms, as on air); after
- * FST_STATE or METRONOME (P_METRO) set, quiet again */
+ * FST_SCENE, FST_SCENE_NOW, FST_ANCHOR and FST_STORE name (in a file, a u16 index into SCNS: not given here; live, the
+ * FM-1's scene_t, its LEAD apart: FST_LEAD), else 0.
+ * 0 done; 1 an op not known, ignored (missed; FST_KEY_LEAD, FST_LEAD, FST_LEAD_WHEELS in an engine without the LEAD); -1
+ * refused, nothing done (refused): its args too short (FST_LEAD's under 1 + FRS_LEAD_BYTES), a scene's op without its
+ * scene, FST_DSTEP of no step or more than 9 bytes, FST_STATE past FRS_STATE_BYTES, FST_OPEN (an engine opened again:
+ * fst_live_open). FST_MIDI at the engine's millisecond its stamp says (frs_midi_ms, as on air); after FST_STATE or
+ * METRONOME (P_METRO) set, quiet again */
 int fst_op(fst_live *l, uint8_t op, const uint8_t *a, uint32_t n, const uint8_t *scene);
 
 uint32_t fst_crc(const uint8_t *b, size_t n);

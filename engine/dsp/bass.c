@@ -17,6 +17,11 @@
 
 #define CH 32u
 #define BASS_G 0.42f                     /* a full bass beside the drones */
+#define PULSE_RISE 8u                    /* PULSE's strike, its note still sounding: PUNCH and the attack in over so many
+                                          * chunks (5.8 ms), not in one (the SMK-37's card #144, admin #676 .. #681: a
+                                          * click at every division, the level x1.8 and the filter x2.8 in 0.7 ms on a
+                                          * note held at its level; the FM-1's too, card #148). 0: the strike in one
+                                          * chunk, as 3.2 */
 
 static struct {
     int8_t note;                         /* -1: silent; else as it is played (OCTAVE not on it) */
@@ -43,6 +48,9 @@ static struct {
     uint32_t phw;                        /* WEIGHT's sine's phase */
     float hl, hz;                        /* BITE's band's two states */
     uint8_t set;                         /* (they have a value: from silence, at once) */
+#if PULSE_RISE
+    uint8_t rise;                        /* PULSE's strike coming in: its chunk, 1 .. PULSE_RISE (0: none) */
+#endif
 } b = {.note = -1, .mg = 1.0f};
 
 /* each model's level, so that they sound about as loud as the sine through FILTER's default */
@@ -62,6 +70,9 @@ void bass_reset(void)
     b.gate = b.dec = b.let_dec = b.set = 0;
     b.ts = b.let_ts = 0.0f;
     b.again = b.pulses = b.ons = 0;
+#if PULSE_RISE
+    b.rise = 0;
+#endif
     b.model = 0;
     b.mg = 1.0f;
     b.vel = b.vel_t = b.oct = b.oct_t = 0.0f;
@@ -76,6 +87,10 @@ void bass_reset(void)
 void bass_lv(br_live *c)
 {
     uint8_t x = (uint8_t)b.note, o = (uint8_t)b.octv, m = (uint8_t)b.model;
+#if PULSE_RISE
+    uint8_t st = (uint8_t)(b.set | b.rise << 1);   /* PULSE's strike coming in, above set's bit: STATE as long as 3.2's
+                                                    * (a 3.2 FM-1's read here: none coming in; 3.2's engine reads set) */
+#endif
     c->u8(c, &x);
     b.note = (int8_t)x;
     if (b.note < 0)
@@ -84,7 +99,13 @@ void bass_lv(br_live *c)
     c->u8(c, &b.gate);
     c->u8(c, &b.dec);
     c->u8(c, &b.let_dec);
+#if PULSE_RISE
+    c->u8(c, &st);
+    b.set = st & 1u;
+    b.rise = (uint8_t)(st >> 1) <= PULSE_RISE ? (uint8_t)(st >> 1) : 0u;
+#else
     c->u8(c, &b.set);
+#endif
     c->u8(c, &m);
     b.octv = (int8_t)o;
     b.model = m;
@@ -148,6 +169,9 @@ void bass_on(int note, float vel, const bass_params_t *p)
     b.again = 0;
     b.vel_t = vel;
     b.pe = 1.0f;
+#if PULSE_RISE
+    b.rise = 0;
+#endif
 }
 
 static void let_go(void)                 /* (where the envelope was, for the screen) */
@@ -317,14 +341,22 @@ void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
             b.gate = 1;
             b.dec = 0;
             b.ts = 0.0f;
+#if PULSE_RISE
+            b.rise = 1;                  /* (PUNCH and the attack coming in, below) */
+#else
             b.pe = 1.0f;
+#endif
             b.pulses++;
         }
         b.ts += ch_t;
         if (!b.gate) {
             b.env += (0.0f - b.env) * kr;
         } else if (!b.dec) {
+#if PULSE_RISE
+            b.env += (1.0f - b.env) * (b.rise ? ka * (float)b.rise * (1.0f / (float)PULSE_RISE) : ka);
+#else
             b.env += (1.0f - b.env) * ka;
+#endif
             b.dec = b.env >= 0.95f;
             if (b.dec)
                 b.ts = 0.0f;
@@ -339,7 +371,17 @@ void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
         b.wgt += (p->weight - b.wgt) * kf;
         b.pch += (p->punch - b.pch) * kf;
         b.bit += (p->bite - b.bit) * kf;
+#if PULSE_RISE
+        if (b.rise) {                    /* (PUNCH up a share a chunk to its top, or falling still while over it) */
+            float t = (float)b.rise * (1.0f / (float)PULSE_RISE);
+            b.pe = b.pe * kpe > t ? b.pe * kpe : t;
+            b.rise = b.rise < PULSE_RISE ? (uint8_t)(b.rise + 1u) : 0u;
+        } else {
+            b.pe *= kpe;
+        }
+#else
         b.pe *= kpe;
+#endif
         wd = 1.0f + 0.9f * b.wgt;
         drv = 1.0f + 2.0f * b.drv;       /* DRIVE: into the soft clip, crossfaded from the clean wave */
         norm = 1.0f / br_soft(drv > 1.5f ? 1.5f : drv);

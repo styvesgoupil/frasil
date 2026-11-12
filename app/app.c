@@ -12,7 +12,11 @@
  * the encoders, the keys' scan and lights), MIDI learn, the contract with the platform. Part of the unity build
  * (device/unity.c, host/plat_host.c), after the platform: gfx.c and announce.c are in scope. */
 #define FRASIL_SHELL                     /* (the engine in the FM-1's unity build: the platform's libc and clamp) */
+#if PLAT_SMK37
+#define FRS_NKEYS 32                     /* the SMK-37: the FM-1's 27, then 27..31 for its ten outer keys (keys_outer) */
+#else
 #define FRS_NKEYS NKEYS
+#endif
 #if defined PLAT_HOST && !defined PLAT_WEB
 static uint8_t test_arp_log;             /* (arplog 1: each arpeggio's step and each set it takes, printed) */
 #define ARP_TRACE(a, what, note)                                                                                       \
@@ -55,6 +59,8 @@ static void lv_record_off(void);
 static void lv_rec(uint32_t layer);
 static void lv_watch(int swell);
 static void lv_pump(void);
+static void lv_lead(uint32_t how);
+static void lv_wheels(uint32_t mod, int32_t bend);
 #ifndef PLAT_WEB
 static void lv_param_set(int p, int32_t x);
 #define param_set(p, x) lv_param_set((p), (x))
@@ -128,7 +134,16 @@ static void lv_param_set(int p, int32_t x);
                                           * lengths (bseq_over) */
 #define BSQ_FRBT 0x54425246u             /* "FRBT": the one before (with FRSl): from the bass's notes on */
 #define BSQ_FRBS 0x53425246u             /* "FRBS": the one before the scenes' TEMPO (FRBT's less one a scene) */
-#define SHARD_MAGIC 0x7D535246u          /* "FRS}": a scene whole (scene_t: its sequences, its TEMPO, the bass's RATE,
+#if FRS_LEAD
+#define SHARD_MAGIC 0x7E535246u          /* "FRS~" (card #152): a shard as the River and the engine keep it, "FRS}"'s
+                                          * scene_t then the LEAD's settings (P_LD_WAVE .. P_LD_FRELEASE: an OBJ_LEAD
+                                          * slot's entry without its flag), NLDS bytes after SWELL (the schema's
+                                          * shard_t); "FRS}" and every earlier one: the LEAD MOSS, each its default */
+#define SHARD_FRSBRACE 0x7D535246u
+#else
+#define SHARD_MAGIC 0x7D535246u
+#endif
+                                         /* "FRS}": a scene whole (scene_t: its sequences, its TEMPO, the bass's RATE,
                                           * arpeggio, BASS TONE, SPACE and GLINT's AUTO VIB after the rest, then the
                                           * drone's sequence, then LOFI TAPE II's four, then the name's rest, the LFOs'
                                           * AMOUNTs and SWELL), as the River keeps it, a shard; "FRS|": 3.0.2-b5's test
@@ -230,8 +245,9 @@ _Static_assert(sizeof(upresets_t) <= 3840u, "the player's presets fit a store ob
 static settings_t set;
 static scenes_t scn;
 static upresets_t up;
-static int8_t up_cur[3];                 /* each track's: the preset of the player's taken or stored last, -1 none (a factory
-                                          * one taken, a scene): turned since or not, INTO starts on it */
+static int8_t up_cur[3 + FRS_LEAD];      /* each track's: the preset of the player's taken or stored last, -1 none (a factory
+                                          * one taken, a scene): turned since or not, INTO starts on it (the LEAD's
+                                          * fourth: its own in OBJ_LEAD, app.c ldu_*) */
 
 /* the records of earlier layouts, read byte by byte and made over into the new ones (the parameters added since at
  * their defaults). A scene: its name (OLD_NAME, or the layout's own), the sound (nv), nch, narp, the chords (8 x 5), the
@@ -373,11 +389,16 @@ _Static_assert(offsetof(settings_t, bq_len) == offsetof(settings_t, clock) + 1u 
                    FRSH_BYTES - 4u - FRSH_NV && FRSH_BSEQ == 189u,
                "the settings: FRSH's (FRSG's: FRSF's 172 bytes, MORPH, LOAD and the learned CCs; 192 with its padding; "
                "then the bass's sequence), the sound three settings longer");
+#if FRS_LEAD
+#define P_AFTER_AMT P_LD_WAVE            /* (LEAD's settings after the FM-1's, the SMK-37's alone: in no record, never a byte's) */
+#else
+#define P_AFTER_AMT NPARAM
+#endif
 _Static_assert(NBQLEN == 9u && SC_BSEQ == 32u && SC_SEQ == SC_BSEQ && P_BQ_NLEN == P_CLOCK + 1 && P_GL_VIB_AUTO == 196 &&
                    P_DQ_ON == P_GL_VIB_AUTO + 1 && P_DQ_NOTES == P_DQ_STEP + 1 && P_COUNT_IN + 1 == P_ARP_SNAP &&
                    P_SAVER == P_ARP_SNAP + 1 && P_TP_FLUTTER == P_SAVER + 1 && P_TP_DROPOUT == P_TP_FLUTTER + 3 &&
                    P_L1_AMT1 == P_TP_DROPOUT + 1 && P_L2_AMT1 == P_L1_AMT1 + 4 && P_L3_AMT1 == P_L2_AMT1 + 4 &&
-                   P_L3_AMT4 == P_L1_AMT1 + 11 && P_L3_AMT4 + 1 == NPARAM && NPARAM < 255,
+                   P_L3_AMT4 == P_L1_AMT1 + 11 && P_L3_AMT4 + 1 == P_AFTER_AMT && P_AFTER_AMT < 255,
                "the bass's sequence's settings (params.c PD: RATE's 9, STEP's and SEQ LENGTH's 32, LENGTH's 1 .. 32); "
                "LENGTH numbered last, then what came after it; the two sequences' steps alike (step_*)");
 
@@ -426,7 +447,7 @@ static struct {
     int8_t keys_arm;
     uint8_t help, help_page;             /* HOME held: the help on the screen until HOME again; SELECT its pages */
     uint8_t touched_enc;                 /* the encoder that turned it (EN_*: the screen's badge) */
-    uint8_t touched;                     /* the parameter turned last (the screen shows it a moment) */
+    prm_t touched;                       /* the parameter turned last (the screen shows it a moment) */
     uint8_t store_hold;                  /* a backup streaming to USB: nothing saved until it ends (app_backup_hold) */
     uint8_t prefs_due;                   /* prefs_save asked: 1 once nothing sounds (prefs_quiet), 2 now (SPK/JACK) */
     uint8_t booting;                     /* app_init done, the UI not started yet (app_ui_init: the logo) */
@@ -457,7 +478,7 @@ static float pump_low = 1.0f;            /* the drones' lowest pump gain since t
  * DIM HI (~1/30 of lit); the mid level its steady one (lit one frame in eight, the glow between: ~15 %), which the
  * platform's plat_lights does not offer: on the FM-1 it is set here, in fm1_led_mid (the unity build has it in scope).
  * OCT's blink is softer still (app_tick): the glow and every other mid frame, ~9 % */
-#ifndef PLAT_HOST
+#if !defined PLAT_HOST && !PLAT_SMK37    /* (the SMK-37's lights: plat_lights alone, no key LEDs, no mid level) */
 static uint8_t oct_ml[FM1_NCOL];         /* OCT- and OCT+ in fm1_led_mid's columns */
 #endif
 static void lights_set(uint32_t lit, uint32_t mid, uint32_t glow, uint32_t keys, uint32_t keys_glow, uint32_t keys_mid)
@@ -468,7 +489,7 @@ static void lights_set(uint32_t lit, uint32_t mid, uint32_t glow, uint32_t keys,
     keyleds_now = keys | keys_glow | keys_mid;
     keymid_now = keys_mid & ~keys;
     plat_lights(lit, keys, mid | glow, keys_glow | keys_mid, 2);
-#ifndef PLAT_HOST
+#if !defined PLAT_HOST && !PLAT_SMK37
     {
         uint8_t ml[FM1_NCOL] = {0}, om[FM1_NCOL] = {0};
         uint32_t i, f;
@@ -501,7 +522,7 @@ static void lights_set(uint32_t lit, uint32_t mid, uint32_t glow, uint32_t keys,
  * every other one while they blink */
 void app_tick(void)
 {
-#ifndef PLAT_HOST
+#if !defined PLAT_HOST && !PLAT_SMK37
     static uint8_t was_mid, odd;
     uint32_t c;
     if (!fm1__mid_ph) {
@@ -712,6 +733,10 @@ static uint32_t saver_keys(uint32_t keys)
     return keys;
 }
 
+static uint32_t welcome_buttons(uint32_t btn);   /* (Learn's welcome closed as the screensaver wakes: below, learn_tick) */
+static uint32_t welcome_keys(uint32_t keys);
+static int welcome_knob(void);
+
 /* an encoder's detents (every read of them goes through here): one wakes it; the knob that did, dropped while it
  * turns on (SAVER_GRACE_MS of rest, SAVER_GRACE_MAX at most), and any knob that soon after a wake */
 static int32_t enc_read(int e)
@@ -778,10 +803,12 @@ static void pop_copy(char *d, const char *s, uint32_t n)
     d[i] = 0;
 }
 
+static uint32_t spk_turned;              /* the encoders turned since the last UI frame, bit EN_* (speak.c: the readouts) */
+static void spk_popup(void);             /* (the screen reader's, speak.c) */
+static void spk_msg(const char *a, const char *b, uint32_t flags);
+
 static void popup(int kind, const char *kicker, const char *title, const char *l1, const char *l2, const char *l3)
 {
-    char t[128];
-    uint32_t i;
     pop_copy(pop.kicker, kicker, sizeof pop.kicker);
     pop_copy(pop.title, title, sizeof pop.title);
     pop_copy(pop.line[0], l1, sizeof pop.line[0]);
@@ -796,17 +823,7 @@ static void popup(int kind, const char *kicker, const char *title, const char *l
     pop.drawn = 0;
     pop.btn = plat_buttons();            /* (SEL already down closes it only pressed again) */
     fm.hold_done = ~0u;                  /* the buttons down now: no tap, no hold */
-    if (ann_on()) {                      /* and to a screen reader (announce.c, fm1-reader) */
-        t[0] = 0;
-        text_cat(t, pop.title);
-        for (i = 0; i < 3u; i++)
-            if (pop.line[i][0]) {
-                text_cat(t, " ");
-                text_cat(t, pop.line[i]);
-            }
-        text_cat(t, " SEL: OK.");
-        ann_say(t, 0, ANN_NOW);
-    }
+    spk_popup();                         /* and to a screen reader: a warning heard whole (speak.c) */
 }
 
 /* a pop-up up, a frame's input: SEL pressed closes it (its release and its hold nothing); the encoders' turns
@@ -847,14 +864,18 @@ static int page_hidden(uint32_t p)
 
 /* the setting under knob i of page p. KEYS: the selected track's. A first page of ARP or SEQ turned OFF: its ON/OFF alone.
  * RECORD on LIVE a track's steps page is no step editor: what a take asks for (LIVE_K) */
-static const uint8_t LIVE_K[3][4] = {{P_DQ_LEN, P_DQ_RATE, P_DQ_UNDO, P_KY_DR_STACK},
+static const prm_t LIVE_K[3][4] = {{P_DQ_LEN, P_DQ_RATE, P_DQ_UNDO, P_KY_DR_STACK},
                                      {P_SQ_LEN, P_ARP_RATE, P_SQ_UNDO, NPARAM},
                                      {P_BQ_STEPS, P_BQ_LEN, P_BQ_UNDO, NPARAM}};
 
-static uint8_t page_knob(uint32_t p, uint32_t i)
+static prm_t page_knob(uint32_t p, uint32_t i)
 {
-    if (p == PG_KEYS)
-        return (uint8_t)(P_KY_DR_HARM + 4u * st.v[P_KB] + i);
+#if FRS_LEAD
+    if (p == PG_KEYS && st.lead)         /* (LEAD: one note as played, no KEYS of its own) */
+        return NPARAM;
+#endif
+    if (p == PG_KEYS)                    /* (GLINT's LATCH none: its keys sound while down, card #143) */
+        return st.v[P_KB] == 1u && i == 2u ? (prm_t)NPARAM : (prm_t)(P_KY_DR_HARM + 4u * st.v[P_KB] + i);
     if (i && ((p == PG_ARP && !ways_on(1u, SQT_ARP)) || (p == PG_BARP && !ways_on(2u, SQT_ARP)) ||
               (p == PG_SEQ && !ways_on(1u, SQT_SEQ)) || (p == PG_BSEQ && !ways_on(2u, SQT_SEQ)) ||
               (p == PG_DSEQ && !ways_on(0u, SQT_SEQ))))
@@ -1036,7 +1057,7 @@ uint32_t app_log_word(void)
 }
 static int cpu_over(void) { return over_at && plat_ms() - over_at < 3000u; }
 
-/* the header's battery (ui.c batt_draw, #125): the divider's reading (plat_battery, a sample a second) in millivolts
+/* the header's battery (ui.c batt_draw, #125): the divider's reading (plat_battery_raw, read a second apart) in millivolts
  * (APP_BATT_RAW_4V2: what it reads at 4.20 V), smoothed over about half a minute (a chord's load lowers it a little,
  * USB raises it: neither makes the colour jump), then a percent along a Li-ion cell's curve. The level drawn moves
  * only once the reading has gone 2 % from it; its colour (green; yellow at 30 % and under; red at 10 % and under)
@@ -1083,7 +1104,9 @@ static void batt_tick(void)             /* each UI frame: a reading a second */
     if (batt.at && now - batt.at < 1000u)
         return;
     batt.at = now | 1u;
-    batt.raw = plat_battery();
+    batt.raw = plat_battery_raw();       /* (0: not read yet, -1 here as before) */
+    if (batt.raw <= 0)
+        batt.raw = -1;
     if (batt.raw < 16) {                 /* (none, or nothing on the divider) */
         batt.mv16 = 0;
         batt.pct = -1;
@@ -1104,10 +1127,12 @@ static void load_watch(void)
 {
     static uint32_t calm_since, seen, back_at, calm_ms = 4000u, ahead_at;
     uint32_t now = plat_ms(), at = over_at;
-    if (cpu_load() > 82u && frasil_shed_level() < 5 && now - ahead_at > 1000u) {   /* the load near the top: a
-                                                                                       * step lighter before a render
-                                                                                       * runs over (the steps glide:
-                                                                                       * not heard), one a second */
+    if (cpu_load() > 82u && frasil_shed_level() < FR_SHED_TOP && now - ahead_at > 1000u) {   /* the load near the
+                                                                                                 * top: a step lighter
+                                                                                                 * before a render runs
+                                                                                                 * over (the steps glide:
+                                                                                                 * not heard), one a
+                                                                                                 * second */
         shed_to(frasil_shed_level() + 1);
         over_at = at = plat_ms() | 1u;   /* (as an overrun: no step back for the calm, the backoff the same) */
         ahead_at = now;
@@ -1174,6 +1199,200 @@ static void name_put(uint32_t s, const char *t)
     }
 }
 
+#if FRS_LEAD
+/* each scene's LEAD (card #144, admin #605), the SMK-37's: its own object (OBJ_LEAD), the scene record as it was (the
+ * FM-1's, the River's, the iPad's, Perform's: byte for byte). FRLD: u32 "FRLD", u8 its version (3), u8 its slots
+ * (NSCENES), u8 an entry's bytes, u8 its settings; then each slot's entry: u8 1 saved with a LEAD (0 none), then LEAD's
+ * settings as the knobs have them, P_LD_WAVE .. P_LD_FRELEASE (its MIXER level and PRESET with them, the filter's ADSR
+ * last: NLDS). Read and written whole, a slot changed at a time (on the stack: no copy of them all in RAM). A slot
+ * without one (saved before, a factory scene, NEW SHARD, an unknown layout): MOSS, LEAD's defaults; the same scene
+ * sounds the same.
+ * The player's LEAD presets (admin #628) after the scenes' entries, the same object (a build before them reads the
+ * scenes' part alone, LDP_BYTES, and writes it back so: their presets gone, the scenes kept): u8 'U', u8 its presets
+ * (NUP), u8 a preset's bytes, u8 its settings (NLDS); then each preset: u8 1 saved (0 none, those after it none too),
+ * its name (SC_NAME, 0 after it), LEAD's settings as the knobs have them (a scene entry's: its MIXER level in it,
+ * never taken). PRESET's list has them after the factory ones; read on the stack when wanted (no copy in RAM) */
+#define LDP_MAGIC 0x444C5246u            /* "FRLD" */
+#define LDP_VER 4u                       /* (4 and 3 the filter's ADSR in; 2, 1 without it: read with the amp's in its
+                                          * place, as they sounded; PRESET as stored in each, a number past the presets
+                                          * CUSTOM: eng_lead_take, admin #870, #875) */
+#define LDP_HEAD 8u
+#define LDP_ENTRY (1u + NLDS)
+#define LDP_BYTES (LDP_HEAD + NSCENES * LDP_ENTRY)
+#define LDP_NLDS2 (P_LD_DRIVE - P_LD_WAVE + 1)   /* (versions 1 and 2: their settings, their entry, their bytes) */
+#define LDP_ENTRY2 (1u + LDP_NLDS2)
+#define LDP_BYTES2 (LDP_HEAD + NSCENES * LDP_ENTRY2)
+#define LDU_HEAD 4u                      /* (the player's part: its head, a preset's bytes, the whole object's) */
+#define LDU_ENTRY (1u + SC_NAME + NLDS)
+#define LDP_ALL (LDP_BYTES + LDU_HEAD + NUP * LDU_ENTRY)
+_Static_assert(LDP_ALL <= PLAT_STORE_MAX && LDU_ENTRY <= 255u && P_MX_LEAD > P_LD_WAVE && P_MX_LEAD < P_LD_FRELEASE,
+               "LEAD's scenes and the player's LEAD presets in one object, its MIXER level among their settings");
+_Static_assert(LDP_BYTES <= PLAT_STORE_MAX && NSCENES <= 255u && P_LD_FATTACK == P_LD_DRIVE + 1 &&
+                   P_LD_FRELEASE == P_LD_FATTACK + 3 && P_LD_RELEASE == P_LD_ATTACK + 3,
+               "LEAD's scenes in one object, the filter's ADSR after the rest, each four in a row");
+static void ldu_none(uint8_t *b)         /* the player's part, none of theirs (an object without it: a build's before) */
+{
+    uint8_t *u = b + LDP_BYTES;
+    memset(u, 0, LDP_ALL - LDP_BYTES);
+    u[0] = 'U';
+    u[1] = NUP;
+    u[2] = LDU_ENTRY;
+    u[3] = NLDS;
+}
+static int ldp_read(uint8_t *b)          /* the object into b (LDP_ALL): 1 this layout's (earlier versions made over:
+                                          * 1 and 2 each entry the filter's ADSR its amp's; and so written at the next
+                                          * STORE; without the player's part, none of theirs) */
+{
+    uint32_t s, k;
+    int n = plat_store_load(OBJ_LEAD, b, LDP_ALL), v;
+    if (n < (int)LDP_HEAD || ((uint32_t)b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24) !=
+                                 LDP_MAGIC || b[5] != NSCENES)
+        return 0;
+    v = b[4];
+    if ((v == (int)LDP_VER || v == 3) && (n == (int)LDP_BYTES || n == (int)LDP_ALL) && b[6] == LDP_ENTRY &&
+        b[7] == NLDS) {
+        if (n != (int)LDP_ALL || v == 3 || b[LDP_BYTES] != 'U' || b[LDP_BYTES + 1u] != NUP ||
+            b[LDP_BYTES + 2u] != LDU_ENTRY || b[LDP_BYTES + 3u] != NLDS)
+            ldu_none(b);
+        b[4] = LDP_VER;
+        return 1;
+    }
+    if ((v != 1 && v != 2) || n != (int)LDP_BYTES2 || b[6] != LDP_ENTRY2 || b[7] != LDP_NLDS2)
+        return 0;
+    for (s = NSCENES; s-- > 0;) {        /* (the last first: each entry further on than it was) */
+        uint8_t *e = b + LDP_HEAD + s * LDP_ENTRY;
+        const uint8_t *o = b + LDP_HEAD + s * LDP_ENTRY2;
+        for (k = LDP_ENTRY2; k-- > 0;)   /* (its last byte first: the two overlap; the FM-1's libc has no memmove) */
+            e[k] = o[k];
+        for (k = 0; k < 4u; k++)
+            e[1u + P_LD_FATTACK - P_LD_WAVE + k] = e[1u + P_LD_ATTACK - P_LD_WAVE + k];
+    }
+    b[4] = LDP_VER;
+    b[6] = LDP_ENTRY;
+    b[7] = NLDS;
+    ldu_none(b);
+    return 1;
+}
+static void ldp_fresh(uint8_t *b)        /* none yet, or an earlier layout: every slot none, none of the player's */
+{
+    memset(b, 0, LDP_BYTES);
+    b[0] = (uint8_t)LDP_MAGIC;
+    b[1] = (uint8_t)(LDP_MAGIC >> 8);
+    b[2] = (uint8_t)(LDP_MAGIC >> 16);
+    b[3] = (uint8_t)(LDP_MAGIC >> 24);
+    b[4] = LDP_VER;
+    b[5] = NSCENES;
+    b[6] = LDP_ENTRY;
+    b[7] = NLDS;
+    ldu_none(b);
+}
+static void ldp_load(uint32_t s)         /* slot s's LEAD into the settings (none: MOSS), as the scene's (saved_ld: the
+                                          * engine's eng_lead_take, a shard's LEAD's way there: card #152) */
+{
+    uint8_t b[LDP_ALL], m[NLDS];
+    const uint8_t *e = 0;
+    if (s < NSCENES && ldp_read(b) && b[LDP_HEAD + s * LDP_ENTRY] == 1u)
+        e = b + LDP_HEAD + s * LDP_ENTRY + 1u;
+    if (!e)
+        eng_lead_none(m);
+    eng_lead_take(e ? e : m);            /* (each past its max its default) */
+}
+static int ldp_save(uint32_t s)          /* the settings' LEAD into slot s's entry: 0 written */
+{
+    uint8_t b[LDP_ALL];
+    uint8_t *e = b + LDP_HEAD + s * LDP_ENTRY;
+    if (s >= NSCENES)
+        return -1;
+    if (!ldp_read(b))                    /* (none yet, or an earlier layout: every other slot none) */
+        ldp_fresh(b);
+    e[0] = 1;
+    memcpy(e + 1, &st.v[P_LD_WAVE], NLDS);
+    return plat_store_save(OBJ_LEAD, b, LDP_ALL);
+}
+
+/* the player's LEAD presets (admin #628): OBJ_LEAD's own part, as the others' presets of the player's (up) are theirs */
+static const uint8_t *ldu_at(const uint8_t *b, uint32_t i) { return b + LDP_BYTES + LDU_HEAD + i * LDU_ENTRY; }
+static uint32_t ldu_count(const uint8_t *b)
+{
+    uint32_t n = 0;
+    while (n < NUP && ldu_at(b, n)[0] == 1u)
+        n++;
+    return n;
+}
+static uint32_t ldu_n(void)              /* how many */
+{
+    uint8_t b[LDP_ALL];
+    return ldp_read(b) ? ldu_count(b) : 0u;
+}
+static void ldu_name_of(const uint8_t *b, uint32_t i, char *o)   /* its name (SC_NAME + 1 at most) */
+{
+    const uint8_t *e = ldu_at(b, i) + 1u;
+    uint32_t k;
+    for (k = 0; k < SC_NAME && e[k]; k++)
+        o[k] = (char)e[k];
+    o[k] = 0;
+}
+static void ldu_name(uint32_t i, char *o)
+{
+    uint8_t b[LDP_ALL];
+    o[0] = 0;
+    if (i < NUP && ldp_read(b))
+        ldu_name_of(b, i, o);
+}
+static int ldu_in_use(void)              /* the one taken or stored last, as the LEAD sounds now (its level aside); -1 */
+{
+    uint8_t b[LDP_ALL];
+    const uint8_t *v;
+    uint32_t i;
+    int c = up_cur[3];
+    if (c < 0 || !ldp_read(b) || ldu_at(b, (uint32_t)c)[0] != 1u)
+        return -1;
+    v = ldu_at(b, (uint32_t)c) + 1u + SC_NAME;
+    for (i = 0; i < NLDS; i++)
+        if (P_LD_WAVE + i != P_MX_LEAD && v[i] != st.v[P_LD_WAVE + i])
+            return -1;
+    return c;
+}
+static void ldu_take(uint32_t i)         /* preset i into LEAD's settings, every one but its MIXER level (MODE turned:
+                                          * the voices let go, as a factory one) */
+{
+    uint8_t b[LDP_ALL];
+    const uint8_t *v;
+    uint32_t k;
+    if (i >= NUP || !ldp_read(b) || ldu_at(b, i)[0] != 1u)
+        return;
+    v = ldu_at(b, i) + 1u + SC_NAME;
+    for (k = 0; k < NLDS; k++) {
+        uint32_t p = P_LD_WAVE + k;
+        if (p != P_MX_LEAD && p != P_LD_PRESET)
+            param_set((int)p, lead_in(p, v[k]));
+    }
+    k = P_LD_PRESET - P_LD_WAVE;         /* (its PRESET the one it was made from, not applied: the cell's name; one
+                                          * past the presets CUSTOM) */
+    st.v[P_LD_PRESET] = lead_in(P_LD_PRESET, v[k]);
+    st.dirty = (uint8_t)sound_changed();
+    lv_lead(0u);                         /* (that PRESET in place: the LEAD as it is, card #152) */
+    up_cur[3] = (int8_t)i;
+}
+static int ldu_save(uint32_t at, const char *name)   /* LEAD's settings as they are into preset at, so named: 0 written */
+{
+    uint8_t b[LDP_ALL], *e;
+    uint32_t k, end = 0;
+    if (at >= NUP)
+        return -1;
+    if (!ldp_read(b))
+        ldp_fresh(b);
+    e = b + LDP_BYTES + LDU_HEAD + at * LDU_ENTRY;
+    e[0] = 1;
+    for (k = 0; k < SC_NAME; k++) {
+        end = end || !name[k];
+        e[1u + k] = end ? 0 : (uint8_t)name[k];
+    }
+    memcpy(e + 1u + SC_NAME, &st.v[P_LD_WAVE], NLDS);
+    return plat_store_save(OBJ_LEAD, b, LDP_ALL);
+}
+#endif
+
 static void scene_load(uint32_t s)
 {
     scene_t sc;
@@ -1200,8 +1419,15 @@ static void scene_go(uint32_t s)
     scene_get(s, &sc);
     fm.scene = (uint8_t)s;
     eng_scene_go(&sc);
+#if FRS_LEAD
+    ldp_load(s);                         /* (its LEAD: its own object's; none, MOSS) */
+#endif
     lv_long(FST_SCENE, s);
+    lv_lead(1u);                         /* (its LEAD after it, as the scene's: card #152) */
     up_cur[0] = up_cur[1] = up_cur[2] = -1;   /* (the scene's sound now, no preset's) */
+#if FRS_LEAD
+    up_cur[3] = -1;                      /* (its LEAD too) */
+#endif
     if (s >= NSCENES && !test_keys_stay) {   /* NEW SCENE: KEYS back to their defaults */
         uint8_t was[P_KY_BS_STACK + 1u - P_KY_DR_HARM];
         uint32_t p;
@@ -1485,7 +1711,11 @@ static int scene_write(uint32_t s, const char *name)
         name_put(s, name);
     scn.used |= (uint16_t)(1u << s);
     fm.scene = (uint8_t)s;
+#if FRS_LEAD                             /* (and its LEAD, its own object: ldp_save) */
+    if (scenes_save() == 0 && store_all() == 0 && ldp_save(s) == 0) {
+#else
     if (scenes_save() == 0 && store_all() == 0) {
+#endif
         store_old = 0;
         sound_mark();
         lv_long(FST_STORE, s);           /* (frs_scene_store: the scene as saved now, the sound marked so) */
@@ -1610,8 +1840,9 @@ static void name_close(int keep)
 
 /* ---------------------------------------------------- the SAVE flow, presets --- */
 /* SAVE: LOAD | SAVE (K1, PG_SAVE); LOAD: SCENES. SAVE: WHAT and INTO (PG_SAVEAS); then the name (nm.flow); SEL goes on, FX
- * goes back a step. WHAT: 0 SCENE, 1 DRONE PRESET, 2 GLINT PRESET, 3 BASS PRESET. INTO: a slot, or for a preset 0 NEW, n
- * the player's nth (replaced). The player's presets come after the factory ones in PRESET's lists */
+ * goes back a step. WHAT: 0 SCENE, 1 DRONE PRESET, 2 GLINT PRESET, 3 BASS PRESET (the SMK-37: 4 LEAD PRESET, admin #628).
+ * INTO: a slot, or for a preset 0 NEW, n the player's nth (replaced). The player's presets come after the factory ones
+ * in PRESET's lists */
 static struct {
     uint8_t load;                        /* K1: 1 LOAD (SAVE to begin with; kept) */
     uint8_t what, into;
@@ -1622,6 +1853,10 @@ static uint32_t up_bytes(uint32_t t) { return t == 0u ? sizeof up.dr[0] : t == 1
 static uint32_t up_n(uint32_t t)         /* how many the track has */
 {
     uint32_t n = 0;
+#if FRS_LEAD
+    if (t == 3u)                         /* (the LEAD's: OBJ_LEAD's own part) */
+        return ldu_n();
+#endif
     while (n < NUP && up_at(t, n)[0] == 'F')
         n++;
     return n;
@@ -1629,10 +1864,20 @@ static uint32_t up_n(uint32_t t)         /* how many the track has */
 static int up_in_use(uint32_t t)         /* the track's preset of the player's, as it sounds now, -1 none */
 {
     int c = up_cur[t];
+#if FRS_LEAD
+    if (t == 3u)
+        return ldu_in_use();
+#endif
     return c >= 0 && eng_preset_is(up_at(t, (uint32_t)c), up_bytes(t)) == 1 ? c : -1;
 }
 static void up_name(uint32_t t, uint32_t i, char *o)   /* its name (SC_NAME + 1 at most) */
 {
+#if FRS_LEAD
+    if (t == 3u) {
+        ldu_name(i, o);
+        return;
+    }
+#endif
     const uint8_t *b = up_at(t, i) + 6u;
     uint32_t k;
     for (k = 0; k < SC_NAME && b[k]; k++)
@@ -1667,10 +1912,14 @@ static uint32_t track_page(uint32_t p, uint32_t t)
     uint32_t i, w;
     if (PAGES[p].track == T_ANY || PAGES[p].track == t)
         return p;
+#if FRS_LEAD
+    if (PAGES[p].button == B_EDIT && t == 3u)
+        return PG_LEAD;
+#endif
     if (PAGES[p].button == B_EDIT)
         return t == 1u ? PG_GLINT : t == 2u ? PG_BASS : PG_DRONE;
     for (i = 0; i < sizeof TRACK_PAGES / sizeof TRACK_PAGES[0]; i++)
-        for (w = 0; w < 3u; w++)
+        for (w = 0; w < 3u + FRS_LEAD; w++)
             if (TRACK_PAGES[i][w] == p)
                 return TRACK_PAGES[i][t];
     return PG_SON;
@@ -1707,6 +1956,10 @@ static void flow_name(void)
         int u = up_cur[k];
         if (u >= 0)
             up_name(k, (uint32_t)u, t);
+#if FRS_LEAD
+        else if (k == 3u)                /* (the LEAD's: its PRESET's name) */
+            value_text(P_LD_PRESET, st.v[P_LD_PRESET], t);
+#endif
         else
             value_text(k == 0u ? P_DR_PRESET : k == 1u ? P_GL_PRESET : P_BS_MODEL,
                        st.v[k == 0u ? P_DR_PRESET : k == 1u ? P_GL_PRESET : P_BS_MODEL], t);
@@ -1740,6 +1993,16 @@ static int flow_store(void)
     }
     if (!sv.what) {
         scene_write(sv.into, t);
+#if FRS_LEAD
+    } else if (k == 3u) {                /* the LEAD's: into OBJ_LEAD's own part (ldu_save), nothing kept in RAM */
+        uint32_t at = sv.into ? sv.into - 1u : up_n(k);
+        if (ldu_save(at, t) == 0) {
+            up_cur[k] = (int8_t)at;
+            app_say("STORED", t);
+        } else {
+            popup(POP_WARN, "PRESETS", "NOT STORED", "THE MEMORY DID NOT TAKE IT.", "TRY AGAIN.", "");
+        }
+#endif
     } else {
         uint32_t at = sv.into ? sv.into - 1u : up_n(k), magic = up.magic;
         uint8_t was[PRESET_BYTES];
@@ -1948,7 +2211,7 @@ static int settings_old(void)             /* the settings in an earlier layout, 
         sound_over(set.v, raw + 4, FRSQ_NV, 0);
         memcpy((uint8_t *)&set + offsetof(settings_t, octave), raw + 4u + FRSQ_NV, FRSL_BYTES - 4u - FRSQ_NV);
         for (j = 0; j < NLEARN; j++)
-            if (set.learn_p[j] >= FRSQ_NV && set.learn_p[j] < NPARAM - (NSOUND - FRSQ_NV))
+            if (set.learn_p[j] >= FRSQ_NV && set.learn_p[j] < P_AFTER_AMT - (NSOUND - FRSQ_NV))
                 set.learn_p[j] = (uint8_t)(set.learn_p[j] + (NSOUND - FRSQ_NV));
         set.magic = SET_MAGIC;
         return 1;
@@ -1961,7 +2224,7 @@ static int settings_old(void)             /* the settings in an earlier layout, 
         set.anim = 0;
         set.clock = 0;
         for (j = 0; j < NLEARN; j++)
-            if (set.learn_p[j] >= FRSO_NV && set.learn_p[j] < NPARAM - (NSOUND - FRSO_NV))
+            if (set.learn_p[j] >= FRSO_NV && set.learn_p[j] < P_AFTER_AMT - (NSOUND - FRSO_NV))
                 set.learn_p[j] = (uint8_t)(set.learn_p[j] + (NSOUND - FRSO_NV));
         set.magic = SET_MAGIC;
         return 1;
@@ -1976,7 +2239,7 @@ static int settings_old(void)             /* the settings in an earlier layout, 
         set.anim = 0;                    /* (its padding byte there) */
         set.clock = 0;
         for (j = 0; j < NLEARN; j++)
-            if (set.learn_p[j] >= FRSL_NV && set.learn_p[j] < NPARAM - (NSOUND - FRSL_NV))
+            if (set.learn_p[j] >= FRSL_NV && set.learn_p[j] < P_AFTER_AMT - (NSOUND - FRSL_NV))
                 set.learn_p[j] = (uint8_t)(set.learn_p[j] + (NSOUND - FRSL_NV));
         if (sc)
             learn_scatter_gone();
@@ -1991,7 +2254,7 @@ static int settings_old(void)             /* the settings in an earlier layout, 
                (n == (int)FRSH_BYTES ? FRSH_BYTES : FRSH_BSEQ) - 4u - FRSH_NV);
         set.speaker_off = 0;
         for (j = 0; j < NLEARN; j++)
-            if (set.learn_p[j] >= FRSH_NV && set.learn_p[j] < NPARAM - (NSOUND - FRSH_NV))
+            if (set.learn_p[j] >= FRSH_NV && set.learn_p[j] < P_AFTER_AMT - (NSOUND - FRSH_NV))
                 set.learn_p[j] = (uint8_t)(set.learn_p[j] + (NSOUND - FRSH_NV));
         learn_scatter_gone();
         set.magic = SET_MAGIC;
@@ -2142,6 +2405,9 @@ static void state_load(void)
     if (plat_store_load(OBJ_UPRE, &up, sizeof up) != (int)sizeof up || up.magic != UPR_MAGIC)
         memset(&up, 0, sizeof up);       /* (none: an earlier FRASIL's store, or its backup restored) */
     up_cur[0] = up_cur[1] = up_cur[2] = -1;
+#if FRS_LEAD
+    up_cur[3] = -1;
+#endif
     keys_kept = plat_store_load(OBJ_SETTINGS, &set, sizeof set) == (int)sizeof set && set.magic == SET_MAGIC;
     if (!keys_kept) {
         memset(&set, 0, sizeof set);     /* (nothing learned, the defaults, whatever was read) */
@@ -2218,6 +2484,9 @@ static void state_load(void)
     plat_speaker(st.v[P_SPEAKER] && !spk_page);
     fm.pick = fm.scene;
     fm.page = PG_SON;
+#if FRS_LEAD
+    ldp_load(fm.scene);                  /* (LEAD's: the scene's, as last stored; NEW SHARD, none: MOSS) */
+#endif
     sound_mark();                        /* the sound saved last: nothing changed yet */
     engine_push();
 }
@@ -2247,6 +2516,12 @@ static void cc_learn(uint32_t cc)
               "A KNOB ON YOUR CONTROLLER.");
         return;
     }
+#if FRS_LEAD
+    if (fm.touched >= P_LD_WAVE) {       /* LEAD's: not learned (the learned CCs keep a byte's setting; card #144) */
+        app_say("MIDI LEARN", "NOT ON LEAD");
+        return;
+    }
+#endif
     for (i = 0; i < NLEARN; i++)
         if (set.learn_cc[i] == cc || (at == NLEARN && !set.learn_cc[i]))
             at = i;
@@ -2481,6 +2756,64 @@ static void lfo_route(uint32_t p, int32_t d)
     app_say(LFO_TGT_NAME[t], m);
 }
 
+#if PLAT_SMK37
+/* an LFO's pad held (the SMK-37's, pad_lfo below: 1 + its LFO, 0 none) and an encoder turned: as LFO held, but onto that
+ * LFO n alone: on, into its first free TARGET (off the others), DEPTH at 0 up to a quarter, its AMOUNT x1.00; back,
+ * off it */
+static uint8_t lfo_pad_held;
+static uint8_t pad_amt_held;             /* the top row's last pad (base's 7) held: the knobs LFO AMOUNTs, as SEL held */
+static void lfo_pad_route(uint32_t p, uint32_t n, int32_t d)
+{
+    uint32_t t, i, k, at = 4, on = 0, b = LFO_BASE[n - 1u];
+    char m[12];
+    for (t = 1; p < NPARAM && t < NLFO_TGT && LFO_TGT[t] != p; t++)
+        ;
+    if (p >= NPARAM || t >= NLFO_TGT) {
+        app_say(p < NPARAM ? PD[p].name : "LFO", "NOT AN LFO TARGET");
+        return;
+    }
+    m[0] = 0;
+    text_cat(m, "> LFO ");
+    int_text((int32_t)n, m + 6);
+    for (k = 0; k < 4u; k++)
+        on |= st.v[b + 4u + k] == t;
+    if (d < 0) {                         /* back: off LFO n (another's as it is) */
+        if (!on)
+            return;
+        for (k = 0; k < 4u; k++)
+            if (st.v[b + 4u + k] == t)
+                param_set((int)(b + 4u + k), 0);
+        app_say(LFO_TGT_NAME[t], "> NO LFO");
+        say_red();
+        return;
+    }
+    if (on) {
+        app_say(LFO_TGT_NAME[t], m);
+        return;
+    }
+    for (k = 0; k < 4u && at == 4u; k++)
+        if (st.v[b + 4u + k] == 0)
+            at = k;
+    if (at == 4u) {
+        m[0] = 0;
+        text_cat(m, "LFO ");
+        int_text((int32_t)n, m + 4);
+        text_cat(m, " FULL");
+        app_say(LFO_TGT_NAME[t], m);
+        return;
+    }
+    for (i = 0; i < NLFO; i++)           /* off the others */
+        for (k = 0; k < 4u; k++)
+            if (st.v[LFO_BASE[i] + 4u + k] == t)
+                param_set((int)(LFO_BASE[i] + 4u + k), 0);
+    param_set((int)(b + 4u + at), (int32_t)t);
+    param_set((int)(P_L1_AMT1 + 4u * (n - 1u) + at), PD[P_L1_AMT1].def);
+    if (!st.v[b + 2u])
+        param_set((int)(b + 2u), 32);    /* (DEPTH: a quarter) */
+    app_say(LFO_TGT_NAME[t], m);
+}
+#endif
+
 static int32_t accel(uint32_t e, int32_t d)
 {
     uint32_t now = plat_ms(), dt = now - fm.enc_at[e];
@@ -2556,7 +2889,9 @@ static struct {
     int8_t oct;                          /* the octave before OCT- went down */
 } pv;
 static struct {
-    uint8_t on, p, v, pick, due, enc, drawn;   /* v: its place in the list; due: not yet heard */
+    uint8_t on;
+    prm_t p;
+    uint8_t v, pick, due, enc, drawn;    /* v: its place in the list; due: not yet heard */
     uint32_t at;                         /* the last detent */
 } ng;
 #ifdef PLAT_HOST
@@ -2569,11 +2904,16 @@ static int step_len_p(int p) { return p == P_SQ_STEP ? P_SQ_LEN : p == P_BQ_STEP
 static int len_step_p(int p) { return p == P_SQ_LEN ? P_SQ_STEP : p == P_BQ_STEPS ? P_BQ_STEP : p == P_DQ_LEN ? P_DQ_STEP : -1; }
 /* an LFO's TARGET in the grid: five pages, in sections, what each moves together; a scene keeps LFO_TGT's numbers, this is
  * the order they are shown in. A slot: a number of LFO_TGT, TH_NONE, or a section's name (TH(n), TGT_HEAD) */
-#define NG_TPAGES 5u
+#define NG_TPAGES (5u + FRS_LEAD)       /* (LEAD's on a sixth, the SMK-37's: card #144) */
 #define TH_NONE (-1)
 #define TH(n) (-2 - (n))
+#if FRS_LEAD
+static const char *const TGT_HEAD[12] = {"DRONE", "CHOIR", "PARTIALS", "BREATH", "GLINT", "GLINT II", "BASS", "GLOBAL",
+                                         "LOFI TAPE", "LEAD", "LEAD ENV", "LEAD DELAY"};
+#else
 static const char *const TGT_HEAD[9] = {"DRONE", "CHOIR", "PARTIALS", "BREATH", "GLINT", "GLINT II", "BASS", "GLOBAL",
                                         "LOFI TAPE"};
+#endif
 static const int8_t TGT_SLOTS[NG_TPAGES * NG_PER] = {
     0, TH(0), 1, 2, 3, 35, 4, 29, 43, TH_NONE,                                   /* OFF; TIMBRE .. WARMTH, level, pan */
     TH_NONE, TH(1), 5, 8, 9, 10, 11, 47, TH_NONE, TH_NONE,
@@ -2584,7 +2924,14 @@ static const int8_t TGT_SLOTS[NG_TPAGES * NG_PER] = {
     TH(6), 34, 44, 31, 32, 33, 52, 53, 54, 55,
     TH(7), 41, 42, 39, 40, 46, TH_NONE, TH_NONE, TH_NONE, TH_NONE,
     TH(8), 56, 57, 58, 59, 60, 61, TH_NONE, TH_NONE, TH_NONE,                    /* LOFI TAPE's two, LOFI TAPE II's four */
+#if FRS_LEAD
+    TH(9), 62, 63, 64, 65, 66, 67, 68, 70, 79,                                   /* LEAD: its sound, its level */
+    TH(10), 69, 71, 72, 73, 74, 80, 81, 82, 83,                                  /* FILTER ENV, the ADSR, the
+                                                                                  * filter's (admin #619) */
+    TH(11), 75, 76, 77, 78, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE,         /* its delay, SPACE */
+#else
     TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE,
+#endif
 };
 static uint32_t tgt_at(uint32_t i)       /* the number at place i in the list */
 {
@@ -2648,24 +2995,36 @@ static uint32_t pv_shown(int p)
 {
     if (p == P_TEMPO && ext_bpm())       /* (a MIDI clock's: its gauge in TEMPO's range) */
         return ext_bpm() < 30u ? 0u : ext_bpm() - 30u > PD[P_TEMPO].max ? PD[P_TEMPO].max : ext_bpm() - 30u;
-    if (!ng.on || ng.p != (uint8_t)p || ng.v > PD[p].max)
+    if (!ng.on || ng.p != (prm_t)p || ng.v > PD[p].max)
         return vh_n((uint32_t)p);
     return PD[p].fmt == F_LTGT ? tgt_at(ng.v) : ng.v;
 }
 
 static int list_track(uint32_t p) { return p == P_DR_PRESET ? 0 : p == P_GL_PRESET ? 1 : p == P_BS_MODEL ? 2 : -1; }
+#if FRS_LEAD                             /* LEAD's PRESET (card #144): the others' browser, its own, then the player's (admin
+                                          * #628: OBJ_LEAD's, ldu_*) */
+static int list_lead(uint32_t p) { return p == P_LD_PRESET; }
+static int list_up(uint32_t p) { return list_lead(p) ? 3 : list_track(p); }   /* whose of the player's it lists, -1 */
+static int list_param(uint32_t p)
+{
+    return list_track(p) >= 0 || list_lead(p) || p == P_SCALE || p == P_CHORD || p == P_EQ_PRESET || PD[p].fmt == F_LTGT;
+}
+#else
+#define list_lead(p) 0
+#define list_up(p) list_track(p)
 static int list_param(uint32_t p)
 {
     return list_track(p) >= 0 || p == P_SCALE || p == P_CHORD || p == P_EQ_PRESET || PD[p].fmt == F_LTGT;
 }
+#endif
 static uint32_t list_n(uint32_t p)
 {
-    int t = list_track(p);
+    int t = list_up(p);
     return PD[p].max + 1u + (t >= 0 ? up_n((uint32_t)t) : 0u);
 }
 static uint32_t list_cur(uint32_t p)     /* where the setting is in its list now */
 {
-    int t = list_track(p), u = t >= 0 ? up_in_use((uint32_t)t) : -1;
+    int t = list_up(p), u = t >= 0 ? up_in_use((uint32_t)t) : -1;
     if (PD[p].fmt == F_LTGT)
         return tgt_pos(st.v[p]);
     return u >= 0 ? PD[p].max + 1u + (uint32_t)u : st.v[p];
@@ -2675,13 +3034,31 @@ static void list_name(uint32_t p, uint32_t i, char *o)
     if (i <= PD[p].max)
         value_text((int)p, (uint8_t)(PD[p].fmt == F_LTGT ? tgt_at(i) : i), o);
     else
-        up_name((uint32_t)list_track(p), i - PD[p].max - 1u, o);
+        up_name((uint32_t)list_up(p), i - PD[p].max - 1u, o);
 }
 static void list_take(uint32_t p, uint32_t i)
 {
     int t = list_track(p);
     if (PD[p].fmt == F_LTGT)
         i = tgt_at(i);
+#if FRS_LEAD
+    if (list_lead(p)) {                  /* LEAD's: the player's (ldu_take); a factory one, the same again after one of
+                                          * theirs its sound back */
+        int again = up_cur[3] >= 0 && st.v[p] == i;
+        if (i > PD[p].max) {
+            ldu_take(i - PD[p].max - 1u);
+            return;
+        }
+        if (again)
+            st.v[p] = (uint8_t)(i ? i - 1u : i + 1u);
+        up_cur[3] = -1;
+        param_set((int)p, (int32_t)i);
+        if (again)                       /* (its sound back: the LEAD as it is, the other side's PRESET that one
+                                          * already, card #152) */
+            lv_lead(0u);
+        return;
+    }
+#endif
     if (i > PD[p].max) {
         uint32_t u = i - PD[p].max - 1u;
         eng_preset_apply(up_at((uint32_t)t, u), up_bytes((uint32_t)t));
@@ -2702,12 +3079,20 @@ static void list_take(uint32_t p, uint32_t i)
 /* an LFO's TARGET, a track's preset: heard as it is turned (the choice sounds once the knob has rested), SEL keeps it, FX
  * brings back the sound as it was before the grid (gk), only those two lit, the rest wait, no closing by itself (OCT- held,
  * a preset picked unheard: OCT-'s, as ever) */
+#if FRS_LEAD
+static int grid_asks(void) { return ng.on && !ng.pick && (PD[ng.p].fmt == F_LTGT || list_track(ng.p) >= 0 || list_lead(ng.p)); }
+#else
 static int grid_asks(void) { return ng.on && !ng.pick && (PD[ng.p].fmt == F_LTGT || list_track(ng.p) >= 0); }
+#endif
 static struct {
-    uint8_t p, old;                      /* the setting, its value before */
+    prm_t p;                             /* the setting, */
+    uint8_t old;                         /* its value before */
     int8_t up;                           /* the player's preset in use before (-1 none) */
     uint32_t n;                          /* the track's sound before, as a preset (0: an LFO's TARGET, its value alone) */
     uint8_t b[PRESET_BYTES];
+#if FRS_LEAD
+    uint8_t ld[P_LD_FRELEASE - P_LD_WAVE + 1];   /* LEAD's settings before (its PRESET's browser) */
+#endif
 } gk;
 static void grid_keep(void)              /* the grid opened: the sound as it is, for FX */
 {
@@ -2716,10 +3101,29 @@ static void grid_keep(void)              /* the grid opened: the sound as it is,
     gk.old = st.v[ng.p];
     gk.up = t >= 0 ? up_cur[t] : -1;
     gk.n = t >= 0 ? eng_preset_capture((uint32_t)t, 0, gk.b) : 0u;
+#if FRS_LEAD
+    if (list_lead(ng.p)) {
+        memcpy(gk.ld, &st.v[P_LD_WAVE], sizeof gk.ld);
+        gk.up = up_cur[3];
+    }
+#endif
 }
 static void grid_back(void)              /* FX: the sound as it was */
 {
     int t = list_track(gk.p);
+#if FRS_LEAD
+    if (list_lead(gk.p)) {               /* LEAD's: its settings as they were, tweaks and all (MODE turned: let go) */
+        uint32_t i;
+        for (i = 0; i < sizeof gk.ld; i++)
+            if (P_LD_WAVE + i != P_LD_PRESET)
+                param_set((int)(P_LD_WAVE + i), gk.ld[i]);
+        st.v[P_LD_PRESET] = gk.ld[P_LD_PRESET - P_LD_WAVE];
+        st.dirty = (uint8_t)sound_changed();   /* (with its PRESET back: as it was, card #152) */
+        lv_lead(0u);                     /* (that PRESET in place: the LEAD as it is) */
+        up_cur[3] = gk.up;
+        return;
+    }
+#endif
     if (gk.n) {
         eng_preset_apply(gk.b, gk.n);
         lv_preset(gk.b, gk.n);
@@ -2757,12 +3161,12 @@ static void grid_tick(void)              /* each pass: the sound after the rest,
 
 static void grid_turn(uint32_t p, uint32_t e, int32_t d)
 {
-    int pick = b_held(B_OCTDN) && !b_held(B_OCTUP) && list_track(p) >= 0;
-    if (!ng.on || ng.p != (uint8_t)p) {
+    int pick = b_held(B_OCTDN) && !b_held(B_OCTUP) && (list_track(p) >= 0 || list_lead(p));
+    if (!ng.on || ng.p != (prm_t)p) {
         if (ng.on)
             grid_close();
         ng.on = 1;
-        ng.p = (uint8_t)p;
+        ng.p = (prm_t)p;
         ng.v = (uint8_t)list_cur(p);
         ng.pick = (uint8_t)pick;
         if (grid_asks())
@@ -2810,8 +3214,13 @@ static int play_lit(void)
 
 /* the three left encoders, the performance's hands: SELECT the track, PRESETS its preset, ALGORITHM its filter (the
  * drone's TIMBRE, GLINT's BRIGHT, the bass's FILTER); OCT- held, ALGORITHM is MASTER FILTER's CUTOFF */
+#if FRS_LEAD                             /* (LEAD: its PRESET; its FILTER) */
+static uint32_t track_preset(void) { return st.lead ? P_LD_PRESET : st.glint ? P_GL_PRESET : st.bass ? P_BS_MODEL : P_DR_PRESET; }
+static uint32_t track_algo(void) { return st.lead ? P_LD_CUT : st.glint ? P_GL_BRIGHT : st.bass ? P_BS_FILTER : P_TIMBRE; }
+#else
 static uint32_t track_preset(void) { return st.glint ? P_GL_PRESET : st.bass ? P_BS_MODEL : P_DR_PRESET; }
 static uint32_t track_algo(void) { return st.glint ? P_GL_BRIGHT : st.bass ? P_BS_FILTER : P_TIMBRE; }
+#endif
 static uint32_t macro_of(uint32_t e)
 {
     return e == EN_SELECT ? P_KB : e == EN_PRESET ? track_preset()
@@ -2819,8 +3228,9 @@ static uint32_t macro_of(uint32_t e)
 }
 
 /* SELECT turned: the track, its page followed on EDIT, ENV, ARP and SEQ (the same place, the first if hidden; EDIT: the
- * first), the track large a moment; elsewhere the page stays. OCT- held: the keys change track, the page stays (OCT- a
- * hand, its step undone). A recording: not at all */
+ * first) at once, never the play page between (the track large on the play page alone: ui.c overlay_on, admin #866);
+ * elsewhere the page stays. OCT- held: the keys change track, the page stays (OCT- a hand, its step undone). A
+ * recording: not at all */
 static void track_turn(int32_t d)
 {
     uint32_t was = st.v[P_KB], t;
@@ -2886,8 +3296,9 @@ static void encoders(void)
     uint32_t e, b;
     for (e = 0; e < NE; e++) {
         int32_t d = enc_read((int)e), p;
-        if (!d)
+        if (!d || welcome_knob())        /* (Learn's welcome up: closed, the turn nothing more) */
             continue;
+        spk_turned |= 1u << e;           /* (the screen reader says what it turned: speak.c) */
         if (fm.help && e == EN_SELECT) { /* the help up: SELECT turns its pages */
             fm.help_page = (uint8_t)clamp((int32_t)fm.help_page + (d > 0 ? 1 : -1), 0, HELP_PAGES - 1);
             continue;
@@ -2904,6 +3315,18 @@ static void encoders(void)
             page_turn(b, d);
             continue;
         }
+#if PLAT_SMK37
+        if (lfo_pad_held && e >= EN_K1) {    /* an LFO's pad held (the SMK-37's): the setting under it onto that LFO */
+            lfo_pad_route(fm.page == PG_SCENES ? NPARAM : page_knob(fm.page, (uint32_t)(e - EN_K1)), lfo_pad_held, d);
+            continue;
+        }
+        if (pad_amt_held && e >= EN_K1 && fm.page != PG_SAVE && fm.page != PG_SAVEAS) {   /* its AMOUNT pad held: as SEL
+                                                                                          * held, the setting's LFO
+                                                                                          * AMOUNT (on none: NO LFO) */
+            lfo_amount(e, fm.page == PG_SCENES ? NPARAM : page_knob(fm.page, (uint32_t)(e - EN_K1)), d);
+            continue;
+        }
+#endif
         if (b_held(B_LFO) && e >= EN_K1) {   /* LFO held: the setting under it onto an LFO, the next, or off */
             b_used(B_LFO);
             lfo_route(fm.page == PG_SCENES ? NPARAM : page_knob(fm.page, (uint32_t)(e - EN_K1)), d);
@@ -2923,11 +3346,13 @@ static void encoders(void)
             continue;
         }
         if (fm.page == PG_SAVE && e == EN_K1) {   /* LOAD | SAVE */
+#if !PLAT_SMK37                          /* (the SMK-37: its pads 1 and 2 are LOAD and SAVE, K1 nothing: pad_taps) */
             sv.load = d < 0;
+#endif
             continue;
         }
         if (fm.page == PG_SAVEAS && e == EN_K1) {   /* WHAT */
-            sv.what = (uint8_t)clamp((int32_t)sv.what + d, 0, 3);
+            sv.what = (uint8_t)clamp((int32_t)sv.what + d, 0, 3 + FRS_LEAD);
             into_start();
             continue;
         }
@@ -2979,16 +3404,27 @@ static void encoders(void)
             if (p == P_TEMPO && ext_bpm())   /* TEMPO (EXT): the MIDI clock's, nothing to turn */
                 continue;
         }
+#if FRS_LEAD
+        if ((fm.page == PG_MIXER || (fm.page == PG_NUAGE3 && e == EN_K4)) && b_held(B_OCTDN) && !b_held(B_OCTUP) &&
+            e >= EN_K1) {                /* MIXER, OCT- held: K1 .. K3 each track's PAN, K4 the LEAD's level still (it
+                                          * has none); CLOUD III's K4, the cloud's (its LEVEL there: admin #744) (OCT- a
+                                          * hand, its step undone) */
+#else
         if (fm.page == PG_MIXER && b_held(B_OCTDN) && !b_held(B_OCTUP) && e >= EN_K1) {   /* MIXER, OCT- held: K1 .. K4
                                                                                         * each track's PAN (OCT- a
                                                                                         * hand, its step undone) */
+#endif
             if (!(fm.hold_done >> B_OCTDN & 1u)) {
                 fm.octave = pv.oct;
                 b_used(B_OCTDN);
             }
+#if FRS_LEAD
+            p = fm.page == PG_NUAGE3 ? P_PN_CLOUD : e == EN_K4 ? P_MX_LEAD : P_PN_DRONE + (int)(e - EN_K1);
+#else
             p = P_PN_DRONE + (int)(e - EN_K1);
+#endif
             param_set(p, (int32_t)st.v[p] + accel(e, d));
-            fm.touched = (uint8_t)p;
+            fm.touched = (prm_t)p;
             fm.touched_enc = (uint8_t)e;
             fm.touched_at = plat_ms();
             continue;
@@ -2999,7 +3435,7 @@ static void encoders(void)
             grid_close();
         if (list_param((uint32_t)p) &&
             (!test_no_grid || (b_held(B_OCTDN) && !b_held(B_OCTUP) && list_track((uint32_t)p) >= 0))) {
-            fm.touched = (uint8_t)p;
+            fm.touched = (prm_t)p;
             fm.touched_enc = (uint8_t)e;
             fm.touched_at = plat_ms();
             grid_turn((uint32_t)p, e, d);
@@ -3018,7 +3454,7 @@ static void encoders(void)
             if (sp >= 0 && st.v[sp] > st.v[p])   /* (a shorter sequence: STEP back on its last) */
                 param_set(sp, st.v[p]);
         }
-        fm.touched = (uint8_t)p;
+        fm.touched = (prm_t)p;
         fm.touched_enc = (uint8_t)e;
         fm.touched_at = plat_ms();
         if ((p >= P_KY_DR_HARM && p <= P_KY_BS_STACK) || p == P_METRO || p == P_COUNT_IN ||
@@ -3038,6 +3474,10 @@ static void track_clear(void)
     static const char *const W[3] = {"DRONE SEQUENCE", "SEQUENCE", "BASS SEQUENCE"};
     uint32_t t = st.v[P_KB] % 3u, i, n = t == 0u ? sizeof dnote : t == 1u ? sizeof seq : sizeof bnote;
     const uint8_t *s = t == 0u ? &dnote[0][0] : t == 1u ? seq : bnote;
+#if FRS_LEAD
+    if (st.lead)                         /* (LEAD: no sequence) */
+        return;
+#endif
     for (i = 0; i < n && !s[i]; i++)
         ;
     if (i == n)
@@ -3052,6 +3492,12 @@ static void rec_tap(void)
 {
     uint32_t layer = st.v[P_KB];         /* (before: RECORD moves the keys, rec_keys) */
     int was = rec_any(), r;
+#if FRS_LEAD
+    if (st.lead && !was) {               /* (LEAD: played, never recorded: no sequence; a take under way: REC ends it) */
+        app_say("REC", "NOT FOR LEAD");
+        return;
+    }
+#endif
     lv_rec(layer);                       /* (first: the take's COUNT-IN and OVERDUB as they are, FST_RECORDING) */
     r = eng_record_on(layer, 1);
     if (r && !was) {
@@ -3143,7 +3589,7 @@ static void tap(uint32_t k)              /* a button let go before its hold, alo
             fm.page = PG_KEYS;
         } else if (fm.page == PG_KEYS) {
             fm.page = PG_MIXER;
-        } else if (fm.page == PG_MIXER) {
+        } else if (fm.page == PG_MIXER) {   /* (the LEAD's level MIXER's K4: no MIXER II, admin #744) */
             fm.page = PG_CSEND;
         } else if (fm.page == PG_CSEND) {
             fm.page = PG_SON;
@@ -3200,6 +3646,37 @@ static void tap(uint32_t k)              /* a button let go before its hold, alo
     case B_OCTDN:
     case B_OCTUP:
         break;
+#if PLAT_SMK37
+    /* the SMK-37's < and > (above OCTAVE- and OCTAVE+): the page before, after, among its button's (GLINT I, GLINT
+     * II...), round, as that button held and SELECT turned (Styves, 2026-11-09) */
+    case B_LEFT:
+    case B_RIGHT:
+        fm.logo = 0;
+        fm.help = 0;
+        page_turn(PAGES[fm.page].button, k == B_RIGHT ? 1 : -1);
+        break;
+    case B_KBANK:                        /* the SMK-37's KNOB BANK: the next track (DRONE, GLINT, BASS, round), as SELECT
+                                          * turned (Styves, 2026-11-09) */
+        track_turn(st.v[P_KB] >= PD[P_KB].max ? -(int32_t)st.v[P_KB] : 1);
+        break;
+    case B_FBANK: {                      /* the SMK-37's FADER BANK: the selected track's KEYS NOTES, SINGLE NOTE or CHORD
+                                          * (to CHORD with HARMONY off: HARMONY on, as KEYS' K2 does); held: its LATCH
+                                          * (holds) (Styves, 2026-11-09) */
+        uint32_t t = st.v[P_KB], np = P_KY_DR_NOTES + 4u * t;
+#if FRS_LEAD
+        if (st.lead) {                   /* (LEAD: one note at a time, always) */
+            app_say("LEAD", "ONE NOTE");
+            break;
+        }
+#endif
+        if (!st.v[np] && !st.v[P_KY_DR_HARM + 4u * t])
+            param_set((int)(P_KY_DR_HARM + 4u * t), 1);
+        param_set((int)np, !st.v[np]);
+        prefs_later();
+        app_say("NOTES", st.v[np] ? "CHORD" : "SINGLE NOTE");
+        break;
+    }
+#endif
     default:                             /* its pages */
         fm.logo = 0;
         page_button(k);
@@ -3265,6 +3742,287 @@ static void anchor_keys(uint32_t btn)    /* each pass while the two were down to
     }
 }
 
+#if PLAT_SMK37
+/* the SMK-37's wheels (card #144). The mod wheel the selected track's (Styves, 2026-11-09, admin #607): on the LEAD its
+ * vibrato (VIBRATO's depth, if more); on the others their filter, ALGORITHM's (track_algo: the drone's TIMBRE, GLINT's
+ * BRIGHT, the bass's FILTER) set where the wheel is, as a fader sets its level, its large view as ALGORITHM turned shows
+ * it. It acts only when it moves: a track selected takes nothing until then, the one left keeps what it had (the LEAD
+ * its vibrato); after a track change or a second at rest, two steps wake it (a reading's flicker is no move); the first
+ * second and a half only reads where it rests, as the faders. The pitch wheel the LEAD's, two semitones either way,
+ * whatever the track; told when it moves. MIDI's CC 1 as ever */
+static void smk_wheels(void)
+{
+    static int16_t was = -1;
+    static uint8_t awake, trk;
+    static uint32_t moved_at;
+    static int mod, bend = 0x7FFF, sent = -1;
+    int m = plat_wheel(PLAT_WHEEL_MOD), b = plat_wheel(PLAT_WHEEL_PITCH), d = m - was;
+    if (b > -96 && b < 96)               /* (its rest: dead still) */
+        b = 0;
+    if (trk != st.v[P_KB] || plat_ms() - moved_at > 1000u) {
+        trk = (uint8_t)st.v[P_KB];
+        awake = 0;
+    }
+    if (was < 0 || plat_ms() < 1500u) {
+        was = (int16_t)m;
+    } else if (d && (awake || d > 1 || d < -1)) {
+        was = (int16_t)m;
+        awake = 1;
+        moved_at = plat_ms();
+#if FRS_LEAD
+        if (st.lead) {
+            mod = m;
+        } else
+#endif
+        {
+            uint32_t p = track_algo();
+            param_set((int)p, ((int32_t)m * PD[p].max + 63) / 127);
+            fm.touched = (prm_t)p;
+            fm.touched_enc = EN_ALGO;
+            fm.touched_at = plat_ms();
+        }
+    }
+#if FRS_LEAD
+    if (mod == sent && b == bend)
+        return;
+    sent = mod;
+    bend = b;
+    lv_wheels((uint32_t)mod, b);         /* (Perform LIVE's: card #152) */
+    eng_lead_wheels((uint32_t)mod, b);
+#else
+    (void)mod;
+    (void)sent;
+    (void)bend;
+#endif
+}
+#endif
+
+#if PLAT_SMK37
+/* the SMK-37's faders (Styves, 2026-11-09): 1, 2, 3, 4 MIXER's DRONE, BASS, GLINT and LEAD (K1 .. K4); a fader acts only
+ * when it moves, so a scene, a knob or LIVE keep their level until then; the first second and a half after the start
+ * only reads where they rest (no jump while the analog inputs settle) */
+static void smk_faders(void)
+{
+    static const prm_t FP[4] = {P_MX_DRONE, P_MX_BASS, P_MX_GLINT, P_MX_LEAD};
+    static int16_t was[4] = {-1, -1, -1, -1};
+    uint32_t i;
+    for (i = 0; i < 4u; i++) {
+        int v = plat_fader((int)i);
+        if (was[i] < 0 || plat_ms() < 1500u) {
+            was[i] = (int16_t)v;
+            continue;
+        }
+        if (v == was[i])
+            continue;
+        was[i] = (int16_t)v;
+        param_set(FP[i], ((int32_t)v * PD[FP[i]].max + 63) / 127);
+    }
+}
+
+/* MASTER on K8, the encoder no role has (Styves, 2026-11-09): a detent a step (base's K5 step, 96 of 4096), from where
+ * it is; never saved (each start at base's half gain, 2896: a write at each turn, or after it, held the audio up); its
+ * level a moment on the screen, 0 .. 100. The engine's way to it eased by base (smk_level), as ever */
+static void k8_master(void)              /* (smk_master is base's, in the device's unity build) */
+{
+    static int32_t lv = -1;
+    int32_t d = plat_enc_free();
+    char t[8];
+    if (!d)
+        return;
+    if (lv < 0)
+        lv = (int32_t)plat_master();
+    lv = clamp(lv + d * 96, 0, 4096);
+    plat_master_set((uint32_t)lv);
+    t[0] = 0;
+    int_text((lv * 100 + 2048) / 4096, t);
+    app_say("MASTER", t);
+}
+
+/* the SMK-37's pads 1 and 2 (base's 0 and 1, the top row's first) answer every choice (Styves, 2026-11-09): 1 red, CANCEL
+ * (FX's), 2 green, OK (SEL's); lit while a choice waits, the answers it has alone (a warning: OK), dark otherwise, as
+ * the FM-1 lights only its answering buttons; a hit, whatever its velocity, its button's tap (down this pass, up the
+ * next, into what the buttons say: pop-ups, names, the grid, SAVE's flow as they read SEL and FX); the pads nothing
+ * else meanwhile. SEL and FX themselves as ever. The screens say CANCEL and OK (ui.c pad_hint) */
+#define PAD_CANCEL 0
+#define PAD_OK 1
+#define PAD_RED 0x800000u                 /* (half: full was too bright on stage, Styves) */
+#define PAD_GREEN 0x008000u
+#define PAD_BLUE 0x001080u               /* LOAD's (Styves, 2026-11-09): blue */
+#define PAD_EMERALD 0x008050u            /* SAVE's: emerald, a green with blue in it (OK's green apart) */
+/* the choice waiting, as the pads answer it (ui.c pad_hint_as says it): PA_OK a warning's OK alone; PA_OKCANCEL every
+ * question's CANCEL and OK; SAVE's flow, its own words (Styves): its first page LOAD (pad 1, blue) and SAVE (pad 2,
+ * emerald), K1 nothing; SCENES (its LOAD) CANCEL and LOAD; WHAT and INTO, the name, CANCEL and SAVE */
+enum { PA_NONE, PA_OK, PA_OKCANCEL, PA_LOADSAVE, PA_LOAD, PA_SAVE };
+static uint32_t pad_mode(void)
+{
+    if (pop.on)                          /* (a warning, a done: OK alone) */
+        return PA_OK;
+    if (nm.on)
+        return nm.flow ? PA_SAVE : PA_OKCANCEL;
+    if (grid_asks())
+        return PA_OKCANCEL;
+    return fm.page == PG_SAVE ? PA_LOADSAVE : fm.page == PG_SAVEAS ? PA_SAVE : fm.page == PG_SCENES ? PA_LOAD : PA_NONE;
+}
+static uint32_t pad_answers(void)        /* bit 0 pad 2 answers, bit 1 pad 1 does; 0 none (the LFO pads' rule) */
+{
+    uint32_t m = pad_mode();
+    return m == PA_NONE ? 0u : m == PA_OK ? 1u : 3u;
+}
+/* the SMK-37's LFO pads (Styves, 2026-11-09): LFO 1, 2, 3 on the bottom row's last three (base's pads 13, 14, 15; 12
+ * dark), each its hue, blue, cyan, pink (violet kept for a fourth); its light the LFO's SHAPE as it moves now, a floor
+ * of it at the bottom (which is which, still), at the top half the LED's full as pads 1 and 2; dark while the LFO is off
+ * (DEPTH 0 or no TARGET: FRAME's bit, lfo[].on). Some 30 times a second: each a WS2812 frame between two LCD transfers
+ * (base's smk_pads_flush, the main loop's, ~0.5 ms; the render the audio's, apart). A tap, its LFO's first page; held
+ * HOLD_MS, as LFO held: a knob turned puts the setting under it onto that LFO (lfo_pad_route), its release no page. The
+ * top row's last (base's 7) held, at once, as SEL held: a knob turned, its setting's LFO AMOUNT (lfo_amount; on none,
+ * NO LFO); a tap nothing; its light a dim white while an LFO is on, brighter held, dark with none on. While a choice
+ * waits, a hit nothing: their light stays */
+#define PAD_LFO0 13u
+#define PAD_AMT 7u
+#define PAD_WHITE 0x202020u              /* (a quarter of 0x80) */
+#define PAD_WHITE_HELD 0x404040u
+static const uint32_t PAD_HUE[4] = {0x0028FFu, 0x00C8FFu, 0xFF2896u, 0x9600FFu};   /* blue, cyan, pink, (violet) */
+static const uint8_t LFO_PAGE[NLFO] = {PG_LFO1, PG_LFO2, PG_LFO3};
+static const uint8_t LFO_TPAGE[NLFO] = {PG_LFO1T, PG_LFO2T, PG_LFO3T};   /* (a tap on its own page: its TARGETS, and back) */
+static uint32_t pad_hue(uint32_t hue, uint32_t lv)   /* a hue at lv of 32, its 255 at 0x80 */
+{
+    uint32_t r = (hue >> 16 & 255u) * lv * 128u / 8160u, g = (hue >> 8 & 255u) * lv * 128u / 8160u;
+    return r << 16 | g << 8 | (hue & 255u) * lv * 128u / 8160u;
+}
+static void pad_lfo(uint32_t hit, int choice)
+{
+    static uint32_t lit_at;
+    static struct {
+        uint8_t down, used;
+        uint32_t at;
+    } lp[NLFO];
+    uint32_t i, now = plat_ms(), held = plat_pads(), any = 0;
+    pad_amt_held = (uint8_t)((held >> PAD_AMT & 1u) && !choice);
+    for (i = 0; i < NLFO; i++)
+        any |= lfo[i].on;
+    plat_pad_rgb((int)PAD_AMT, !any ? 0u : pad_amt_held ? PAD_WHITE_HELD : PAD_WHITE);
+    if (now - lit_at >= 33u) {
+        lit_at = now;
+        for (i = 0; i < NLFO; i++) {     /* (4 .. 32: the floor, then SHAPE's value) */
+            float o = lfo[i].out < -1.0f ? -1.0f : lfo[i].out > 1.0f ? 1.0f : lfo[i].out;
+            uint32_t lv = 4u + (uint32_t)((o + 1.0f) * 14.0f + 0.5f);
+            plat_pad_rgb((int)(PAD_LFO0 + i), lfo[i].on ? pad_hue(PAD_HUE[i], lv) : 0u);
+        }
+    }
+    for (i = 0; i < NLFO; i++) {
+        uint32_t bit = 1u << (PAD_LFO0 + i);
+        if ((hit & bit) && !choice && !lp[i].down) {
+            lp[i].down = 1;
+            lp[i].used = 0;
+            lp[i].at = now;
+        }
+        if (!lp[i].down)
+            continue;
+        if (!(held & bit)) {             /* let go: a tap, its page; a hold, its end */
+            if (!lp[i].used && now - lp[i].at < HOLD_MS) {   /* (on its page: its TARGETS; elsewhere, its TARGETS
+                                                              * too: its page) */
+                fm.logo = 0;
+                fm.help = 0;
+                fm.page = fm.page == LFO_PAGE[i] ? LFO_TPAGE[i] : LFO_PAGE[i];
+            }
+            if (lfo_pad_held == i + 1u)
+                lfo_pad_held = 0;
+            lp[i].down = 0;
+        } else if (!lp[i].used && now - lp[i].at >= HOLD_MS && !lfo_pad_held) {
+            lp[i].used = 1;              /* (held: the knobs its, no page at its release) */
+            lfo_pad_held = (uint8_t)(i + 1u);
+        }
+    }
+}
+
+/* the SMK-37's track pads (Styves, 2026-11-09): the bottom row's first four (base's 8 .. 11), DRONE, GLINT, BASS, LEAD as
+ * KNOB BANK goes; each its track's colour as the screen has it, made for the LEDs (the screen's gamma undone, green a
+ * little less: it reads brighter), the selected at half the LED's full as the others pads' tops, the rest a quarter of
+ * it; a tap the track, as KNOB BANK or SELECT landing on it (its page followed, the header's colour); the selected's tap
+ * its EDIT pages (admin #607), as EDIT tapped (PARA on the SMK-37): from elsewhere its first, on one of them the next,
+ * round (LEAD I, II, III, DELAY), at its release; held HOLD_MS, its track's notes let go (admin #634: core.c
+ * track_off), "DRONE RELEASED" a moment, no tap at its release; while a choice waits, nothing (their light stays) */
+#define PAD_TRK0 8u
+#define PAD_RGB(r, g, b) ((uint32_t)(r) << 16 | (uint32_t)(g) << 8 | (uint32_t)(b))   /* (not a hex word: base's check
+                                                                                        * reads 0x01.... as an address) */
+static const uint32_t PAD_TRK[3 + FRS_LEAD] = {PAD_RGB(112, 90, 128), PAD_RGB(1, 20, 128), PAD_RGB(128, 42, 15),
+                                               PAD_RGB(128, 16, 30)};   /* fog, azure, lamp, rose */
+static void pad_tracks(uint32_t hit, int choice)
+{
+    static const char *const NAME[4] = {"DRONE", "GLINT", "BASS", "LEAD"};
+    static uint32_t at[4];
+    static uint8_t down, used;           /* (a bit a pad: down since a hit; its hold done) */
+    uint32_t t, cur = st.v[P_KB], held = plat_pads(), now = plat_ms();
+    for (t = 0; t < 3u + FRS_LEAD; t++)
+        plat_pad_rgb((int)(PAD_TRK0 + t), t == cur ? PAD_TRK[t] : PAD_TRK[t] >> 2 & 0x3F3F3Fu);
+    for (t = 0; t < 3u + FRS_LEAD; t++) {
+        uint32_t bit = 1u << (PAD_TRK0 + t);
+        if ((hit & bit) && !choice) {
+            down |= (uint8_t)(1u << t);
+            used &= (uint8_t)~(1u << t);
+            at[t] = now;
+        }
+        if (!(down >> t & 1u))
+            continue;
+        if (!(held & bit)) {             /* let go: before its hold, the tap (the track, or its EDIT pages) */
+            down &= (uint8_t)~(1u << t);
+            if (!(used >> t & 1u) && !choice) {
+                if (t == cur)
+                    tap(B_EDIT);
+                else
+                    track_turn((int32_t)t - (int32_t)cur);
+            }
+        } else if (!(used >> t & 1u) && now - at[t] >= HOLD_MS && !choice) {   /* held: its notes let go (admin
+                                                                                * #634), no tap at its release */
+            used |= (uint8_t)(1u << t);
+            track_off(t);
+            app_say(NAME[t], "RELEASED");
+        }
+    }
+}
+
+static uint32_t pad_taps(void)           /* each pass, the buttons read: the pads' as SEL's and FX's (SAVE's flow: its own) */
+{
+    static const uint32_t P1[6] = {0u, 0u, PAD_RED, PAD_BLUE, PAD_RED, PAD_RED};   /* pad 1's light, PA_*'s */
+    static const uint32_t P2[6] = {0u, PAD_GREEN, PAD_GREEN, PAD_EMERALD, PAD_BLUE, PAD_EMERALD};
+    static uint8_t up;
+    uint32_t m = pad_mode(), hit = plat_pads_pressed(), b = 0;
+    int one = (hit >> PAD_CANCEL & 1u) != 0u, two = (hit >> PAD_OK & 1u) != 0u;
+    plat_pad_rgb(PAD_CANCEL, P1[m]);
+    plat_pad_rgb(PAD_OK, P2[m]);
+    pad_lfo(hit, m != PA_NONE);
+    pad_tracks(hit, m != PA_NONE);
+    if (up) {                            /* (the tap's second pass: let go) */
+        up = 0;
+        return 0u;
+    }
+    if (m == PA_LOADSAVE && (one || two)) {   /* SAVE's first page: LOAD (SCENES, as SEL on LOAD), SAVE (WHAT, INTO) */
+        fm.logo = fm.help = 0;
+        sv.load = (uint8_t)one;
+        if (one) {
+            fm.page = PG_SCENES;
+            fm.pick = fm.scene;
+        } else {
+            flow_saveas();
+        }
+        return 0u;
+    }
+    if (m == PA_LOAD && (one || two)) {  /* SCENES: LOAD, the scene K1 points at (as PLAY does there); CANCEL, back */
+        if (two)
+            play_tap();
+        else
+            fm.page = PG_SAVE;
+        return 0u;
+    }
+    if (m != PA_NONE && two)
+        b = 1u << B_SEL;
+    else if (m != PA_NONE && m != PA_OK && one)
+        b = 1u << B_FX;
+    up = b != 0u;
+    return b;
+}
+#endif
+
 static void buttons(uint32_t btn)
 {
     uint32_t down = btn & ~btn_prev, up = btn_prev & ~btn, k, now = plat_ms();
@@ -3299,6 +4057,7 @@ static void buttons(uint32_t btn)
             pv.oct = fm.octave;          /* (to undo, should it be a hand) */
         if (ng.on && (k == B_OCTDN || k == B_OCTUP)) {   /* the grid's pages, the octave as it is */
             grid_page(k == B_OCTUP ? 1 : -1);
+            spk_turned |= 1u << EN_K1;   /* (the screen reader says the row it went to, as a turn's) */
         } else if (k == B_OCTDN || k == B_OCTUP) {   /* at once; both: ANCHOR (the first one's step undone) */
             uint32_t other = k == B_OCTDN ? B_OCTUP : B_OCTDN;
             if (btn >> other & 1u) {
@@ -3402,11 +4161,30 @@ static void holds(void)
         case B_SEQ: {                    /* the selected track's STACK, from any page (the SEQ pages show it on) */
             uint32_t p = P_KY_DR_STACK + 4u * st.v[P_KB];
             b_used(b);
+#if FRS_LEAD
+            if (st.lead)                 /* (LEAD: no KEYS of its own) */
+                continue;
+#endif
             param_set((int)p, !st.v[p]);
             prefs_later();
             app_say("STACK", st.v[p] ? "ON" : "OFF");
             continue;                    /* (nothing for SELECT to undo) */
         }
+#if PLAT_SMK37
+        case B_FBANK: {                  /* the SMK-37's FADER BANK held: the selected track's KEYS LATCH (off: its notes
+                                          * let go, as KEYS' K3 does) (Styves, 2026-11-09) */
+            uint32_t p = P_KY_DR_LATCH + 4u * st.v[P_KB];
+            b_used(b);
+#if FRS_LEAD
+            if (st.lead)                 /* (LEAD: nothing latches) */
+                continue;
+#endif
+            param_set((int)p, !st.v[p]);
+            prefs_later();
+            app_say("LATCH", st.v[p] ? "ON" : "OFF");
+            continue;                    /* (nothing for SELECT to undo) */
+        }
+#endif
         case B_FX:                       /* FREEZE, the page staying */
             b_used(b);
             param_set(P_FREEZE, !st.v[P_FREEZE]);
@@ -3472,14 +4250,17 @@ static int32_t white_of(uint32_t k)     /* key k's place among the white ones (F
 }
 
 /* EDIT held and a key: the track's group g, its first page, the same key again its next, round */
-static const uint8_t EDIT_GROUPS[3][3][3] = {
+static const uint8_t EDIT_GROUPS[3 + FRS_LEAD][3][3] = {
     {{PG_CHOEUR, PG_CHOEUR2, PG_CHOEUR3}, {PG_PARTIELS, PG_PARTIELS2, PG_PARTIELS2}, {PG_SOUFFLE, PG_SOUFFLE2, PG_SOUFFLE2}},
     {{PG_GLINT, PG_GLINT, PG_GLINT}, {PG_GLINT2, PG_GLINT2, PG_GLINT2}, {PG_GDELAY, PG_GDELAY, PG_GDELAY}},
     {{PG_BASS, PG_BASS, PG_BASS}, {PG_BASS2, PG_BASS2, PG_BASS2}, {PG_BDRIVE, PG_BDRIVE, PG_BDRIVE}},
+#if FRS_LEAD
+    {{PG_LEAD, PG_LEAD, PG_LEAD}, {PG_LEAD2, PG_LEAD3, PG_LEAD3}, {PG_LDELAY, PG_LDELAY, PG_LDELAY}},
+#endif
 };
 static int32_t edit_group(void)          /* the group of the page on the screen, -1 none */
 {
-    const uint8_t (*g)[3] = EDIT_GROUPS[st.v[P_KB] % 3u];
+    const uint8_t (*g)[3] = EDIT_GROUPS[st.v[P_KB] % (3u + FRS_LEAD)];
     uint32_t i, j;
     for (i = 0; i < 3u; i++)
         for (j = 0; j < 3u; j++)
@@ -3489,7 +4270,7 @@ static int32_t edit_group(void)          /* the group of the page on the screen,
 }
 static void edit_jump(uint32_t i)
 {
-    const uint8_t *g = EDIT_GROUPS[st.v[P_KB] % 3u][i];
+    const uint8_t *g = EDIT_GROUPS[st.v[P_KB] % (3u + FRS_LEAD)][i];
     uint32_t j, n = g[1] == g[0] ? 1u : g[2] == g[1] ? 2u : 3u;
     fm.logo = 0;
     fm.help = 0;
@@ -3530,15 +4311,74 @@ static void key_down(uint32_t k, uint32_t vel)
     lv_key(k, 53 + (int)k + 12 * fm.octave, vel, b_held(B_SEL));
 }
 
+#if PLAT_SMK37
+/* the SMK-37's ten keys around the FM-1's 27 (C3..E3 below F3, G#5..C6 above G5): notes only, never a page's keys
+ * (Styves, 2026-11-09: they played nothing), on the engine's key numbers 27..31 (FRS_NKEYS 32, LIVE's): five of them
+ * down at once at most, a sixth silent; SAVE or EDIT held: nothing */
+static void keys_outer(void)
+{
+    static uint64_t prev;
+    static int8_t id_of[NKEYS37];
+    static uint8_t ready;
+    const uint64_t outer = 0x1Full | 0x1Full << 32;   /* keys 0..4 and 32..36 */
+    uint64_t now = plat_keys37() & outer, chg = now ^ prev;
+    uint32_t k;
+    if (!ready) {
+        for (k = 0; k < NKEYS37; k++)
+            id_of[k] = -1;
+        ready = 1;
+    }
+    for (k = 0; chg && k < NKEYS37; k++) {
+        uint64_t bit = 1ull << k;
+        if (!(chg & bit))
+            continue;
+        chg &= ~bit;
+        if (now & bit) {
+            uint32_t id, used = 0, j, vel;
+            int note;
+            if (b_held(B_SAVE) || b_held(B_EDIT))
+                continue;
+            for (j = 0; j < NKEYS37; j++)
+                if (id_of[j] >= 0)
+                    used |= 1u << (uint32_t)id_of[j];
+            for (id = NKEYS; id < FRS_NKEYS && (used >> id & 1u); id++)
+                ;
+            if (id >= FRS_NKEYS)
+                continue;                /* (five down already) */
+            id_of[k] = (int8_t)id;
+            if (fm.logo_until)
+                fm.logo = 0;
+            if (b_held(B_SEL))
+                b_used(B_SEL);
+            note = 48 + (int)k + 12 * fm.octave;   /* (key 0 is C3, 48; key 5 F3, 53: the FM-1's first) */
+            vel = (uint32_t)plat_key_vel((int)k);
+            eng_key_down(id, note, vel, b_held(B_SEL));
+            lv_key(id, note, vel, b_held(B_SEL));
+        } else if (id_of[k] >= 0) {
+            key_up((uint32_t)id_of[k]);
+            lv_key_up((uint32_t)id_of[k]);
+            id_of[k] = -1;
+        }
+    }
+    prev = now;
+}
+#endif
+
 static void keys_scan(void)
 {
     uint32_t keys, k;
     touch_poll();
-    keys = saver_keys(touch_keys());     /* (a key that woke the screen: no note) */
+    keys = welcome_keys(saver_keys(touch_keys()));   /* (a key that woke the screen, or closed Learn's welcome: no
+                                                      * note) */
     for (k = 0; k < NKEYS; k++) {
         uint32_t bit = 1u << k;
         if ((keys & bit) && !(keys_prev & bit)) {
+#if PLAT_SMK37
+            key_down(k, (uint8_t)plat_key_vel((int)k + 5));   /* (the SMK-37: its two contacts' velocity, the middle 27
+                                                              * keys from its sixth, F3; no pressure on its keys) */
+#else
             key_down(k, touch_vel(k));
+#endif
         } else if (!(keys & bit) && (keys_prev & bit)) {
             key_up(k);
             lv_key_up(k);
@@ -3636,6 +4476,10 @@ static uint8_t test_loop_uneven;
 static void input(void)
 {
     uint32_t btn = saver_buttons(plat_buttons()), lb, mb, gb, kb, kd;   /* (a button that woke the screen: nothing) */
+#if PLAT_SMK37
+    btn |= pad_taps();                   /* (the pads answer a choice as SEL and FX do) */
+#endif
+    btn = welcome_buttons(btn);          /* (one that closed Learn's welcome: nothing, till let go) */
     if (pop.on) {                        /* a pop-up up: the buttons wait (the keys and MIDI play on) */
         if (popup_input(btn))
             btn = 0;
@@ -3648,6 +4492,10 @@ static void input(void)
     btn_now = btn;
     buttons_down(btn);
     keys_scan();
+#if PLAT_SMK37
+    keys_outer();
+    smk_wheels();
+#endif
     eng_steps();                         /* (the engine's millisecond, around the MIDI) */
     midi_in();
     eng_moves();
@@ -3672,6 +4520,10 @@ static void input(void)
                                           * waits for their next read, never the page under them: SCENES' LOAD) */
         encoders();
     buttons(btn);
+#if PLAT_SMK37
+    smk_faders();
+    k8_master();
+#endif
     holds();
     swell_update(btn);
     if (st.engine_dirty)
@@ -3822,7 +4674,6 @@ static int text_is(const char *a, const char *b)
 void app_say(const char *a, const char *b)
 {
     uint32_t i;
-    char t[48];
     if (text_is(a, "STOP FIRST")) {      /* (the River lets it all go first, CC 120: what is left, a key held down;
                                           * from a terminal, anything) */
         popup(POP_WARN, "RESTORE FROM USB", "STOP FIRST", "SOMETHING IS PLAYING: LET GO",
@@ -3848,15 +4699,7 @@ void app_say(const char *a, const char *b)
     say.msg_until = plat_ms() + 1300u;
     say.red = 0;
     say.amt = 0;
-    if (ann_on()) {                          /* and to a screen reader (announce.c, fm1-reader) */
-        t[0] = 0;
-        text_cat(t, say.msg[0]);
-        if (say.msg[1][0]) {
-            text_cat(t, " ");
-            text_cat(t, say.msg[1]);
-        }
-        ann_say(t, 0, ANN_NOW);
-    }
+    spk_msg(a, b, ANN_NOW);                  /* and to a screen reader, whole (speak.c) */
 }
 
 static void say_clear(void) { say.msg_until = 0; }   /* the words gone (a hold undone: hold_undo) */
@@ -3865,6 +4708,7 @@ static void say_both(void) { say.red = 2; }          /* its two words alike, lar
 static void say_amt(uint32_t slot) { say.amt = (uint8_t)(slot + 1u); }   /* its AMOUNT's gauge under it (lfo_amount) */
 
 #include "ui.c"
+#include "speak.c"                       /* the screen to a screen reader (fm1-reader) */
 
 /* the buttons down now taken as used: their release no tap (a restore's question answered with SEL or HOME, outside
  * the app's loop: SEL let go would open HARMONY) */
@@ -3903,12 +4747,13 @@ void app_ui_init(void)
  *                 2 SCENE slot (16: NEW SHARD), dirty, name (16 ASCII)     at HELLO, and when one of them changes
  *                 3 VALUES first (2), n, then n values (2 each)            every setting: at HELLO, after a load
  *                 4 VALUE p (2), v (2), enc (EN_*, 127: no knob's)          a setting that moved
- *                 5 PAGE page, octave + 3, keys (0 DRONE, 1 GLINT, 2 BASS)  when one of them changes
+ *                 5 PAGE page, octave + 3, keys (0 DRONE, 1 GLINT, 2 BASS, 3 LEAD)  when one of them changes
  *                 6 FRAME 20 a second, what sounds: the drones' 8 (note, level), GLINT's 4 (note, level as heard,
  *                   1/20 s since struck), the bass (note, level), the LFOs on (bits), then each LFO where in its turn
  *                   (0..127), its value ((-1..1) to 0..127) and its turns (3 bytes: RANDOM's and DRIFT's values, the
  *                   page's lfo_rnd as app.c's), then the tracks' meters (drones, bass, glints, the cloud), the
- *                   transport (bits), LOFI TAPE's drag under way (how much slower: 127 is 8 %); a note 127: none;
+ *                   transport (bits), LOFI TAPE's drag under way (how much slower: 127 is 8 %); then (card #144: an FM-1
+ *                   without the LEAD ends there) the LEAD's 6 voices (note, level), its meter; a note 127: none;
  *                   levels 0..127
  *                 7 BUTTON b (B_*), down
  *                 8 KEYS the keys held (bit k: key k), four 7-bit bytes
@@ -3916,6 +4761,12 @@ void app_ui_init(void)
  *                12 BATTERY raw (2), mV (2), level        after each HELLO's answer: the divider's last reading
  *                   (16383: none), the millivolts smoothed (APP_BATT_RAW_4V2's scale), the level drawn (127: none);
  *                   the calibration's (design/perform/scripts/fm1_listen.py)
+ *                13 PRESSURE p        the hand pressing into THE KEYS (card #139): the held key pressed hardest, how
+ *                   much (0..127, 0 none held), as the engine has it; after each HELLO's answer, then as it moves (by
+ *                   4, or to 0 or from it), 20 a second at most. An FM-1 before it never sends one
+ *   both ways    14 START         Learn's known state (card #153: Learn's START, below)
+ *   ARP II's LATCH (P_GA_LATCH, P_BA_LATCH) is the arpeggio's latch as it is, ARP held turning it: its VALUE says so
+ *   (eng_steps keeps the setting on the latch)
  * Two bytes: 7-bit high, low. Each frame goes whole or not at all, never waiting (plat_sysex_try): one that does not
  * fit now (the computer not reading, a backup or the screen reader on the wire) is tried again at the next UI frame.
  * A backup streaming (app_backup_hold): quiet. */
@@ -3925,11 +4776,17 @@ void app_ui_init(void)
 #define LV_PART 120u                     /* a LIVE part's packed bytes at most (fifteen sevens: 105 of its own) */
 #define LV_LIVE 2048u                    /* STATE's running state at most (live_save: some 1.5 KB a busy scene; more
                                           * would not fit: none told) */
-#define LV_STATE (2u + FRS_SCENE_BYTES + 1u + STATE_BYTES + 1u + 2u * FST_MOVES + 1u + 2u + LV_LIVE)   /* STATE's bytes,
-                                          * at most */
+#define LV_LEAD 1024u                    /* its LEAD's part at most (card #152, engine/live.c LIVE_LEAD_BYTES: some 150
+                                          * bytes a voice sounding, 600 its six), made on the main loop's stack */
+#define LV_LEAD_ROOM 320u                /* STATE's room for it past the first's most (it takes what the first leaves:
+                                          * LV_LIVE + this in all; the SMK-37's pool keeps its 8 KiB spare) */
+#define LV_STATE (2u + FRS_SCENE_BYTES + 1u + STATE_BYTES + 1u + 2u * FST_MOVES + 1u + 2u + LV_LIVE + 2u + LV_LEAD_ROOM)   /*
+                                          * STATE's bytes, at most */
 static struct {
-    uint32_t heard, frame_at, btn, kd;   /* (kd: the keys held, as the page knows them) */
+    uint32_t heard, frame_at, btn, kd, prs_at;   /* (kd: the keys held, as the page knows them; prs_at: PRESSURE's
+                                          * last) */
     uint8_t on, page, oct, keys, scene, dirty, dump;   /* dump: the next VALUES' first setting + 1 (0: none due) */
+    uint8_t prs;                         /* PRESSURE as the page knows it (0xFF: to tell) */
     uint8_t v[NPARAM];                   /* each setting as the page knows it */
 } pf;
 
@@ -3953,6 +4810,7 @@ static struct {                          /* the tests' (pfhello, pfop, pfstate .
                                           * first's pipe, its renderhash come */
     uint32_t asks;                       /* (the STATEs asked since pfstill) */
     uint64_t still_hash;
+    uint32_t watch;                      /* pfwatch: PERFORM's other messages kept beside LIVE's, bit cmd (pfmsg) */
 } pfc;
 #endif
 
@@ -3968,8 +4826,9 @@ static int pf_send(const uint8_t *b, uint32_t n)   /* F0 7D 46 50 b.. F7, whole 
         f[4u + i] = b[i] & 0x7Fu;
     f[4u + n] = 0xF7u;
 #ifdef PLAT_HOST
-    if (n && b[0] >= 9u && b[0] <= 11u) {   /* (LIVE's, for the checks) */
-        if (pfc.jam) {
+    if (n && ((b[0] >= 9u && b[0] <= 11u) || (b[0] < 32u && (pfc.watch >> b[0] & 1u)))) {   /* (LIVE's, and those
+                                          * pfwatch names, for the checks) */
+        if (pfc.jam && b[0] >= 9u && b[0] <= 11u) {
             pfc.jam--;
             return -1;
         }
@@ -4030,7 +4889,7 @@ static int pf_scene(void)
 
 /* the transport, each track playing (bits): 1 the drones (a chord latched or held, from the keys or MIDI), 2 GLINT
  * (its arpeggio going, not waiting; its sequence running), 4 the bass (its note held or latched; its arpeggio, its
- * sequence, as GLINT's) */
+ * sequence, as GLINT's), 8 the LEAD (a voice held, card #144) */
 static uint8_t pf_playing(void)
 {
     uint32_t k, dr = 0;
@@ -4040,15 +4899,27 @@ static uint8_t pf_playing(void)
     for (k = 0; k < 4u; k++)
         dr |= lit[k] | mid_on[k] | sus[k];
     dr |= dq.nsnd;                       /* (the drone's sequence's notes) */
+#if FRS_LEAD
+    {
+        lead_view_t lv;
+        frasil_lead_view(&lv);
+        return (uint8_t)((dr != 0) | (gl != 0) << 1 | (bs != 0) << 2 | (lv.held != 0) << 3);
+    }
+#else
     return (uint8_t)((dr != 0) | (gl != 0) << 1 | (bs != 0) << 2);
+#endif
 }
 
+#ifdef PLAT_HOST
+static uint8_t pf_frame_last[96];        /* (the tests': the last FRAME sent, its cmd first; pfframeN, pfframelen) */
+static uint32_t pf_frame_n;
+#endif
 static void pf_frame(void)
 {
     frasil_view_t v[FR_NV];
     glint_view_t g[GLINT_NV];
     bass_view_t bv;
-    uint8_t b[1u + 2u * FR_NV + 3u * GLINT_NV + 3u + 5u * NLFO + 4u + 1u + 1u], *p = b;
+    uint8_t b[1u + 2u * FR_NV + 3u * GLINT_NV + 3u + 5u * NLFO + 4u + 1u + 1u + FRS_LEAD * (2u * LEAD_NV + 1u)], *p = b;
     uint32_t i, on = 0;
     float m[4];
     frasil_view(v);
@@ -4082,7 +4953,25 @@ static void pf_frame(void)
         *p++ = pf_lvl(m[i]);
     *p++ = pf_playing();
     *p++ = pf_lvl(frasil_tape_drag() * 12.5f);   /* (LOFI TAPE's drag: 0.08 slower, 127) */
+#if FRS_LEAD
+    {                                    /* the LEAD's voices, its meter (card #144) */
+        lead_view_t lv;
+        frasil_lead_view(&lv);
+        for (i = 0; i < LEAD_NV; i++) {
+            *p++ = pf_note(lv.venv[i] > 0.0f ? lv.vnote[i] : -1);
+            *p++ = lv.vnote[i] < 0 ? 0u : pf_lvl(lv.venv[i]);
+        }
+        *p++ = pf_lvl(frasil_lead_meter());
+    }
+#endif
+#ifdef PLAT_HOST
+    if (!pf_send(b, (uint32_t)(p - b))) {   /* (the tests': the last one sent, pfframeN) */
+        memcpy(pf_frame_last, b, (uint32_t)(p - b));
+        pf_frame_n = (uint32_t)(p - b);
+    }
+#else
     pf_send(b, (uint32_t)(p - b));
+#endif
 }
 
 /* ------------------------------------------------------------ PERFORM's LIVE --- */
@@ -4093,11 +4982,19 @@ static void pf_frame(void)
  *                   now (STORE's: its sound, its notes, unsaved), u8 state_n, frs_state_save's bytes, u8 moves_n,
  *                   (setting, value) for each FRS_P_MOMENT one, u8 tracks (FRAME's transport), then (card #131) u16
  *                   live_n, the engine's running state at the same instant (engine/live.c's live_save: "FRlv" and its
- *                   head, the brain, the sound's; LV_LIVE at most, 0 none: it did not fit). A page of #114 stops at
- *                   tracks; 27 parts at most (LV_STATE)
+ *                   head, the brain, the sound's; LV_LIVE at most, 0 none: it did not fit), then (card #152) u16
+ *                   lead_n, the LEAD's part of it ("FRld": its settings, its keys, its voices; in the room the first
+ *                   leaves, LV_LIVE + LV_LEAD_ROOM in all, 0 none),
+ *                   apart so that a listener without the LEAD reads the first as it always did. A page of #114 stops at
+ *                   tracks, one of #131 after the running state; 31 parts at most (LV_STATE)
  *                10 OP packed: op, its args (frasil_stream.h's, the gestures it has none for LV_*'s); KEY_DOWN's fourth
- *                   the velocity. An op whose file has an index into SCNS (FST_SCENE, FST_SCENE_NOW, FST_STORE,
- *                   FST_ANCHOR) carries the scene itself, FRS_SCENE_BYTES: too long for one frame, it goes as
+ *                   the velocity. The LEAD's (card #152): its keys FST_KEY_LEAD (an engine without the LEAD skips them:
+ *                   KEY_DOWN's track 3 would play its bass), its settings as they turn (FST_PARAM; FST_PARAM16 past
+ *                   255, its byte too short: P_LD_DFB 256 .. P_LD_FRELEASE 267), a scene's LEAD (its
+ *                   own object's) FST_LEAD how 1 after the scene's op, the LEAD as it is FST_LEAD how 0 (a preset of
+ *                   the player's, FX back: its PRESET set alone), the SMK-37's wheels FST_LEAD_WHEELS. An op whose file
+ *                   has an index into SCNS (FST_SCENE, FST_SCENE_NOW, FST_STORE, FST_ANCHOR) carries the scene itself,
+ *                   FRS_SCENE_BYTES (scene_t: the LEAD apart): too long for one frame, it goes as
  *                11 OP part, parts, packed: joined and unpacked, op, the scene
  * "packed": MIDI's 8-to-7, each seven bytes a byte of their top bits (bit i: byte i's), then their low seven; a part
  * LV_PART packed bytes at most. Each op is queued as the engine gets it (lv_q: their order, the STATE among them where
@@ -4165,7 +5062,14 @@ static void lv_ev(uint32_t op, uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a
     lv_put(b, 2u + n, keep);
 }
 static void lv_op(uint32_t op, uint32_t a0, uint32_t a1) { lv_ev(op, a0, a1, 0, 0, 0); }
-static void lv_set(uint32_t p, uint32_t v) { lv_ev(FST_PARAM, p, v, 0, 0, 0); }
+static void lv_set(uint32_t p, uint32_t v)   /* (past 255, FST_PARAM's byte too short: FST_PARAM16, the LEAD's from
+                                              * FEEDBACK on: card #152) */
+{
+    if (p > 255u)
+        lv_ev(FST_PARAM16, p & 0xFFu, p >> 8, v, 0, 0);
+    else
+        lv_ev(FST_PARAM, p, v, 0, 0, 0);
+}
 static void lv_long(uint32_t op, uint32_t src)   /* src: a slot (scene_get's), LV_ANC the ANCHOR's: read as sent */
 {
     uint8_t b[3] = {0x80u, (uint8_t)op, (uint8_t)src};
@@ -4173,13 +5077,41 @@ static void lv_long(uint32_t op, uint32_t src)   /* src: a slot (scene_get's), L
 }
 
 /* app.c's param_set (the macro, top): a setting that moves, told first (as param_set clamps it), but the FM-1's alone
- * (SPK/JACK, the screen's, the metronome: its ticks the player's; COUNT-IN: with REC, FST_RECORDING) */
+ * (SPK/JACK, the screen's, the metronome: its ticks the player's; COUNT-IN: with REC, FST_RECORDING); the LEAD's too,
+ * a scene's (card #152: a listener with the LEAD turns them as this one, a preset's sound, MODE's voices let go; one
+ * without it leaves a setting past its NPARAM) */
 static void lv_param_set(int p, int32_t x)
 {
     if (lv_on && p >= 0 && p < (int)NPARAM && st.v[p] != (uint8_t)clamp(x, 0, PD[p].max) &&
         param_kind((uint32_t)p) != PK_NONE)
         lv_set((uint32_t)p, (uint32_t)clamp(x, 0, PD[p].max));
     (param_set)(p, x);
+}
+
+/* the LEAD's settings whole (card #152, FST_LEAD: how 1 a scene's LEAD taken, its own object's, ldp_load; 0 the LEAD as
+ * it is, where a setting was put in place without param_set: a preset of the player's, FX back, their PRESET alone) */
+static void lv_lead(uint32_t how)
+{
+#if FRS_LEAD
+    uint8_t b[3u + NLDS];
+    if (!lv_on)
+        return;
+    b[0] = (uint8_t)(2u + NLDS);
+    b[1] = FST_LEAD;
+    b[2] = (uint8_t)how;
+    memcpy(b + 3, &st.v[P_LD_WAVE], NLDS);
+    lv_put(b, sizeof b, 0);
+#else
+    (void)how;
+#endif
+}
+/* the SMK-37's wheels on the LEAD, as eng_lead_wheels takes them (FST_LEAD_WHEELS: the pitch wheel's u16 plus 8192),
+ * leaving room as a pressure does (they move as one) */
+static void lv_wheels(uint32_t mod, int32_t bend)
+{
+    uint32_t b = (uint32_t)(clamp(bend, -8192, 8191) + 8192);
+    if (lv_on)
+        lv_ev(FST_LEAD_WHEELS, mod > 127u ? 127u : mod, b & 0xFFu, b >> 8, 0, LV_KEEP);
 }
 
 /* REC tapped: the take's COUNT-IN and OVERDUB as they are (FST_RECORDING: frs_count_in, frs_overdub), then the record
@@ -4192,11 +5124,12 @@ static void lv_rec(uint32_t layer)
 
 static void lv_key(uint32_t k, int note, uint32_t vel, int single)
 {
-    if (!lv_on || k >= 32u)
+    if (!lv_on || k >= 32u || st.v[P_KB] > 3u)
         return;
     lv.kd |= 1u << k;
-    lv_ev(single ? LV_KEY_SINGLE : FST_KEY_DOWN, k, (uint32_t)clamp(note, 0, 127), st.v[P_KB],
-          vel < 1u ? 1u : vel > 127u ? 127u : vel, 0);
+    lv_ev(st.v[P_KB] == 3u ? FST_KEY_LEAD : single ? LV_KEY_SINGLE : FST_KEY_DOWN, k, (uint32_t)clamp(note, 0, 127),
+          st.v[P_KB], vel < 1u ? 1u : vel > 127u ? 127u : vel, 0);   /* (the LEAD's: FST_KEY_LEAD, which a listener
+                                          * without the LEAD skips; KEY_DOWN's track 3 would play its bass, card #152) */
 }
 static void lv_key_up(uint32_t k)        /* (a key whose down was told: SAVE's, EDIT's keys never were) */
 {
@@ -4296,8 +5229,8 @@ static void lv_state(void)
 {
     static const uint8_t H = 0x81u;
     scene_t sc;
-    uint8_t *o = lv_big;
-    uint32_t i, n, p, m = 0, at, ln;
+    uint8_t *o = lv_big, ld[LV_LEAD];
+    uint32_t i, n, p, m = 0, at, ln, lm = 0;
     if (lv.state)
         return;
     scene_get(fm.scene, &sc);            /* (as STORE makes it, the scene's: its name, what it plays now) */
@@ -4319,11 +5252,18 @@ static void lv_state(void)
         }
     o[at] = (uint8_t)m;
     o[n++] = pf_playing();
-    ln = live_save(o + n + 2u, LV_LIVE, o + 2, swell_held(btn_now), 0, 1);   /* (ENV held as the last pass gave it;
-                                          * no engine alone's part; 0: it did not fit, none told) */
+    ln = live_save(o + n + 2u, LV_LIVE, o + 2, swell_held(btn_now), 0, 1, ld, sizeof ld, &lm);   /* (ENV held as the
+                                          * last pass gave it; no engine alone's part; 0: it did not fit, none told; the
+                                          * LEAD's part read with it, on the stack) */
     o[n] = (uint8_t)(ln & 0xFFu);
     o[n + 1u] = (uint8_t)(ln >> 8);
     n += 2u + ln;
+    if (!ln || n + 2u + lm > LV_STATE)   /* (after the first, in the room it leaves: none, none told) */
+        lm = 0;
+    memcpy(o + n + 2u, ld, lm);
+    o[n] = (uint8_t)(lm & 0xFFu);
+    o[n + 1u] = (uint8_t)(lm >> 8);
+    n += 2u + lm;
     lv_big_n = (uint16_t)n;
     i = lv.lost;
     lv_put(&H, 1u, 0);
@@ -4404,7 +5344,11 @@ static void lv_end(void)                 /* the page gone: nothing more, nothing
 static void pf_tick(void)
 {
     uint32_t now = plat_ms(), i, n, sent = 0, btn, k;
+#if FRS_LEAD
+    uint8_t b[4u + 2u * PF_DUMP], keys = st.lead ? 3u : st.glint ? 1u : st.bass ? 2u : 0u;
+#else
     uint8_t b[4u + 2u * PF_DUMP], keys = st.glint ? 1u : st.bass ? 2u : 0u;
+#endif
     if (!pf.on)
         return;
     if (now - pf.heard > 5000u) {
@@ -4453,7 +5397,8 @@ static void pf_tick(void)
             sent++;
         }
     }
-    btn = plat_buttons();
+    btn = plat_buttons() & ~saver.btn_spent;   /* (one that did nothing, woke the screen or closed Learn's welcome: not
+                                                * told, Learn's step not taken by it: admin #881) */
     for (k = 0; k < NB; k++)
         if ((btn ^ pf.btn) >> k & 1u) {
             b[0] = 7u, b[1] = (uint8_t)k, b[2] = (uint8_t)(btn >> k & 1u);
@@ -4469,10 +5414,192 @@ static void pf_tick(void)
             return;
         pf.kd = keys_prev;
     }
+    for (k = n = 0; k < NKEYS && k < FRS_NKEYS; k++)   /* the hand pressing in: the held key pressed hardest */
+        if ((keys_prev >> k & 1u) && key[k].prs > n)
+            n = key[k].prs;
+    if (n != pf.prs && (pf.prs == 0xFFu || (((n == 0) != (pf.prs == 0) || n >= pf.prs + 4u || n + 4u <= pf.prs) &&
+                                            now - pf.prs_at >= 50u))) {
+        b[0] = 13u, b[1] = (uint8_t)n;
+        if (pf_send(b, 2u))
+            return;
+        pf.prs = (uint8_t)n, pf.prs_at = now;
+    }
     if (now - pf.frame_at >= 50u) {
         pf.frame_at = now;
         pf_frame();
     }
+}
+
+/* ------------------------------------------------------------ Learn's START --- */
+/* Learn (learn.frasilsynth.com) begins from a known state (card #153; Styves, admin #795, #800): as soon as the FM-1
+ * answers its HELLO, the page sends
+ *   page -> FM-1  14 START n, then n (setting (2), value (2))   n 127 at most: 513 bytes between F0 and F7, of the 640
+ *                   fm1-base takes whole (APP_SYSEX), one message, no parts
+ *   FM-1 -> page  14 START status   0 done: the state in, then VALUES gone out (every setting, as after a load); 1
+ *                   refused: a message the wrong length, or a START under way already. A page that said no HELLO hears
+ *                   it too (without VALUES); an FM-1 before it (3.2) never answers: the page goes on
+ * Nothing is asked: WELCOME TO LEARN MODE on the screen (ui.c welcome_screen) as it begins, up until a button, a key
+ * or a knob, which closes it and does nothing else (welcome_buttons). A backup streaming: after it. What plays let go
+ * first, as PLAY tapped twice lets it go (RELEASE ALL: each note fading as its RELEASE has it, never a cut), its fading
+ * waited for (the hand off the keys, the tracks' meters quiet: LS_FADE_MS at most); then NEW SHARD as SAVE › LOAD
+ * loads it (KEYS to their defaults), CUT and SND+NOTES whatever MORPH and LOAD say (theirs kept after), the play page;
+ * then each pair in order as a knob sets it (KEYS' as their page does, kept with the settings). A setting past NPARAM,
+ * a value past its max: skipped (NEW SHARD's stays). Unsaved, as after any edit; the stored scenes never touched. One
+ * a visit, the page's */
+#define LS_MAX 127u                      /* a START's pairs at most (its count, a 7-bit byte) */
+#define LS_FADE_MS 3000u                 /* what was let go: its fading waited for, at most */
+#define LS_QUIET 0.01f                   /* a track's meter this low (frasil_meters): faded */
+static struct {
+    uint8_t due, let, n, nos;            /* due: 1 a START waiting (a backup, the fading), 2 in, VALUES going out; let:
+                                          * what played let go; its pairs kept; the refusals owed */
+    uint32_t at;                         /* let go at */
+} ls;
+static uint16_t ls_p[LS_MAX];            /* the pairs, each checked: the setting, its value (381 bytes: in .bss, the
+                                          * pool's spare thin) */
+static uint8_t ls_v[LS_MAX];
+_Static_assert(5u + 4u * LS_MAX <= 640u && NPARAM < 16384u, "a START whole in one frame; its settings in two bytes");
+
+static void learn_start(const uint8_t *b, uint32_t n)   /* START's bytes after its cmd, n of them */
+{
+    uint32_t i, k = 0;
+    if (!n || n != 1u + 4u * b[0] || ls.due) {
+        if (ls.nos < 255u)
+            ls.nos++;
+        return;
+    }
+    for (i = 0; i < b[0]; i++) {
+        const uint8_t *e = b + 1u + 4u * i;
+        uint32_t p = (uint32_t)e[0] << 7 | e[1], v = (uint32_t)e[2] << 7 | e[3];
+        if (p < NPARAM && v <= PD[p].max) {
+            ls_p[k] = (uint16_t)p;
+            ls_v[k++] = (uint8_t)v;
+        }
+    }
+    ls.n = (uint8_t)k;
+    ls.due = 1;
+    ls.let = 0;
+}
+
+static int learn_heard(void)             /* something still heard: a track's meter, the LEAD's */
+{
+    float m[4];
+    uint32_t i;
+    frasil_meters(m);
+    for (i = 0; i < 4u; i++)
+        if (m[i] > LS_QUIET)
+            return 1;
+#if FRS_LEAD
+    return frasil_lead_meter() > LS_QUIET;
+#else
+    return 0;
+#endif
+}
+
+static void learn_set(uint32_t p, uint32_t v)   /* a pair, as a knob sets it (encoders: keys_turn, the settings') */
+{
+    if (p >= P_KY_DR_HARM && p <= P_KY_BS_STACK && ((p - P_KY_DR_HARM) & 3u) == 1u && v && !st.v[p - 1u])
+        param_set((int)(p - 1u), 1);     /* (NOTES to CHORD with HARMONY OFF: HARMONY on too) */
+    param_set((int)p, (int32_t)v);
+    if ((p >= P_KY_DR_HARM && p <= P_KY_BS_STACK) || p == P_METRO || p == P_COUNT_IN || p == P_ARP_SNAP) {
+        if (p == P_METRO && st.v[P_METRO])
+            fm.metro_on = st.v[P_METRO];
+        prefs_later();
+    }
+}
+
+static void learn_apply(void)            /* NEW SHARD, then the pairs */
+{
+    uint8_t morph = st.v[P_MORPH], load = st.v[P_LOAD];
+    uint32_t i;
+    nm.on = 0;                           /* (a name, the grid, the help, the logo: gone; a pop-up stays, SEL's) */
+    ng.on = ng.due = 0;
+    fm.edit_map = fm.help = fm.logo = 0;
+    fm.page = PG_SON;
+    param_set(P_MORPH, 0);               /* (CUT, SND+NOTES: the scene whole, at once; told to LIVE as set) */
+    param_set(P_LOAD, 0);
+    scene_go(SC_NEW);
+    param_set(P_MORPH, morph);
+    param_set(P_LOAD, load);
+    for (i = 0; i < ls.n; i++)
+        learn_set(ls_p[i], ls_v[i]);
+    if (pf.on)
+        pf.dump = 1u;                    /* (every setting told, as after a load) */
+}
+
+/* each UI frame, before the screen: the refusals owed, the welcome, a START's steps, its answer once VALUES went out */
+static void learn_tick(void)
+{
+    uint32_t now = plat_ms();
+    uint8_t b[2] = {14u, 1u};
+    while (ls.nos && !fm.store_hold && !pf_send(b, 2u))   /* (a backup streaming: its frames alone on the wire) */
+        ls.nos--;
+    if (ls.due == 1u) {
+        if (fm.store_hold)               /* a backup streaming: after it */
+            return;
+        if (!ls.let) {                   /* what plays let go (as PLAY tapped twice: frs_release), the welcome up */
+            ls.let = 1;
+            ls.at = now;
+            if (holding_any() || app_backup_playing()) {
+                sound_off();
+                grid_top(0);
+                lv_op(LV_RELEASE, 0, 0);
+            }
+            welcome.on = 1;
+            welcome.drawn = 0;
+            if (saver.on) {              /* (the screen wakes) */
+                saver.on = saver.party = 0;
+                saver_touch();
+            }
+            if (ann_on())
+                ann_say("Welcome to Learn mode.", 0, ANN_NOW);
+        }
+        if (now - ls.at < LS_FADE_MS && (keys_prev || learn_heard()))
+            return;                      /* (fading: the hand off the keys, every track quiet) */
+        learn_apply();
+        ls.due = 2;
+    }
+    if (ls.due == 2u && (!pf.on || !pf.dump)) {   /* VALUES gone out (pf_tick): done */
+        b[1] = 0;
+        if (!pf_send(b, 2u))
+            ls.due = 0;
+    }
+}
+
+/* the welcome up (no pop-up, no name over it): the first button, key or knob closes it, and that alone (Styves, admin
+ * #881: up until then, never gone by itself; the lesson's first step never taken by the hand that closed it), as one
+ * wakes the screensaver: the button, the key dropped till let go (no tap, no hold, no note, nothing told to the page:
+ * saver's btn_spent, keys_spent), the knob's detents while it turns on (SAVER_GRACE_MS of rest). Those down as it came:
+ * theirs */
+static int welcome_waits(void) { return welcome.on && !pop.on && !nm.on; }
+
+static uint32_t welcome_buttons(uint32_t btn)   /* (input: the buttons read) */
+{
+    uint32_t down = btn & ~btn_prev;
+    if (!down || !welcome_waits())
+        return btn;
+    welcome.on = 0;
+    saver.btn_spent |= down;
+    return btn & ~down;
+}
+
+static uint32_t welcome_keys(uint32_t keys)   /* (keys_scan: the keys read) */
+{
+    uint32_t down = keys & ~keys_prev;
+    if (!down || !welcome_waits())
+        return keys;
+    welcome.on = 0;
+    saver.keys_spent |= down;
+    return keys & ~down;
+}
+
+static int welcome_knob(void)            /* (encoders: a detent read) 1: it closed the welcome */
+{
+    if (!welcome_waits())
+        return 0;
+    welcome.on = 0;
+    saver.woke_at = plat_ms();
+    saver.enc_until = saver.woke_at + SAVER_GRACE_MS;
+    return 1;
 }
 
 int app_sysex(const uint8_t *p, uint32_t n)
@@ -4493,6 +5620,10 @@ int app_sysex(const uint8_t *p, uint32_t n)
             lv_state();
         return 1;
     }
+    if (p[3] == 14u) {                   /* START (Learn's, any page: HELLO not needed) */
+        learn_start(p + 4, n - 4u);
+        return 1;
+    }
     if (p[3] != 1u)
         return 1;
     pf_quiet(n > 5u && p[5] < 0x80u && (p[5] & 1u));   /* (HELLO: version, then flags: 1 COMPUTER AUDIO, 2 LIVE) */
@@ -4500,11 +5631,12 @@ int app_sysex(const uint8_t *p, uint32_t n)
     if (!pf.on) {                        /* a page arrives: everything, from the start */
         pf.on = 1;
         pf.scene = 0xFFu, pf.page = 0xFFu, pf.dump = 1u;
-        pf.btn = plat_buttons();
+        pf.btn = plat_buttons() & ~saver.btn_spent;
         pf.kd = keys_prev;
         pf.frame_at = plat_ms();
     }
-    pf.scene = 0xFFu, pf.page = 0xFFu;   /* (told again: one the page missed comes back within 2 s) */
+    pf.scene = 0xFFu, pf.page = 0xFFu, pf.prs = 0xFFu;   /* (told again: one the page missed comes back within 2 s;
+                                          * PRESSURE after the answer: a page knows this FM-1 tells it) */
     pf.heard = plat_ms();
     if (fm.store_hold)                   /* a backup streaming: heard, not answered */
         return 1;
@@ -4530,6 +5662,11 @@ static void lv_record_off(void) { eng_record_off(); }
 static void lv_rec(uint32_t layer) {}
 static void lv_watch(int swell) {}
 static void lv_pump(void) {}
+static void lv_lead(uint32_t how) {}
+static void lv_wheels(uint32_t mod, int32_t bend) {}
+static uint32_t welcome_buttons(uint32_t btn) { return btn; }   /* (no Learn here: no welcome) */
+static uint32_t welcome_keys(uint32_t keys) { return keys; }
+static int welcome_knob(void) { return 0; }
 #endif
 
 void app_frame(void)
@@ -4542,6 +5679,9 @@ void app_frame(void)
     load_watch();
     batt_tick();
     saver_tick();
+#ifndef PLAT_WEB
+    learn_tick();                        /* (Learn's START: before the screen draws, PERFORM's VALUES after) */
+#endif
 #if defined PLAT_HOST && !defined PLAT_WEB
     k = saver.on ? 1u + saver.party : 0u;
     t0 = plat_ticks();
@@ -4555,6 +5695,7 @@ void app_frame(void)
 #else
     ui_frame();
 #endif
+    speak();                             /* what the screen shows, to a screen reader listening (speak.c) */
     pf_tick();
 }
 
@@ -4735,6 +5876,11 @@ int app_expect(const char *what, int *got)
         *got = g;
     else if (!strcmp(what, "glints"))        /* glints ringing */
         *got = sp;
+    else if (!strcmp(what, "glintsdown")) {  /* those with their key down */
+        *got = 0;
+        for (i = 0; i < GLINT_NV; i++)
+            *got += s[i].note >= 0 && s[i].gate;
+    }
     else if (!strcmp(what, "glintlvl")) {   /* the loudest glint's level x 100, and its note (glintnote) */
         int best = 0;
         for (i = 0; i < GLINT_NV; i++)
@@ -4755,6 +5901,88 @@ int app_expect(const char *what, int *got)
         *got = st.glint;
     else if (!strcmp(what, "bass"))          /* the keys play BASS */
         *got = st.bass;
+#if FRS_LEAD
+    else if (!strcmp(what, "lead"))          /* the keys play LEAD (card #144) */
+        *got = st.lead;
+    else if (!strcmp(what, "gridon"))        /* a list's browser up (a preset's, a TARGET's) */
+        *got = ng.on;
+#if PLAT_SMK37
+    else if (!strcmp(what, "padanswers"))    /* the choice waiting, as the pads answer it: 1 OK, 3 OK and CANCEL, 0 none */
+        *got = (int)pad_answers();
+    else if (!strcmp(what, "padmode"))       /* their words: 0 none, 1 OK, 2 CANCEL OK, 3 LOAD SAVE, 4 CANCEL LOAD, 5 CANCEL
+                                              * SAVE (pad_mode) */
+        *got = (int)pad_mode();
+    else if (!strcmp(what, "lfopad"))        /* 1 + the LFO whose pad is held (the knobs its), 0 none */
+        *got = lfo_pad_held;
+#endif
+    else if (!strncmp(what, "lead", 4)) {    /* leadnote: LEAD sounding (OCTAVE on it; POLY: the newest), -1 silent; leadgate;
+                                              * leadlvl: its envelope x 100; leadons, leadglides: the notes struck, glided
+                                              * to; leadheld, leadvoices: its voices held, sounding; leadsend: its share of
+                                              * the cloud at its loudest, x 1000; leadcutmod: its FILTER as it sounds, that
+                                              * far from the knob's (an LFO's), x 1000; leadechol, leadechor: each side's
+                                              * echo at its loudest, the last render, x 1000; leaddelayms: TIME as the
+                                              * beat has it; leadmod: the mod wheel as it came, 0..127; leadfenv: FILTER
+                                              * ENV's own envelope x 100 */
+        lead_view_t l;
+        frasil_lead_view(&l);
+        *got = !strcmp(what, "leadcutmod") ? (int)(fm_fabsf(l.cut - (float)st.v[P_LD_CUT] / 127.0f) * 1000.0f + 0.5f)
+             : !strcmp(what, "leadechol") ? (int)(l.echol * 1000.0f + 0.5f)
+             : !strcmp(what, "leadechor") ? (int)(l.echor * 1000.0f + 0.5f)
+             : !strcmp(what, "leaddelayms") ? (int)(ld_delay_s * 1000.0f + 0.5f)
+             : !strcmp(what, "leadmod") ? (int)(l.mod * 127.0f + 0.5f)
+             : !strcmp(what, "leadfenv") ? (int)(l.fenv * 100.0f + 0.5f)
+             : !strcmp(what, "leadnote") ? l.note : !strcmp(what, "leadgate") ? l.gate
+             : !strcmp(what, "leadlvl") ? (int)(l.level * 100.0f + 0.5f) : !strcmp(what, "leadons") ? (int)l.ons
+             : !strcmp(what, "leadheld") ? (int)l.held : !strcmp(what, "leadvoices") ? (int)l.sounding
+             : !strcmp(what, "leadsend") ? (int)(l.send * 1000.0f + 0.5f) : (int)l.glides;
+    }
+#endif
+#if APP_CPU_LINE && !defined PLAT_WEB
+    else if (!strcmp(what, "cpuline") || !strcmp(what, "cpucol")) {   /* the load's line as the screen has it (its row
+                                              * read back after the label, CL_X on): cpuline its pixels filled from
+                                              * there (of CL_W), the rest the track's (-1: the row not the line: the
+                                              * saver, the logo); cpucol the fill's colour, 0 slate, 1 yellow, 2 red
+                                              * (-1: none, or not the line) */
+        static const uint16_t FC[3] = {C_SLATE, C_BATT_LOW, C_RED};
+        const uint16_t *r = &fb[CL_Y * 240 + CL_X];
+        int32_t n = 0, z, x;
+        for (z = 0; z < 3 && swap16(r[0]) != FC[z]; z++)
+            ;
+        if (z < 3)
+            while (n < CL_W && swap16(r[n]) == FC[z])
+                n++;
+        for (x = n; x < CL_W && swap16(r[x]) == C_CL_TRACK; x++)
+            ;
+        if (x < CL_W)
+            n = -1;
+        *got = what[3] == 'l' ? (int)n : n > 0 ? (int)z : -1;
+    }
+    else if (!strcmp(what, "cpulabel")) {    /* the label's box as the screen has it (x 0 .. CL_X - 1, rows CL_LY ..
+                                              * CL_Y): its pixels lit, every one CPU's slate over the night at one of
+                                              * the font's 16 levels (-1: anything else in the box) */
+        int32_t n = 0, x, y, a;
+        for (y = CL_LY; y <= CL_Y && n >= 0; y++)
+            for (x = 0; x < CL_X && n >= 0; x++) {
+                uint32_t c = swap16(fb[y * 240 + x]);
+                for (a = 0; a < 16; a++)  /* (gfx.c cv_text's blend, over C_BG's black) */
+                    if (c == ((uint32_t)(C_SLATE >> 11) * (uint32_t)a / 15u << 11 |
+                              ((uint32_t)C_SLATE >> 5 & 63u) * (uint32_t)a / 15u << 5 | (C_SLATE & 31u) * (uint32_t)a / 15u))
+                        break;
+                n = a == 16 ? -1 : n + (a > 0);
+            }
+        *got = (int)n;
+    }
+    else if (!strcmp(what, "cpushown"))      /* the load the line shows, whole % (its steps: up at once, down slower) */
+        *got = (int)((cl.v + 8u) / 16u);
+    else if (!strcmp(what, "cpurows")) {     /* the row drawn alone since last asked (a step that moved the line) */
+        *got = (int)cl.rows;
+        cl.rows = 0;
+    }
+    else if (!strcmp(what, "cpulabels")) {   /* the label drawn since last asked (with a band that reached its box) */
+        *got = (int)cl.labels;
+        cl.labels = 0;
+    }
+#endif
     else if (!strcmp(what, "bassnote"))      /* the bass's note held, as it sounds (OCTAVE on it), -1 none */
         *got = bass_note < 0 ? -1 : bass_sounding(bass_note);
     else if (!strcmp(what, "barpsteps")) {   /* the bass's arpeggio: its steps played since last asked; barpnotes, barpplay,
@@ -4845,10 +6073,15 @@ int app_expect(const char *what, int *got)
     } else if (!strcmp(what, "pumplow")) {   /* its lowest since last asked x 100 */
         *got = (int)(pump_low * 100.0f + 0.5f);
         pump_low = 1.0f;
-    } else if (!strncmp(what, "meter", 5)) { /* meterN: track N's meter x 100 (0 drones, 1 bass, 2 glints, 3 cloud) */
+    } else if (!strncmp(what, "meter", 5)) { /* meterN: track N's meter x 100 (0 drones, 1 bass, 2 glints, 3 cloud;
+                                              * 4 the LEAD, MIXER's K4) */
         float m[4];
         frasil_meters(m);
+#if FRS_LEAD
+        *got = (int)((atoi(what + 5) == 4 ? frasil_lead_meter() : m[atoi(what + 5) & 3]) * 100.0f);
+#else
         *got = (int)(m[atoi(what + 5) & 3] * 100.0f);
+#endif
     } else if (!strcmp(what, "glintcents")) {   /* the largest VIBRATO bend among the glints, cents x 10 */
         int best = 0;
         for (i = 0; i < GLINT_NV; i++) {
@@ -4934,6 +6167,14 @@ int app_expect(const char *what, int *got)
             af_hi = 0u;
         }
     }
+    else if (!strcmp(what, "drawnhome")) /* the frames since drawnmark that showed the play page (HOME's SOUND, or a
+                                          * value large over the river) */
+        *got = (int)ui_seen.home;
+    else if (!strcmp(what, "drawnflips"))   /* the times the page shown changed since drawnmark */
+        *got = (int)ui_seen.flips;
+    else if (!strcmp(what, "drawnstale"))   /* the frames since drawnmark whose middle band still showed another page
+                                             * than its header and footer */
+        *got = (int)ui_seen.stale;
 #endif
 #ifndef PLAT_WEB
     else if (!strcmp(what, "framepx")) { /* its pixels on the screen (of AF_N x AF_W, 3776): the frame's places that read
@@ -4989,6 +6230,13 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "battmv"))
         *got = batt.mv16 / 16;
 #ifndef PLAT_WEB
+    else if (!strcmp(what, "pfkeys"))       /* PAGE's keys as the page was last told (0 DRONE, 1 GLINT, 2 BASS, 3 LEAD) */
+        *got = pf.keys;
+    else if (!strcmp(what, "pfframelen"))   /* the last FRAME a PERFORM page got: its bytes, its cmd first */
+        *got = (int)pf_frame_n;
+    else if (!strncmp(what, "pfframe", 7))   /* pfframeN: its byte N (0 its cmd, 6; 53 .. 64 the LEAD's voices, 65 its
+                                              * meter, card #144), -1 past it */
+        *got = (uint32_t)atoi(what + 7) < pf_frame_n ? (int)pf_frame_last[atoi(what + 7)] : -1;
     else if (!strcmp(what, "pfbatt"))    /* the last BATTERY a PERFORM page got: its level (127 none); pfbattn: how many */
         *got = pf_batt_last[5];
     else if (!strcmp(what, "pfbattn"))
@@ -5000,6 +6248,15 @@ int app_expect(const char *what, int *got)
         *got = a4.hz;
     else if (!strcmp(what, "a4byte"))
         *got = set.a4;
+    else if (!strcmp(what, "welcome"))   /* Learn's welcome on the screen */
+        *got = welcome.on;
+#ifndef PLAT_WEB
+    else if (!strcmp(what, "learn"))     /* Learn's START: 0 none, 1 waiting (a backup, the fading), 2 in, VALUES going
+                                          * out; learnn: its pairs kept (the rest skipped) */
+        *got = ls.due;
+    else if (!strcmp(what, "learnn"))
+        *got = ls.n;
+#endif
 #ifndef PLAT_WEB
     else if (!strcmp(what, "pitchhz"))   /* the output's pitch since "pitch HZ", Hz x 100 (pz); pitchcents: over the one
                                           * "pitchref" kept, cents x 10 */
@@ -5032,9 +6289,9 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "editmap"))   /* EDIT's keys up */
         *got = fm.edit_map;
     else if (!strncmp(what, "upn", 3))   /* upnT: track T's presets of the player's; upcurT: the one taken last, -1 */
-        *got = (int)up_n((uint32_t)atoi(what + 3) % 3u);
+        *got = (int)up_n((uint32_t)atoi(what + 3) % (3u + FRS_LEAD));
     else if (!strncmp(what, "upcur", 5))
-        *got = up_cur[(uint32_t)atoi(what + 5) % 3u];
+        *got = up_cur[(uint32_t)atoi(what + 5) % (3u + FRS_LEAD)];
     else if (!strcmp(what, "svinto"))    /* the flow's INTO, WHAT, LOAD */
         *got = sv.into;
     else if (!strcmp(what, "svwhat"))
@@ -5354,15 +6611,32 @@ static int schema_write(const char *path)
     js_magic(f, SET_MAGIC);
     fprintf(f, ",\"backup\":");
     js_magic(f, APP_BACKUP_MAGIC);
-    fprintf(f, "},\n\"objs\":{\"settings\":%d,\"panel\":%d,\"scenes\":%d,\"bseqs\":%d,\"dseqs\":%d,\"upresets\":%d,\"names\":%d},\n\"seq\":{\"rest\":%u,\"tie\":%u,"
-               "\"accent\":%u},\n",
-            OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES, SQ_REST, SQ_TIE, SQ_ACC);
+    fprintf(f, "},\n\"objs\":{\"settings\":%d,\"panel\":%d,\"scenes\":%d,\"bseqs\":%d,\"dseqs\":%d,\"upresets\":%d,\"names\":%d",
+            OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES);
+#if FRS_LEAD
+    fprintf(f, ",\"lead\":%d", OBJ_LEAD);
+#endif
+    fprintf(f, "},\n\"seq\":{\"rest\":%u,\"tie\":%u,\"accent\":%u},\n", SQ_REST, SQ_TIE, SQ_ACC);
     /* OBJ_UPRE (3.0), the player's presets: after its magic NUP of the drone's, of GLINT's, of the bass's, each its bytes
      * (the engine's "FRp": "FRp", version, track, n, name of SC_NAME, n pairs of setting and value; its first byte 0: none);
      * absent (an earlier FRASIL's store or backup): none */
     fprintf(f, "\"upresets_t\":{\"size\":%u,\"magic\":0,\"slots\":%u,\"at\":[%u,%u,%u],\"bytes\":[%u,%u,%u]},\n",
             (unsigned)sizeof(upresets_t), NUP, (unsigned)offsetof(upresets_t, dr), (unsigned)offsetof(upresets_t, gl),
             (unsigned)offsetof(upresets_t, bs), (unsigned)sizeof up.dr[0], (unsigned)sizeof up.gl[0], (unsigned)sizeof up.bs[0]);
+#if FRS_LEAD
+    /* OBJ_LEAD (card #144), each scene's LEAD and the player's LEAD presets (ldp_*): "FRLD", its version, its slots, an
+     * entry's bytes, its settings (from "first", P_LD_WAVE on); then each slot's entry (a byte, 1 stored with a LEAD,
+     * else MOSS; its settings); at "presets", 'U', NUP, a preset's bytes, its settings, then each preset (a byte, 1
+     * saved; its name, SC_NAME; its settings); absent (an earlier FRASIL's store or backup): every slot MOSS */
+    fprintf(f, "\"lead_t\":{\"magic\":%u,\"version\":%u,\"head\":%u,\"slots\":%u,\"entry\":%u,\"settings\":%u,"
+               "\"first\":%u,\"presets\":%u,\"preset\":%u,\"size\":%u},\n",
+            (unsigned)LDP_MAGIC, LDP_VER, LDP_HEAD, NSCENES, (unsigned)LDP_ENTRY, (unsigned)NLDS, (unsigned)P_LD_WAVE,
+            (unsigned)LDP_BYTES, (unsigned)LDU_ENTRY, (unsigned)LDP_ALL);
+    /* a shard (magic.shard, card #152): scene_t's bytes, then at "lead" the LEAD's NLDS settings, P_LD_WAVE on */
+    fprintf(f, "\"shard_t\":{\"size\":%u,\"lead\":%u},\n", (unsigned)(sizeof(scene_t) + NLDS), (unsigned)sizeof(scene_t));
+#else
+    fprintf(f, "\"shard_t\":{\"size\":%u},\n", (unsigned)sizeof(scene_t));
+#endif
     /* the drone's sequence (scene_t's dq, dnote): SC_DSEQ steps of DQ_NOTES bytes, each step its notes low to high (1 ..
      * 126, MIDI's, TRANSPOSE off them), 0 after the last, all 0 a rest, "tie" first (the rest 0) a tie; RATE's ticks the
      * bass's (bseq.ticks); "none": its NDQ settings in a scene that has none (every layout before FRSz, an absent
@@ -5389,6 +6663,11 @@ static int schema_write(const char *path)
      * FRSk, FRSi, then FRSh. Every one, as every old_bseqs and old_settings_over: PLAYS' 1 is 2 here (SEQUENCE on was 1),
      * the bass's arpeggio none, its settings and GATE their defaults; and every one: the drone's sequence none (dseq.none) */
     fprintf(f, "]},\n\"old_shards\":[{\"magic\":");
+#if FRS_LEAD
+    js_magic(f, SHARD_FRSBRACE);         /* (3.1 .. 3.2's: the scene alone, the LEAD after it MOSS) */
+    fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":0,\"grid\":1,\"same\":1},{\"magic\":",
+            (unsigned)sizeof(scene_t), (unsigned)NSOUND, (unsigned)(SC_NAME + NSOUND + SC_TAIL));
+#endif
     js_magic(f, SHARD_FRSBAR);           /* (3.0.2-b5's: this layout, its AMOUNTs in percent, pct: |v - 100| each) */
     fprintf(f, ",\"size\":%u,\"nv\":%u,\"rec\":%u,\"scatter\":0,\"grid\":1,\"same\":1,\"pct\":1},{\"magic\":",
             (unsigned)sizeof(scene_t), (unsigned)NSOUND, (unsigned)(SC_NAME + NSOUND + SC_TAIL));
@@ -5516,6 +6795,13 @@ static int schema_write(const char *path)
     ID(P_PN_DRONE), ID(P_PN_BASS), ID(P_PN_GLINT), ID(P_PN_CLOUD), ID(P_CH_SOFT), ID(PG_CHOEUR2), ID(PG_CHOEUR3);
     ID(P_FREEZE), ID(P_SWELL), ID(P_KB), ID(P_BA_MODE), ID(P_BA_RANGE), ID(P_BA_CHANCE), ID(P_BQ_GATE), ID(P_BQ_ACC);
     ID(P_BQ_NEW), ID(P_BQ_UNDO), ID(P_SQ_NLEN), ID(P_BS_WEIGHT), ID(P_BS_PUNCH), ID(P_BS_BITE), ID(P_BS_SPACE), ID(P_GL_VIB_AUTO), ID(P_DQ_ON), ID(P_DQ_RATE), ID(P_DQ_LEN), ID(P_DQ_GATE), ID(P_DQ_CHANCE), ID(P_DQ_TRANS), ID(P_DQ_REC), ID(P_DQ_CLEAR), ID(P_DQ_STEP), ID(P_DQ_NOTES), ID(P_DQ_NLEN), ID(P_DQ_UNDO), ID(P_GA_LATCH), ID(P_BA_LATCH), ID(P_KY_DR_HARM), ID(P_KY_GL_HARM), ID(P_KY_BS_HARM), ID(P_METRO), ID(P_COUNT_IN), ID(P_ARP_SNAP), ID(P_SAVER), ID(P_TP_FLUTTER), ID(P_TP_TONE), ID(P_TP_NOISE), ID(P_TP_DROPOUT), ID(PG_TAPE2), ID(P_L1_AMT1), ID(P_L1_AMT2), ID(P_L1_AMT3), ID(P_L1_AMT4), ID(P_L2_AMT1), ID(P_L2_AMT2), ID(P_L2_AMT3), ID(P_L2_AMT4), ID(P_L3_AMT1), ID(P_L3_AMT2), ID(P_L3_AMT3), ID(P_L3_AMT4), ID(PG_LFO1T), ID(PG_LFO2T), ID(PG_LFO3T), ID(PG_BARP), ID(PG_BSEQ3), ID(PG_BDRIVE), ID(PG_CSEND), ID(P_SQ_REC), ID(PG_ARP2), ID(PG_BARP2), ID(PG_DSEQ), ID(PG_DSEQ2), ID(PG_DSEQ3), ID(PG_NOARP), ID(PG_KEYS), ID(PG_RECORD), ID(PG_SAVE), ID(PG_SAVEAS);
+#if FRS_LEAD                             /* (the LEAD's, card #152: the River's editor, Learn, Perform by name) */
+    ID(P_LD_WAVE), ID(P_LD_CUT), ID(P_LD_RESO), ID(P_LD_DETUNE), ID(P_LD_GLIDE), ID(P_LD_FENV), ID(P_LD_VIB), ID(P_LD_OCTAVE),
+    ID(P_LD_ATTACK), ID(P_LD_DECAY), ID(P_LD_SUSTAIN), ID(P_LD_RELEASE), ID(P_LD_DTIME), ID(P_LD_DFB), ID(P_LD_DMIX),
+    ID(P_LD_SPACE), ID(P_MX_LEAD), ID(P_LD_PRESET), ID(P_LD_MODE), ID(P_LD_BREATH), ID(P_LD_DRIVE), ID(P_LD_FATTACK),
+    ID(P_LD_FDECAY), ID(P_LD_FSUSTAIN), ID(P_LD_FRELEASE), ID(PG_LEAD), ID(PG_LEAD2), ID(PG_LEAD3), ID(PG_LDELAY),
+    ID(PG_LADSR), ID(PG_LFENV), ID(PG_LNOARP), ID(PG_LNOSEQ), ID(PG_MIXER), ID(PG_NUAGE3), ID(T_ANY);
+#endif
 #undef ID
     fprintf(f, "},\n\"params\":[\n");
     for (p = 0; p < NPARAM; p++) {       /* each with its words for every value, as the screen writes them */
@@ -5663,7 +6949,7 @@ static void set_frsh(void)
     set_bass_old(raw + 4u + FRSH_NV + offsetof(settings_t, bnote) - offsetof(settings_t, octave));
     for (i = 0; i < NLEARN; i++) {
         uint8_t *l = raw + offsetof(settings_t, learn_p) - (NSOUND - FRSH_NV) + i;
-        if (*l >= NSOUND && *l < NPARAM)
+        if (*l >= NSOUND && *l < P_AFTER_AMT)
             *l = (uint8_t)(*l - (NSOUND - FRSH_NV));
     }
 }
@@ -5680,7 +6966,7 @@ static void old_frsj(uint32_t gm)
         raw[i] = (uint8_t)(gm >> (8u * i));
     for (i = 0; i < NLEARN; i++) {
         uint8_t *l = raw + offsetof(settings_t, learn_p) - (NSOUND - FRSL_NV) + i;
-        if (*l >= NSOUND && *l < NPARAM)
+        if (*l >= NSOUND && *l < P_AFTER_AMT)
             *l = (uint8_t)(*l - (NSOUND - FRSL_NV));
     }
     plat_store_save(OBJ_SETTINGS, raw, FRSJ_BYTES);
@@ -5715,7 +7001,7 @@ static void old_frsk(void)
         raw[i] = (uint8_t)(SET_FRSK >> (8u * i));
     for (i = 0; i < NLEARN; i++) {
         uint8_t *l = raw + offsetof(settings_t, learn_p) - (NSOUND - FRSO_NV) + i;
-        if (*l >= NSOUND && *l < NPARAM)
+        if (*l >= NSOUND && *l < P_AFTER_AMT)
             *l = (uint8_t)(*l - (NSOUND - FRSO_NV));
     }
     plat_store_save(OBJ_SETTINGS, raw, FRSK_BYTES);
@@ -5751,7 +7037,7 @@ static void old_frsq(void)
         uint8_t *l = raw + offsetof(settings_t, learn_p) - (NSOUND - FRSQ_NV) + i;
         if (*l == P_CH_SOFT)             /* (2.5 had no SOFT to learn a CC on: none) */
             *l = l[-(int32_t)NLEARN] = 0;
-        if (*l >= NSOUND && *l < NPARAM)
+        if (*l >= NSOUND && *l < P_AFTER_AMT)
             *l = (uint8_t)(*l - (NSOUND - FRSQ_NV));
     }
     plat_store_save(OBJ_SETTINGS, raw, FRSL_BYTES);
@@ -5827,9 +7113,17 @@ static int pfc_next(uint8_t *o, uint32_t *on, uint32_t max)
         pfc.rd += 2u + len;
         if (len < 6u || f[0] != 0xF0u || f[1] != 0x7Du || f[2] != 0x46u || f[3] != 0x50u || f[len - 1u] != 0xF7u)
             return -1;
+        if (f[4] < 9u || f[4] > 11u) {   /* (one pfwatch names: its bytes as sent) */
+            if (parts || len - 6u > max)
+                return -1;
+            memcpy(o, f + 5, len - 6u);
+            *on = len - 6u;
+            cmd = f[4];
+            break;
+        }
         if (f[4] == 10u) {
-            if (parts || len - 6u > 16u)
-                return -1;               /* (an op amid a long one's parts) */
+            if (parts || len - 6u > LV_PART)
+                return -1;               /* (an op amid a long one's parts; FST_LEAD's 27 bytes 31 packed: card #152) */
             *on = pfc_unpack(o, f + 5, len - 6u);
             cmd = 10;
             break;
@@ -5862,8 +7156,9 @@ static void pfc_say(int ok, const char *what, const char *got)
 static void pfc_want(void)
 {
     scene_t sc;
+    static uint8_t ld[LV_LEAD];
     uint8_t *w = pfc.want, st_b[STATE_BYTES];
-    uint32_t i, n, sb = state_save(st_b), m = 0, ln;
+    uint32_t i, n, sb = state_save(st_b), m = 0, ln, lm = 0;
     pfc.asks++;
     if (lv.state)
         return;
@@ -5887,24 +7182,32 @@ static void pfc_want(void)
             w[n++] = i == P_GA_LATCH ? arp.latch : i == P_BA_LATCH ? barp.latch : st.v[i];
         }
     w[n++] = pf_playing();
-    ln = live_save(w + n + 2u, LV_LIVE, w + 2, swell_held(btn_now), 0, 1);
+    ln = live_save(w + n + 2u, LV_LIVE, w + 2, swell_held(btn_now), 0, 1, ld, sizeof ld, &lm);
     w[n++] = (uint8_t)ln;
     w[n++] = (uint8_t)(ln >> 8);
-    pfc.want_n = n + ln;
+    n += ln;
+    if (!ln || n + 2u + lm > LV_STATE)   /* (the LEAD's part after it, in the room the first leaves: card #152) */
+        lm = 0;
+    w[n++] = (uint8_t)lm;
+    w[n++] = (uint8_t)(lm >> 8);
+    memcpy(w + n, ld, lm);
+    pfc.want_n = n + lm;
     pfc.want_ms = plat_ms() + 1u;        /* (the millisecond the engine runs next: the main loop ran this one's) */
 }
 
 /* the start, as STATE says it: each part in place, its layout whole (scene, state, moves, tracks, the running state,
- * nothing after), the state frs_state_save's ("FRst" 3, each FRS_P_STATE setting, the metronome last), the moves each
- * FRS_P_MOMENT's, the running state's head as a listener reads it ("FRlv", its version 1, the sound's part in it, the
- * scene's length, NPARAM, the millisecond plat_ms() + 1 at the ask, the body's length; LV_LIVE at most), and every byte
- * what pfstate asked for then (pfc_want) */
+ * the LEAD's part, nothing after), the state frs_state_save's ("FRst" 3, each FRS_P_STATE setting, the metronome last),
+ * the moves each FRS_P_MOMENT's, the running state's head as a listener reads it ("FRlv", its version 1, the sound's
+ * part in it, the scene's length, LIVE_NPARAM (the settings before the LEAD's), the millisecond plat_ms() + 1 at the
+ * ask, the body's length; LV_LIVE at most), the LEAD's ("FRld", its version 1, the sound's part in it, LEAD_BYTES,
+ * P_LD_WAVE, the same millisecond, its length; then the LEAD's settings as they are; LV_LEAD at most: card #152), and
+ * every byte what pfstate asked for then (pfc_want) */
 static void pfc_state(void)
 {
     static uint8_t o[LV_STATE + LV_RAW];
     char t[128];
-    uint32_t n = 0, sn, sb, mn, tr, ln, i, ns = 0, nm = 0, bad = 0;
-    const uint8_t *lv_b;
+    uint32_t n = 0, sn, sb, mn, tr, ln, lm, i, ns = 0, nm = 0, bad = 0;
+    const uint8_t *lv_b, *ld_b;
     int c = pfc_next(o, &n, sizeof o);
     if (c != 9) {
         snprintf(t, sizeof t, "cmd %d, not a STATE", c);
@@ -5916,13 +7219,15 @@ static void pfc_state(void)
     mn = n > 3u + sn + sb ? o[3u + sn + sb] : 0u;
     tr = 2u + sn + 1u + sb + 1u + 2u * mn;   /* (tracks' place, the running state after it) */
     ln = n >= tr + 3u ? o[tr + 1u] | (uint32_t)o[tr + 2u] << 8 : 0u;
-    if (sn != FRS_SCENE_BYTES || n != tr + 3u + ln) {
-        snprintf(t, sizeof t, "%u bytes: scene %u, state %u, moves %u, live %u", (unsigned)n, (unsigned)sn,
-                 (unsigned)sb, (unsigned)mn, (unsigned)ln);
+    lm = n >= tr + 5u + ln ? o[tr + 3u + ln] | (uint32_t)o[tr + 4u + ln] << 8 : 0u;   /* (the LEAD's after it) */
+    if (sn != FRS_SCENE_BYTES || n != tr + 5u + ln + lm) {
+        snprintf(t, sizeof t, "%u bytes: scene %u, state %u, moves %u, live %u, lead %u", (unsigned)n, (unsigned)sn,
+                 (unsigned)sb, (unsigned)mn, (unsigned)ln, (unsigned)lm);
         pfc_say(0, "pfstate layout", t);
         return;
     }
     lv_b = o + tr + 3u;
+    ld_b = lv_b + ln + 2u;
     for (i = 0; i < NPARAM; i++) {
         ns += param_kind(i) == PK_STATE;
         nm += param_kind(i) == PK_MOMENT;
@@ -5937,22 +7242,31 @@ static void pfc_state(void)
     bad |= o[tr] > 7u ? 8u : 0u;
     bad |= ln < 16u || ln > LV_LIVE || memcmp(lv_b, "FRlv\1", 5) || lv_b[5] != LIVE_F_DSP ||   /* (the sound's part
                                           * in it: nothing rendered while it was read, here; no engine alone's) */
-           (lv_b[6] | (uint32_t)lv_b[7] << 8) != FRS_SCENE_BYTES || (lv_b[8] | (uint32_t)lv_b[9] << 8) != NPARAM ||
+           (lv_b[6] | (uint32_t)lv_b[7] << 8) != FRS_SCENE_BYTES || (lv_b[8] | (uint32_t)lv_b[9] << 8) != LIVE_NPARAM ||
            (lv_b[10] | (uint32_t)lv_b[11] << 8 | (uint32_t)lv_b[12] << 16 | (uint32_t)lv_b[13] << 24) != pfc.want_ms ||
            16u + (lv_b[14] | (uint32_t)lv_b[15] << 8) != ln ? 16u : 0u;
-    snprintf(t, sizeof t, "%s%s%s%s%s (scene %u, state %u, moves %u, tracks %u, live %u)",
+#if FRS_LEAD
+    bad |= lm < 16u + NLDS || lm > LV_LEAD || memcmp(ld_b, "FRld\1", 5) || ld_b[5] != LIVE_F_DSP ||
+           (ld_b[6] | (uint32_t)ld_b[7] << 8) != NLDS || (ld_b[8] | (uint32_t)ld_b[9] << 8) != P_LD_WAVE ||
+           memcmp(ld_b + 10, lv_b + 10, 4) || 16u + (ld_b[14] | (uint32_t)ld_b[15] << 8) != lm ||
+           memcmp(ld_b + 16, &st.v[P_LD_WAVE], NLDS) ? 32u : 0u;   /* (its settings first, as they are) */
+#else
+    bad |= lm ? 32u : 0u;
+#endif
+    snprintf(t, sizeof t, "%s%s%s%s%s%s (scene %u, state %u, moves %u, tracks %u, live %u, lead %u)",
              bad & 1u ? "not as asked, " : "", bad & 2u ? "the state, " : "", bad & 4u ? "the moves, " : "",
-             bad & 8u ? "the tracks, " : "", bad & 16u ? "the running state" : "", (unsigned)sn, (unsigned)sb,
-             (unsigned)mn, (unsigned)o[tr], (unsigned)ln);
+             bad & 8u ? "the tracks, " : "", bad & 16u ? "the running state" : "", bad & 32u ? "the LEAD's" : "",
+             (unsigned)sn, (unsigned)sb, (unsigned)mn, (unsigned)o[tr], (unsigned)ln, (unsigned)lm);
     pfc_say(!bad, "pfstate", t);
     if (!bad)
-        printf("  pfstate: scene %u, state %u, moves %u, tracks %u, live %u (ms %u), %u bytes in %u parts\n",
+        printf("  pfstate: scene %u, state %u, moves %u, tracks %u, live %u (ms %u), lead %u, %u bytes in %u parts\n",
                (unsigned)sn, (unsigned)sb, (unsigned)mn, (unsigned)o[tr], (unsigned)ln, (unsigned)pfc.want_ms,
-               (unsigned)n, (unsigned)((n + LV_RAW - 1u) / LV_RAW));
+               (unsigned)lm, (unsigned)n, (unsigned)((n + LV_RAW - 1u) / LV_RAW));
 }
 
-/* pfop HEX [slot S | anchor]: the next message is that op (cmd 10, its bytes HEX), or that long op (cmd 11: the op,
- * then slot S's scene, the ANCHOR's) */
+/* pfop HEX [slot S | anchor | lead]: the next message is that op (cmd 10, its bytes HEX), or that long op (cmd 11: the
+ * op, then slot S's scene, the ANCHOR's); lead: cmd 10, HEX then the LEAD's settings as they are now (FST_LEAD's: card
+ * #152) */
 static void pfc_op(const char *hex, const char *src, const char *s)
 {
     static uint8_t o[1024], w[1 + FRS_SCENE_BYTES];
@@ -5964,6 +7278,12 @@ static void pfc_op(const char *hex, const char *src, const char *s)
         sscanf(hex + 2u * i, "%2x", &v);
         w[wn++] = (uint8_t)v;
     }
+#if FRS_LEAD
+    if (!strcmp(src, "lead")) {
+        memcpy(w + wn, &st.v[P_LD_WAVE], NLDS);
+        wn += NLDS;
+    }
+#endif
     if (!strcmp(src, "slot") || !strcmp(src, "anchor")) {
         scene_t sc;
         if (*src == 's')
@@ -5983,8 +7303,85 @@ static void pfc_op(const char *hex, const char *src, const char *s)
         pfc_say(0, "pfop", g);
         return;
     }
-    snprintf(t + (n > 16u ? 32u : 2u * n), 32, "%s", n > 16u ? "... (a scene)" : "");
+    snprintf(t + (n > 16u ? 32u : 2u * n), 32, "%s", n > 16u ? want == 11 ? "... (a scene)" : "... (the LEAD)" : "");
     printf("  ok pfop %s\n", t);
+}
+
+/* pfmsg HEX: the next message kept (LIVE's, pfwatch's) is that one: HEX its cmd, then its bytes as sent */
+static void pfc_msg(const char *hex)
+{
+    uint8_t o[1024], w[16];
+    char t[64];
+    uint32_t n = 0, wn = 0, i;
+    int c = pfc_next(o, &n, sizeof o);
+    for (i = 0; hex[2u * i] && hex[2u * i + 1u] && wn < sizeof w; i++) {
+        unsigned v;
+        sscanf(hex + 2u * i, "%2x", &v);
+        w[wn++] = (uint8_t)v;
+    }
+    snprintf(t, sizeof t, "%02x", c < 0 ? 0xFFu : (unsigned)c);
+    for (i = 0; i < n && i < 24u; i++)
+        snprintf(t + 2u + 2u * i, sizeof t - 2u - 2u * i, "%02x", o[i]);
+    if (!wn || c != w[0] || n != wn - 1u || memcmp(o, w + 1, n))
+        pfc_say(0, "pfmsg", t);
+    else
+        printf("  ok pfmsg %s\n", t);
+}
+
+/* pfvalues: the next messages kept are VALUES, every setting once, in order from the first, each as the FM-1 has it now
+ * (a load's, Learn's START: pfwatch 3); the one after them left for the next read */
+static void pfc_values(void)
+{
+    uint8_t o[1024];
+    char t[64];
+    uint32_t n, r, rn, next = 0, bad = 0, msgs = 0, i;
+    for (;;) {
+        r = pfc.rd;
+        rn = pfc.n;
+        if (pfc_next(o, &n, sizeof o) != 3 || n < 3u) {
+            pfc.rd = r;
+            pfc.n = rn;
+            break;
+        }
+        msgs++;
+        if (((uint32_t)o[0] << 7 | o[1]) != next || n != 3u + 2u * o[2]) {
+            bad++;
+            break;
+        }
+        for (i = 0; i < o[2]; i++)
+            bad += next + i >= NPARAM || ((uint32_t)o[3u + 2u * i] << 7 | o[4u + 2u * i]) != st.v[next + i];
+        next += o[2];
+    }
+    snprintf(t, sizeof t, "%u VALUES, settings 0 .. %u, %u off", (unsigned)msgs, (unsigned)next, (unsigned)bad);
+    pfc_say(!bad && next == NPARAM, "pfvalues", t);
+}
+
+/* pfprs MIN MAX: every message kept since the last read a PRESSURE, MIN to MAX of them, the last the held key pressed
+ * hardest as the engine has it now (pf_tick's), within its 4 (0 exactly) */
+static void pfc_prs(int lo, int hi)
+{
+    uint8_t o[1024];
+    char t[64];
+    uint32_t n, k, want = 0;
+    int c, cnt = 0, last = -1, bad = 0;
+    while ((c = pfc_next(o, &n, sizeof o)) != 0) {
+        if (c != 13 || n != 1u) {
+            bad = 1;
+            break;
+        }
+        cnt++;
+        last = o[0];
+    }
+    for (k = 0; k < NKEYS && k < FRS_NKEYS; k++)
+        if ((keys_prev >> k & 1u) && key[k].prs > want)
+            want = key[k].prs;
+    snprintf(t, sizeof t, "%d of them, the last %d (the engine's %u)%s", cnt, last, (unsigned)want,
+             bad ? ", another message" : "");
+    if (bad || cnt < lo || cnt > hi || last < 0 || (want == 0) != (last == 0) || last >= (int)want + 4 ||
+        last + 4 <= (int)want)
+        pfc_say(0, "pfprs", t);
+    else
+        printf("  ok pfprs %s\n", t);
 }
 
 /* pfpack: MIDI's 8-to-7 on what is known of it, each case its bytes as the page unpacks them */
@@ -6153,8 +7550,31 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         pfc.jam = (uint32_t)atoi(a);
         return 1;
     }
-    if (!strcmp(cmd, "pfop")) {          /* pfop HEX [slot S | anchor]: the next LIVE message, that op (pfc_op) */
+    if (!strcmp(cmd, "pfop")) {          /* pfop HEX [slot S | anchor | lead]: the next LIVE message, that op (pfc_op) */
         pfc_op(a, b, c);
+        return 1;
+    }
+    if (!strcmp(cmd, "pfwatch")) {       /* pfwatch CMD...: PERFORM's messages of those cmds kept too (4 VALUE, 13
+                                          * PRESSURE...), read by pfmsg, pfnone; pfwatch alone: LIVE's only again.
+                                          * Never beside a STATE or a long op: one kept between their parts breaks
+                                          * their reading (pfc_next) */
+        const char *w[4] = {a, b, c, d};
+        pfc.watch = 0;
+        for (i = 0; i < 4u; i++)
+            if (*w[i])
+                pfc.watch |= 1u << (atoi(w[i]) & 31);
+        return 1;
+    }
+    if (!strcmp(cmd, "pfmsg")) {         /* pfmsg HEX: the next message kept is that one, its cmd then its bytes */
+        pfc_msg(a);
+        return 1;
+    }
+    if (!strcmp(cmd, "pfvalues")) {      /* pfvalues: the next ones kept, VALUES of every setting as they are now */
+        pfc_values();
+        return 1;
+    }
+    if (!strcmp(cmd, "pfprs")) {         /* pfprs MIN MAX: PRESSUREs alone since, MIN to MAX, the last the engine's */
+        pfc_prs(atoi(a), atoi(b));
         return 1;
     }
     if (!strcmp(cmd, "pfnone")) {        /* pfnone: no LIVE message since the last read */
@@ -6241,6 +7661,12 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         saver_mark[1] = saver.y;
         return 1;
     }
+    if (!strcmp(cmd, "drawnmark")) {     /* drawnmark: the screen's frames counted from here, the page it shows now the
+                                          * first (expect drawnhome, drawnflips, drawnstale) */
+        ui_seen.home = ui_seen.flips = ui_seen.stale = 0;
+        ui_seen.last = ui_look();
+        return 1;
+    }
 #ifndef PLAT_WEB
     if (!strcmp(cmd, "framecost")) {     /* framecost: ANCHOR's frame, what it sent the screen alone since the last (its
                                           * bands' parts aside: drawn with them) */
@@ -6273,6 +7699,35 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         test_scene();
         return 1;
     }
+#if FRS_LEAD
+    if (!strcmp(cmd, "scnload")) {       /* scnload N: slot N (1 .. 16) loaded, as SAVE + its key (its LEAD with it) */
+        scene_go((uint32_t)(atoi(a) - 1) % NSCENES);
+        return 1;
+    }
+    if (!strcmp(cmd, "ldpold")) {        /* ldpold V: OBJ_LEAD written again in version V's layout: 3 (0683c49); 2
+                                          * (cf592ae) and 1 (1489f1d .. 7154725) without the filter's ADSR; 4 (baf25e8
+                                          * .. 284ea21) without the player's part; PRESET as it is (none made over
+                                          * since admin #875) */
+        uint8_t b[LDP_ALL];
+        uint32_t s, k, v = (uint32_t)atoi(a), ent = v == 3u ? LDP_ENTRY : LDP_ENTRY2;
+        if (!ldp_read(b) || v < 1u || v > 4u)
+            return 1;
+        if (v == 4u) {
+            plat_store_save(OBJ_LEAD, b, LDP_BYTES);
+            return 1;
+        }
+        for (s = 0; s < NSCENES; s++) {  /* (the first first: each entry nearer than it was, its first byte first) */
+            uint8_t *e = b + LDP_HEAD + s * ent;
+            for (k = 0; k < ent; k++)
+                e[k] = b[LDP_HEAD + s * LDP_ENTRY + k];
+        }
+        b[4] = (uint8_t)v;
+        b[6] = (uint8_t)ent;
+        b[7] = (uint8_t)(ent - 1u);
+        plat_store_save(OBJ_LEAD, b, LDP_HEAD + NSCENES * ent);
+        return 1;
+    }
+#endif
     if (!strcmp(cmd, "scnstore")) {      /* scnstore N NAME: the sound stored into slot N (1 .. 16) under NAME (_ a space;
                                           * SC_LONG at most), as STORE and NAME IT do (scene_write) */
         char t[SC_LONG + 1];

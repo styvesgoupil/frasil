@@ -59,12 +59,13 @@ wait 30
 expect p166 0
 gopage 3
 wait 30
-# SELECT: the track, the page following: EDIT's first, the track large a moment
+# SELECT: the track, the page following: EDIT's first, at once (the track large on the play page alone: admin #866,
+# at the end)
 turn SELECT 1
 wait 30
 expect p166 1
 expect page 9
-expect overlay 1
+expect overlay 0
 expect knob1 37
 expect knob2 41
 expect knob3 39
@@ -96,6 +97,10 @@ tap EDIT
 wait 30
 expect page 17
 turn SELECT 3
+wait 30
+expect p166 3
+# (the LEAD the last, card #144: back to BASS)
+turn SELECT -1
 wait 30
 expect p166 2
 # ENV, the same place on each
@@ -152,8 +157,8 @@ expect page 1
 tap ARP
 wait 30
 expect page 57
-expect knob1 243
-expect knob2 243
+expect knob1 268
+expect knob2 268
 expect arpled 3
 tap ARP
 wait 30
@@ -189,9 +194,9 @@ turn K1 -1
 wait 30
 expect p123 0
 expect page 13
-expect knob2 243
-expect knob3 243
-expect knob4 243
+expect knob2 268
+expect knob3 268
+expect knob4 268
 tap ARP
 wait 30
 expect page 13
@@ -202,7 +207,7 @@ expect p45 0
 tap SEQ
 wait 30
 expect page 14
-expect knob2 243
+expect knob2 268
 tap SEQ
 wait 30
 expect page 14
@@ -225,7 +230,7 @@ expect page 16
 expect knob1 48
 expect knob2 112
 expect knob3 171
-expect knob4 243
+expect knob4 268
 tap SEQ
 wait 30
 expect page 14
@@ -289,11 +294,11 @@ expect page 44
 turn K1 -1
 wait 30
 expect p177 0
-expect knob2 243
+expect knob2 268
 tap ARP
 wait 30
 expect page 48
-expect knob2 243
+expect knob2 268
 turn K1 1
 wait 30
 expect p177 1
@@ -331,7 +336,7 @@ tap SEQ
 wait 30
 expect page 54
 expect p197 0
-expect knob2 243
+expect knob2 268
 tap SEQ
 wait 30
 expect page 54
@@ -354,7 +359,7 @@ expect page 56
 expect knob1 201
 expect knob2 202
 expect knob3 208
-expect knob4 243
+expect knob4 268
 # NOTES: a step REST, the keys held (dseq_held), TIE; turned back they are kept
 tap SEQ
 tap SEQ
@@ -602,7 +607,8 @@ wait 30
 expect page 58
 expect knob1 215
 expect knob2 216
-expect knob3 217
+# (GLINT's: no LATCH, its keys sounding while down, card #143)
+expect knob3 268
 expect knob4 218
 turn SELECT 1
 wait 30
@@ -757,7 +763,7 @@ release PLAY
 wait 30
 setp 177 0
 wait 30
-# pressure on a ring key (GLINT, LATCH: the ring of four): the glint under the finger bends with it
+# pressure on a GLINT key (on KEYS, LATCH as it is: sounding while down): the glint under the finger bends with it
 turn SELECT -1
 wait 30
 setp 216 0
@@ -1036,26 +1042,45 @@ expect lit59 1
 tapkey 18
 wait 30
 expect lit59 0
-# on GLINT: its ring (KEYS), its arpeggio
+# on GLINT: on KEYS (its LATCH ON) nothing latched, SEL held or not: each key sounds while down, again and again
+# (card #143: the ring of four held them, a key pressed again let its note go); its arpeggio
 turn SELECT 1
 wait 30
 setp 123 0
 wait 30
 setp 216 0
 wait 30
+expect p217 1
 tapkey 9
 wait 30
-expect ringn 1
+expect ringn 0
+expect arpnotes 0
+expect glintsdown 0
+key 9 down 90
+wait 30
+expect glintsdown 1
 press SEL
 wait 30
-tapkey 14
+key 14 down 90
+wait 30
+expect glintsdown 2
+key 14 up
 wait 30
 release SEL
 wait 30
-expect ringn 2
-tapkey 18
+expect ringn 0
+expect glintsdown 1
+key 9 up
 wait 30
-expect ringn 1
+expect glintsdown 0
+key 9 down 90
+wait 30
+expect glintsdown 1
+key 9 up
+wait 30
+expect glintsdown 0
+expect ringn 0
+expect arpnotes 0
 press PLAY
 wait 800
 release PLAY
@@ -2765,7 +2790,7 @@ expect p175 2
 expect knob1 176
 expect knob2 174
 expect knob3 190
-expect knob4 243
+expect knob4 268
 tap REC
 wait 30
 expect p175 1
@@ -2786,7 +2811,7 @@ expect p163 2
 expect knob1 110
 expect knob2 46
 expect knob3 171
-expect knob4 243
+expect knob4 268
 tap REC
 wait 30
 expect knob1 160
@@ -2934,8 +2959,8 @@ setp 178 2
 setp 174 0
 setp 177 0
 wait 30
-# KEYS' NOTES: CHORD always reachable; on GLINT's and the bass's it stays, and is heard when ARP comes back; GLINT on KEYS rings
-# the chord
+# KEYS' NOTES: CHORD always reachable; on GLINT's and the bass's it stays, and is heard when ARP comes back; GLINT on KEYS
+# sounds the chord while its key is down (the arpeggio's notes latched on ARP, ringing on KEYS, let go by the key first)
 setp 166 1
 setp 123 2
 gopage 58
@@ -2953,11 +2978,17 @@ wait 200
 expect arpnotes >2
 setp 123 0
 wait 30
-tapkey 7 90
-wait 200
 expect ringn >2
-tapkey 7 90
-wait 100
+expect glintsdown >2
+key 7 down 90
+wait 200
+expect ringn 0
+expect arpnotes 0
+expect glintsdown >2
+key 7 up
+wait 30
+expect glintsdown 0
+expect ringn 0
 setp 166 2
 gopage 58
 setp 177 0
@@ -3574,5 +3605,722 @@ turn K4 -1
 wait 600
 expect p182 0
 loopuneven 0
+gopage 0
+wait 30
+# SELECT on a page: the same page of the new track at once, never the play page between (Styves, admin #866: "on the
+# EDIT page, turning SELECT should not momentarily go to the home page and back to the EDIT page"; 2.5's fix, gone with
+# 3.0's "the track large a moment"): the track large on the play page alone. drawnhome: the frames since drawnmark that
+# showed the play page (HOME's SOUND, or a value large over the river with the three hands); drawnflips: the page shown
+# changing. EDIT, ENV, ARP and SEQ from each track to each other (the LEAD's ARP and SEQ its NOT AVAILABLE pages at
+# once), the pages every track has from each track to the next
+spin SELECT -3
+wait 1000
+expect p166 0
+# EDIT: DRONE 1, GLINT 9, BASS 17, LEAD 63
+tap EDIT
+wait 30
+expect page 1
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 1
+expect page 9
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 2
+expect page 17
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 3
+expect page 63
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -3
+wait 1000
+expect p166 0
+expect page 1
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 2
+wait 1000
+expect p166 2
+expect page 17
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 1
+expect page 9
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 2
+wait 1000
+expect p166 3
+expect page 63
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 2
+expect page 17
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -2
+wait 1000
+expect p166 0
+expect page 1
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 3
+wait 1000
+expect p166 3
+expect page 63
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -2
+wait 1000
+expect p166 1
+expect page 9
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 0
+expect page 1
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+# ENV: DRONE 20, GLINT 11, BASS 19, LEAD 66
+tap ENV
+wait 30
+expect page 20
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 1
+expect page 11
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 2
+expect page 19
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 3
+expect page 66
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -3
+wait 1000
+expect p166 0
+expect page 20
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 2
+wait 1000
+expect p166 2
+expect page 19
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 1
+expect page 11
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 2
+wait 1000
+expect p166 3
+expect page 66
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 2
+expect page 19
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -2
+wait 1000
+expect p166 0
+expect page 20
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 3
+wait 1000
+expect p166 3
+expect page 66
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -2
+wait 1000
+expect p166 1
+expect page 11
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 0
+expect page 20
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+# ARP: DRONE 57, GLINT 13, BASS 48, LEAD 67
+tap ARP
+wait 30
+expect page 57
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 1
+expect page 13
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 2
+expect page 48
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 3
+expect page 67
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -3
+wait 1000
+expect p166 0
+expect page 57
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 2
+wait 1000
+expect p166 2
+expect page 48
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 1
+expect page 13
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 2
+wait 1000
+expect p166 3
+expect page 67
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 2
+expect page 48
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -2
+wait 1000
+expect p166 0
+expect page 57
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 3
+wait 1000
+expect p166 3
+expect page 67
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -2
+wait 1000
+expect p166 1
+expect page 13
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 0
+expect page 57
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+# SEQ: DRONE 54, GLINT 14, BASS 44, LEAD 68
+tap SEQ
+wait 30
+expect page 54
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 1
+expect page 14
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 2
+expect page 44
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 3
+expect page 68
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -3
+wait 1000
+expect p166 0
+expect page 54
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 2
+wait 1000
+expect p166 2
+expect page 44
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 1
+expect page 14
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 2
+wait 1000
+expect p166 3
+expect page 68
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 2
+expect page 44
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -2
+wait 1000
+expect p166 0
+expect page 54
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT 3
+wait 1000
+expect p166 3
+expect page 68
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -2
+wait 1000
+expect p166 1
+expect page 14
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 0
+expect page 54
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+# LFO: page 22, every track's
+tap LFO
+wait 30
+expect page 22
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 1
+expect page 22
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 2
+expect page 22
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 3
+expect page 22
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT -3
+wait 1000
+expect p166 0
+expect page 22
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+# FX: page 29, every track's
+tap FX
+wait 30
+expect page 29
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 1
+expect page 29
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 2
+expect page 29
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 3
+expect page 29
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT -3
+wait 1000
+expect p166 0
+expect page 29
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+# GLO: page 37, every track's
+tap GLO
+wait 30
+expect page 37
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 1
+expect page 37
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 2
+expect page 37
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 3
+expect page 37
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT -3
+wait 1000
+expect p166 0
+expect page 37
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+# SEL: page 28, every track's
+tap SEL
+wait 30
+expect page 28
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 1
+expect page 28
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 2
+expect page 28
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 3
+expect page 28
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT -3
+wait 1000
+expect p166 0
+expect page 28
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+# a page further on: EDIT's first of the new track, ENV's the same place (LEAD FILTER: the others' ENV page)
+tap EDIT
+tap EDIT
+wait 30
+expect page 21
+drawnmark
+spin SELECT 3
+wait 1000
+expect p166 3
+expect page 63
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+tap EDIT
+tap EDIT
+wait 30
+expect page 69
+drawnmark
+spin SELECT -3
+wait 1000
+expect p166 0
+expect page 1
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+spin SELECT 3
+wait 1000
+tap ENV
+tap ENV
+wait 30
+expect page 70
+drawnmark
+spin SELECT -1
+wait 1000
+expect p166 2
+expect page 19
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 1
+spin SELECT -2
+wait 1000
+expect p166 0
+# HOME: SOUND, the play page, the track large there (and only there), the page as it is; KEYS, MIXER, CLOUD SEND
+tap HOME
+wait 30
+expect page 0
+drawnmark
+spin SELECT 1
+wait 30
+expect p166 1
+expect overlay 1
+wait 1000
+expect page 0
+expect drawnflips 0
+spin SELECT -1
+wait 1000
+expect p166 0
+tap HOME
+wait 30
+expect page 58
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 1
+expect page 58
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 2
+expect page 58
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 3
+expect page 58
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT -3
+wait 1000
+expect p166 0
+expect page 58
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+tap HOME
+wait 30
+expect page 42
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 1
+expect page 42
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 2
+expect page 42
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 3
+expect page 42
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT -3
+wait 1000
+expect p166 0
+expect page 42
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+tap HOME
+wait 30
+expect page 51
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 1
+expect page 51
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 2
+expect page 51
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT 1
+wait 1000
+expect p166 3
+expect page 51
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
+drawnmark
+spin SELECT -3
+wait 1000
+expect p166 0
+expect page 51
+expect drawnhome 0
+expect drawnstale 0
+expect drawnflips 0
 gopage 0
 wait 30

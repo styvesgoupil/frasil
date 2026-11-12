@@ -1158,6 +1158,16 @@ static int arp_holds(const arp_t *a, int n)
     return 0;
 }
 
+static uint32_t glints_down(void)        /* GLINT's voices with their key down (the render's, after a block) */
+{
+    glint_view_t v[GLINT_NV];
+    uint32_t i, n = 0;
+    glint_view(v);
+    for (i = 0; i < GLINT_NV; i++)
+        n += v[i].note >= 0 && v[i].gate;
+    return n;
+}
+
 static void keys_test(void)
 {
     static const uint8_t V3[] = {'F', 'R', 's', 't', 3, 154, 1, 255, 1};   /* (a 2.6 .. 2.7 state: KEY MODE HOLD) */
@@ -1212,45 +1222,82 @@ static void keys_test(void)
     frs_keys_touch(1);
     frs_param_set(P_KY_GL_NOTES, 1);     /* (CHORD; GLINT's SINGLE NOTE at the start) */
 
-    /* HARMONY off: chromatic, no chord */
+    /* GLINT on KEYS: its keys sound while down, whatever its LATCH (card #143: no ring of four from the keys) */
     frs_key_down(0, 63, 100, 0);
-    check(key[0].kind == K_GRING && key[0].chord.k == 3u && arp.n == 3u && arp_holds(&arp, 62),
-          "KEYS: GLINT's NOTES CHORD on KEYS, LATCH on: HARMONY's chord (a TRIAD on D) into the ring");
+    ms_run(20);
+    check(key[0].kind == K_GLINT && key[0].chord.k == 3u && !arp.n && glints_down() == 3u,
+          "KEYS: GLINT's NOTES CHORD on KEYS, LATCH on: HARMONY's chord (a TRIAD on D), sounding while down, nothing "
+          "latched");
     frs_key_up(0);
     ms_run(20);
-    check(arp.n == 3u && rung.n == 3u, "  let go: it rings on (the ring of four)");
+    check(!arp.n && !rung.n && !glints_down(), "  let go: let go, nothing rings on (no ring of four)");
     tap(0, 63);
-    check(!arp.n, "  a tap on it: it goes");
+    frs_key_down(0, 63, 100, 0);
+    ms_run(20);
+    check(!arp.n && glints_down() == 3u, "  the same key again: it sounds again (the ring let it go one time in two)");
+    frs_key_up(0);
     frs_param_set(P_KY_GL_HARM, 0);
     frs_key_down(0, 63, 100, 0);
-    check(key[0].chord.k == 1u && key[0].chord.n[0] == 63 && arp_holds(&arp, 63),
-          "  HARMONY off: the key's own note (D#, off the scale), no chord");
+    check(key[0].kind == K_GLINT && key[0].chord.k == 1u && key[0].chord.n[0] == 63 && !arp.n,
+          "  HARMONY off: the key's own note (D#, off the scale), no chord, sounding while down");
     frs_key_up(0);
     frs_param_set(P_KY_GL_HARM, 1);
-    frs_param_set(P_KY_GL_LATCH, 0);
-    check(!arp.n, "  LATCH turned off: the ring let go");
-    frs_key_down(0, 66, 100, 0);
-    check(key[0].kind == K_GLINT && key[0].chord.k == 3u && !arp.n, "  LATCH off (HOLD): the chord sounding while down");
-    frs_key_up(0);
-    frs_param_set(P_KY_GL_LATCH, 1);
-
-    /* SWAP (STACK off, GLINT's at the start): a new key in place of the ring; keys down together stack */
     frs_param_set(P_KY_GL_NOTES, 0);
-    tap(0, 62);
-    tap(1, 66);
-    check(arp.n == 1u && arp_holds(&arp, 66), "SWAP (GLINT's STACK off): a new key in place of what rings");
     frs_key_down(0, 69, 100, 0);
     frs_key_down(1, 71, 100, 0);
     frs_key_up(0);
+    ms_run(20);
+    check(!arp.n && key[1].kind == K_GLINT && glints_down() == 1u, "  two keys: each its own, the one let go silent");
     frs_key_up(1);
-    check(arp.n == 2u && arp_holds(&arp, 69) && arp_holds(&arp, 71), "  a hand's keys down together: both");
     frs_param_set(P_KY_GL_STACK, 1);
     tap(0, 74);
-    check(arp.n == 3u, "  STACK on: it adds");
+    check(!arp.n, "  STACK on: nothing latched either");
+    frs_param_set(P_KY_GL_STACK, 0);
+    frs_param_set(P_KY_GL_LATCH, 0);
+    frs_key_down(0, 66, 100, 0);
+    check(key[0].kind == K_GLINT && !arp.n, "  LATCH off: the same");
+    frs_key_up(0);
+    frs_param_set(P_KY_GL_LATCH, 1);
+
+    /* THE KEYS' LATCH (frs_latch: the River's, the editor's, the iPad's) still rings four on KEYS; a GLINT key there lets
+     * them go first (its voice a free one, not a ringing note's), GLINT's LATCH turned off too */
+    {
+        static const uint8_t RN[4] = {62, 64, 66, 67};
+        int all = 1;
+        for (i = 0; i < 4u; i++)
+            all &= frs_latch(1u, RN[i] + 12u * st.v[P_GL_OCTAVE], 0) == 1;
+        ms_run(20);
+        check(all && arp.n == 4u && rung.n == 4u && glints_down() == 4u, "THE KEYS' LATCH on GLINT, on KEYS: four ring");
+    }
+    frs_key_down(0, 71, 100, 0);
+    ms_run(20);
+    check(!arp.n && !rung.n && glints_down() == 1u, "  a GLINT key: the ring let go first, the key alone sounding");
+    frs_key_up(0);
+    ms_run(20);
+    check(!glints_down(), "  let go: silence");
+    frs_latch(1u, 62u + 12u * st.v[P_GL_OCTAVE], 0);
+    ms_run(20);
+    frs_key_down(0, 62, 100, 0);
+    ms_run(20);
+    check(!rung.n && glints_down() == 1u, "  a key on a ringing note: one voice, the key's");
+    frs_key_up(0);
+    ms_run(20);
+    check(!glints_down(), "  let go: silence");
+    check(frs_latch(1u, 62u + 12u * st.v[P_GL_OCTAVE], 0) == 1 && arp.n == 1u, "  latched again");
+    arp.paused = 1;                      /* (PLAY tapped: it waits, silent) */
+    ms_run(20);
+    frs_key_down(0, 71, 100, 0);
+    ms_run(20);
+    check(!rung.n && arp.n == 1u && glints_down() == 1u, "  waiting (PLAY tapped): a key sounds, the ring's note kept");
+    frs_key_up(0);
+    arp.paused = 0;
+    ms_run(20);
+    check(rung.n == 1u && glints_down() == 1u, "  PLAY again: it rings");
     frs_param_set(P_GA_LATCH, 0);
-    check(arp.n == 3u, "  ARP II's LATCH off on KEYS: the ring stays, KEYS' LATCH's");
+    check(arp.n == 1u, "  ARP II's LATCH off on KEYS: the ring stays");
     frs_param_set(P_GA_LATCH, 1);
     frs_param_set(P_KY_GL_LATCH, 0);
+    check(!arp.n, "  GLINT's LATCH turned off: the ring let go");
 
     /* GLINT on ARP: NOTES CHORD, its chord into the arpeggio; SWAP on its latch */
     param_set(P_SQ_TYPE, SQT_ARP);
@@ -1721,6 +1768,29 @@ static void amount_swell_test(void)
     frs_close();
 }
 
+/* a TARGET past this engine's list (an FM-1's or an SMK-37's scene with a LEAD TARGET, card #144: 62 .. 83 there)
+ * opened here: none, not the list's last (DROPOUT); one in range as it was; an op's (a stream's, LIVE's) the same */
+static void tgt_test(void)
+{
+    scene_t s;
+    _Static_assert(sizeof s == FRS_SCENE_BYTES, "a scene's bytes, scene_t");
+    frs_init(48000.0f);
+    frs_scene_new((uint8_t *)&s);
+    s.v[P_L1_T1] = (uint8_t)NLFO_TGT;   /* (one past this engine's last) */
+    s.v[P_L1_T2] = (uint8_t)(NLFO_TGT + 21u);
+    s.v[P_L2_T1] = (uint8_t)(NLFO_TGT - 1u);
+    s.v[P_L1_SHAPE] = 255u;              /* (another past its range: its range's last, as ever) */
+    frs_scene_take((const uint8_t *)&s);
+    check(st.v[P_L1_T1] == 0u && st.v[P_L1_T2] == 0u, "a TARGET past this engine's list: none, not DROPOUT");
+    check(st.v[P_L2_T1] == NLFO_TGT - 1u && st.v[P_L1_SHAPE] == PD[P_L1_SHAPE].max,
+          "  one in range as it was; a value past its range its last");
+    frs_param_set(P_L3_T4, NLFO_TGT + 5u);
+    check(st.v[P_L3_T4] == 0u, "  an op's the same (FST_PARAM: a stream's, LIVE's)");
+    frs_param_set(P_L3_T4, 3u);
+    check(st.v[P_L3_T4] == 3u, "  an op's in range as it was");
+    frs_close();
+}
+
 int main(void)
 {
     frs_view_t v;
@@ -1775,6 +1845,7 @@ int main(void)
     metro_set_test();
     preset_test();
     amount_swell_test();
+    tgt_test();
     printf("inside: %s\n", fails ? "FAILED" : "ok");
     return fails ? 1 : 0;
 }

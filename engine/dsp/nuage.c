@@ -17,7 +17,11 @@
  *
  * Memory: the lines, the pre-delay and the shifter share one 64 Ki x 16-bit buffer, one write position for all (each
  * element has a region; a sample ages towards the region's start); the allpasses are float (their states can
- * exceed the lines' range) in a smaller buffer the same way. */
+ * exceed the lines' range) in a smaller buffer the same way. With the LEAD (FRS_LEAD, the app's builds: card #144,
+ * admin #627, #741: 16 KB of the pool to the LEAD's delay) as long as its elements need, 56 Ki, not a power of two
+ * (NU_RING): a sub-block, each stage's windows on it (where its loop reads and writes) placed once, under the ring's
+ * end or past it whole (nu_off), its loop as before with no test a sample; a window across the end (a few sub-blocks
+ * in a thousand) its loop folding each position (at). The same samples, bit for bit. */
 #include "dsp.h"
 #include "nuage.h"
 
@@ -35,6 +39,17 @@ _Static_assert(MEM_N(48000) >= MEM_NEED(48000) && MEM_N(96000) >= MEM_NEED(96000
                    MEM_N(BR_FS_MAX) >= MEM_NEED(BR_FS_MAX) && FM_N(44100) >= FM_NEED(44100) &&
                    FM_N(88200) >= FM_NEED(88200) && FM_N(BR_FS_MAX) >= FM_NEED(BR_FS_MAX),
                "the reverb's buffers hold its elements at every rate to BR_FS_MAX");
+#if defined FRS_LEAD && FRS_LEAD        /* (the LEAD's builds' ring: its elements' 54651 at 44.1 kHz and a sub-block,
+                                          * rounded up to the allpasses' ring's multiple, so that both come round
+                                          * together) */
+#define NU_RING 1
+#define MEM_L(fs) ((fs) <= 44100 ? 57344u : MEM_N(fs))
+_Static_assert(MEM_L(44100) >= MEM_NEED(44100) + SUB && MEM_L(44100) % FM_N(44100) == 0u && MEM_L(44100) % SUB == 0u,
+               "the LEAD's builds' ring holds the elements, comes round with the allpasses' and a sub-block at a time");
+#else
+#define NU_RING 0
+#define MEM_L(fs) MEM_N(fs)
+#endif
 #define QS 16384.0f                      /* a line's int16 is QS x: +-2.0 of headroom */
 #define IQS (1.0f / 16384.0f)
 #define MODMAX 40.0f                     /* the most the modulation lengthens a line, samples (at 44.1 kHz, as the
@@ -44,7 +59,8 @@ _Static_assert(MEM_N(48000) >= MEM_NEED(48000) && MEM_N(96000) >= MEM_NEED(96000
 #define SH_N 3080u
 #define OUT_G 0.85f
 
-static int16_t mem[MEM_N(BR_FS_MAX)] BR_POOL;
+static int16_t mem[MEM_L(BR_FS_MAX)] BR_POOL;
+#define MEM_ALL MEM_L(BR_FS_MAX)
 static float fmem[FM_N(BR_FS_MAX)] BR_POOL;
 
 static const uint16_t LINE_LEN[NL] = {2617, 2963, 3433, 3821, 4327, 4861, 5393, 6079};   /* at size 1: 59 .. 138 ms */
@@ -60,11 +76,17 @@ static const float LFO_HZ[NL] = {0.071f, 0.113f, 0.097f, 0.137f, 0.083f, 0.151f,
 #define sh_w SH_W
 #define sh_n SH_N
 #define mem_m (MEM_N(44100) - 1u)
+#define mem_l MEM_L(44100)
 #define fm_m (FM_N(44100) - 1u)
 #else                                    /* at the rate, from those at 44.1 kHz (nuage_init: the same time) */
 static uint16_t line_len[NL], lap_len[NL], dif_len[2][4];
 static float modmax, sh_w;
-static uint32_t pd_max, sh_n, mem_m, fm_m;
+static uint32_t pd_max, sh_n, fm_m;
+#if NU_RING
+static uint32_t mem_l;
+#else
+static uint32_t mem_m;                   /* (the ring's mask; the LEAD's builds' ring, STREAM's since card #152: mem_l) */
+#endif
 #endif
 
 /* each element's region ends at its base: age a of it is at w + base - a */
@@ -96,7 +118,13 @@ typedef struct {
 static nuage_t nu;
 
 #define NU_INLINE static inline __attribute__((always_inline))   /* (nuage_sub, in RAM, would call them) */
+#if NU_RING
+NU_INLINE uint32_t at(uint32_t i) { return i >= mem_l ? i - mem_l : i; }   /* (i under twice the ring: w under it, a
+                                                                           * base and a sub-block under the rest) */
+NU_INLINE float get(uint32_t base, uint32_t age) { return (float)mem[at(w + base - age)]; }
+#else
 NU_INLINE float get(uint32_t base, uint32_t age) { return (float)mem[(w + base - age) & mem_m]; }
+#endif
 NU_INLINE float geti(uint32_t base, float age)   /* age >= 0, linear interpolation */
 {
     uint32_t k = (uint32_t)age;
@@ -105,12 +133,32 @@ NU_INLINE float geti(uint32_t base, float age)   /* age >= 0, linear interpolati
 }
 /* x in the lines' units, rounded to nearest (truncation would take up to an LSB a pass: quiet tails die early, and
  * grainy), by the float adder: 1.5 x 2^23 added leaves the integer in the low mantissa bits */
+#if NU_RING
+NU_INLINE int16_t q16(float x)
+{
+    union { float f; int32_t i; } u;
+    u.f = br_clampf(x, -32767.0f, 32767.0f) + 12582912.0f;
+    return (int16_t)(u.i - 0x4B400000);
+}
+NU_INLINE void put(uint32_t base, float x) { mem[at(w + base)] = q16(x); }
+#define NU_WRAPS 0xFFFFFFFFu
+/* a stage's accesses this sub-block, positions lo .. hi (w + base - age, under twice the ring): what comes off every
+ * one (0, or the ring's length: past its end whole), NU_WRAPS across it (that loop folds each, at) */
+NU_INLINE uint32_t nu_off(uint32_t lo, uint32_t hi) { return hi < mem_l ? 0u : lo >= mem_l ? mem_l : NU_WRAPS; }
+NU_INLINE float geto(uint32_t p, float age)   /* geti's, p its w + base with nu_off's off it */
+{
+    uint32_t k = (uint32_t)age;
+    float f = age - (float)k, a = (float)mem[p - k], b = (float)mem[p - k - 1u];
+    return a + (b - a) * f;
+}
+#else
 NU_INLINE void put(uint32_t base, float x)
 {
     union { float f; int32_t i; } u;
     u.f = br_clampf(x, -32767.0f, 32767.0f) + 12582912.0f;
     mem[(w + base) & mem_m] = (int16_t)(u.i - 0x4B400000);
 }
+#endif
 NU_INLINE float getf(uint32_t base, uint32_t age) { return fmem[(w + base - age) & fm_m]; }
 NU_INLINE void putf(uint32_t base, float x) { fmem[(w + base) & fm_m] = x; }
 
@@ -158,8 +206,15 @@ void nuage_init(void)
     pd_max = (uint32_t)(br_n((float)PD_MAX) + 0.5f);
     sh_w = (float)(uint32_t)(br_n(SH_W) + 0.5f);
     sh_n = (uint32_t)sh_w + (SH_N - (uint32_t)SH_W);
-    mem_m = MEM_N(br_fs) - 1u;
     fm_m = FM_N(br_fs) - 1u;
+#if NU_RING
+    mem_l = MEM_L(br_fs);
+#else
+    mem_m = MEM_N(br_fs) - 1u;
+#endif
+#endif
+#if NU_RING
+    w = 0;                               /* (under the ring, whatever its length was) */
 #endif
     for (j = 0; j < NL; j++)
         line_base[j] = region(&top, line_len[j] + (uint32_t)modmax + 2u);
@@ -172,7 +227,7 @@ void nuage_init(void)
     for (j = 0; j < NL; j++)             /* (a sub-block's room before each: nuage_process runs a line's allpass over
                                           * the sub-block before the next one's, whose oldest would be the last's newest) */
         lap_base[j] = region(&ftop, lap_len[j] + SUB);
-    for (j = 0; j < MEM_N(BR_FS_MAX); j++)
+    for (j = 0; j < MEM_ALL; j++)
         mem[j] = 0;
     for (j = 0; j < FM_N(BR_FS_MAX); j++)
         fmem[j] = 0.0f;
@@ -200,7 +255,7 @@ static float nb_sh[SUB];                 /* the shimmer's output after each samp
 void nuage_hush(void)                    /* the tail gone at once: the lines and their states empty, the settings kept */
 {
     uint32_t j;
-    for (j = 0; j < MEM_N(BR_FS_MAX); j++)
+    for (j = 0; j < MEM_ALL; j++)
         mem[j] = 0;
     for (j = 0; j < FM_N(BR_FS_MAX); j++)
         fmem[j] = 0.0f;
@@ -337,6 +392,26 @@ static BR_HOT void nuage_sub(const float *in_l, const float *in_r, float *out_l,
         for (j = 0; j < NL; j++) {
             const uint32_t b = lb[j], za = lab[j], ua = lab[j] + lap_len[j];
             float dj = d[j], ddj = dd[j], lj = lp[j], daj = da[j], gj = g[j], *y = nb_y[j];
+#if NU_RING
+            float de = dj + ddj * (float)SUB, dhi = dj > de ? dj : de, dlo = dj < de ? dj : de;
+            uint32_t o = nu_off(ww + b - (uint32_t)dhi - 3u, ww + b - (uint32_t)dlo + SUB);
+            if (o != NU_WRAPS) {         /* (its reads on the ring whole: none folded) */
+                const uint32_t p = ww + b - o;
+                for (i = 0; i < SUB; i++) {
+                    float v, z, u;
+                    v = geto(p + i, dj += ddj);
+                    z = fmem[(ww + i + za) & fm_m];
+                    u = v + gl * z;
+                    fmem[(ww + i + ua) & fm_m] = u;
+                    v = z - gl * u;
+                    lj += daj * (v - lj);
+                    y[i] = lj * gj;
+                }
+                d[j] = dj;
+                lp[j] = lj;
+                continue;
+            }
+#endif
             for (i = 0; i < SUB; i++) {
                 float v, z, u;
                 w = ww + i;
@@ -352,6 +427,33 @@ static BR_HOT void nuage_sub(const float *in_l, const float *in_r, float *out_l,
             lp[j] = lj;
         }
         /* the shimmer: the tail up an interval, each sample's for the next one's input */
+#if NU_RING
+        uint32_t so = nu_off(ww + shb - sh_n, ww + shb + SUB - 1u);
+        if (shim && so != NU_WRAPS) {    /* (its region on the ring whole) */
+            const uint32_t p = ww + shb - so;
+            for (i = 0; i < SUB; i++) {
+                float ol = nb_y[0][i] - nb_y[2][i] + nb_y[4][i] - nb_y[6][i];
+                float orr = nb_y[1][i] - nb_y[3][i] + nb_y[5][i] - nb_y[7][i];
+                float x = (ol + orr) * 0.5f, p2, t, w1;
+                sh_hp += NB_K(3, 0.02f) * (x - sh_hp);
+                sh_lp += sha * (x - sh_hp - sh_lp);
+                sh_lp2 += sha * (sh_lp - sh_lp2);
+                mem[p + i] = q16(sh_lp2);
+                sh_p += sh_step;
+                if (sh_p < 0.0f)
+                    sh_p += 1.0f;
+                else if (sh_p >= 1.0f)
+                    sh_p -= 1.0f;
+                p2 = sh_p + 0.5f;
+                if (p2 >= 1.0f)
+                    p2 -= 1.0f;
+                t = 1.0f - nu_fabs(2.0f * sh_p - 1.0f);
+                w1 = t * t * (3.0f - 2.0f * t);
+                x = w1 * geto(p + i, sh_p * sh_w + 1.0f) + (1.0f - w1) * geto(p + i, p2 * sh_w + 1.0f);
+                nb_sh[i] = sh_out = br_soft(x * sh * IQS) * inq;
+            }
+        } else
+#endif
         if (shim) {
             for (i = 0; i < SUB; i++) {
                 float ol = nb_y[0][i] - nb_y[2][i] + nb_y[4][i] - nb_y[6][i];
@@ -377,6 +479,33 @@ static BR_HOT void nuage_sub(const float *in_l, const float *in_r, float *out_l,
             }
         }
         /* the input: low cut, pre-delay (interpolated only while it glides), the shimmer back in */
+#if NU_RING
+        float pe = pd + pd_step * (float)SUB, phi = pd > pe ? pd : pe, plo = pd < pe ? pd : pe;
+        uint32_t kl = plo >= 1.0f ? (uint32_t)plo - 1u : 0u, kh = (uint32_t)phi + 2u;
+        uint32_t ow0 = nu_off(ww + pd0, ww + pd0 + SUB - 1u), ow1 = nu_off(ww + pd1, ww + pd1 + SUB - 1u);
+        uint32_t or0 = nu_off(ww + pd0 - kh, ww + pd0 - kl + SUB - 1u), or1 = nu_off(ww + pd1 - kh, ww + pd1 - kl + SUB - 1u);
+        if (ow0 != NU_WRAPS && ow1 != NU_WRAPS && or0 != NU_WRAPS && or1 != NU_WRAPS) {   /* (its four windows on the
+                                                                                         * ring whole) */
+            const uint32_t q0 = ww + pd0 - ow0, q1 = ww + pd1 - ow1, r0 = ww + pd0 - or0, r1 = ww + pd1 - or1;
+            for (i = 0; i < SUB; i++) {
+                float xl, xr, si = shim && i ? nb_sh[i - 1] : nu.sh_out;
+                hpl += hpa * (in_l[i0 + i] - hpl);
+                hpr += hpa * (in_r[i0 + i] - hpr);
+                mem[q0 + i] = q16((in_l[i0 + i] - hpl) * inq);
+                mem[q1 + i] = q16((in_r[i0 + i] - hpr) * inq);
+                if (pd_step != 0.0f) {
+                    pd += pd_step;
+                    xl = geto(r0 + i, pd);
+                    xr = geto(r1 + i, pd);
+                } else {
+                    xl = (float)mem[r0 + i - pdi];
+                    xr = (float)mem[r1 + i - pdi];
+                }
+                nb_xl[i] = xl + si;
+                nb_xr[i] = xr + si;
+            }
+        } else
+#endif
         for (i = 0; i < SUB; i++) {
             float xl, xr, si = shim && i ? nb_sh[i - 1] : nu.sh_out;
             w = ww + i;
@@ -414,6 +543,37 @@ static BR_HOT void nuage_sub(const float *in_l, const float *in_r, float *out_l,
         }
         /* the matrix (8-point Walsh-Hadamard; its 1 / sqrt 8 is in g) back into the lines with the input; out, with
          * the width */
+#if NU_RING
+        uint32_t mp[NL], mw = 0;
+        for (j = 0; j < NL; j++) {
+            uint32_t o = nu_off(ww + lb[j], ww + lb[j] + SUB - 1u);
+            mw |= o == NU_WRAPS;
+            mp[j] = ww + lb[j] - o;
+        }
+        if (!mw) {                       /* (the eight lines' writes on the ring whole) */
+            for (i = 0; i < SUB; i++) {
+                float y0 = nb_y[0][i], y1 = nb_y[1][i], y2 = nb_y[2][i], y3 = nb_y[3][i];
+                float y4 = nb_y[4][i], y5 = nb_y[5][i], y6 = nb_y[6][i], y7 = nb_y[7][i], xl = nb_xl[i], xr = nb_xr[i];
+                float ol = y0 - y2 + y4 - y6, orr = y1 - y3 + y5 - y7, m, s;
+                float a0 = y0 + y1, a1 = y0 - y1, a2 = y2 + y3, a3 = y2 - y3;
+                float a4 = y4 + y5, a5 = y4 - y5, a6 = y6 + y7, a7 = y6 - y7;
+                float b0 = a0 + a2, b2 = a0 - a2, b1 = a1 + a3, b3 = a1 - a3;
+                float b4 = a4 + a6, b6 = a4 - a6, b5 = a5 + a7, b7 = a5 - a7;
+                mem[mp[0] + i] = q16(b0 + b4 + xl);
+                mem[mp[1] + i] = q16(b1 + b5 + xr);
+                mem[mp[2] + i] = q16(b2 + b6 - xl);
+                mem[mp[3] + i] = q16(b3 + b7 - xr);
+                mem[mp[4] + i] = q16(b0 - b4 + xl);
+                mem[mp[5] + i] = q16(b1 - b5 + xr);
+                mem[mp[6] + i] = q16(b2 - b6 - xl);
+                mem[mp[7] + i] = q16(b3 - b7 - xr);
+                m = (ol + orr + nb_el[i] + nb_er[i]) * 0.5f;
+                s = (ol - orr + nb_el[i] - nb_er[i]) * wid;
+                out_l[i0 + i] = (m + s) * outg;
+                out_r[i0 + i] = (m - s) * outg;
+            }
+        } else
+#endif
         for (i = 0; i < SUB; i++) {
             float y0 = nb_y[0][i], y1 = nb_y[1][i], y2 = nb_y[2][i], y3 = nb_y[3][i];
             float y4 = nb_y[4][i], y5 = nb_y[5][i], y6 = nb_y[6][i], y7 = nb_y[7][i], xl = nb_xl[i], xr = nb_xr[i];
@@ -437,6 +597,10 @@ static BR_HOT void nuage_sub(const float *in_l, const float *in_r, float *out_l,
             out_r[i0 + i] = (m - s) * outg;
         }
         w = ww + SUB;
+#if NU_RING
+        if (w >= mem_l)                  /* (round with the ring; the allpasses' with it, its multiple) */
+            w -= mem_l;
+#endif
         for (j = 0; j < NL; j++) {
             nu.d[j] = d[j];
             nu.lp[j] = lp[j];
@@ -458,7 +622,7 @@ static BR_HOT void nuage_sub(const float *in_l, const float *in_r, float *out_l,
 void nuage_clear(void)
 {
     uint32_t j;
-    for (j = 0; j < MEM_N(BR_FS_MAX); j++)
+    for (j = 0; j < MEM_ALL; j++)
         mem[j] = 0;
     for (j = 0; j < FM_N(BR_FS_MAX); j++)
         fmem[j] = 0.0f;

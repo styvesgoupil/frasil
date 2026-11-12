@@ -14,8 +14,9 @@
  * (Refit on the owner's listening, ROADMAP card #4: WHITEOUT above LUMIERE NOCTURNE, THE WITCHINGHOUR above LONG NIGHT;
  * NORTH RIVER and RESILIENCE close, BLACKHOLLOW just above WHITEOUT, THE WITCHINGHOUR above SUNRISE kept. Before it:
  * B 1.5, the tempo's square root, every strike 1.)
- * A piece: a scene (a shard: FRS_SCENE_BYTES, or an earlier layout frs_scene_over knows), played alone as the radio plays it
- * (programme.py's shard_stream: the scene, nothing played on it), or a .frstream; "-" reads it from stdin.
+ * A piece: a scene (a shard: FST_SCENE_BYTES, "FRS~"'s, the scene then its LEAD; or an earlier layout frs_scene_over
+ * knows, its LEAD MOSS: card #152), played alone as the radio plays it (programme.py's shard_stream: the scene, nothing
+ * played on it), or a .frstream; "-" reads it from stdin.
  *   energy [--len MS] [--in MS] [--out MS] [--r0 X --r98 Y] [--w G,B,D,H] [--factory I] [--bins N] FILE|-
  *     --len  a shard's time on air (180000: SHARD LENGTH 3:00)      --in, --out  a stream's part on air (all of it)
  *     --r0, --r98  the calibration (energy-calibration.json's; built in below)   --w  the weights (1,0.8,0.5,4)
@@ -173,7 +174,7 @@ static size_t shard_stream(const uint8_t *scene, uint32_t ms, uint8_t *o)
     head[26] = 7;
     memcpy(o, "FSTR\x01\x01\x00\x00", 8);
     j += chunk(o + j, "HEAD", head, 39);
-    j += chunk(o + j, "SCN0", scene, FRS_SCENE_BYTES);
+    j += chunk(o + j, "SCN0", scene, FST_SCENE_BYTES);
     j += chunk(o + j, "STAT", 0, 0);
     j += chunk(o + j, "MOVE", 0, 0);
     j += chunk(o + j, "DENS", zero, 64);
@@ -210,7 +211,7 @@ int main(int argc, char **argv)
     long len = 180000, in = 0, out = -1, factory = -1, h, secs = 0;
     int i, r, shard;
     size_t n = 0;
-    uint8_t *b = 0, *piece, scene[FRS_SCENE_BYTES];
+    uint8_t *b = 0, *piece, scene[FST_SCENE_BYTES];
     static uint8_t made[2048];
     static fst_file f;
     static fst_air air;
@@ -244,18 +245,21 @@ int main(int argc, char **argv)
     if (factory >= 0) {
         if (frs_scene_factory((uint32_t)factory, scene))
             return fprintf(stderr, "energy: no factory scene %ld\n", factory), 2;
+        frs_lead_none(scene + FRS_SCENE_BYTES);
         shard = 1;
     } else {
         if (!(b = slurp(path, &n)) || !n)
             return fprintf(stderr, "energy: %s does not read\n", path), 2;
         shard = n < 4 || memcmp(b, "FSTR", 4);
         if (shard) {
-            if (n > FRS_SCENE_BYTES)
+            if (n > FRS_SCENE_BYTES && n != FST_SCENE_BYTES)
                 return fprintf(stderr, "energy: not a scene or a stream (%zu bytes)\n", n), 2;
             memset(scene, 0, sizeof scene);
             memcpy(scene, b, n);
-            if (frs_scene_over(scene, (uint32_t)n))
+            if (n != FST_SCENE_BYTES && frs_scene_over(scene, (uint32_t)n))
                 return fprintf(stderr, "energy: a scene of %zu bytes: a layout this engine doesn't know\n", n), 2;
+            if (n != FST_SCENE_BYTES)
+                frs_lead_none(scene + FRS_SCENE_BYTES);   /* (a scene alone: its LEAD MOSS) */
         }
     }
     if (shard) {

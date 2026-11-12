@@ -13,7 +13,7 @@
  *   at its place in its queue (fst_live_at_state, inside a millisecond): from there A's brain again.
  *   E: as A exactly, the snap at its place with cmp: left (the very same), none loaded.
  * Then: a save, a load, a save: the same bytes; half precision's round trip; another engine's state refused; the sizes
- * (said). engine/tests/run.sh, or: snap */
+ * (said). G: PULSE's strike coming in (card #148), loaded, the bass's level as it was. engine/tests/run.sh, or: snap */
 #include "../frasil_engine.c"
 #include "../frasil_stream.h"
 #include <math.h>
@@ -184,9 +184,16 @@ static void open_at(const fst_start *s)
     }
 }
 
-static uint32_t brain_of(uint8_t *out, const uint8_t *scene)   /* the brain alone, ENV held, the engine alone's */
+static uint32_t brain_of(uint8_t *out, const uint8_t *scene)   /* the brain alone, ENV held, the engine alone's (the
+                                                                 * LEAD's after it, its brain too: card #152) */
 {
-    return live_save(out, FRS_LIVE_BYTES, scene, swell_held, alone_lv, 0);
+    static uint8_t ld[LIVE_LEAD_BYTES];
+    uint32_t m = 0, n = live_save(out, FRS_LIVE_BYTES, scene, swell_held, alone_lv, 0, ld, sizeof ld, &m);
+    if (n && m && n + m <= FRS_LIVE_BYTES) {
+        memcpy(out + n, ld, m);
+        n += m;
+    }
+    return n;
 }
 
 static void compare(const trace_t *x, const char *who, int same_brain, double *mean_db, double *max_db,
@@ -214,12 +221,66 @@ static void compare(const trace_t *x, const char *who, int same_brain, double *m
 
 /* an FM-1's STATE (the simulator's pfsave: joined, unpacked) into the engine alone: its start, then its running state,
  * read to its last byte (its 27 keys, its parts, no engine alone's), the clock the FM-1's next millisecond */
+/* G (card #148): PULSE's strike coming in (dsp/bass.c PULSE_RISE: PUNCH and the attack over 5.8 ms) goes with a state.
+ * NEW SHARD's bass held, PULSE 1/2 BEAT, RELEASE 88, PUNCH 100; at each of eight strikes the state at its block's end,
+ * the engine on a block (its samples), on two more, the state loaded, a block: the samples the ones it had, within
+ * half precision's (0.05 %; the strike's ramp lost on loading, its last chunk's: 7.6 % off, PUNCH's level) */
+static void pulse_state(void)
+{
+    static float ref[256];
+    uint8_t sc[FRS_SCENE_BYTES];
+    uint32_t seen = 0, k = 0, i, j, n;
+    float worst = 0.0f, top;
+    bass_view_t v;
+    frs_close();
+    frs_init(44100.0f);
+    frs_scene_new(sc);
+    frs_scene_take(sc);
+    frs_param_set(P_BS_PULSE, 3);
+    frs_param_set(P_BS_RELEASE, 88);
+    frs_param_set(P_BS_PUNCH, 100);
+    frs_latch(2, 45, 0);
+    for (i = 0; i < 2000u && k < 8u; i++) {
+        frs_render(L, R, 256);
+        frasil_bass_view(&v);
+        if (v.pulses == seen)
+            continue;
+        n = frs_live_save(tmp, sizeof tmp, sc);
+        frs_render(ref, R, 256);
+        frs_render(L, R, 256);
+        frs_render(L, R, 256);
+        if (!n || frs_live_load(tmp, n, sc)) {
+            check(0, "G: a state taken on PULSE's strike, loaded");
+            return;
+        }
+        frs_render(L, R, 256);
+        frasil_bass_view(&v);
+        seen = v.pulses;                 /* (not in a state: the engine's own count) */
+        for (j = 0, top = 0.0f; j < 256u; j++)
+            top = fabsf(ref[j]) > top ? fabsf(ref[j]) : top;
+        for (j = 0; j < 256u; j++)
+            if (fabsf(L[j] - ref[j]) > worst * top)
+                worst = fabsf(L[j] - ref[j]) / top;
+        k++;
+    }
+    check(k == 8u && worst < 0.01f, "G: PULSE's strike coming in, in the state: the bass after it as it was");
+    printf("snap: PULSE's strike in a state, 8 strikes: the bass a block on within %.2f %% of its own\n", 100.0f * worst);
+}
+
+static uint32_t lead_keys(void)          /* (the keys on the LEAD: live.c's LIVE_K_LEAD, core.c's K_LEAD) */
+{
+    uint32_t k, n = 0;
+    for (k = 0; k < FRS_NKEYS; k++)
+        n += key[k].kind == LIVE_K_LEAD;
+    return n;
+}
+
 static void fm1_state(const char *file)
 {
-    static uint8_t b[8192];
+    static uint8_t b[8192], both[FRS_LIVE_BYTES];
     fst_start s;
     FILE *f = fopen(file, "rb");
-    uint32_t n = f ? (uint32_t)fread(b, 1, sizeof b, f) : 0u, sn, i, ln, ms;
+    uint32_t n = f ? (uint32_t)fread(b, 1, sizeof b, f) : 0u, sn, i, ln, ms, lp, lm;
     if (f)
         fclose(f);
     check(n > 2u + FRS_SCENE_BYTES, "the FM-1's STATE read");
@@ -229,6 +290,7 @@ static void fm1_state(const char *file)
     sn = b[0] | b[1] << 8;
     check(sn == FRS_SCENE_BYTES, "the FM-1's STATE: its scene this layout's");
     memcpy(s.scene, b + 2, FRS_SCENE_BYTES);
+    frs_lead_none(s.scene + FRS_SCENE_BYTES);   /* (its scene_t: the LEAD in its own part) */
     i = 2u + sn;
     s.state_n = b[i];
     memcpy(s.state, b + i + 1u, s.state_n);
@@ -238,16 +300,31 @@ static void fm1_state(const char *file)
     i += 1u + 2u * s.moves_n;
     s.tracks = b[i++];
     ln = i + 2u <= n ? (uint32_t)(b[i] | b[i + 1u] << 8) : 0u;
-    check(ln > LIVE_HEAD && i + 2u + ln == n, "the FM-1's STATE: its running state after the tracks, to the end");
+    lp = i + 2u + ln;                    /* (card #152: the LEAD's part after it, u16 its length, to the end) */
+    lm = lp + 2u <= n ? (uint32_t)(b[lp] | b[lp + 1u] << 8) : 0u;
+    check(ln > LIVE_HEAD && lp + 2u + lm == n, "the FM-1's STATE: its running state after the tracks, the LEAD's, to the end");
+    check(lm > LIVE_HEAD && !memcmp(b + lp + 2u, "FRld", 4) && !memcmp(b + lp + 2u + 10u, b + i + 2u + 10u, 4),
+          "the FM-1's STATE: the LEAD's part, the same instant's");
     ms = frs_live_ms(b + i + 2u, ln);
     check(ms > 0u && (b[i + 2u + 5u] & LIVE_F_DSP) && !(b[i + 2u + 5u] & LIVE_F_ALONE),
           "the FM-1's running state: its sound's part, no engine alone's");
     open_at(&s);
-    check(!fst_live_state(&lv, b + i + 2u, ln, s.scene), "the FM-1's running state loaded in the engine alone, whole");
+    check(!fst_live_state(&lv, b + i + 2u, ln, s.scene), "the FM-1's running state loaded in the engine alone, its first part");
     check(frs_ms() == ms, "the engine alone runs on from the FM-1's next millisecond");
+    check(!lead_keys(), "its first part alone: the FM-1's key on the LEAD let go");
+    memcpy(both, b + i + 2u, ln);        /* (both, as a listener joins them) */
+    memcpy(both + ln, b + lp + 2u, lm);
+    open_at(&s);
+    check(!fst_live_state(&lv, both, ln + lm, s.scene), "the FM-1's running state loaded, the LEAD's part after it");
+    check(frs_ms() == ms, "the engine alone runs on from the FM-1's next millisecond, the LEAD's with it");
+#if FRS_LEAD
+    check(lead_keys() == 1u && ldk.n == 1u && key[ldk.k[0]].kind == K_LEAD, "both: the FM-1's key on the LEAD, held");
+#else
+    check(!lead_keys(), "both, an engine without the LEAD: the FM-1's key on it let go, the LEAD's part left");
+#endif
     run(ms + 2000u, 0, 0);
     check(lv.refused == 0u, "two seconds on from it, nothing refused");
-    printf("snap: an FM-1's STATE, %u bytes, its running state %u\n", n, ln);
+    printf("snap: an FM-1's STATE, %u bytes, its running state %u, the LEAD's %u\n", n, ln, lm);
 }
 
 int main(int argc, char **argv)
@@ -282,12 +359,13 @@ int main(int argc, char **argv)
     snap_n = frs_live_save(snap_live, sizeof snap_live, snap_start.scene);
     brain_an = brain_of(brain_x, snap_start.scene);
     check(snap_n > LIVE_HEAD && frs_live_ms(snap_live, snap_n) == snap_ms, "A's state at 30 s, its millisecond");
-    printf("snap: at %u ms, %u bytes: the brain %u, the sound %u, the engine alone's %u (an FM-1's: %u; the start's scene "
-           "%u, state %u, moves %u)\n", snap_ms, snap_n, live_save(tmp, sizeof tmp, snap_start.scene, 0, 0, 0),
-           live_save(tmp, sizeof tmp, snap_start.scene, 0, 0, 1) - live_save(tmp, sizeof tmp, snap_start.scene, 0, 0, 0),
-           brain_an - live_save(tmp, sizeof tmp, snap_start.scene, 0, 0, 0),
-           live_save(tmp, sizeof tmp, snap_start.scene, 0, 0, 1), FRS_SCENE_BYTES, snap_start.state_n,
-           snap_start.moves_n);
+    {
+        uint32_t b0 = live_save(tmp, sizeof tmp, snap_start.scene, 0, 0, 0, 0, 0, 0);
+        uint32_t s0 = live_save(tmp, sizeof tmp, snap_start.scene, 0, 0, 1, 0, 0, 0);
+        printf("snap: at %u ms, %u bytes: the brain %u, the sound %u, the engine alone's %u (an FM-1's: %u; the start's "
+               "scene %u, state %u, moves %u)\n", snap_ms, snap_n, b0, s0 - b0, brain_an - b0, s0, FRS_SCENE_BYTES,
+               snap_start.state_n, snap_start.moves_n);
+    }
     run(END_MS, &ta, snap_ms);
     brain_an = brain_of(brain_a, snap_start.scene);
 
@@ -387,6 +465,7 @@ int main(int argc, char **argv)
         }
         check(good && rs_half(rs_float(0x3C00u)) == 0x3C00u, "half precision: there and back");
     }
+    pulse_state();
     if (argc > 1)
         fm1_state(argv[1]);
     printf("snap: %d ok, %d failed\n", oks, fails);

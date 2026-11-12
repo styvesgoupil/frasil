@@ -14,17 +14,28 @@ enum { F_PCT, F_ATT, F_REL, F_DECAY, F_PREDELAY, F_HZ, F_TAU, F_PERIOD, F_INTERV
        F_LTGT, F_SQLEN, F_SQNOTE, F_SQREC, F_SQCLEAR, F_SQTRANS, F_DPRESET, F_SQTYPE, F_KB, F_MORPH, F_LOAD, F_UNDO, F_NEWTAKE,
        F_BQNOTE, F_BQLEN, F_BDEC, F_BPULSE, F_GREL, F_EQPRESET, F_EQDB, F_EQLOWF, F_EQMIDF, F_EQQ, F_EQHIGHF, F_FLTYPE,
        F_FLCUT, F_FLTRACKS, F_PREPOST, F_PAN, F_ANIM, F_CLOCK, F_BQNLEN, F_DQNOTES, F_KNOTES, F_METRO, F_COUNTIN, F_ARPSNAP, F_TSPEED,
-       F_AMT };
+       F_AMT 
+#if FRS_LEAD
+       , F_LWAVE, F_LCUT, F_LOCT, F_LPRESET, F_LMODE   /* LEAD's (card #144) */
+#endif
+};
 
 typedef struct {
     const char *name;
     uint8_t max, def, fmt;
 } pdesc_t;
 
-#define NLFO_TGT 62u                     /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below) */
+#define NLFO_TGT (62u + 22u * FRS_LEAD)  /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below; LEAD's 22
+                                          * after the rest on the SMK-37's, card #144) */
 #define NDRONE 33u                       /* the settings a drone preset sets (DRONE_P, below) */
 #define NDPRESET 36u
 #define NPULSE 7u                        /* PULSE's choices: OFF, then its divisions (PULSE_TICKS, below) */
+#if FRS_LEAD
+#define NLPRESET 20u                     /* LEAD's presets (LEAD_PRESET, below) */
+#define LP_MOSS 0u                       /* MOSS, the first LEAD's sound, LEAD's at every start */
+#define LP_CUSTOM NLPRESET               /* CUSTOM, PRESET's last choice (admin #873, #875): no preset's sound, the
+                                          * settings as they are; a number past the presets read so (lead_in) */
+#endif
 static const pdesc_t PD[NPARAM] = {
     [P_CHOEUR] = {"CHOIR", 127, 76, F_PCT},
     [P_PARTIELS] = {"PARTIALS", 127, 89, F_PCT},
@@ -164,7 +175,7 @@ static const pdesc_t PD[NPARAM] = {
     [P_DR_PRESET] = {"PRESET", NDPRESET, 0, F_DPRESET},   /* PRESETS': CUSTOM, then the 36 */
     [P_DR_FULL] = {"BODY", 127, 127, F_PCT},           /* 100 %: the drone as its settings have it; down, thinner */
     [P_SWELL] = {"SWELL", 127, 0, F_PCT},
-    [P_KB] = {"TRACK", 2, 0, F_KB},                    /* what they play */
+    [P_KB] = {"TRACK", 2 + FRS_LEAD, 0, F_KB},                    /* what they play */
     [P_MORPH] = {"MORPH", 8, 0, F_MORPH},              /* CUT, 1 S .. 2:00: the sound glides to the scene's */
     [P_LOAD] = {"LOAD", 1, 0, F_LOAD},                 /* SND+NOTES: the sound and its notes; SND ONLY: what plays goes on */
     [P_SC_GONE] = {"-", 0, 0, F_UNDO},                 /* (nothing to turn: a CC learned on UNDO turns nothing) */
@@ -246,6 +257,37 @@ static const pdesc_t PD[NPARAM] = {
     [P_L3_AMT2] = {"AMOUNT 2", 200, 100, F_AMT},
     [P_L3_AMT3] = {"AMOUNT 3", 200, 100, F_AMT},
     [P_L3_AMT4] = {"AMOUNT 4", 200, 100, F_AMT},
+#if FRS_LEAD
+    /* LEAD (card #144): its preset EMBER (LEAD_PRESET's, below: the first LEAD's sound): a warm saw, a little square in
+     * it, the second oscillator a few cents up; the filter half open, the envelope opening it more; a short glide; its
+     * own delay a quarter second, a few echoes, into the cloud */
+    [P_LD_PRESET] = {"PRESET", LP_CUSTOM, LP_MOSS, F_LPRESET},   /* (LEAD_PRESET_NAME's, then CUSTOM) */
+    [P_LD_WAVE] = {"WAVE", 128, 24, F_LWAVE},          /* SAW (0) .. SQUARE (64) .. PULSE (127), WHISTLE (128) */
+    [P_LD_CUT] = {"FILTER", 127, 58, F_LCUT},          /* 60 HZ .. 12 KHZ */
+    [P_LD_MODE] = {"MODE", 1, 0, F_LMODE},             /* MONO, POLY */
+    [P_LD_BREATH] = {"BREATH", 127, 0, F_PCTOFF},      /* noise before the filter (WHISTLE's: some always) */
+    [P_LD_DRIVE] = {"DRIVE", 127, 32, F_PCT},          /* (32: the first LEAD's, lead.h LEAD_DRIVE_0) */
+    [P_LD_RESO] = {"RESONANCE", 127, 40, F_PCT},
+    [P_LD_DETUNE] = {"DETUNE", 127, 40, F_PCT},        /* the second oscillator 0 .. 25 cents up */
+    [P_LD_GLIDE] = {"GLIDE", 127, 30, F_GLIDE},        /* legato: a key played while another is down */
+    [P_LD_FENV] = {"FILTER ENV", 127, 55, F_PCT},      /* the ADSR on the filter, 0 .. 5 octaves */
+    [P_LD_VIB] = {"VIBRATO", 127, 0, F_PCTOFF},        /* at rest (the mod wheel's, if more) */
+    [P_LD_OCTAVE] = {"OCTAVE", 4, 3, F_LOCT},          /* -2 .. +2: +1, over the keys' F2 start (the drones') */
+    [P_LD_ATTACK] = {"ATTACK", 127, 15, F_BATT},       /* (BASS's times) */
+    [P_LD_DECAY] = {"DECAY", 127, 70, F_BDEC},
+    [P_LD_SUSTAIN] = {"SUSTAIN", 127, 90, F_PCT},
+    [P_LD_RELEASE] = {"RELEASE", 127, 50, F_BREL},
+    [P_LD_DTIME] = {"TIME", 11, 3, F_DTIME},           /* GLINT's: 1/32 .. 1/2, ping-pong (1/8T: the first LEAD's
+                                                        * 201 MS the nearest at TEMPO's 90 BPM) */
+    [P_LD_DFB] = {"FEEDBACK", 127, 51, F_PCT},         /* (x 0.88, GLINT's: 51 the first LEAD's 50 x 0.9) */
+    [P_LD_DMIX] = {"MIX", 127, 40, F_PCT},
+    [P_LD_SPACE] = {"SPACE", 127, 70, F_PCT},          /* its share of the cloud, its echoes with it */
+    [P_MX_LEAD] = {"LEAD", 127, 100, F_LEVEL},         /* MIXER's K4: 100 as it is */
+    [P_LD_FATTACK] = {"F.ATTACK", 127, 15, F_BATT},    /* FILTER ENV's own (admin #619): the amp's times, its */
+    [P_LD_FDECAY] = {"F.DECAY", 127, 70, F_BDEC},      /* defaults the amp's (FILTER ENV as it was, the amp's own) */
+    [P_LD_FSUSTAIN] = {"F.SUSTAIN", 127, 90, F_PCT},
+    [P_LD_FRELEASE] = {"F.RELEASE", 127, 50, F_BREL},
+#endif
     [P_SAVER] = {"SCREENSAVER", 1, 1, F_ONOFF},        /* ON: ten minutes untouched, the logo drifts on black (app.c) */
     [P_CLOCK] = {"CLOCK", 1, 0, F_CLOCK},              /* INTERNAL: an incoming MIDI clock ignored */
     [P_EQ_PRESET] = {"PRESET", 8, 0, F_EQPRESET},      /* OFF, CUSTOM (the bands as they are), then EQ_PRESETS' seven */
@@ -622,7 +664,12 @@ static const char *const LFO_SYNC_NAME[12] = {"16 BARS", "8 BARS", "4 BARS", "2 
                                              "1/4T", "1/8", "1/8T", "1/16"};
 static const char *const LFO_SHAPE_NAME[7] = {"SINE", "TRIANGLE", "SAW", "RAMP", "SQUARE", "RANDOM", "DRIFT"};
 static const char *const LFO_POL_NAME[3] = {"BIPOLAR", "UP", "DOWN"};
-static const uint8_t LFO_TGT[NLFO_TGT] = {NPARAM, P_TIMBRE, P_ESPACE, P_MOUVEMENT, P_CHALEUR, P_CHOEUR, P_PARTIELS, P_SOUFFLE,
+#if FRS_LEAD                             /* (OFF, NPARAM, past a byte with LEAD's settings) */
+static const uint16_t LFO_TGT[NLFO_TGT] = {
+#else
+static const uint8_t LFO_TGT[NLFO_TGT] = {
+#endif
+   NPARAM, P_TIMBRE, P_ESPACE, P_MOUVEMENT, P_CHALEUR, P_CHOEUR, P_PARTIELS, P_SOUFFLE,
                                     P_DESACCORD, P_FILTRE, P_CH_SHAPE, P_CH_RESO, P_PENTE, P_IMPAIRS, P_ETIREMENT,
                                     P_PA_EVOLVE, P_PA_BEAT, P_PA_FORMANT, P_PA_PEAK, P_RESONANCE, P_COULEUR, P_BR_GRAIN,
                                     P_BR_TONE, P_BR_AIR, P_ECART, P_GL_LEVEL, P_GL_BRIGHT, P_GL_PING, P_GL_SPACE,
@@ -631,9 +678,16 @@ static const uint8_t LFO_TGT[NLFO_TGT] = {NPARAM, P_TIMBRE, P_ESPACE, P_MOUVEMEN
                                     P_PN_DRONE, P_PN_BASS, P_PN_GLINT, P_PN_CLOUD, P_CH_SOFT, P_GL_ATTACK, P_GL_DECAY,
                                     P_GL_SUSTAIN, P_GL_RELEASE, P_BS_ATTACK, P_BS_DECAY, P_BS_SUSTAIN,
                                     P_BS_RELEASE, P_TP_SAT, P_TP_WOBBLE, P_TP_FLUTTER, P_TP_TONE, P_TP_NOISE,
-                                    P_TP_DROPOUT};   /* (GLINT's CHANCE, its SEQ LENGTH, SPARKLE: app.c's,
-                                                      * arp_chance, seq_len, sparkle_run; LOFI TAPE II's four past
-                                                      * NSOUND: mod_tp) */
+                                    P_TP_DROPOUT
+#if FRS_LEAD                             /* LEAD's (card #144; mod_ld): all but PRESET, MODE and OCTAVE (no LFO flips a
+                                          * mode, loads a preset or jumps octaves); WAVE short of WHISTLE */
+                                    , P_LD_CUT, P_LD_RESO, P_LD_WAVE, P_LD_DETUNE, P_LD_BREATH, P_LD_DRIVE, P_LD_GLIDE,
+                                    P_LD_FENV, P_LD_VIB, P_LD_ATTACK, P_LD_DECAY, P_LD_SUSTAIN, P_LD_RELEASE, P_LD_DTIME,
+                                    P_LD_DFB, P_LD_DMIX, P_LD_SPACE, P_MX_LEAD, P_LD_FATTACK, P_LD_FDECAY,
+                                    P_LD_FSUSTAIN, P_LD_FRELEASE
+#endif
+};   /* (GLINT's CHANCE, its SEQ LENGTH, SPARKLE: app.c's, arp_chance, seq_len, sparkle_run; LOFI TAPE II's four past
+      * NSOUND: mod_tp) */
 static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MOTION", "WARMTH", "CHOIR", "PARTIALS",
                                              "BREATH", "CH DETUNE", "CH FILTER", "CH SHAPE", "CH RESO", "PA TILT", "PA ODD",
                                              "PA STRETCH", "PA EVOLVE", "PA BEAT", "PA FORMANT", "PA PEAK", "BR RESO", "BR COLOR",
@@ -644,8 +698,14 @@ static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MO
                                              "GLINT PAN", "CLOUD PAN", "CH SOFT", "GL ATTACK", "GL DECAY", "GL SUSTAIN",
                                              "GL RELEASE", "BS ATTACK", "BS DECAY", "BS SUSTAIN",
                                              "BS RELEASE", "TAPE SAT", "WOBBLE", "TAPE SPEED", "TAPE TONE",
-                                             "TAPE NOISE", "DROPOUT"};   /* (new ones at the end: a saved TARGET
-                                                                         * keeps its setting) */
+                                             "TAPE NOISE", "DROPOUT"
+#if FRS_LEAD
+                                             , "LD FILTER", "LD RESO", "LD WAVE", "LD DETUNE", "LD BREATH", "LD DRIVE",
+                                             "LD GLIDE", "LD FLT ENV", "LD VIBRATO", "LD ATTACK", "LD DECAY", "LD SUSTAIN",
+                                             "LD RELEASE", "LD TIME", "LD FEEDBK", "LD MIX", "LD SPACE", "LEAD LVL",
+                                             "LD F.ATK", "LD F.DEC", "LD F.SUS", "LD F.REL"
+#endif
+};   /* (new ones at the end: a saved TARGET keeps its setting) */
 static float lfo_hz(uint32_t r) { return 0.005f * fm_powf(2000.0f, (float)r / (float)(LFO_NFREE - 1u)); }
 /* GLINT's OCTAVE, in semitones: every glint is played without it, the engine puts it on (a key's, a MIDI note's, the
  * arpeggio's, the sequence's; those sounding too, at once: glint.c), and NOTE shows the steps so (app.c sets it) */
@@ -666,10 +726,19 @@ static float mod[NSOUND];
 /* the same for LOFI TAPE II's four, past NSOUND (TAPE SPEED, TONE, NOISE, DROPOUT): beside mod, not in it, so mod keeps
  * its length (a LIVE snapshot's); lfo_run writes them anew every 10 ms */
 static float mod_tp[4];
+#if FRS_LEAD                             /* and LEAD's, past the rest (card #144: the SMK-37's), the same way */
+static float mod_ld[P_LD_FRELEASE - P_LD_WAVE + 1];
+static float *mod_at(uint32_t p)         /* where setting p's LFO offset is; 0: no LFO moves it */
+{
+    return p < NSOUND ? &mod[p] : p >= P_TP_FLUTTER && p <= P_TP_DROPOUT ? &mod_tp[p - P_TP_FLUTTER]
+         : p >= P_LD_WAVE && p <= P_LD_FRELEASE ? &mod_ld[p - P_LD_WAVE] : 0;
+}
+#else
 static float *mod_at(uint32_t p)         /* where setting p's LFO offset is; 0: no LFO moves it */
 {
     return p < NSOUND ? &mod[p] : p >= P_TP_FLUTTER && p <= P_TP_DROPOUT ? &mod_tp[p - P_TP_FLUTTER] : 0;
 }
+#endif
 static float mod_of(uint32_t p) { const float *m = mod_at(p); return m ? *m : 0.0f; }
 _Static_assert(P_TP_DROPOUT == P_TP_FLUTTER + 3 && P_TP_FLUTTER >= NMORPH, "LOFI TAPE II's four: mod_tp, no MORPH");
 
@@ -743,6 +812,101 @@ static void glint_preset(uint8_t *v, uint32_t i)   /* preset i into the GLINT pa
     v[P_GL_PING] = GLINT_PRESET[i][8];
     v[P_GL_SUSTAIN] = GLINT_PRESET[i][9];
 }
+
+#if FRS_LEAD
+/* LEAD's presets (card #144; twenty since admin #870: eighteen too like the others taken out, six made apart): MOSS
+ * first, the first LEAD's sound (PD's defaults: the same, the dry sample for sample), WARM JACKET (admin #629: Styves's
+ * own, read from his SMK-37, scene 7 RETURN), then soft (round, slow, the filter low; MOTH a WHISTLE, breathy), warm
+ * (saws and squares, the filter half open, a glide), MAHOGANY glowing (admin #615: a saw with some pulse in it, the
+ * four-pole closed round a kilohertz, swelling as brass does), three a little sharper (still round: no narrow pulse,
+ * the resonance and the envelope moderate) and FURNACE aggressive (its bite the drive and the low mids, not the
+ * treble): none glassy, the brightest at MOSS's or a little over (Styves, 2026-11-09). The six of admin #870 (tuned by
+ * measurement, never listened to), each apart from the rest by its envelopes, the level's and the filter's, and its
+ * space:
+ *   NEBULA    POLY, a slow swell (ATTACK 1.5 s), a long tail (RELEASE some 7 s), its filter opening after the level
+ *             (F.ATTACK 2 s), detuned saws and some breath, all of it into the cloud and the delay (1/4T);
+ *   WICKER    MONO, a pulse, nasal as a reed, breathy, close: no delay, no cloud, a short RELEASE (none of the
+ *             six a square: two of them at their random phases cancel on a short note, some 16 dB from one to
+ *             the next);
+ *   UMBER     MONO an octave down, bowed (ATTACK 0.4 s), a long glide and a wide vibrato, a dense trail of echoes
+ *             (1/8, FEEDBACK high) into the cloud;
+ *   DAYBREAK  MONO, a narrow pulse whose filter opens late (F.ATTACK 2 s, FILTER ENV high), gliding, singing; the
+ *             delay and the cloud between the dry ones' and the wet ones';
+ *   RAIN      POLY, a WHISTLE plucked (no SUSTAIN: gone in some 0.3 s), its echoes on the dotted eighth louder than
+ *             it, into the cloud;
+ *   THORN     MONO an octave down, a driven saw, tight (RELEASE 60 ms), its filter a quick blip (F.SUSTAIN low), dry:
+ *             no delay, no cloud.
+ * The delay GLINT's (TIME on the beat: at TEMPO's 90 BPM 1/8 333 ms, 1/4T 444, 1/8D 500), discreet on the soft. Each
+ * sets every LEAD setting but its MIXER level: LEAD_PRESET_P's, the values as the knobs have them. The filter's ADSR
+ * (admin #619) the amp's but WARM JACKET's, PRISM's (a pluck in it: the filter quick down, the level held) and the new
+ * ones' (UMBER's aside). Then CUSTOM (LP_CUSTOM): no preset's */
+static const uint16_t LEAD_PRESET_P[23] = {P_LD_WAVE, P_LD_CUT, P_LD_RESO, P_LD_MODE, P_LD_DETUNE, P_LD_BREATH, P_LD_DRIVE,
+                                           P_LD_GLIDE, P_LD_FENV, P_LD_VIB, P_LD_OCTAVE, P_LD_ATTACK, P_LD_DECAY,
+                                           P_LD_SUSTAIN, P_LD_RELEASE, P_LD_DTIME, P_LD_DFB, P_LD_DMIX, P_LD_SPACE,
+                                           P_LD_FATTACK, P_LD_FDECAY, P_LD_FSUSTAIN, P_LD_FRELEASE};
+static const char *const LEAD_PRESET_NAME[NLPRESET] = {
+    "MOSS", "WARM JACKET",
+    "VELVET", "MOTH", "HUSH", "NEBULA", "DRIFTWOOD", "HALO",
+    "COPPER", "HONEY", "WICKER", "UMBER", "DAYBREAK",
+    "MAHOGANY",
+    "PRISM", "COMET", "RAIN", "FLINT",
+    "FURNACE", "THORN"};
+static const uint8_t LEAD_PRESET[NLPRESET][23] = {
+    /* WAVE CUT RESO MODE DET BRTH DRV GLD FENV VIB OCT   A   D   S   R TIME  FB MIX SPACE F.A F.D F.S F.R */
+    {   24,  58,  40,  0,  40,   0,  32, 30,  55,  0,  3, 15, 70, 90, 50,   3, 51, 40,  70,  15,  70,  90,  50},   /* MOSS */
+    {    0,  53,   0,  1,  64,   8,  84,  0,  37,  0,  3, 39,103, 67, 82,   7, 30,  0,  98, 101, 123,  26,  43},   /* WARM
+                                                                                              * JACKET: Styves's, as
+                                                                                              * his SMK-37 had it */
+    {   64,  44,  15,  1,  30,  10,  20,  0,  25, 15,  3, 70, 80,100, 75,   7, 40, 26,  85,  70,  80, 100,  75},   /* VELVET */
+    {  128,  70,   0,  0,   0,  50,  10, 40,   0, 40,  3, 50, 70,110, 60,   7, 42, 26,  80,  50,  70, 110,  60},   /* MOTH */
+    {   20,  36,  10,  1,  50,  30,  16,  0,  20,  0,  2, 85, 90,115, 85,   6, 45, 28, 105,  85,  90, 115,  85},   /* HUSH */
+    {    0,  48,  15,  1, 100,  25,  20,  0,  50, 10,  2,108,100,115,116,   6, 95, 70, 127, 112, 100, 100, 116},   /* NEBULA */
+    {   10,  42,  30,  0,  55,   8,  28, 60,  35, 20,  3, 35, 80, 95, 65,   5, 48, 32,  80,  35,  80,  95,  65},   /* DRIFTWOOD */
+    {   56,  48,  15,  1,  60,  20,  18,  0,  20, 10,  3, 90, 90,110, 90,   7, 50, 30, 110,  90,  90, 110,  90},   /* HALO */
+    {   10,  54,  30,  1,  55,   0,  34,  0,  40,  0,  3, 30, 75, 95, 62,   5, 42, 30,  75,  30,  75,  95,  62},   /* COPPER */
+    {   56,  48,  40,  0,  20,   8,  30, 42,  45, 30,  3, 20, 75, 92, 55,   3, 48, 34,  65,  20,  75,  92,  55},   /* HONEY */
+    {  100,  46,  20,  0,  50,  70,  40, 20,  30, 15,  3, 40, 70,110, 30,   5,  0,  0,   0,  30,  60,  90,  30},   /* WICKER */
+    {   16,  54,  26,  0,  45,  14,  50, 72,  30, 40,  2, 82, 90,118, 90,   5,112, 85, 127,  82,  90, 118,  90},   /* UMBER */
+    {  112,  24,  48,  0,  30,   6,  40, 58,  72, 30,  3, 30, 80,120, 62,   9, 40, 30,  62, 112, 100, 105,  80},   /* DAYBREAK */
+    {   36,  47,  20,  1,  55,   4,  28,  0,  34,  0,  2, 60, 90,105, 85,   7, 46, 30, 100,  60,  90, 105,  85},   /* MAHOGANY */
+    {   88,  58,  30,  1,  40,   0,  32,  0,  50,  0,  3,  8, 60, 80, 55,   4, 40, 28,  65,   5,  50,  45,  50},   /* PRISM */
+    {   70,  58,  40,  0,  30,   0,  40, 25,  55,  0,  3,  5, 55, 80, 45,   5, 42, 30,  55,   5,  55,  80,  45},   /* COMET */
+    {  128,  60,   0,  1,   0,   0,  30,  0,   0,  0,  3,  0, 70,  0, 50,   7,105,110, 127,   0,  70,   0,  50},   /* RAIN */
+    {   80,  54,  30,  1,  20,   0,  36,  0,  60,  0,  3,  2, 55, 65, 50,   4, 38, 30,  60,   2,  55,  65,  50},   /* FLINT */
+    {   30,  58,  50,  1,  90,   0, 100,  0,  40,  0,  2,  8, 70, 92, 55,   5, 42, 26,  55,   8,  70,  92,  55},   /* FURNACE */
+    {    0,  40,  62,  0,  24,   0,  96, 18,  80,  0,  2,  0, 48, 72, 14,   3,  0,  0,   0,   0,  34,  10,  14},   /* THORN */
+};
+
+static void lead_preset(uint8_t *v, uint32_t i)   /* preset i into LEAD's settings (its MIXER level as it is); CUSTOM
+                                                   * (LP_CUSTOM, or past it) its name alone, the settings as they are */
+{
+    uint32_t k;
+    if (i >= NLPRESET) {
+        v[P_LD_PRESET] = (uint8_t)LP_CUSTOM;
+        return;
+    }
+    v[P_LD_PRESET] = (uint8_t)i;
+    for (k = 0; k < sizeof LEAD_PRESET_P / sizeof LEAD_PRESET_P[0]; k++)
+        v[LEAD_PRESET_P[k]] = LEAD_PRESET[i][k];
+}
+/* a LEAD setting as a scene, a shard, the player's preset or Perform's state brings it (core.c lead_set, live.c, app.c
+ * ldu_take): in its range as it is, past it its default, but PRESET's CUSTOM (a number no preset has now: the
+ * settings as they came, none named); never a preset's sound over them. No number is made over (admin #875: no FRASIL
+ * released had the LEAD): one stored before admin #870 (Styves's own FM-1s alone) names the preset there now, its
+ * sound its own settings' */
+static uint8_t lead_in(uint32_t p, uint32_t x)
+{
+    return x <= PD[p].max ? (uint8_t)x : p == P_LD_PRESET ? (uint8_t)LP_CUSTOM : PD[p].def;
+}
+#endif
+
+/* MOSS's LEAD (card #152): P_LD_WAVE .. P_LD_FRELEASE as PD has their defaults (LEAD_PRESET's first, its MIXER level
+ * 100), a shard's LEAD when it has none ("FRS}" and before, a scene stored without one); in every build, so that an
+ * engine without the LEAD makes its shards ("FRS~") with it (engine/tests/lead.c: PD's, each) */
+#define LEAD_BYTES 25u
+static const uint8_t LEAD_MOSS[LEAD_BYTES] = {24, 58, 40, 40, 30, 55, 0, 3, 15, 70, 90, 50,   /* WAVE .. RELEASE */
+                                              3, 51, 40, 70, 100, 0, 0, 0, 32,             /* TIME .. DRIVE */
+                                              15, 70, 90, 50};                             /* F.ATTACK .. F.RELEASE */
 
 /* ---------------------------------------------------------- the engine --- */
 /* MASTER EQ and MASTER FILTER: their mappings (the engine's and the screen's), their names */
@@ -965,6 +1129,35 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
     b->bass.bite = u7(v, P_BS_BITE);
     b->bass.space = u7(v, P_BS_SPACE);
     b->bass.octave = (int)v[P_BS_OCTAVE] - 2;   /* (-2 .. 0) */
+#if FRS_LEAD
+    b->lead.whistle = v[P_LD_WAVE] > 127u;   /* (128 WHISTLE, past PULSE: the knob's alone, an LFO's never) */
+    {
+        float w = ((float)v[P_LD_WAVE] + mod_of(P_LD_WAVE)) / 127.0f;   /* (u7's, as the first LEAD had it) */
+        b->lead.wave = w < 0.0f ? 0.0f : w > 1.0f ? 1.0f : w;
+    }
+    b->lead.poly = v[P_LD_MODE] != 0;
+    b->lead.breath = u7(v, P_LD_BREATH);
+    b->lead.drive = u7(v, P_LD_DRIVE);
+    b->lead.cutoff = u7(v, P_LD_CUT);
+    b->lead.resonance = u7(v, P_LD_RESO);
+    b->lead.detune = u7(v, P_LD_DETUNE);
+    b->lead.glide = u7(v, P_LD_GLIDE);
+    b->lead.fenv = u7(v, P_LD_FENV);
+    b->lead.vibrato = u7(v, P_LD_VIB);
+    b->lead.octave = (int)v[P_LD_OCTAVE] - 2;   /* (-2 .. +2) */
+    b->lead.attack = u7(v, P_LD_ATTACK);
+    b->lead.decay = u7(v, P_LD_DECAY);
+    b->lead.sustain = u7(v, P_LD_SUSTAIN);
+    b->lead.release = u7(v, P_LD_RELEASE);
+    b->lead.fattack = u7(v, P_LD_FATTACK);   /* (FILTER ENV's own: the amp's way, the same settings the same curve) */
+    b->lead.fdecay = u7(v, P_LD_FDECAY);
+    b->lead.fsustain = u7(v, P_LD_FSUSTAIN);
+    b->lead.frelease = u7(v, P_LD_FRELEASE);
+    b->lead.dfb = u7(v, P_LD_DFB);       /* (TIME's seconds, on the beat: core.c delay_sync, engine_push) */
+    b->lead.dmix = u7(v, P_LD_DMIX);
+    b->lead.space = u7(v, P_LD_SPACE);
+    b->lead.level = u7(v, P_MX_LEAD) * 1.27f;
+#endif
 }
 
 #include "harmony.c"
@@ -1152,6 +1345,34 @@ static void value_text(int p, uint8_t x, char *b)
         text_cat(b, d);
         break;
     }
+#if FRS_LEAD
+    case F_LWAVE:                        /* LEAD's: a saw, through a square, to a narrow pulse; then WHISTLE */
+        if (x == 0)
+            text_cat(b, "SAW");
+        else if (x == 64u)
+            text_cat(b, "SQUARE");
+        else if (x == 127u)
+            text_cat(b, "PULSE");
+        else if (x > 127u)
+            text_cat(b, "WHISTLE");
+        else
+            int_text((int32_t)((float)x * (100.0f / 127.0f) + 0.5f), b);
+        break;
+    case F_LPRESET:
+        text_cat(b, x < NLPRESET ? LEAD_PRESET_NAME[x] : "CUSTOM");
+        break;
+    case F_LMODE:
+        text_cat(b, x ? "POLY" : "MONO");
+        break;
+    case F_LCUT:
+        hz_text(60.0f * fm_powf(200.0f, u), b);
+        break;
+    case F_LOCT:
+        if (x > 2u)
+            text_cat(b, "+");
+        int_text((int32_t)x - 2, b + (x > 2u));
+        break;
+#endif
     case F_ANIM:
         text_cat(b, x ? "LOW" : "NORMAL");
         break;
@@ -1171,8 +1392,13 @@ static void value_text(int p, uint8_t x, char *b)
         text_cat(b, x ? "AGAIN" : "-");   /* (turned twice: it acts, and is back at -) */
         break;
     case F_KB: {
+#if FRS_LEAD
+        static const char *const KB[4] = {"DRONE", "GLINT", "BASS", "LEAD"};
+        text_cat(b, KB[x % 4u]);
+#else
         static const char *const KB[3] = {"DRONE", "GLINT", "BASS"};
         text_cat(b, KB[x % 3u]);
+#endif
         break;
     }
     case F_SQTYPE: {

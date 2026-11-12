@@ -21,8 +21,15 @@ enum { PG_SON, PG_DRONE, PG_CHOEUR, PG_CHOEUR2, PG_CHOEUR3, PG_PARTIELS, PG_PART
        PG_RECORD,                        /* GLO's last: METRONOME, COUNT-IN, TUNE A4 */
        PG_SAVE, PG_SAVEAS,               /* SAVE: LOAD or SAVE; WHAT, INTO (app.c) */
        PG_TAPE2,                         /* LOFI TAPE II: TAPE SPEED, TONE, NOISE, DROPOUT (skipped while TAPE is off) */
+#if FRS_LEAD
+       PG_LEAD, PG_LEAD2, PG_LDELAY,     /* LEAD's (card #144, the SMK-37's alone for now): EDIT's three, */
+       PG_LADSR, PG_LNOARP, PG_LNOSEQ,   /* ENV's, ARP's and SEQ's (NOT AVAILABLE FOR LEAD); (MIXER II gone: its
+                                          * level MIXER's K4, admin #744; its load the CPU line) */
+       PG_LEAD3,                         /* EDIT's LEAD III (MODE, DETUNE, BREATH, DRIVE), after LEAD II */
+       PG_LFENV,                         /* ENV's LEAD FILTER: FILTER ENV's own ADSR, after LEAD ADSR (admin #619) */
+#endif
        NPAGES };
-#define T_ANY 3u
+#define T_ANY (3u + FRS_LEAD)            /* (LEAD the fourth track, 3, with FRS_LEAD) */
 #define K_ARP (NPARAM + 1u)              /* K1 of ARP and SEQ: ON, OFF, over the track's PLAYS (app.c ways_turn) */
 #define K_SEQ (NPARAM + 2u)
 #define K_IDLE (NPARAM + 3u)             /* SCREEN's K3, IDLE TIME: the screensaver's minutes (app.c saver.min; no setting
@@ -31,11 +38,16 @@ enum { PG_SON, PG_DRONE, PG_CHOEUR, PG_CHOEUR2, PG_CHOEUR3, PG_PARTIELS, PG_PART
                                           * either: settings_t.head) */
 #define K_TUNE (NPARAM + 5u)             /* RECORD's K3, TUNE A4: 415 .. 466 Hz (app.c a4; the device's, no setting in the
                                           * schema: settings_t.a4) */
+#if FRS_LEAD
+typedef uint16_t prm_t;                  /* a setting's number on a page, the one turned last: past 255 with LEAD's (card #144) */
+#else
+typedef uint8_t prm_t;
+#endif
 typedef struct {
     const char *name;
     uint8_t button;
-    uint8_t track;                       /* 0 DRONE, 1 GLINT, 2 BASS, T_ANY */
-    uint8_t p[4];
+    uint8_t track;                       /* 0 DRONE, 1 GLINT, 2 BASS, (3 LEAD,) T_ANY */
+    prm_t p[4];
 } page_t;
 static const page_t PAGES[NPAGES] = {
     [PG_SON] = {"SOUND", B_HOME, T_ANY, {P_CHOEUR, P_PARTIELS, P_SOUFFLE, P_CHALEUR}},
@@ -86,7 +98,12 @@ static const page_t PAGES[NPAGES] = {
     [PG_GENFX] = {"GENERATIVE FX", B_FX, T_ANY, {P_SWELL, P_GX_SPARK, P_GX_BLUR, P_GX_SINK}},   /* FX's first: to perform */
     [PG_NUAGE] = {"CLOUD", B_FX, T_ANY, {P_TAILLE, P_DUREE, P_TEINTE, P_FREEZE}},
     [PG_NUAGE2] = {"CLOUD II", B_FX, T_ANY, {P_DIFFUSION, P_MODULATION, P_PREDELAI, P_LARGEUR}},
+#if FRS_LEAD                             /* the shimmer, and the cloud's return (MIXER's K4 before the LEAD, Styves admin
+                                          * #744: on the cloud's own page; OCT- held, its PAN, as MIXER's) */
+    [PG_NUAGE3] = {"CLOUD III", B_FX, T_ANY, {P_SHIMMER, P_INTERVALLE, P_SH_TONE, P_MX_CLOUD}},
+#else
     [PG_NUAGE3] = {"CLOUD III", B_FX, T_ANY, {P_SHIMMER, P_INTERVALLE, P_SH_TONE, NPARAM}},   /* the shimmer */
+#endif
     [PG_FILTER] = {"MASTER FILTER", B_FX, T_ANY, {P_FL_TYPE, P_FL_CUT, P_FL_RESO, P_FL_TRACKS}},   /* before PUMP */
     [PG_TAPE] = {"LOFI TAPE", B_FX, T_ANY, {P_TP_ON, P_TP_SAT, P_TP_WOBBLE, P_TP_TRACKS}},     /* after the filter */
     [PG_TAPE2] = {"LOFI TAPE II", B_FX, T_ANY, {P_TP_FLUTTER, P_TP_TONE, P_TP_NOISE, P_TP_DROPOUT}},   /* after LOFI TAPE */
@@ -97,22 +114,46 @@ static const page_t PAGES[NPAGES] = {
     [PG_MASTER] = {"MASTERING", B_GLO, T_ANY, {P_MS_THRESH, P_MS_RATIO, P_MS_RELEASE, P_MS_GAIN}},
     [PG_EQ] = {"MASTER EQ", B_GLO, T_ANY, {P_EQ_PRESET, P_EQ_LOW, P_EQ_MID, P_EQ_HIGH}},   /* before the compressor */
     [PG_EQ2] = {"MASTER EQ II", B_GLO, T_ANY, {P_EQ_LOWF, P_EQ_MIDF, P_EQ_Q, P_EQ_HIGHF}},
+#if FRS_LEAD                             /* HOME's third (app.c): each track's level, K4 the LEAD's (Styves, admin #744;
+                                          * the cloud's on CLOUD III) */
+    [PG_MIXER] = {"MIXER", B_HOME, T_ANY, {P_MX_DRONE, P_MX_BASS, P_MX_GLINT, P_MX_LEAD}},
+#else
     [PG_MIXER] = {"MIXER", B_HOME, T_ANY, {P_MX_DRONE, P_MX_BASS, P_MX_GLINT, P_MX_CLOUD}},   /* HOME's third (app.c) */
+#endif
+#if FRS_LEAD                             /* each track's share of the cloud (ui.c cell_name); K4 LEAD's */
+    [PG_CSEND] = {"CLOUD SEND", B_HOME, T_ANY, {P_ESPACE, P_GL_SPACE, P_BS_SPACE, P_LD_SPACE}},
+#else
     [PG_CSEND] = {"CLOUD SEND", B_HOME, T_ANY, {P_ESPACE, P_GL_SPACE, P_BS_SPACE, NPARAM}},   /* each track's share of the cloud
                                                                                                 * (ui.c cell_name) */
+#endif
     [PG_SCENES] = {"SCENES", B_SAVE, T_ANY, {NPARAM, P_MORPH, P_LOAD, NPARAM}},   /* (K1: the slot, app.c) */
     [PG_SAVE] = {"SCENES", B_SAVE, T_ANY, {NPARAM, NPARAM, NPARAM, NPARAM}},      /* (K1: LOAD | SAVE, app.c) */
     [PG_SAVEAS] = {"SAVE", B_SAVE, T_ANY, {NPARAM, NPARAM, NPARAM, NPARAM}},      /* (K1 WHAT, K2 INTO, app.c) */
+#if FRS_LEAD
+    [PG_LEAD] = {"LEAD I", B_EDIT, 3, {P_LD_PRESET, P_LD_WAVE, P_LD_CUT, P_LD_RESO}},
+    [PG_LEAD2] = {"LEAD II", B_EDIT, 3, {P_LD_GLIDE, P_LD_FENV, P_LD_VIB, P_LD_OCTAVE}},
+    [PG_LEAD3] = {"LEAD III", B_EDIT, 3, {P_LD_MODE, P_LD_DETUNE, P_LD_BREATH, P_LD_DRIVE}},
+    [PG_LDELAY] = {"LEAD DELAY", B_EDIT, 3, {P_LD_DTIME, P_LD_DFB, P_LD_DMIX, P_LD_SPACE}},   /* and the cloud */
+    [PG_LADSR] = {"LEAD ADSR", B_ENV, 3, {P_LD_ATTACK, P_LD_DECAY, P_LD_SUSTAIN, P_LD_RELEASE}},   /* (ui.c adsr_scope) */
+    [PG_LFENV] = {"LEAD FILTER", B_ENV, 3, {P_LD_FATTACK, P_LD_FDECAY, P_LD_FSUSTAIN, P_LD_FRELEASE}},   /* (the same) */
+    [PG_LNOARP] = {"LEAD ARP", B_ARP, 3, {NPARAM, NPARAM, NPARAM, NPARAM}},   /* NOT AVAILABLE FOR LEAD */
+    [PG_LNOSEQ] = {"LEAD SEQ", B_SEQ, 3, {NPARAM, NPARAM, NPARAM, NPARAM}},
+#endif
 };
-_Static_assert(K_TUNE <= 255u, "the pages' own knobs, past the settings, fit a page's bytes");
+_Static_assert(K_TUNE <= (prm_t)-1, "the pages' own knobs, past the settings, fit a page's bytes");
+#if FRS_LEAD
+#define LD_(...) , __VA_ARGS__              /* (LEAD's pages in the lists below) */
+#else
+#define LD_(...)
+#endif
 /* the order a button's taps go through its pages, and SELECT with the button held */
 static const uint8_t PAGE_ORDER[NPAGES] = {
     PG_SON, PG_KEYS, PG_MIXER, PG_CSEND,
     PG_DRONE, PG_MOUVEMENT, PG_CHOEUR, PG_CHOEUR2, PG_CHOEUR3, PG_PARTIELS, PG_PARTIELS2, PG_SOUFFLE, PG_SOUFFLE2,
-    PG_GLINT, PG_GLINT2, PG_GDELAY, PG_BASS, PG_BASS2, PG_BDRIVE,
-    PG_FORME, PG_GLINT3, PG_BASS3,
-    PG_NOARP, PG_ARP, PG_ARP2, PG_BARP, PG_BARP2,
-    PG_DSEQ, PG_DSEQ2, PG_DSEQ3, PG_SEQ, PG_SEQ2, PG_SEQ3, PG_BSEQ, PG_BSEQ2, PG_BSEQ3,
+    PG_GLINT, PG_GLINT2, PG_GDELAY, PG_BASS, PG_BASS2, PG_BDRIVE LD_(PG_LEAD, PG_LEAD2, PG_LEAD3, PG_LDELAY),
+    PG_FORME, PG_GLINT3, PG_BASS3 LD_(PG_LADSR, PG_LFENV),
+    PG_NOARP, PG_ARP, PG_ARP2, PG_BARP, PG_BARP2 LD_(PG_LNOARP),
+    PG_DSEQ, PG_DSEQ2, PG_DSEQ3, PG_SEQ, PG_SEQ2, PG_SEQ3, PG_BSEQ, PG_BSEQ2, PG_BSEQ3 LD_(PG_LNOSEQ),
     PG_LFO1, PG_LFO1T, PG_LFO2, PG_LFO2T, PG_LFO3, PG_LFO3T,
     PG_HARMONY,
     PG_GENFX, PG_NUAGE, PG_NUAGE2, PG_NUAGE3, PG_FILTER, PG_TAPE, PG_TAPE2, PG_PUMP, PG_PUMP2,
@@ -120,11 +161,14 @@ static const uint8_t PAGE_ORDER[NPAGES] = {
     PG_SAVE, PG_SAVEAS, PG_SCENES,
 };
 /* SELECT turned on a track's page: the same place on the new track's (first if hidden) */
-static const uint8_t TRACK_PAGES[][3] = {
-    {PG_FORME, PG_GLINT3, PG_BASS3},
-    {PG_NOARP, PG_ARP, PG_BARP},
-    {PG_NOARP, PG_ARP2, PG_BARP2},
-    {PG_DSEQ, PG_SEQ, PG_BSEQ},
-    {PG_DSEQ2, PG_SEQ2, PG_BSEQ2},
-    {PG_DSEQ3, PG_SEQ3, PG_BSEQ3},
+static const uint8_t TRACK_PAGES[][3 + FRS_LEAD] = {
+    {PG_FORME, PG_GLINT3, PG_BASS3 LD_(PG_LADSR)},
+#if FRS_LEAD
+    {PG_FORME, PG_GLINT3, PG_BASS3, PG_LFENV},   /* (LEAD FILTER left: the others' ENV page) */
+#endif
+    {PG_NOARP, PG_ARP, PG_BARP LD_(PG_LNOARP)},
+    {PG_NOARP, PG_ARP2, PG_BARP2 LD_(PG_LNOARP)},
+    {PG_DSEQ, PG_SEQ, PG_BSEQ LD_(PG_LNOSEQ)},
+    {PG_DSEQ2, PG_SEQ2, PG_BSEQ2 LD_(PG_LNOSEQ)},
+    {PG_DSEQ3, PG_SEQ3, PG_BSEQ3 LD_(PG_LNOSEQ)},
 };

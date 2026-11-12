@@ -100,7 +100,7 @@ static ev_t ev[] = {
 #define NAT 7u
 
 static fst_start start;
-static uint8_t state2[FRS_SCENE_BYTES];  /* (a state, as FSTJ_SCENE carries it: in a scene's room) */
+static uint8_t state2[FST_SCENE_BYTES];  /* (a state, as FSTJ_SCENE carries it: in a scene's room) */
 static uint32_t state2_n;
 
 /* the start, captured from an engine as a performer left it; the state that comes later (ARP SNAP another) */
@@ -167,8 +167,9 @@ static uint8_t *journal(size_t *sn)
             e.a[2] = (uint8_t)state2_n;
             jn += fst_jevent(&e, &last, state2, 0, jb + jn);
         } else if (ev[k].scene >= 0) {
-            static uint8_t sc[FRS_SCENE_BYTES];
+            static uint8_t sc[FST_SCENE_BYTES];   /* (a shard: its LEAD MOSS, the factory's) */
             frs_scene_factory((uint32_t)ev[k].scene, sc);
+            frs_lead_none(sc + FRS_SCENE_BYTES);
             e.op = FSTJ_SCENE;
             e.a[0] = ev[k].op;
             jn += fst_jevent(&e, &last, sc, 0, jb + jn);

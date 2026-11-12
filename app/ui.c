@@ -43,7 +43,18 @@ static int32_t oy;                       /* the band being drawn: its first scre
 /* the header's two looks (GLO > SCREEN's HEADER, app.c hdr): INVERT, the whole band in the selected track's colour
  * (DRONE fog, GLINT ice, BASS lamp), everything on it dark; DARK, the band the night's, everything on it in the track's
  * colour, a hairline of it under the band. C_ONBAND: what is drawn on the band; band_col(): the band under it */
-static uint16_t track_col(void) { return st.glint ? C_ICE : st.bass ? C_LAMP : C_FOG; }
+#if PLAT_SMK37
+#define C_GLINT_TRACK RGB(28, 124, 255)  /* GLINT's own on the SMK-37: the header band, its marks; saturated and darker than
+                                          * the ice, apart from DRONE's fog at a glance (Styves, 2026-11-09) */
+#else
+#define C_GLINT_TRACK C_ICE
+#endif
+#if FRS_LEAD
+#define C_LEAD_TRACK RGB(255, 112, 132)  /* LEAD's (card #144): a warm rose, apart from BASS's lamp and the alerts' red */
+static uint16_t track_col(void) { return st.lead ? C_LEAD_TRACK : st.glint ? C_GLINT_TRACK : st.bass ? C_LAMP : C_FOG; }
+#else
+static uint16_t track_col(void) { return st.glint ? C_GLINT_TRACK : st.bass ? C_LAMP : C_FOG; }
+#endif
 static uint16_t band_col(void) { return hdr.dark ? C_BG : track_col(); }
 static uint16_t band_ink(void) { return hdr.dark ? track_col() : C_BG; }
 #define C_ONBAND band_ink()
@@ -52,6 +63,7 @@ static uint16_t head_red(void) { return hdr.dark ? C_RED : RGB(170, 16, 16); }  
 static struct {
     uint32_t field_at, frames, fps_at, fps;
     uint32_t sig1, sig3;                 /* what the header and the footer showed last */
+    uint32_t mid;                        /* the page the middle band showed last, the value large over it or not */
     uint32_t frz_at;                     /* when the freeze last changed (the crystals ease to it) */
     uint8_t frz;
     uint8_t full;
@@ -94,8 +106,14 @@ static inline void bl(int32_t x, int32_t y, uint16_t c, int32_t a)   /* screen c
     *p = swap16(a >= 32 ? c : mix565(swap16(*p), c, a));
 }
 
+#if APP_CPU_LINE
+static void cl_band_start(void);
+#endif
 static void band(int32_t y0, int32_t h)
 {
+#if APP_CPU_LINE
+    cl_band_start();                     /* (the load's line's row first, if it moved: a wait the band has anyway) */
+#endif
     oy = y0;
     cv_begin(240, (uint32_t)h, C_BG);
 }
@@ -310,6 +328,12 @@ static void badge_of(int32_t cx, int32_t cy, int p, int enc)
             badge(cx, cy, (char)('1' + i), 1);
             return;
         }
+#if FRS_LEAD
+    if (fm.page == PG_NUAGE3 && p == P_PN_CLOUD) {   /* (CLOUD III's K4, OCT- held: its PAN) */
+        badge(cx, cy, '4', 1);
+        return;
+    }
+#endif
     for (i = 0; i < 3u; i++)
         if (macro_of(i) == (uint32_t)p) {
             badge(cx, cy, HAND[i], 0);
@@ -325,7 +349,7 @@ static void value_big(int32_t x, int32_t y, int p, int32_t maxw, const felucca_f
     int32_t w, uw = 0, i, xs = 0, xw = 0;
     const felucca_font_t *fv = f;
     {
-        int k = list_track((uint32_t)p), un = k >= 0 ? up_in_use((uint32_t)k) : -1;
+        int k = list_up((uint32_t)p), un = k >= 0 ? up_in_use((uint32_t)k) : -1;
         if (un >= 0)                     /* a preset of the player's: its name */
             up_name((uint32_t)k, (uint32_t)un, t);
         else if (p == P_TEMPO && ext_bpm()) {   /* TEMPO (EXT): the clock's, past TEMPO's 240 too */
@@ -754,13 +778,25 @@ static int is_layer(int p) { return p == P_CHOEUR || p == P_PARTIELS || p == P_S
 static int oct_big(void) { return fm.oct_at && plat_ms() - fm.oct_at < TOUCH_MS && fm.octave == fm.oct_v; }
 
 /* the large view of one value: on the play page (but its strata show the three layers), and for the three hands
- * anywhere; SELECT's on the play page and on a track's page, the page following (elsewhere the header's colour tells it) */
+ * anywhere; SELECT's on the play page alone: on a page, the page stays, a track's following at once, the header's name
+ * and colour telling it (Styves, admin #866: a value large over the river, the three hands below, read as the play
+ * page between two EDIT pages; 2.5's way again, which 3.0's "the track large a moment" had undone) */
 static int overlay_on(void)
 {
     return touched_now() && ((fm.page == PG_SON && !is_layer(fm.touched)) ||
-                             (fm.touched_enc < EN_K1 && is_macro(fm.touched) &&
-                              (fm.touched != P_KB || PAGES[fm.page].track != T_ANY)));
+                             (fm.touched_enc < EN_K1 && is_macro(fm.touched) && fm.touched != P_KB));
 }
+
+#if defined PLAT_HOST && !defined PLAT_WEB
+static struct {                          /* (the tests: the page the screen showed, frame by frame since drawnmark: the
+                                          * play page's look, HOME's SOUND or a value large over the river, its three
+                                          * hands below, or a page; expect drawnhome, drawnflips, drawnstale) */
+    uint32_t home, flips, stale;
+    uint8_t last;
+    uint8_t mid;                         /* the one the middle band drew last */
+} ui_seen;
+static uint8_t ui_look(void) { return overlay_on() || fm.page == PG_SON ? (uint8_t)PG_SON : fm.page; }
+#endif
 
 /* the play page's mix: under the waterline, each layer a stratum drawn as its thing in the river (the current, the
  * crystals, the haze), as long as it is loud; the one being turned lit */
@@ -816,6 +852,10 @@ static void strata(float dim)
  * sequence */
 static const char *keys_word(void)
 {
+#if FRS_LEAD
+    if (st.lead)
+        return "LEAD";
+#endif
     uint32_t r = st.v[st.glint ? P_SQ_REC : st.bass ? P_BQ_REC : P_DQ_REC];
     if (r)
         return r == 2u ? "LIVE" : "STEP";
@@ -824,7 +864,11 @@ static const char *keys_word(void)
 
 /* the header's corner on a SEQ page of the track selected: the title says the track, so the corner says how to clear: the
  * two keys, each its own small box */
+#if FRS_LEAD
+static int clear_corner(void) { return PAGES[fm.page].button == B_SEQ && PAGES[fm.page].track == st.v[P_KB] && fm.page != PG_LNOSEQ; }
+#else
 static int clear_corner(void) { return PAGES[fm.page].button == B_SEQ && PAGES[fm.page].track == st.v[P_KB]; }
+#endif
 static int32_t small_cap(int32_t x, const char *s)
 {
     int32_t w = text_tw(&FONT_XS, s, 1) + 7;
@@ -846,6 +890,10 @@ static int32_t clear_w(void)
 static const char *notes_why(int p);
 static int chord_tag(void)
 {
+#if FRS_LEAD
+    if (st.lead)
+        return 0;
+#endif
     uint32_t t = st.glint ? 1u : st.bass ? 2u : 0u;
     int p = (int)(P_KY_DR_NOTES + 4u * t);
     return fm.page != PG_GLOBAL && !st.v[st.glint ? P_SQ_REC : st.bass ? P_BQ_REC : P_DQ_REC] && st.v[p] &&
@@ -910,6 +958,126 @@ static void page_dots(void)
     }
 }
 
+#if APP_CPU_LINE
+/* the load's line (app.h APP_CPU_LINE; Styves, admin #672): the screen's last row after its label (admin #729: CPU,
+ * small, bottom left, its baseline the row), the render's load (cpu_load, the one the shedding watches) as the part
+ * filled from the label's end, the rest of the row 100 % (and over); the rest a track, barely there. Filled in the
+ * quiet marks' slate; the whole fill the battery's yellow from 85 %, red from 92 % (each back 2 % under its line: a load
+ * sitting on it does not flicker); the label slate in every zone. The load shown: a step every CL_STEP_MS, up at once
+ * to the highest read since the last step, down a third of the way a step (some 250 ms): a peak stays a moment. On
+ * every screen but the screensaver's and the logo's: a band that reaches the label's box draws the label and the line
+ * in before its blit (cl_band: the label wins its box, the line its row; ANCHOR's frame alone reaches them, af_fill
+ * keeps off both). A step that moves it: the row alone after the label (cl_row, a fill or two of a row; the label never,
+ * it does not move) as the next band starts (band: the wait for the screen's last transfer is the band's anyway), or
+ * once no band has started for CL_REST_MS (nothing left in flight): no wait of its own */
+#define CL_Y 239                         /* its row */
+#define CL_X 19                          /* its first column: CPU before it, FONT_T tracked 1 from x 0 (its ink 0 .. 16),
+                                          * 2 px clear */
+#define CL_W (240 - CL_X)                /* its pixels: 100 % */
+#define CL_LY (CL_Y - 9)                 /* the label's box, x 0 .. CL_X - 1, rows CL_LY .. CL_Y: FONT_T's cell from
+                                          * there, its capitals' ink its rows 2 .. 9 (the baseline the line's row) */
+#define CL_STEP_MS 100u                  /* ten steps a second at most */
+#define CL_REST_MS 50u                   /* (the river's band: one every 50 ms while it moves) */
+#define C_CL_TRACK RGB(20, 26, 32)       /* the track: darker than the gauges' steel, barely there on the night */
+static struct {
+    uint32_t at;                         /* the last step (plat_ms | 1; 0: none yet) */
+    uint32_t peak;                       /* the highest load read since, % */
+    uint32_t v;                          /* the load shown, 1/16 % */
+    uint32_t band_at;                    /* the last band started (plat_ms) */
+    uint8_t n, zone;                     /* the pixels filled, the colour (0 slate, 1 yellow, 2 red) */
+    uint8_t due;                         /* moved since the row was drawn */
+    uint8_t shown;                       /* the screen has it (the last frame's, cl_tick) */
+#if defined PLAT_HOST && !defined PLAT_WEB
+    uint32_t rows, labels;               /* (the tests: the row drawn alone, cpurows; the label drawn, cpulabels) */
+#endif
+} cl;
+
+static uint16_t cl_col(void) { return cl.zone == 2u ? C_RED : cl.zone ? C_BATT_LOW : C_SLATE; }
+
+static uint8_t cl_zone(uint32_t v, uint32_t z)   /* the colour at v (1/16 %), z the one drawn: up at once, 2 % back */
+{
+    if (v >= 92u * 16u || (z == 2u && v >= 90u * 16u))
+        return 2u;
+    if (v >= 85u * 16u || (z && v >= 83u * 16u))
+        return 1u;
+    return 0;
+}
+
+static void cl_row(void)                 /* the row alone to the screen, after the label */
+{
+    cl.due = 0;
+    if (cl.n)
+        lcd_fill(CL_X, CL_Y, cl.n, 1, cl_col());
+    if (cl.n < CL_W)
+        lcd_fill(CL_X + cl.n, CL_Y, CL_W - cl.n, 1, C_CL_TRACK);
+#if defined PLAT_HOST && !defined PLAT_WEB
+    cl.rows++;
+#endif
+}
+
+/* the label and the line in the band being drawn (rows y0 .. y0 + cv_h - 1), over what is there, if the band reaches
+ * the label's box: the box the night's, CPU in it, then the line's row after it */
+static void cl_band(int32_t y0)
+{
+    uint16_t *row, f = swap16(cl_col()), t = swap16(C_CL_TRACK), bg = swap16(C_BG);
+    int32_t y, y1 = y0 + (int32_t)cv_h, x, k;
+    char ch[2] = {0, 0};
+    if (CL_Y < y0 || CL_LY >= y1)
+        return;
+    for (y = CL_LY > y0 ? CL_LY : y0; y < y1 && y <= CL_Y; y++)
+        for (row = &cv_px[(uint32_t)(y - y0) * cv_w], x = 0; x < CL_X; x++)
+            row[x] = bg;
+    for (k = 0, x = 0; "CPU"[k]; k++) {  /* (tracked 1, as text_t would: the band's own rows) */
+        ch[0] = "CPU"[k];
+        x = cv_text(x, CL_LY - y0, &FONT_T, ch, C_SLATE) + 1;
+    }
+#if defined PLAT_HOST && !defined PLAT_WEB
+    cl.labels++;
+#endif
+    if (CL_Y >= y1)
+        return;
+    row = &cv_px[(uint32_t)(CL_Y - y0) * cv_w];
+    for (x = CL_X; x < (int32_t)cv_w; x++)
+        row[x] = x - CL_X < (int32_t)cl.n ? f : t;
+    cl.due = 0;
+}
+
+static void cl_band_start(void)          /* a band starts (band): the row first, if due */
+{
+    cl.band_at = plat_ms();
+    if (cl.due && cl.shown)
+        cl_row();
+}
+
+/* each UI frame, first: the load read; a step every CL_STEP_MS; the row, if it moved and the screen has it (shown: the
+ * last frame's), drawn alone now if no band has started for CL_REST_MS (else as the next starts) */
+static void cl_tick(int shown)
+{
+    uint32_t now = plat_ms(), l = cpu_load(), v, n;
+    uint8_t z;
+    cl.shown = (uint8_t)shown;
+    if (l > cl.peak)
+        cl.peak = l;
+    if (!cl.at || now - cl.at >= CL_STEP_MS) {
+        cl.at = now | 1u;
+        v = (cl.peak > 100u ? 100u : cl.peak) * 16u;   /* (over the whole width: the whole width, falling from there) */
+        cl.peak = 0;
+        cl.v = v >= cl.v ? v : cl.v - (cl.v - v + 2u) / 3u;
+        n = (cl.v * CL_W + 800u) / 1600u;
+        z = cl_zone(cl.v, cl.zone);
+        if (n != cl.n || z != cl.zone) {
+            cl.n = (uint8_t)n;
+            cl.zone = z;
+            cl.due = 1;
+        }
+    }
+    if (cl.due && shown && now - cl.band_at >= CL_REST_MS)
+        cl_row();
+}
+#else
+#define cl_band(y0) ((void)0)
+#endif
+
 /* ANCHOR's frame (app.c anchor_press): while it is set, a violet frame round the whole screen, AF_W pixels (ML 14 well
  * clear; at the foot, the hints that sit lowest drawn above it: STACK's, MIXER's PAN), breathing from full to a fifth and back (ANIMATIONS LOW: still). Its
  * MORPH back: the frame steady, erased place by place counter-clockwise from the top's middle (a clock's twelve), by the
@@ -967,6 +1135,7 @@ static void af_band(int32_t y0)
 static void band_blit(int32_t y0)
 {
     af_band(y0);
+    cl_band(y0);                         /* (the load's line and its label over it) */
     cv_blit(0, (uint32_t)y0);
 }
 
@@ -978,6 +1147,19 @@ static uint8_t af_lo = 255u, af_hi;      /* (... its breath: framelo, framehi) *
 static void af_fill(int32_t x, int32_t y, int32_t w, int32_t h, int frame)
 {
     uint16_t head = fm.page == PG_SAVEAS ? C_RED : band_col();
+#if APP_CPU_LINE
+    if (y + h > CL_Y)                    /* (the last row the load's line's) */
+        h = CL_Y - y;
+    if (x < CL_X && y + h > CL_LY) {     /* (and the label's box, bottom left: the left side kept above it, the bottom
+                                          * right of it; the frame's strips, a side's or the bottom's, never both) */
+        if (y >= CL_LY) {
+            w -= CL_X - x;
+            x = CL_X;
+        } else {
+            h = CL_LY - y;
+        }
+    }
+#endif
     if (w <= 0 || h <= 0)
         return;
 #if defined PLAT_HOST && !defined PLAT_WEB
@@ -1194,10 +1376,60 @@ static void batt_draw(uint16_t band, uint16_t ink)
     cv_rect(231, 20 - n - oy, 4, n, c);
 }
 
+#if PLAT_SMK37
+#define C_PADOK RGB(64, 224, 112)        /* the SMK-37's OK: pad 2's green */
+#define C_PADLOAD RGB(84, 156, 255)      /* LOAD's blue (SAVE's flow, Styves) */
+#define C_PADSAVE RGB(24, 200, 150)      /* SAVE's emerald: a green with blue in it */
+/* a choice waiting on the SMK-37 (app.c pad_mode): its pads' words, small, at the top right on a dark ground (over a
+ * band's colour, the track's tag), pad 1's then pad 2's: CANCEL in red, OK in green (a warning, OK alone); SAVE's flow
+ * its own, LOAD in blue and SAVE in emerald (its first page LOAD SAVE; SCENES CANCEL LOAD; WHAT and INTO, the name,
+ * CANCEL SAVE). In SEL's and FX's place: the screens name the pads alone */
+static void pad_words(const char *l, uint16_t lc, const char *r, uint16_t rc)
+{
+    int32_t wr = text_tw(&FONT_XS, r, 1), wl = l ? text_tw(&FONT_XS, l, 1) + 8 : 0;
+    cv_rect(MR - wr - wl - 5, 4 - oy, wr + wl + 7, 19, C_BG);
+    text_r(MR, 7, &FONT_XS, r, rc, 1);
+    if (l)
+        text_r(MR - wr - 8, 7, &FONT_XS, l, lc, 1);
+}
+static void pad_hint_as(uint32_t m)
+{
+    if (m == PA_LOADSAVE)
+        pad_words("LOAD", C_PADLOAD, "SAVE", C_PADSAVE);
+    else if (m == PA_LOAD)
+        pad_words("CANCEL", C_RED, "LOAD", C_PADLOAD);
+    else if (m == PA_SAVE)
+        pad_words("CANCEL", C_RED, "SAVE", C_PADSAVE);
+    else if (m != PA_NONE)
+        pad_words(m == PA_OK ? 0 : "CANCEL", C_RED, "OK", C_PADOK);
+}
+static void pad_hint(int cancel) { pad_hint_as(cancel ? PA_OKCANCEL : PA_OK); }
+/* the colour of the LFO that moves setting p (Styves, 2026-11-09): its pad's hue on the screen (app.c PAD_HUE, made for the
+ * LEDs: these for the LCD, by the tracks' colours on the dark), LFO 1 blue, 2 cyan, 3 pink; on two (a scene from
+ * elsewhere: a pad's or LFO held's assigning takes it off the others), the first; none on, ice as ever */
+static uint16_t lfo_col(uint32_t p)
+{
+    static const uint16_t LC[NLFO] = {RGB(40, 110, 255), RGB(0, 200, 255), RGB(255, 60, 160)};
+    uint32_t t, i, k;
+    for (t = 1; t < NLFO_TGT && LFO_TGT[t] != p; t++)
+        ;
+    for (i = 0; t < NLFO_TGT && i < NLFO; i++)
+        for (k = 0; k < 4u; k++)
+            if (st.v[LFO_BASE[i] + 4u + k] == t && lfo[i].on)
+                return LC[i];
+    return C_ICE;
+}
+#endif
+
 /* the header's band to the screen (DARK: no line under it, Styves 2026-11-06, after #105's hairline); the battery on
  * it (SAVE's red: in the night) */
 static void head_blit(void)
 {
+#if PLAT_SMK37
+    if (fm.page == PG_SAVE || fm.page == PG_SAVEAS || fm.page == PG_SCENES)   /* (SAVE's flow: its pads' words over the
+                                                                               * track's tag) */
+        pad_hint_as(pad_mode());
+#endif
     batt_draw(fm.page == PG_SAVEAS ? C_RED : band_col(), fm.page == PG_SAVEAS ? C_BG : C_ONBAND);
     band_blit(R1);
 }
@@ -1401,14 +1633,26 @@ static uint16_t tgt_col(uint32_t t)
     if (p == P_BS_FILTER || p == P_BS_RESO || p == P_BS_DRIVE || p == P_MX_BASS || p == P_PN_BASS || p == P_BS_ATTACK ||
         p == P_BS_DECAY || p == P_BS_SUSTAIN || p == P_BS_RELEASE)
         return C_LAMP;
+#if FRS_LEAD
+    if (p >= P_LD_WAVE)                  /* (LEAD's, its MIXER level among them) */
+        return C_LEAD_TRACK;
+#endif
     return C_FOG;
 }
 
 /* a setting's name on its page: CLOUD SEND's are each a SPACE, whose it says */
 static const char *cell_name(int p)
 {
+#if FRS_LEAD
+    if (fm.page == PG_CSEND && p == P_LD_SPACE)
+        return "LEAD";
+#endif
     if (fm.page == PG_CSEND)
         return p == P_ESPACE ? "DRONE" : p == P_GL_SPACE ? "GLINT" : "BASS";
+#if FRS_LEAD
+    if (fm.page == PG_NUAGE3 && (p == P_MX_CLOUD || p == P_PN_CLOUD))   /* (the cloud's return and its PAN, there) */
+        return p == P_MX_CLOUD ? "LEVEL" : "PAN";
+#endif
     if (p == P_TEMPO && ext_bpm())       /* (a MIDI clock leads: its tempo, app.c ext_bpm) */
         return "TEMPO (EXT)";
     return PD[p].name;
@@ -1416,6 +1660,10 @@ static const char *cell_name(int p)
 
 static void cell_w(int32_t x, int32_t y, int p, int32_t w);
 static void cell(int32_t x, int32_t y, int p) { cell_w(x, y, p, 96); }
+#if FRS_LEAD
+/* CLOUD III's K4 its PAN while OCT- is held, or a moment after it turned (app.c encoders: MIXER's way) */
+static int cloud_pan_shown(void) { return b_held(B_OCTDN) || (touched_now() && fm.touched == P_PN_CLOUD); }
+#endif
 
 /* KEYS' NOTES on CHORD where the keys play one note all the same (eng_key_down): why, under the value; else 0 */
 static const char *notes_why(int p)
@@ -1499,7 +1747,7 @@ static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its
     ui_off = (uint8_t)(param_off(p) || ext);
     badge_of(x + 7, y + 7, p, -1);
     text_t(x + BADGE_W, y, &FONT_XS, cell_name(p), ext ? C_MIST : ui_off ? (hot ? C_MIST : C_SLATE) : hot ? C_LAMP : C_MIST, 1);
-    value_big(x, y + 15, p, w + 4, &FONT_M, ui_off ? C_SLATE : ng.on && ng.pick && ng.p == (uint8_t)p ? C_LAMP
+    value_big(x, y + 15, p, w + 4, &FONT_M, ui_off ? C_SLATE : ng.on && ng.pick && ng.p == (prm_t)p ? C_LAMP
                                             : f == F_LTGT ? tgt_col(st.v[p]) : C_FOG, 0);   /* (picked under OCT-: lamp) */
     if (notes_why(p))
         text_t(x + 22, y + 36, &FONT_XS, notes_why(p), C_MIST, 1);
@@ -1524,7 +1772,11 @@ static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its
     if (mod_of((uint32_t)p) != 0.0f && PD[p].max > 16u) {   /* an LFO on it: where it is now, in ice */
         float u = br_clamp01((vh(p) + mod_of((uint32_t)p)) / (float)PD[p].max);
         int32_t n = clamp((int32_t)(u * (float)w + 0.5f), 1, w);
+#if PLAT_SMK37                           /* (the SMK-37: 2 px, in its LFO's colour, its pad's hue: lfo_col) */
+        cv_rect(x + (n > w - 1 ? w - 2 : n - 1), y + 41 - 3 - oy, 2, 7, lfo_col(p));
+#else
         cv_rect(x + n - 1, y + 41 - 3 - oy, 1, 7, C_ICE);
+#endif
     }
 }
 
@@ -1802,8 +2054,14 @@ static void adsr_note(const adsr_t *A, int held, int attacking, float t, float t
 static void adsr_scope(int glint)
 {
     static const char *const PART[4] = {"A", "D", "S", "R"};
+#if FRS_LEAD
+    const prm_t *P = PAGES[fm.page].p;
+    uint16_t col = glint ? C_ICE : fm.page == PG_LADSR || fm.page == PG_LFENV ? C_LEAD_TRACK : C_LAMP;   /* (LEAD's:
+                                                                                                       * BASS's times) */
+#else
     const uint8_t *P = PAGES[fm.page].p;
     uint16_t col = glint ? C_ICE : C_LAMP;
+#endif
     adsr_t A;
     int32_t x, py = 0, k, lit = -1, w[4];
     float a = vh(P[0]) / 127.0f, d = vh(P[1]) / 127.0f, r = vh(P[3]) / 127.0f;
@@ -1856,6 +2114,10 @@ static void adsr_scope(int glint)
             if (v[i].note >= 0 && v[i].env >= 0.01f)
                 adsr_note(&A, v[i].gate, t < A.ta, t < A.ta ? t : t - A.ta, v[i].toff, col);
         }
+#if FRS_LEAD
+    } else if (fm.page == PG_LADSR || fm.page == PG_LFENV) {   /* (LEAD: its curve alone, for now; its filter's the
+                                                               * same) */
+#endif
     } else {                             /* the bass's note */
         bass_view_t b;
         frasil_bass_view(&b);
@@ -2330,16 +2592,25 @@ static void lfo_scope(uint32_t i)
 #define MIX_TOP 44
 #define MIX_BOT 166
 static int32_t mix_x(uint32_t i) { return ML + 26 + (int32_t)i * 53; }
+#if FRS_LEAD                             /* (K4 the LEAD's, its rose; admin #744) */
+static uint16_t mix_col(uint32_t i) { return i == 0 ? C_FOG : i == 1u ? C_LAMP : i == 2u ? C_ICE : C_LEAD_TRACK; }
+#define MIX_PANS 3u                      /* (the LEAD has no PAN) */
+#else
 static uint16_t mix_col(uint32_t i)
 {
     return i == 0 ? C_FOG : i == 1u ? C_LAMP : i == 2u ? C_ICE : mix565(C_MIST, C_ICE, 12);
 }
+#define MIX_PANS 4u
+#endif
 
 static void mixer(void)
 {
     float m[4];
     uint32_t i;
     frasil_meters(m);
+#if FRS_LEAD
+    m[3] = frasil_lead_meter();          /* (K4 the LEAD's: its meter, not the cloud's) */
+#endif
     for (i = 0; i < 4u; i++) {
         int p = PAGES[PG_MIXER].p[i], hot = touched_now() && fm.touched == p;
         int32_t x = mix_x(i), h = MIX_BOT - MIX_TOP, y, dx, yl = MIX_BOT - (int32_t)vh_n((uint32_t)p) * h / 127;
@@ -2359,7 +2630,7 @@ static void mixer(void)
             bl(x + 15, y, c, 30);
             bl(x + 16, y, c, 30);
         }
-        {                                         /* its PAN above it: a short scale, the centre ticked, a dot */
+        if (i < MIX_PANS) {                       /* its PAN above it: a short scale, the centre ticked, a dot */
             int pp = P_PN_DRONE + (int)i, ph = touched_now() && fm.touched == pp;
             int32_t xp = x + ((int32_t)vh_n((uint32_t)pp) - 50) * 11 / 50;
             for (dx = -11; dx <= 11; dx++)
@@ -2376,7 +2647,8 @@ static void mixer_footer(void)
     uint32_t i;
     for (i = 0; i < 4u; i++) {
         int pans = b_held(B_OCTDN) || (touched_now() && fm.touched >= P_PN_DRONE && fm.touched <= P_PN_CLOUD);
-        int q = PAGES[PG_MIXER].p[i], p = pans ? P_PN_DRONE + (int)i : q, hot = touched_now() && fm.touched == p;
+        int q = PAGES[PG_MIXER].p[i], p = pans && i < MIX_PANS ? P_PN_DRONE + (int)i : q;
+        int hot = touched_now() && fm.touched == p;
         int32_t x = mix_x(i), w = 15 + text_tw(&FONT_XS, PD[q].name, 0), x0 = x - w / 2;
         badge(x0 + 6, 189, (char)('1' + i), 1);
         text_t(x0 + 15, 182, &FONT_XS, PD[q].name, hot ? C_LAMP : C_MIST, 0);   /* (the track: its level, or its
@@ -2663,6 +2935,15 @@ static void no_arp(void)
     text_c(120, 126, &FONT_XS, "FOR DRONE", C_SLATE, 2);
 }
 
+#if FRS_LEAD
+/* LEAD's (card #144): its ARP and SEQ, NOT AVAILABLE FOR LEAD; its KEYS, one note as played */
+static void no_lead(int keys)
+{
+    text_c(120, 104, &FONT_B, keys ? "ONE NOTE" : "NOT AVAILABLE", C_MIST, 2);
+    text_c(120, 126, &FONT_XS, keys ? "AS PLAYED, LEGATO" : "FOR LEAD", C_SLATE, 2);
+}
+#endif
+
 /* ARP's strip: the arpeggio's notes in the order they play, a bar each as tall as it is high, the one sounding bright; off,
  * empty outlines */
 static void arp_scope(int bs)
@@ -2747,8 +3028,8 @@ static void stack_tag(void)
 }
 
 /* KEYS' strip: an octave of keys, what a key does now. The scale's notes dotted with HARMONY ON (none: chromatic); with
- * CHORD, the notes of the chord on the root, lit; a solid outline for LATCH, dotted for HOLD; NOTES or CHORDS for what
- * STACK piles up */
+ * CHORD, the notes of the chord on the root, lit; a solid outline for LATCH, dotted for HOLD (GLINT: LATCH only on ARP,
+ * ARP II's, card #143); NOTES or CHORDS for what STACK piles up */
 static void keys_scope(void)
 {
     static const uint8_t WH[7] = {0, 2, 4, 5, 7, 9, 11}, BL[5] = {1, 3, 6, 8, 10};
@@ -2756,6 +3037,7 @@ static void keys_scope(void)
     const uint8_t *v = &st.v[P_KY_DR_HARM + 4u * t];
     uint16_t bits = v[0] ? SCALE_BITS[st.v[P_SCALE] % NSCALES] : 0xFFFu, c = track_col();
     int r = st.v[P_ROOT] % 12, chord = v[0] && v[1] && !notes_why((int)(P_KY_DR_NOTES + 4u * t));
+    int latch = t == 1u ? st.v[P_SQ_TYPE] == SQT_ARP && arp.latch : v[2] != 0;
     chord_t ch;
     int root;
     uint32_t lit12 = 0;
@@ -2784,16 +3066,16 @@ static void keys_scope(void)
             cv_rect(x + 4, y0 + h / 2 - 3 - oy, 3, 3, C_MIST);
     }
     for (x = x0; x <= x1; x++)           /* LATCH: the outline solid; HOLD: dotted */
-        if (v[2] || !((x - x0) & 2)) {
+        if (latch || !((x - x0) & 2)) {
             bl(x, y0, c, 28);
             bl(x, y0 + h, c, 28);
         }
     for (y = y0; y <= y0 + h; y++)
-        if (v[2] || !((y - y0) & 2)) {
+        if (latch || !((y - y0) & 2)) {
             bl(x0, y, c, 28);
             bl(x1, y, c, 28);
         }
-    text_t(ML, y0 + 2, &FONT_T, v[2] ? "LATCH" : "HOLD", C_MIST, 1);
+    text_t(ML, y0 + 2, &FONT_T, latch ? "LATCH" : "HOLD", C_MIST, 1);
     if (v[3])
         text_t(ML, y0 + 14, &FONT_T, v[1] && chord ? "CHORDS" : "NOTES", C_MIST, 1);
 }
@@ -2802,6 +3084,10 @@ static void keycap(int32_t xr, int32_t y, const char *s, int on, int here);
 /* the flow's foot: SAVE, what it does next, and FX, back; only those lit (app.c) */
 static void flow_foot(const char *next)
 {
+#if PLAT_SMK37                           /* (the SMK-37: the pads' words in the header, pad_hint) */
+    (void)next;
+    return;
+#endif
     keycap(ML + text_tw(&FONT_B, "SEL", 1) + 15, 204, "SEL", 0, 0);
     text_t(ML + text_tw(&FONT_B, "SEL", 1) + 25, 209, &FONT_XS, next, C_MIST, 1);
     keycap(MR - text_tw(&FONT_XS, "BACK", 1) - 10, 204, "FX", 0, 0);
@@ -2813,6 +3099,21 @@ static void save_tiles(void)
 {
     uint32_t i;
     uint16_t c = track_col();
+#if PLAT_SMK37                           /* (the SMK-37: no K1, its pads 1 and 2: LOAD in blue at the left, SAVE in emerald
+                                          * at the right, as the pads sit) */
+    for (i = 0; i < 2u; i++) {
+        int32_t x = ML + (int32_t)i * 110, w = 102, y = 72, h = 76;
+        uint16_t pc = i ? C_PADSAVE : C_PADLOAD;
+        cv_rect(x, y - oy, w, h, mix565(C_BG, pc, 4));
+        hline(x, x + w - 1, y, pc);
+        hline(x, x + w - 1, y + h - 1, pc);
+        cv_rect(x, y - oy, 1, h, pc);
+        cv_rect(x + w - 1, y - oy, 1, h, pc);
+        text_c(x + w / 2, y + 28, &FONT_M, i ? "SAVE" : "LOAD", C_WHITE, 1);
+    }
+    (void)c;
+    return;
+#endif
     badge(ML + 7, 56, '1', 1);
     for (i = 0; i < 2u; i++) {
         int32_t x = ML + (int32_t)i * 110, on = (int32_t)(i == 0u) == sv.load, w = 102, y = 72, h = 76;
@@ -2849,11 +3150,15 @@ static void into_text(char *t)
 
 static void save_what(void)
 {
-    static const char *const W[4] = {"SCENE", "DRONE PRESET", "GLINT PRESET", "BASS PRESET"};
+    static const char *const W[4 + FRS_LEAD] = {"SCENE", "DRONE PRESET", "GLINT PRESET", "BASS PRESET",
+#if FRS_LEAD
+                                                "LEAD PRESET"
+#endif
+    };
     char t[SC_LONG + 8];
     badge(ML + 7, 49, '1', 1);
     text_t(ML + BADGE_W, 42, &FONT_XS, "WHAT", C_MIST, 1);
-    text_t(ML, 58, &FONT_M, W[sv.what & 3u], C_FOG, 0);
+    text_t(ML, 58, &FONT_M, W[sv.what % (4u + FRS_LEAD)], C_FOG, 0);
     badge(ML + 7, 113, '2', 1);
     text_t(ML + BADGE_W, 106, &FONT_XS, "INTO", C_MIST, 1);
     into_text(t);
@@ -2866,6 +3171,9 @@ static void save_what(void)
 
 static void middle(float t)
 {
+#if defined PLAT_HOST && !defined PLAT_WEB
+    ui_seen.mid = ui_look();             /* (the tests: drawnstale) */
+#endif
     lroll.was = lroll.on;                /* (SCENES' long name rolls on only if this draws it again) */
     ui.semis = 0;                        /* (LOFI TAPE II's tones: drawn again below, or none) */
     ui.tonew = 0;
@@ -2905,6 +3213,12 @@ static void middle(float t)
             dseq_scope();
         else if (fm.page == PG_ARP || fm.page == PG_ARP2 || fm.page == PG_BARP || fm.page == PG_BARP2)
             arp_scope(fm.page == PG_BARP || fm.page == PG_BARP2);
+#if FRS_LEAD
+        else if (fm.page == PG_LNOARP || fm.page == PG_LNOSEQ || (fm.page == PG_KEYS && st.lead))
+            no_lead(fm.page == PG_KEYS);
+        else if (fm.page == PG_LADSR || fm.page == PG_LFENV)
+            adsr_scope(0);
+#endif
         else if (fm.page == PG_KEYS)
             keys_scope();
         else if (fm.page == PG_NOARP)
@@ -2997,10 +3311,21 @@ static void footer(void)
         cell_w(ML, 180, PAGES[PG_SCENES].p[1], 60);
         cell_w(ML + 75, 180, PAGES[PG_SCENES].p[2], 60);
         cell_w(ML + 150, 180, PAGES[PG_SCENES].p[3], 60);
+#if FRS_LEAD
+    } else if (fm.page == PG_NUAGE3) {   /* K4 the cloud's LEVEL, OCT- held its PAN (MIXER's way; admin #744), told
+                                          * under the cells as STACK is (its gauges at 221: MIXER's key box there) */
+        cell(ML, 180, page_knob(fm.page, 2u));
+        cell(130, 180, cloud_pan_shown() ? P_PN_CLOUD : page_knob(fm.page, 3u));
+        text_c(120, 224, &FONT_XS, "PAN: HOLD OCT- AND K4", mix565(C_BG, C_MIST, 25), 1);
+#endif
     } else {
         cell(ML, 180, page_knob(fm.page, 2u));
         cell(130, 180, page_knob(fm.page, 3u));
+#if FRS_LEAD
+        if (!st.lead && (PAGES[fm.page].button == B_SEQ || (PAGES[fm.page].button == B_ARP && fm.page != PG_NOARP)))
+#else
         if (PAGES[fm.page].button == B_SEQ || (PAGES[fm.page].button == B_ARP && fm.page != PG_NOARP))
+#endif
             stack_tag();
     }
     band_blit(R3);
@@ -3336,6 +3661,7 @@ static void help_screen(void)
             if (i < 3)
                 hline(ML, MR, y + 47, C_STEEL);
         }
+        cl_band(oy);
         cv_blit(0, (uint32_t)oy);
     }
 }
@@ -3373,7 +3699,12 @@ static void popup_screen(void)
             cv_rect(x0 + w - 1 - k, y0 + 1 + k - oy, 1, h - 2 - 2 * k, c);
         }
         text_t(x0 + 20, y0 + 11, &FONT_B, "OK", C_WHITE, 2);
+#if PLAT_SMK37
+        pad_hint(0);                     /* (pad 2, not SEL) */
+#else
         keycap(x0 + w - 9, y0 + 8, "SEL", 0, 0);
+#endif
+        cl_band(oy);
         cv_blit(0, (uint32_t)oy);
     }
 }
@@ -3392,7 +3723,11 @@ static void ask_button(int32_t x0, int32_t y0, int32_t w, const char *word, cons
         cv_rect(x0 + w - 1 - k, y0 + 1 + k - oy, 1, h - 2 - 2 * k, c);
     }
     text_t(x0 + 13, y0 + 11, &FONT_B, word, C_WHITE, 2);
+#if PLAT_SMK37                           /* (the pads', in the header: pad_hint) */
+    (void)key;
+#else
     keycap(x0 + w - 8, y0 + 8, key, 0, 0);
+#endif
 }
 
 void app_backup_ask_screen(void)
@@ -3414,6 +3749,35 @@ void app_backup_ask_screen(void)
         text_t(ML, 137, &FONT_S, "THE SETTINGS AND ITS PRESETS.", C_FOG, 0);
         ask_button(ML - 2, 190, 96, "NO", "FX", C_SLATE);
         ask_button(MR - 108, 190, 112, "YES", "SEL", C_ICE);
+#if PLAT_SMK37
+        pad_hint(1);
+#endif
+        cv_blit(0, (uint32_t)oy);
+    }
+}
+
+/* Learn's START (app.c learn_*): WELCOME TO by an ice light, LEARN MODE large, the waterline, in the middle; nothing to
+ * answer: up until a button, a key or a knob, which closes it alone (app.c welcome_buttons, admin #881) */
+static struct {
+    uint8_t on, drawn;
+} welcome;
+
+static void welcome_screen(void)
+{
+    int32_t b, x, k;
+    for (b = 0; b < 2; b++) {
+        band(b ? 144 : 0, b ? 96 : 144);
+        for (k = 0; k < 49; k++) {       /* the light */
+            int32_t dx = k % 7 - 3, dy = k / 7 - 3, d = dx * dx + dy * dy;
+            bl(ML + 3 + dx, 94 + dy, C_ICE, d <= 2 ? 32 : d <= 5 ? 12 : d <= 9 ? 4 : 0);
+        }
+        text_t(ML + 13, 88, &FONT_XS, "WELCOME TO", C_MIST, 1);
+        text_t(ML, 106, &FONT_L, "LEARN MODE", C_ICE, 1);
+        for (x = ML; x <= MR; x++) {     /* the waterline */
+            int32_t d = x - 120 < 0 ? 120 - x : x - 120;
+            bl(x, 150, C_FOG, 22 - d * 18 / (MR - 120));
+        }
+        cl_band(oy);
         cv_blit(0, (uint32_t)oy);
     }
 }
@@ -3430,8 +3794,12 @@ static void name_screen(void)
     int32_t x0 = MR - w + 1, y0 = 188;
     t[0] = 0;
     if (nm.flow && sv.what) {
-        static const char *const W[3] = {"DRONE PRESET", "GLINT PRESET", "BASS PRESET"};
-        text_cat(t, W[(sv.what - 1u) % 3u]);
+        static const char *const W[3 + FRS_LEAD] = {"DRONE PRESET", "GLINT PRESET", "BASS PRESET",
+#if FRS_LEAD
+                                                    "LEAD PRESET"
+#endif
+        };
+        text_cat(t, W[(sv.what - 1u) % (3u + FRS_LEAD)]);
         if (!sv.into)
             text_cat(t, " NEW");
         else {
@@ -3501,6 +3869,13 @@ static void name_screen(void)
         x = text_t(x + 27, 141 + dy, &FONT_XS, "DIGITS", C_MIST, 1);
         badge(x + 16, 147 + dy, '4', 1);
         text_t(x + 27, 141 + dy, &FONT_XS, "LETTERS", C_MIST, 1);
+#if PLAT_SMK37                           /* (the SMK-37: its pads' words in the header: CANCEL and SAVE in the flow, OK
+                                          * for STORE's) */
+        pad_hint_as(pad_mode());
+        (void)x0;
+        (void)y0;
+        (void)h;
+#else
         x = text_t(ML, y0 + 13, &FONT_B, "CANCEL", C_MIST, 1) + 8;   /* FX cancels; SAVE stores: the main thing, framed */
         keycap(x + text_tw(&FONT_B, "FX", 1) + 15, y0 + 8, "FX", 0, 0);
         cv_rect(x0 + 1, y0 + 1 - oy, w - 2, h - 2, mix565(C_BG, C_ICE, 3));
@@ -3511,6 +3886,8 @@ static void name_screen(void)
             cv_rect(x0 + w - 1 - k, y0 + 1 + k - oy, 1, h - 2 - 2 * k, C_ICE);
         }
         keycap(x0 + w - 9, y0 + 8, "SAVE", 0, 1);
+#endif
+        cl_band(oy);
         cv_blit(0, (uint32_t)oy);
     }
 }
@@ -3535,9 +3912,14 @@ static void round_box(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
 }
 
 /* an LFO's TARGET: each section a rounded box, column by column, from its name to its last */
+#if FRS_LEAD                             /* (each section's colour, TGT_HEAD's; LEAD's three its rose) */
+#define TGT_HC {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB, C_GLOB, C_LEAD_TRACK, C_LEAD_TRACK, C_LEAD_TRACK}
+#else
+#define TGT_HC {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB, C_GLOB}
+#endif
 static void tgt_boxes(uint32_t first)
 {
-    static const uint16_t HC[9] = {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB, C_GLOB};
+    static const uint16_t HC[] = TGT_HC;
     uint32_t c, r;
     for (c = 0; c < 2u; c++) {
         int32_t top = -1, last = -1;
@@ -3565,6 +3947,10 @@ static void grid_screen(void)
     uint16_t c = track_col(), fc = ng.pick ? C_LAMP : C_ICE;
     char t[24], at[12];
     int32_t b, x;
+#if FRS_LEAD
+    uint8_t lb[LDP_ALL];                 /* (LEAD's: the player's names read once a draw, not once a row) */
+    int lr = list_lead(p) && first + NG_PER > PD[p].max + 1u && ldp_read(lb);
+#endif
     at[0] = 0;
     int_text((int32_t)ng.v + (none ? 0 : 1), at);
     text_cat(at, " / ");
@@ -3579,10 +3965,14 @@ static void grid_screen(void)
             badge(ML + 6, 16, ng.enc == EN_PRESET ? 'B' : 'C', 0);
         badge_on = 0;
         title_at(ML + BADGE_W, PD[p].name, 0);
-        if (grid_asks()) {               /* (no delay: SEL says so) */
+        if (grid_asks()) {               /* (no delay: SEL says so; the SMK-37's pads) */
+#if PLAT_SMK37
+            pad_hint(1);
+#else
             int32_t tw = text_tw(&FONT_XS, "SELECT", 1);
             small_cap(MR - tw - 6 - (text_tw(&FONT_XS, "SEL", 1) + 7), "SEL");
             text_r(MR, 7, &FONT_XS, "SELECT", C_ONBAND, 1);
+#endif
         } else {
             text_r(MR, 9, &FONT_XS, at, C_ONBAND, 1);
         }
@@ -3600,7 +3990,7 @@ static void grid_screen(void)
             if (sl == TH_NONE)
                 continue;
             if (sl < TH_NONE) {          /* a section's name, in its colour */
-                static const uint16_t HC[9] = {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB, C_GLOB};
+                static const uint16_t HC[] = TGT_HC;
                 text_t(cx + 6, cy + 2, &FONT_XS, TGT_HEAD[-sl - 2], HC[-sl - 2], 2);
                 continue;
             }
@@ -3609,7 +3999,12 @@ static void grid_screen(void)
                 cx += 2;
                 w -= 4;
             }
-            list_name(p, tg ? at_t : first + i, t);
+#if FRS_LEAD
+            if (lr && first + i > PD[p].max)
+                ldu_name_of(lb, first + i - PD[p].max - 1u, t);
+            else
+#endif
+                list_name(p, tg ? at_t : first + i, t);
             col = tg ? tgt_col((uint32_t)sl) : first + i > PD[p].max ? C_FOG : C_MIST;
             at_t++;
             if (on) {
@@ -3626,6 +4021,7 @@ static void grid_screen(void)
             for (i = 0; i < pages; i++, x += 18)
                 cv_rect(x, 234 - oy, 14, 2, i == page ? C_FOG : C_STEEL);
         }
+        cl_band(oy);
         cv_blit(0, (uint32_t)oy);
     }
 }
@@ -4002,6 +4398,11 @@ static void ui_frame(void)
 {
     uint32_t now = plat_ms(), s1 = 2166136261u, s3 = 2166136261u, i;
     int ov = overlay_on();
+#if APP_CPU_LINE
+    cl_tick(!ui.was_saver && (ui.was_pop || ui.was_map || !ui.was_logo));   /* (the load's line: the last frame's
+                                                                              * screen not the saver's, nor the logo's
+                                                                              * with nothing over it) */
+#endif
     if (saver.on) {                      /* the screensaver: over everything, what was there kept */
         saver_screen();
         ui.was_saver = 1;
@@ -4026,6 +4427,13 @@ static void ui_frame(void)
         if (!pop.drawn || !ui.was_pop)
             popup_screen();
         pop.drawn = 1;
+        ui.was_pop = 1;
+        return;
+    }
+    if (welcome.on) {                    /* Learn's welcome: the same, gone at a button, a key, a knob (app.c) */
+        if (!welcome.drawn || !ui.was_pop)
+            welcome_screen();
+        welcome.drawn = 1;
         ui.was_pop = 1;
         return;
     }
@@ -4107,11 +4515,15 @@ static void ui_frame(void)
         s1 = sig_add(s1, cpu_load() << 8 | ui.fps);
     /* the footer: the page, the overlay, the values */
     s3 = sig_add(s3, fm.page | (uint32_t)ov << 8 | (uint32_t)st.dirty << 9 | (uint32_t)fm.pick << 10 |
-                         (uint32_t)sv.load << 15 | (uint32_t)sv.what << 16 | (uint32_t)sv.into << 18);
-    s3 = sig_add(s3, (uint32_t)(up_cur[0] + 1) | (uint32_t)(up_cur[1] + 1) << 8 | (uint32_t)(up_cur[2] + 1) << 16);
+                         (uint32_t)sv.load << 15 | (uint32_t)sv.what << 16 | (uint32_t)sv.into << (18 + FRS_LEAD));
+    s3 = sig_add(s3, (uint32_t)(up_cur[0] + 1) | (uint32_t)(up_cur[1] + 1) << 8 | (uint32_t)(up_cur[2] + 1) << 16
+#if FRS_LEAD
+                         | (uint32_t)(up_cur[3] + 1) << 24
+#endif
+                     );
     s3 = sig_add(s3, touched_now() ? fm.touched : 255u);
     for (i = 0; i < 4u; i++) {           /* (and where an LFO has them) */
-        uint8_t p = page_knob(fm.page, i);
+        prm_t p = page_knob(fm.page, i);
         s3 = sig_add(s3, p);
         s3 = sig_add(s3, p == P_TEMPO ? st.v[p] | ext_bpm() << 8   /* (TEMPO (EXT): the clock's, as it comes and goes) */
                          : p < NPARAM ? st.v[p]
@@ -4133,17 +4545,25 @@ static void ui_frame(void)
     if (fm.page == PG_MIXER)             /* (the pans, and OCT- held: the footer shows them) */
         s3 = sig_add(s3, st.v[P_PN_DRONE] | st.v[P_PN_BASS] << 7 | (uint32_t)st.v[P_PN_GLINT] << 14 |
                              (uint32_t)st.v[P_PN_CLOUD] << 21 | (uint32_t)b_held(B_OCTDN) << 28);
+#if FRS_LEAD
+    if (fm.page == PG_NUAGE3)            /* (CLOUD III's K4, OCT- held: the cloud's PAN) */
+        s3 = sig_add(s3, st.v[P_PN_CLOUD] | (uint32_t)cloud_pan_shown() << 8);
+#endif
     if (ui.full || s1 != ui.sig1) {
         ui.sig1 = s1;
         header();
     } else {
         roll_tick(&roll, now);           /* (a long name: its window alone, as it rolls) */
     }
-    if (ui.full || ((fm.page == PG_SAVE || fm.page == PG_SAVEAS) ? s3 != ui.sig3
-                    : st.v[P_ANIM] ? s3 != ui.sig3 || now - ui.field_at >= 250u : now - ui.field_at >= 50u)) {
+    if (ui.full || (fm.page | (uint32_t)ov << 8) != ui.mid ||
+        ((fm.page == PG_SAVE || fm.page == PG_SAVEAS) ? s3 != ui.sig3
+         : st.v[P_ANIM] ? s3 != ui.sig3 || now - ui.field_at >= 250u : now - ui.field_at >= 50u)) {
         ui.field_at = now;               /* the river moves: 20 frames a second; ANIMATIONS LOW: still (its time
                                           * stopped), drawn again as a value changes and four times a second (what
-                                          * tells: meters, playheads) */
+                                          * tells: meters, playheads). Another page, the value large come or gone: at
+                                          * once, with the header and the footer (never a frame of the page before
+                                          * under the new one's name: admin #866) */
+        ui.mid = fm.page | (uint32_t)ov << 8;
         middle(st.v[P_ANIM] ? 6.0f : (float)now * 0.001f);
         ui.frames++;
     } else if (!oct_big()) {
@@ -4159,4 +4579,14 @@ static void ui_frame(void)
         ui.fps_at = now;
     }
     ui.full = 0;
+#if defined PLAT_HOST && !defined PLAT_WEB
+    {                                    /* (the tests: this frame's page, as its header and footer show it, and the
+                                          * middle band's another's) */
+        uint8_t look = ui_look();
+        ui_seen.home += look == PG_SON;
+        ui_seen.flips += look != ui_seen.last;
+        ui_seen.stale += ui_seen.mid != look;
+        ui_seen.last = look;
+    }
+#endif
 }

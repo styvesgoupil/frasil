@@ -3,7 +3,8 @@
 # A page with LIVE's bit (HELLO's flags, 2) hears each input the FM-1 gives the engine as SHARD STREAM's op (cmd 10,
 # packed; one that carries a scene as cmd 11, in parts), in the engine's order, and LIVE's start when it asks (STATE?,
 # cmd 9: the scene as it sounds now, frs_state_save's, the moves, the tracks, then the engine's running state taken at
-# the same instant: card #131). pfhello/pfbye/pfstate are the page's; pfop HEX reads the next message (its op and args),
+# the same instant: card #131, its LEAD's part after it: card #152). pfhello/pfbye/pfstate are the page's; pfop HEX
+# reads the next message (its op and args),
 # pfcheck the next STATE against the FM-1 at the ask (its running state's head, its bytes as live_save gave them
 # then), pfnone: nothing more; pfstill runs the lines to pfstill same twice, with the STATEs asked and without
 # (app.c's host commands; design/perform/LIVE.md, sections 1 and 6)
@@ -139,8 +140,29 @@ release SAVE
 tapkey 5
 wait 50
 pfop 46 slot 2
+pfop c301 lead
 pfop 82052e0064
 pfop 450500
+pfnone
+# the LEAD (card #152): the scene's LEAD after its op, as a scene's (FST_LEAD c3: how 1, its 25 settings; this slot has
+# none: MOSS); KEYS on it (P_KB 166), its keys FST_KEY_LEAD (87: key, note, track 3, velocity), their up as any key's; a
+# setting under 256 FST_PARAM (GLIDE, 247), one past 255 FST_PARAM16 (89: MODE, 261, 0x0105 little-endian, its value, 0)
+setp 166 3
+tapkey 5
+wait 10
+pfop 40a603
+pfop 87052e0364
+pfop 450500
+setp 247 60
+setp 261 1
+wait 10
+pfop 40f73c
+pfop 8905010100
+setp 166 0
+setp 261 0
+wait 10
+pfop 40a600
+pfop 8905010000
 pfnone
 # STATE: the start as it is now (a chord latched, an unsaved setting) and the running state with it, once however
 # often asked while one waits (some 23 parts, a part a pass)
@@ -305,3 +327,189 @@ wait 5200
 tapkey 5
 pfnone
 expect pf_live 0
+# PRESSURE (cmd 13, card #139, no LIVE needed): the held key pressed hardest, after each HELLO's answer (a page knows
+# the FM-1 tells it), then as it moves (by 4, to 0 or from it), 50 ms apart at least; nothing without a page. pfwatch
+# keeps PERFORM's other messages too, pfmsg reads them (cmd, bytes)
+pfwatch 13 4
+key 9 down 90 80
+wait 300
+key 9 up
+wait 100
+pfnone
+pfhello 0
+wait 50
+pfmsg 0d00
+pfnone
+key 9 down 90 0
+wait 200
+pfnone
+key 9 down 90 80
+wait 500
+pfprs 2 11
+wait 300
+pfnone
+key 9 down 90 30
+wait 500
+pfprs 1 11
+key 9 up
+wait 100
+pfmsg 0d00
+pfnone
+# a hand that shakes: 127 and 0 every 12 ms for 600 ms, 50 ms apart at least (13 at most), the last as it ends
+key 9 down 90 0
+wait 100
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 10
+key 9 down 90 127
+wait 10
+key 9 down 90 0
+wait 300
+pfprs 2 19
+key 9 up
+wait 100
+pfnone
+# ARP II's LATCH as ARP held turns it: its VALUE (P_GA_LATCH 209 on GLINT, P_BA_LATCH 210 on the bass; eng_steps keeps
+# the setting on the arpeggio's latch, FRASIL 3.0 on: what Learn's IT HOLDS TOO reads). The page's HELLO again (every
+# 2 s: the FM-1 stops at 5 s unheard), its PRESSURE after it
+pfhello 0
+wait 50
+pfmsg 0d00
+turn SELECT 1
+wait 100
+pfmsg 040126000100
+press ARP
+wait 600
+release ARP
+wait 50
+pfmsg 04015100007f
+press ARP
+wait 600
+release ARP
+wait 50
+pfmsg 04015100017f
+pfnone
+turn SELECT 1
+wait 100
+pfmsg 040126000200
+press ARP
+wait 600
+release ARP
+wait 50
+pfmsg 04015200007f
+press ARP
+wait 600
+release ARP
+wait 50
+pfmsg 04013100017f
+pfmsg 04015200017f
+pfnone
+# HELLO again: PRESSURE told again; BYE: nothing more
+pfhello 0
+wait 50
+pfmsg 0d00
+pfnone
+pfbye
+key 9 down 90 80
+wait 300
+key 9 up
+wait 100
+pfnone
+pfwatch

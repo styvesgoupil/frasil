@@ -9,6 +9,7 @@ backup_ext = "frasil"          # the backup files: scenes.frasil
 backup_holds = "the 16 scenes and the settings"
 include = ["../engine", "../engine/dsp"]   # FRASIL's engine (engine/: the sound and the brain, no FM-1)
 o2 = ["../engine/dsp/*.c"]     # the DSP at -O2, compiled apart
+o2_cflags = ["-DFRS_LEAD=1"]   # with the LEAD, as app.h has it (card #144; the engine's own builds without it)
 words = "words.tsv"
 gen = ["tools/gen_logo.py assets/frasil-logo.png {gen}/frasil_logo.h 216",   # the logo, 4-bit, for the screen
        "tools/gen_logo.py assets/frasil-logo.png {gen}/frasil_saver.h 112 SAVER"]   # and smaller, the screensaver's
@@ -17,3 +18,11 @@ tagline = "drone textures frozen in motion"
 repo = "https://github.com/styvesgoupil/frasil"
 licence = "MPL-2.0"
 credits = "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments)."
+# firmware.json, for the firmware hubs (fm1-base docs/FIRMWARE-JSON.md: a --release build refuses without them); the
+# text is fmhub.json's
+author = "Styves Goupil"
+description = "An ambient drone instrument: tap a key to latch a drone, a note or a chord in your key. Three layers a voice into a big reverb with shimmer and freeze; GLINT's icy FM bells on top, by hand, arpeggio or sequence; BASS a deep line below, held or sequenced; three LFOs keep it all moving."
+tags = ["synth", "ambient", "chords"]
+install = "https://thefirmwarehub.com/#fw-frasil"
+site = "https://frasilsynth.com"
+screenshot = "docs/img/screen-play.png"

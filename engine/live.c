@@ -16,11 +16,29 @@
  * next, its keys, the body's length), then the body, its fields in this file's order, little-endian, each byte of the
  * scenes it keeps (RESTORE's, ANCHOR's, the sound as saved, the sequences) XORed with the start's scene's (nearly all
  * nought), then nought bytes in runs: a token under 0x80 is that many plus one bytes as they are, from 0x80 that many
- * less 0x7F noughts. Loaded only by the engine it came from (LIVE_V, the layout: another's refused). */
+ * less 0x7F noughts. Loaded only by the engine it came from (LIVE_V, the layout: another's refused).
+ *   Then, with the LEAD (card #152, FRS_LEAD's engines: the app's, STREAM's), its own part, "FRld", so that an engine
+ *   reading the first alone (3.2's listeners, an engine without the LEAD: the first's layout is theirs, LIVE_NPARAM the
+ *   settings before the LEAD's) reads it as it always did: 16 of a head ("FRld", LIVE_LEAD_V, its parts (LIVE_F_DSP),
+ *   LEAD_BYTES, P_LD_WAVE (its settings' first), the first's millisecond, its bytes after the head), the LEAD's
+ *   settings as they are (LEAD_BYTES, not in runs: a page reads them there), then its body in runs: the keys play it,
+ *   the keys on it (ldk), its delay's time on the beat, the LEAD as saved (XORed with its settings), the LFOs on it,
+ *   then the sound's (lead_lv: dsp/lead.c, read with frasil_lv between the same two blocks). Parts after the first: one
+ *   another engine's or of another name, left (the LEAD as this engine has it); none (an older FM-1's, a page that
+ *   kept the first alone), the keys on the LEAD let go: none of the first's holds one. */
 #define LIVE_V 1u
 #define LIVE_HEAD 16u
-#define LIVE_F_DSP 1u                    /* the sound's part (frasil_lv) is in it */
+#if FRS_LEAD                             /* (the first part's settings, the ones before the LEAD's: an engine without it
+                                          * reads them, card #144; the LEAD's in its own part since card #152) */
+#define LIVE_NPARAM P_LD_WAVE
+#else
+#define LIVE_NPARAM NPARAM
+#endif
+#define LIVE_F_DSP 1u                    /* the sound's part (frasil_lv; the LEAD's: lead_lv) is in it */
 #define LIVE_F_ALONE 2u                  /* the engine alone's own part */
+#define LIVE_LEAD_V 1u
+#define LIVE_LEAD_BYTES 1024u            /* the LEAD's part at most (some 100 bytes silent, 600 its six voices sounding) */
+#define LIVE_K_LEAD 32u                  /* (core.c's K_LEAD: a key on the LEAD among the first's keys) */
 
 typedef struct {
     br_live c;                           /* (first: the visitor handed to the DSP is this) */
@@ -309,7 +327,7 @@ static void rs_brain(rs_io *s)
     uint8_t nk = FRS_NKEYS;
     /* the settings, the sound's XORed with the scene's */
     rs_bytes(s, st.v, NSOUND, s->ref ? ((const scene_t *)s->ref)->v : 0);
-    rs_bytes(s, st.v + NSOUND, NPARAM - NSOUND, 0);
+    rs_bytes(s, st.v + NSOUND, LIVE_NPARAM - NSOUND, 0);
     V8(st.glint);
     V8(st.bass);
     V8(st.dirty);
@@ -518,7 +536,12 @@ static void rs_brain(rs_io *s)
     V8(anc.due);
     V8(anc.seqs);
     V32(anc.half);
-    VU32S(anc.pend);
+    rs_u32s(s, anc.pend, (LIVE_NPARAM + 31u) / 32u);   /* (the settings before the LEAD's, LIVE_NPARAM: its own
+                                          * none there; its word past them none, read) */
+#if FRS_LEAD
+    for (i = (LIVE_NPARAM + 31u) / 32u; !s->c.save && i < sizeof anc.pend / 4u; i++)
+        anc.pend[i] = 0;
+#endif
     if (anc.on)                          /* (its scene only while it is set; RESTORE's while it has one) */
         rs_scene(s, &anc.sc);
     else if (!s->c.save)
@@ -558,45 +581,127 @@ static void rs_brain(rs_io *s)
     V8(keys_edited);
 }
 
+static void rs_init(rs_io *s, int save)
+{
+    memset(s, 0, sizeof *s);
+    s->c.save = save;
+    s->c.u8 = rs_u8;
+    s->c.u32 = rs_u32;
+    s->c.f32 = rs_f32;
+    s->c.f16 = rs_f16;
+}
+
+/* a part's head: its name, its version, its flags, two u16s, the millisecond, its bytes after the head (not rs_head:
+ * fm1-base's device/backup.c has one, the same translation unit on the FM-1) */
+static void live_part_head(uint8_t *o, const char *name, uint32_t v, uint32_t flags, uint32_t a, uint32_t b,
+                           uint32_t ms, uint32_t n)
+{
+    uint32_t i;
+    for (i = 0; i < 4u; i++)
+        o[i] = (uint8_t)name[i];
+    o[4] = (uint8_t)v;
+    o[5] = (uint8_t)flags;
+    o[6] = (uint8_t)(a & 0xFFu);
+    o[7] = (uint8_t)(a >> 8);
+    o[8] = (uint8_t)(b & 0xFFu);
+    o[9] = (uint8_t)(b >> 8);
+    for (i = 0; i < 4u; i++)
+        o[10u + i] = (uint8_t)(ms >> (8u * i));
+    o[14] = (uint8_t)(n & 0xFFu);
+    o[15] = (uint8_t)(n >> 8);
+}
+
+#if FRS_LEAD
+_Static_assert(K_LEAD == LIVE_K_LEAD && LD_KEYS <= 255u && NLDS == LEAD_BYTES &&
+                   LIVE_HEAD + LEAD_BYTES + 64u <= LIVE_LEAD_BYTES,
+               "the LEAD's part: its keys' kind the first's, its settings a shard's");
+/* the LEAD's brain, field by field (its settings before it, as they are) */
+static void rs_lead(rs_io *s)
+{
+    uint32_t i;
+    V8(st.lead);
+    V8(ldk.n);
+    if (ldk.n > LD_KEYS) {
+        s->bad = 1;
+        return;
+    }
+    for (i = 0; i < LD_KEYS; i++)
+        if (i < ldk.n) {
+            V8(ldk.k[i]);
+            V8(ldk.vel[i]);
+            V8(ldk.note[i]);
+            if (ldk.k[i] >= FRS_NKEYS)
+                s->bad = 1;
+        } else if (!s->c.save) {
+            ldk.k[i] = ldk.vel[i] = 0;
+            ldk.note[i] = 0;
+        }
+    VF(ld_delay_s);
+    rs_bytes(s, saved_ld, NLDS, &st.v[P_LD_WAVE]);
+    VFS(mod_ld);                         /* (the LFOs' on it: its delay's time, its next sound, as the FM-1's) */
+}
+#endif
+
 /* the running state into out (max bytes at most): its length, or 0 (it would not fit). ref: the start's scene it goes
  * with (its bytes, as the start has them), or 0; held: ENV held now (the runner's: SWELL rising); alone: the engine
  * alone's own part (frasil_engine.c), or 0; dsp: the sound's too. On the FM-1 the sound's is read between two of its
  * blocks (frasil_renders before and after: a block rendered meanwhile, read again; three times at most, else left
- * out) */
-static uint32_t live_save(uint8_t *out, uint32_t max, const uint8_t *ref, int held, void (*alone)(br_live *), int dsp)
+ * out). ld: the LEAD's part into it (ldmax bytes at most), *ld_n its length (0: none, or it did not fit), read with
+ * the rest's at the same instant; 0, none asked (without the LEAD: none) */
+static uint32_t live_save(uint8_t *out, uint32_t max, const uint8_t *ref, int held, void (*alone)(br_live *), int dsp,
+                          uint8_t *ld, uint32_t ldmax, uint32_t *ld_n)
 {
-    rs_io s;
+    rs_io s, t;
     uint32_t i, ms = eng_ms();
     uint8_t flags = 0, h = (uint8_t)(held != 0);
+    int lead = 0;
+    if (ld_n)
+        *ld_n = 0;
     if (max < LIVE_HEAD + 1u)
         return 0;
 #ifdef FRASIL_SHELL
     ms += 1u;                            /* (the FM-1's main loop has run this millisecond's: its next one) */
 #endif
-    memset(&s, 0, sizeof s);
-    s.c.save = 1;
-    s.c.u8 = rs_u8;
-    s.c.u32 = rs_u32;
-    s.c.f32 = rs_f32;
-    s.c.f16 = rs_f16;
+    rs_init(&s, 1);
+    rs_init(&t, 1);
     s.o = out + LIVE_HEAD;
     s.max = max - LIVE_HEAD;
     s.ref = ref;
     rs_brain(&s);
     rs_u8(&s.c, &h);
+#if FRS_LEAD
+    lead = ld && ld_n && ldmax >= LIVE_HEAD + LEAD_BYTES + 1u;
+    if (lead) {
+        memcpy(ld + LIVE_HEAD, &st.v[P_LD_WAVE], LEAD_BYTES);
+        t.o = ld + LIVE_HEAD + LEAD_BYTES;
+        t.max = ldmax - LIVE_HEAD - LEAD_BYTES;
+        rs_lead(&t);
+    }
+#else
+    (void)ld;
+    (void)ldmax;
+    (void)lead;
+#endif
     if (dsp && !s.bad) {
-        rs_io was = s;
+        rs_io was = s, twas = t;
         for (i = 0; i < 3u; i++) {
             uint32_t r = frasil_renders();
             frasil_lv(&s.c);
+#if FRS_LEAD
+            if (lead && !t.bad)
+                lead_lv(&t.c);           /* (between the same two blocks: the LEAD where the rest is) */
+#endif
             if (frasil_renders() == r || s.bad)
                 break;
             s = was;
+            t = twas;
         }
         if (i < 3u && !s.bad)
             flags |= LIVE_F_DSP;
-        else
+        else {
             s = was;
+            t = twas;
+        }
     }
     if (alone && !s.bad) {
         alone(&s.c);
@@ -605,54 +710,82 @@ static uint32_t live_save(uint8_t *out, uint32_t max, const uint8_t *ref, int he
     rs_zeros(&s);
     if (s.bad)
         return 0;
-    out[0] = 'F', out[1] = 'R', out[2] = 'l', out[3] = 'v';
-    out[4] = LIVE_V;
-    out[5] = flags;
-    out[6] = (uint8_t)(sizeof(scene_t) & 0xFFu);
-    out[7] = (uint8_t)(sizeof(scene_t) >> 8);
-    out[8] = (uint8_t)(NPARAM & 0xFFu);
-    out[9] = (uint8_t)(NPARAM >> 8);
-    for (i = 0; i < 4u; i++)
-        out[10u + i] = (uint8_t)(ms >> (8u * i));
-    out[14] = (uint8_t)(s.n & 0xFFu);
-    out[15] = (uint8_t)(s.n >> 8);
+    live_part_head(out, "FRlv", LIVE_V, flags, sizeof(scene_t), LIVE_NPARAM, ms, s.n);
+#if FRS_LEAD
+    if (lead) {
+        rs_zeros(&t);
+        if (!t.bad && LEAD_BYTES + t.n <= 0xFFFFu) {
+            live_part_head(ld, "FRld", LIVE_LEAD_V, flags & LIVE_F_DSP, LEAD_BYTES, P_LD_WAVE, ms, LEAD_BYTES + t.n);
+            *ld_n = LIVE_HEAD + LEAD_BYTES + t.n;
+        }
+    }
+#endif
     return LIVE_HEAD + s.n;
 }
 
 #ifndef FRASIL_SHELL                     /* (an engine alone's: the FM-1 only tells its own) */
-/* the head's millisecond (the one the engine runs next), or 0: not a state this engine reads */
+/* the head's millisecond (the one the engine runs next), or 0: not a state this engine reads (its first part this
+ * engine's; parts after it, live_load's to judge) */
 static int live_head(const uint8_t *in, uint32_t n, uint32_t *ms, uint8_t *flags)
 {
     if (n < LIVE_HEAD || in[0] != 'F' || in[1] != 'R' || in[2] != 'l' || in[3] != 'v' || in[4] != LIVE_V ||
-        (in[6] | in[7] << 8) != sizeof(scene_t) || (in[8] | in[9] << 8) != NPARAM ||
-        LIVE_HEAD + (uint32_t)(in[14] | in[15] << 8) != n)
+        (in[6] | in[7] << 8) != sizeof(scene_t) || (in[8] | in[9] << 8) != LIVE_NPARAM ||
+        LIVE_HEAD + (uint32_t)(in[14] | in[15] << 8) > n)
         return 0;
     *ms = (uint32_t)in[10] | (uint32_t)in[11] << 8 | (uint32_t)in[12] << 16 | (uint32_t)in[13] << 24;
     *flags = in[5];
     return 1;
 }
 
-/* a running state into this engine (live_save's, from the same start's scene ref): its flags (LIVE_F_*), or -1 (not
- * this engine's, or cut short: then what it had read is in, the caller opens again). The DSP's part as frasil_lv loads
- * it; the sound's settings pushed, heard where they are (no glide); *held ENV held; alone the engine alone's own part
- * (0, or none in it: the caller's own) */
+/* the LEAD's part, p of n bytes (its head checked), into this engine: 0, or -1 cut short (another engine's fields) */
+#if FRS_LEAD
+static int live_lead(const uint8_t *p, uint32_t n)
+{
+    rs_io s;
+    uint32_t i;
+    rs_init(&s, 0);
+    for (i = 0; i < LEAD_BYTES; i++) {   /* (its settings as they are: each in its range, else its default, PRESET's
+                                          * CUSTOM: lead_in) */
+        uint32_t q = P_LD_WAVE + i;
+        st.v[q] = lead_in(q, p[LIVE_HEAD + i]);
+    }
+    s.in = p + LIVE_HEAD + LEAD_BYTES;
+    s.max = n - LIVE_HEAD - LEAD_BYTES;
+    rs_lead(&s);
+    if (!s.bad && (p[5] & LIVE_F_DSP))
+        lead_lv(&s.c);
+    return s.bad || s.n != s.max || s.z_left || s.l_left ? -1 : 0;
+}
+#endif
+
+/* a running state into this engine (live_save's, from the same start's scene ref; the LEAD's part after it, or none):
+ * its flags (LIVE_F_*), or -1 (not this engine's, or cut short: then what it had read is in, the caller opens again).
+ * The DSP's part as frasil_lv loads it; the sound's settings pushed, heard where they are (no glide); *held ENV held;
+ * alone the engine alone's own part (0, or none in it: the caller's own) */
 static int live_load(const uint8_t *in, uint32_t n, const uint8_t *ref, uint8_t *held, void (*alone)(br_live *))
 {
     rs_io s;
-    uint32_t ms;
+    uint32_t ms, p, at, k;
     uint8_t flags, h = 0;
+    int lead = 0;
     if (!live_head(in, n, &ms, &flags))
         return -1;
-    memset(&s, 0, sizeof s);
-    s.c.save = 0;
-    s.c.u8 = rs_u8;
-    s.c.u32 = rs_u32;
-    s.c.f32 = rs_f32;
-    s.c.f16 = rs_f16;
+    at = LIVE_HEAD + (uint32_t)(in[14] | in[15] << 8);
+    for (p = at; p < n; p += k) {        /* (the parts after it: whole, each its head's length) */
+        if (n - p < LIVE_HEAD || in[p] != 'F' || in[p + 1u] != 'R')
+            return -1;
+        k = LIVE_HEAD + (uint32_t)(in[p + 14u] | in[p + 15u] << 8);
+        if (k > n - p)
+            return -1;
+    }
+    rs_init(&s, 0);
     s.in = in + LIVE_HEAD;
-    s.max = n - LIVE_HEAD;
+    s.max = at - LIVE_HEAD;
     s.ref = ref;
     rs_brain(&s);
+    for (p = 0; p < NPARAM; p++)         /* (a TARGET past this engine's list, another's LEAD's: none, core.c sound_val) */
+        if (PD[p].fmt == F_LTGT)
+            st.v[p] = sound_val(p, st.v[p]);
     rs_u8(&s.c, &h);
     if (!s.bad && (flags & LIVE_F_DSP))
         frasil_lv(&s.c);
@@ -662,6 +795,29 @@ static int live_load(const uint8_t *in, uint32_t n, const uint8_t *ref, uint8_t 
         s.bad = 1;                       /* (bytes left over: another engine's fields, read wrong) */
     if (s.bad)
         return -1;
+#if FRS_LEAD
+    for (p = at; p < n; p += k) {        /* the LEAD's: this engine's, the same instant's */
+        const uint8_t *q = in + p;
+        k = LIVE_HEAD + (uint32_t)(q[14] | q[15] << 8);
+        if (q[2] != 'l' || q[3] != 'd' || q[4] != LIVE_LEAD_V || (q[6] | q[7] << 8) != LEAD_BYTES ||
+            (q[8] | q[9] << 8) != P_LD_WAVE || k < LIVE_HEAD + LEAD_BYTES || memcmp(q + 10, in + 10, 4))
+            continue;
+        if (live_lead(q, k))
+            return -1;
+        lead = 1;
+    }
+#endif
+    if (!lead) {                         /* (none: the first's keys on the LEAD let go, none holds them here; the LEAD's
+                                          * voices with them) */
+        for (k = 0; k < FRS_NKEYS; k++)
+            if (key[k].kind == LIVE_K_LEAD)
+                memset(&key[k], 0, sizeof key[k]);
+#if FRS_LEAD
+        memset(&ldk, 0, sizeof ldk);
+        st.lead = st.v[P_KB] == 3u;
+        frasil_lead_off();
+#endif
+    }
     *held = h;
     engine_push();
     frasil_live_done();                  /* (the sound's settings where they are: no glide to them) */

@@ -8,11 +8,33 @@
  * before the name's rest, the AMOUNTs and SWELL; FRSz's 586, 3.0's, before LOFI TAPE II; FRSy's 324 bytes, FRSx's 323,
  * FRSw's 322, FRSu's 298, FRSt's 297, and those before made over to FRSt's):
  * web_scene_over(n) first makes it
- * over, as the FM-1 does (scene_over) */
+ * over, as the FM-1 does (scene_over).
+ * Its LEAD (card #152, "FRS~": the shard's web_lead_size() bytes after its scene_t, the LEAD's settings P_LD_WAVE ..
+ * P_LD_FRELEASE): the page writes them to web_lead_buf (or web_lead_none: MOSS, a shard of before "FRS~"), and
+ * web_scene_play and web_scene_take take them after the scene, as the FM-1 takes a scene's LEAD (core.c eng_lead_take:
+ * each past its max its default, the LEAD as saved with them); web_lead_edited, the LEAD as it is now (after
+ * web_param's edits). The buffer stays as it was written (MOSS at first): app_worklet.js's scene op writes it from a
+ * shard of web_scene_size() + web_lead_size() bytes, MOSS from a scene alone (Perform's DEMO, a shard of before) */
 static scene_t web_sc;
+static uint8_t web_ld[LEAD_BYTES], web_ld_on;   /* (MOSS till the page has it: web_lead_at) */
+static uint8_t *web_lead_at(void)
+{
+    if (!web_ld_on) {                    /* (none yet: MOSS, the FM-1's at power-on) */
+        eng_lead_none(web_ld);
+        web_ld_on = 1;
+    }
+    return web_ld;
+}
 __attribute__((used, visibility("default"))) uint8_t *web_scene_buf(void) { return (uint8_t *)&web_sc; }
 __attribute__((used, visibility("default"))) uint32_t web_scene_size(void) { return (uint32_t)sizeof web_sc; }
-__attribute__((used, visibility("default"))) void web_scene_play(void) { eng_scene_play(&web_sc, 1); }
+__attribute__((used, visibility("default"))) uint8_t *web_lead_buf(void) { return web_lead_at(); }
+__attribute__((used, visibility("default"))) uint32_t web_lead_size(void) { return LEAD_BYTES; }
+__attribute__((used, visibility("default"))) void web_lead_none(void) { eng_lead_none(web_lead_at()); }
+__attribute__((used, visibility("default"))) void web_scene_play(void)
+{
+    eng_scene_play(&web_sc, 1);
+    eng_lead_take(web_lead_at());
+}
 __attribute__((used, visibility("default"))) void web_scene_stop(void) { eng_scene_stop(); }
 /* the scene in web_scene_buf, n bytes of an earlier layout's (590 FRS{ .. 297 FRSt: core.c scene_over), made over in
  * place to this one's: 0,
@@ -20,7 +42,11 @@ __attribute__((used, visibility("default"))) void web_scene_stop(void) { eng_sce
 __attribute__((used, visibility("default"))) int web_scene_over(uint32_t n) { return scene_over(&web_sc, n); }
 /* the River's editor's own engine (silent): the shard taken as a load takes it, no chord held for one that plays
  * nothing (▶'s only: never saved) */
-__attribute__((used, visibility("default"))) void web_scene_take(void) { eng_scene_play(&web_sc, 0); }
+__attribute__((used, visibility("default"))) void web_scene_take(void)
+{
+    eng_scene_play(&web_sc, 0);
+    eng_lead_take(web_lead_at());
+}
 /* a setting or a step edited (eng_edit_param), then the shard as it is now (web_scene_size() bytes) */
 __attribute__((used, visibility("default"))) void web_param(uint32_t p, uint32_t x) { eng_edit_param(p, x); }
 __attribute__((used, visibility("default"))) uint8_t *web_scene_edited(void)
@@ -28,6 +54,12 @@ __attribute__((used, visibility("default"))) uint8_t *web_scene_edited(void)
     static scene_t e;
     eng_scene_edited(&web_sc, &e);
     return (uint8_t *)&e;
+}
+__attribute__((used, visibility("default"))) uint8_t *web_lead_edited(void)   /* (web_lead_size() bytes) */
+{
+    static uint8_t e[LEAD_BYTES];
+    eng_lead_get(e);
+    return e;
 }
 /* THE KEYS: LATCH (1 latched, 0 let go, -1 nothing), CLEAR, HOLD (eng_latch, eng_clear, eng_hold) */
 __attribute__((used, visibility("default"))) int web_latch(uint32_t t, uint32_t note) { return eng_latch(t, note); }

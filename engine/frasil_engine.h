@@ -2,8 +2,8 @@
  * Copyright (C) 2026 Styves Goupil */
 /* FRASIL's engine, alone: the instrument whole (its sound, engine/dsp/; its brain, engine/core.c), for a platform
  * without the FM-1's shell (an iPad, a plug-in, tests). Built from frasil_engine.c and the DSP's units (dsp/:
- * frasil.c, glint.c, bass.c, nuage.c), -ffp-contract=off (no fused multiply-add: the FM-1's samples, bit for bit, at
- * 44.1 kHz).
+ * frasil.c, glint.c, bass.c, nuage.c; with the LEAD, -DFRS_LEAD=1 and lead.c: below, LEAD), -ffp-contract=off (no
+ * fused multiply-add: the FM-1's samples, bit for bit, at 44.1 kHz).
  *
  * One engine a process: its state is static. frs_init opens it (a second open while it is open is refused),
  * frs_close closes it. Two plug-in instances in one process cannot both have it.
@@ -34,9 +34,10 @@
  * moved, P_BQ_LEN the bass's one RATE, P_BQ_ON its PLAYS: KEYS, ARP, SEQ as GLINT's P_SQ_TYPE; 3.0's after them, the
  * drone's sequence's P_DQ_ON .. P_DQ_STEP, 197 .. 205; then P_DQ_NOTES .. P_COUNT_IN, 206 .. 224: the drone's step
  * editing and UNDO TAKE, ARP II's LATCH, KEYS, METRONOME and COUNT-IN; P_ARP_SNAP 225, P_SAVER 226, none moved; LOFI TAPE II's P_TP_FLUTTER .. P_TP_DROPOUT 227 .. 230, the scene's, last; the LFOs' AMOUNTs, P_L1_AMT1 ..
- * P_L3_AMT4 231 .. 242, the scene's, last). A scene,
- * a shard, is FRS_SCENE_BYTES bytes in the River's layout (scene_t: its name, its sound, what it plays, its sequences,
- * its TEMPO); what is kept beside it, the engine's state (frs_state_save). */
+ * P_L3_AMT4 231 .. 242, the scene's, last; with the LEAD, its 25, P_LD_WAVE .. P_LD_FRELEASE 243 .. 267, NPARAM 268).
+ * A scene is FRS_SCENE_BYTES bytes in the River's layout (scene_t: its name, its sound, what it plays, its sequences,
+ * its TEMPO); a shard, FRS_SHARD_BYTES ("FRS~", card #152), the scene then its LEAD; what is kept beside it, the
+ * engine's state (frs_state_save). */
 #pragma once
 #include <stdint.h>
 #include "frasil_params.h"
@@ -44,7 +45,7 @@
 extern "C" {
 #endif
 
-#define FRS_VERSION "3.2"           /* the FRASIL this engine is (VERSION's: engine/tests/run.sh checks them alike) */
+#define FRS_VERSION "3.3"           /* the FRASIL this engine is (VERSION's: engine/tests/run.sh checks them alike) */
 #define FRS_BLOCK 256u                   /* frames the engine renders at a time (frs_render takes any count) */
 #define FRS_SCENE_BYTES 619u             /* a scene, a shard ("FRS}": its name's characters 17 .. 32, the LFOs' AMOUNTs and
                                           * SWELL last; the same bytes in "FRS|", 3.0.2-b5's test builds', its AMOUNTs as
@@ -54,6 +55,12 @@ extern "C" {
                                           * before it; 323 in 2.7's "FRSx", 322 in its "FRSw", 319 in its "FRSv", 298 in
                                           * its first test builds, "FRSu"; 297 in 2.6, "FRSt": frs_scene_over makes them
                                           * over; 296 in 2.5, 273 till 2.0, the River makes the old over) */
+#define FRS_LEAD_BYTES 25u               /* a shard's LEAD (card #152): its settings, P_LD_WAVE .. P_LD_FRELEASE */
+#define FRS_LEAD_NV 6u                   /* the LEAD's voices (POLY's; frs_view_t's lead_note, lead_level) */
+#define FRS_SHARD_BYTES 644u             /* a shard, "FRS~" (card #152, the River's and a stream's): a scene's
+                                          * FRS_SCENE_BYTES, then its LEAD's FRS_LEAD_BYTES (frs_lead_*); "FRS}" and
+                                          * every earlier one, the scene alone: its LEAD MOSS */
+#define FRS_SHARD_LAYOUT "FRS~"
 #define FRS_STATE_BYTES 64u              /* the engine's state beside a scene, at most (frs_state_save; 3.0's: 45, KEYS'
                                           * twelve and ARP SNAP with it; 32 till then) */
 #define FRS_LIVE 53u                     /* frs_live's floats */
@@ -106,7 +113,8 @@ int frs_param_info(uint32_t p, const char **name, uint32_t *max, uint32_t *def);
                                           * TRANSPOSE, its arpeggio's MODE, RANGE, CHANCE, its GATE; the drone's
                                           * sequence's ON, RATE, SEQ LENGTH, GATE, CHANCE, TRANSPOSE (3.0); LOFI TAPE II's
                                           * four, the LFOs' AMOUNTs, SWELL ("FRS}": ENV held and CC 11 swell it too, of the
-                                          * moment) */
+                                          * moment); the LEAD's 25 (card #152: not in scene_t, in a shard after it,
+                                          * frs_lead_*) */
 #define FRS_P_STATE 2u                   /* kept beside it (frs_state_save): KEY MODE, the MIDI channels, LOAD, CLOCK; KEYS
                                           * (3.0: P_KY_DR_HARM .. P_KY_BS_STACK), ARP SNAP (3.0: P_ARP_SNAP, a new chord into
                                           * an arpeggio taken on its grid; 1/4 at the start) */
@@ -147,8 +155,9 @@ void frs_param_set(uint32_t p, uint32_t x);   /* as the FM-1's encoder or a CC s
                                                * written as HOLDs or TIEs after it, to SEQ LENGTH's end); an action turned
                                                * twice (x 2) */
 void frs_param_edit(uint32_t p, uint32_t x);  /* as the River's editor sets it: a sound setting or TEMPO, a sequence's
-                                               * step (STEP: the step's own NOTE shown); what the shard plays edited
-                                               * once a step changes (frs_scene_edited) */
+                                               * step (STEP: the step's own NOTE shown), the LEAD's (card #152:
+                                               * frs_lead_get has them); what the shard plays edited once a step
+                                               * changes (frs_scene_edited) */
 void frs_param_text(uint32_t p, uint32_t x, char *out);   /* x as the FM-1's screen writes it (FRS_TEXT bytes) */
 uint32_t frs_state_save(uint8_t *out);   /* the engine's state beside a scene (FRS_P_STATE's settings, the metronome):
                                           * FRS_STATE_BYTES at most, its length (its version 3: 2.6's numbers, 3.0's
@@ -170,8 +179,14 @@ int frs_state_load(const uint8_t *in, uint32_t n);   /* back (what it doesn't kn
  *   engine runs on from that millisecond (frs_ms its), every sample as the saved one's would have been but for what the
  *   buffers held, the DSP's half precision, and on the FM-1's a block's own place in time. 0, or -1: another engine's
  *   (FRS_VERSION's layout, NPARAM, the scene's length), or cut short (the engine as it was, or partly loaded: open it
- *   again). From the thread that renders, between two renders or inside a frs_tick_hook */
-#define FRS_LIVE_BYTES 4096u
+ *   again). From the thread that renders, between two renders or inside a frs_tick_hook.
+ *   With the LEAD (card #152, FRS_LEAD's engines): two parts, "FRlv" (the rest, the settings before the LEAD's: the
+ *   layout an engine without it reads, 4096 bytes at most) then "FRld" (the LEAD's: its settings, its keys, its
+ *   voices, 1024 at most), each its own head; frs_live_save gives both, frs_live_load takes the first alone or both
+ *   (an FM-1's STATE tells them apart, a listener joins them: design/perform/LIVE.md section 6). Loaded without the
+ *   LEAD's: the keys on it let go, its settings as they are; a part it doesn't know (another LEAD's, another name's):
+ *   left. An engine without the LEAD leaves the LEAD's, and lets the first's keys on it go */
+#define FRS_LIVE_BYTES 5120u
 uint32_t frs_live_save(uint8_t *out, uint32_t max, const uint8_t *scene);
 int frs_live_load(const uint8_t *in, uint32_t n, const uint8_t *scene);
 uint32_t frs_live_ms(const uint8_t *in, uint32_t n);   /* the millisecond a running state runs next (0: not one) */
@@ -340,6 +355,40 @@ void frs_scene_amt_over(uint8_t *scene); /* a scene of "FRS|" (3.0.2-b5's test b
                                           * multiplier has no sign); one past 200 x1.00 */
 int frs_dirty(void);                     /* the sound changed since the scene was taken or stored */
 
+/* ------------------------------------------------------------------ LEAD --- */
+/* LEAD (card #144, dsp/lead.c; the app's builds and STREAM's: FRS_LEAD 1): a fourth track over everything, played from
+ * the keys alone (KEYS' TRACK P_KB 3, then frs_key_down, frs_key_up, frs_key_pressure: a stream's FST_KEY_LEAD sets
+ * P_KB so and downs the key, FST_KEY_UP and FST_KEY_PRESSURE as any key's; no arpeggio, no sequence, nothing latches,
+ * RELEASE ALL leaves a key held; frs_panic and frs_cut silence it), MONO (the last key down sounding, a key played
+ * while another is down gliding there: GLIDE, not struck) or POLY (FRS_LEAD_NV voices, a free one, else the quietest
+ * let go, else the oldest held). Its settings are FRS_P_SCENE's, P_LD_PRESET a preset's sound; LFO TARGET's 62 .. 83
+ * are its 22 (as the FM-1's). What sounds: frs_view_t's lead_note, lead_level, lead_held, lead_meter. A scene keeps none of it
+ * (scene_t, FRS_SCENE_BYTES: the FM-1 keeps each scene's LEAD in an object of its own); a shard does: "FRS~",
+ * FRS_SHARD_BYTES, the scene's bytes then the LEAD's FRS_LEAD_BYTES, its settings P_LD_WAVE .. P_LD_FRELEASE in order
+ * (WAVE, FILTER, RESONANCE, DETUNE, GLIDE, FILTER ENV, VIBRATO, OCTAVE, ATTACK, DECAY, SUSTAIN, RELEASE, TIME, FEEDBACK,
+ * MIX, SPACE, its MIXER level P_MX_LEAD, PRESET, MODE, BREATH, DRIVE, F.ATTACK, F.DECAY, F.SUSTAIN, F.RELEASE). An
+ * older shard ("FRS}" and before): its LEAD MOSS, every setting its default. A shard played: frs_scene_play (or
+ * _take, _go) with its first FRS_SCENE_BYTES, then frs_lead_take with the rest; stored: frs_scene_store, then
+ * frs_lead_get after it. ANCHOR keeps none of the LEAD.
+ *   frs_lead_none: MOSS's bytes (any thread, open or not).
+ *   frs_lead_take: in's into the settings as a scene's LEAD is taken (the FM-1's scene load): each past its max its
+ *   default (PRESET's CUSTOM, its last: the settings as they came, no preset's sound over them), the LEAD as saved
+ *   with them (frs_dirty), its voices as they are (a MODE changed so: the next key in it).
+ *   frs_lead_put: in's as the LEAD is now (an edit: each past its max its default, PRESET's CUSTOM; the LEAD as saved
+ *   left; MODE changed: its voices let go, as frs_param_set's); a preset's sound, frs_param_set on P_LD_PRESET
+ *   (CUSTOM: its name alone).
+ *   frs_lead_get: the settings as they are.
+ *   frs_lead_wheels: the SMK-37's wheels on it: mod 0 .. 127 (VIBRATO's depth, if more), the pitch wheel -8192 .. 8191
+ *   (two semitones either way).
+ * Built without the LEAD (FRS_LEAD 0: the iPad's copy, a plug-in's): frs_lead_none and frs_lead_get give MOSS, the rest
+ * does nothing, NPARAM has none of its settings; a shard it makes ("FRS~") has MOSS. From the thread that renders, but
+ * frs_lead_none */
+void frs_lead_none(uint8_t *out);
+void frs_lead_take(const uint8_t *in);
+void frs_lead_put(const uint8_t *in);
+void frs_lead_get(uint8_t *out);
+void frs_lead_wheels(uint32_t mod, int32_t bend);
+
 /* ---------------------------------------------------------------- ANCHOR --- */
 /* ANCHOR (the FM-1's OCT- and OCT+ together): the scene as it is now, kept in RAM alone (no store), to come back to after
  * playing on, at once or gliding. What comes back: what a scene keeps of the sound and its tracks (every setting of the
@@ -410,7 +459,8 @@ void frs_dseq_clear_step(uint32_t step);   /* a rest */
 /* KEYS (3.0; the iPad's TOUCH box, the FM-1's HOME › KEYS page): each layer's HARMONY (OFF: the keys chromatic, no
  * chord), NOTES (SINGLE NOTE, CHORD: HARMONY's chord, built on GLINT and the bass here too, each of its notes into their
  * arpeggio or sounding, as FrasilModel.press builds them; the bass on KEYS, GLINT on SEQ: one note), LATCH (OFF: HOLD,
- * the keys sound while down; GLINT's on KEYS: the ring of four, its last four notes ringing on, held), STACK (OFF: SWAP,
+ * the keys sound while down; GLINT's keys on KEYS sound so whatever it says, card #143, on ARP ARP II's LATCH theirs;
+ * GLINT's turned OFF lets frs_latch's ring of four go), STACK (OFF: SWAP,
  * a new hand's key or chord in place of what the layer holds, keys down together stacking, as FrasilModel.latch's swap;
  * on, it adds, a tap on what is latched letting it go). P_KY_DR_HARM + 4 x layer + 0 .. 3 (0 the drone, 1 GLINT, 2 the
  * bass), FRS_P_STATE (frs_state_save: the device's, not a scene's). At the start: HARMONY ON, NOTES CHORD, LATCH ON
@@ -488,6 +538,11 @@ typedef struct {
     int8_t dseq_pos;                     /* the step playing; -1 none */
     uint8_t dseq_run;                    /* playing */
     uint8_t dq_snd[8], dq_nsnd;          /* the notes its step sounds now (TRANSPOSE on them), how many */
+    int8_t lead_note[FRS_LEAD_NV];       /* the LEAD's voices (card #152; MONO the first alone): each one's note as it
+                                          * sounds (OCTAVE on it), -1 silent; without the LEAD all -1 */
+    uint8_t lead_held;                   /* its voices held (keys down on it) */
+    float lead_level[FRS_LEAD_NV];       /* each one's envelope, 0..1 (a key's light) */
+    float lead_meter;                    /* its recent peak, 0..1 (MIXER's K4, as the tracks' are frs_live's 42 .. 45) */
 } frs_view_t;
 void frs_view(frs_view_t *v);            /* now (the thread that renders) */
 void frs_live(float *out);               /* what sounds now, FRS_LIVE floats (engine/core.c eng_live: the voices, the

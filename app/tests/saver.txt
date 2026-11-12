@@ -264,7 +264,7 @@ gopage 47
 wait 100
 expect page 47
 expect knob2 226
-expect knob3 246
+expect knob3 271
 expect saver_min 10
 shot saver-setting.png
 # five minutes: asleep after five untouched (not before)
@@ -399,7 +399,7 @@ saveridle 0
 gopage 47
 wait 100
 expect page 47
-expect knob4 247
+expect knob4 272
 expect headdark 0
 shot header-setting-invert.png
 turn K4 1

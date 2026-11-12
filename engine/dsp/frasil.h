@@ -13,6 +13,7 @@
 #include "nuage.h"
 #include "glint.h"
 #include "bass.h"
+#include "lead.h"                        /* (FRS_LEAD: the app's builds, card #144) */
 
 #define FR_NV 8
 
@@ -76,6 +77,9 @@ typedef struct {
     nuage_params_t rev;
     glint_params_t glint;
     bass_params_t bass;
+#if FRS_LEAD
+    lead_params_t lead;                  /* LEAD (lead.h): the app's builds alone (FRS_LEAD) */
+#endif
     int ch_type;                         /* CHOEUR: the filter, 0 low-pass, 1 band-pass, 2 high-pass */
     /* (after rev: none of these glide as the floats before it do; the effects make their own way between settings)
      * MASTER EQ (after SINK, before MASTERING): on; its LOW and HIGH shelves' and its MID bell's gains (dB), their
@@ -140,6 +144,19 @@ void frasil_bass_off(void);
 void frasil_bass_pressure(float p);
 void frasil_bass_pulse(float gap);       /* PULSE: the note let go for gap seconds, then again from its ATTACK */
 void frasil_bass_retune(int note, float vel);   /* the note sounding to this one, not struck (PULSE strikes it) */
+#if FRS_LEAD
+/* LEAD over everything (lead.h): MONO one note, legato gliding there from the note sounding, not struck; POLY a voice
+ * a note */
+void frasil_lead_on(int note, float vel, int legato);   /* MONO's */
+void frasil_lead_off(void);              /* every voice let go */
+void frasil_lead_poly_on(int note, float vel);   /* POLY's: a voice struck on the note, let go */
+void frasil_lead_poly_off(int note);
+void frasil_lead_pressure(int note, float p);   /* note -1: MONO's voice */
+void frasil_lead_mod(float m);            /* the mod wheel, 0..1 */
+void frasil_lead_bend(float semis);       /* the pitch wheel, semitones */
+void frasil_lead_view(lead_view_t *v);
+float frasil_lead_meter(void);           /* the LEAD's recent peak, 0..1, as frasil_meters' (MIXER's K4) */
+#endif
 /* PUMP's beat, from the main loop as often as it likes: where in its period the beat is now (0..1) and how far it
  * moves a sample (0: no pump); the render follows it */
 void frasil_pump(float phase, float inc);
@@ -155,7 +172,15 @@ void frasil_skip(uint32_t ms);                   /* ms without a render (frs_ski
 void frasil_skip_done(void);                     /* a skip over: the settings where they are, no glide at the next block */
 #endif
 /* the load: 0 everything; 1 .. 3 fewer partials, then fewer voices (the oldest released first). From the
- * platform's overload hook, and back to 0 as the load allows (the main loop) */
+ * platform's overload hook, and back to 0 as the load allows (the main loop). FR_SHED_TOP the lightest: with the LEAD
+ * (FRS_LEAD: the FM-1's and the SMK-37's) three steps more (card #144, admin #653: a heavy scene with the LEAD POLY,
+ * 98 % at 5, LOFI TAPE on 106 %: every render over, every other half lost), the drone alone down to a voice (frasil.c
+ * SHED_NV) */
+#if FRS_LEAD
+#define FR_SHED_TOP 8
+#else
+#define FR_SHED_TOP 5
+#endif
 void frasil_shed(int level);
 int frasil_shed_level(void);
 /* where the render's time goes: a clock (a free-running count; 0 none) it times its parts with, and each part's count

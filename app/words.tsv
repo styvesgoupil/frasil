@@ -1,4 +1,76 @@
 # FRASIL's words for a screen reader (fm1-reader): the text on the screen <TAB> what to say.
-# url: https://styvesgoupil.github.io/frasil/words/
+# The firmware sends its screen's own text (app/speak.c); the reader says it with these words, then fm1-base's common
+# ones (base/tools/gen_words.py: FX, ENV, REC, ms, Hz...). "#" takes a number, the longest entry wins. A change makes a
+# new words file (app/web/words/<id>.json): keep every one, a device points at its own.
+# url: https://frasilsynth.com/words/
 FRASIL	frasil
 FREEZE	freeze
+frasilsynth.com	frasil synth dot com
+# the panel's buttons and knobs
+SEL	S E L
+K#	knob #
+OCT	octave
+# units
+1 S	1 second
+# S	# seconds
+1 MIN	1 minute
+# MIN	# minutes
+# CT	# cents
+1 OCT	1 octave
+# OCT	# octaves
+KHZ	kilohertz
+# the pages
+II	2
+III	3
+ADSR	envelope
+EQ	E Q
+LOFI	lo-fi
+SPK/JACK	speaker and jack
+# the settings
+VIB	vibrato
+DRONE CH	drone channel
+GLINT CH	glint channel
+BASS CH	bass channel
+OMNI	all channels
+PRE CLOUD	before the cloud
+POST CLOUD	after the cloud
+SND ONLY	sound only
+SND+NOTES	sound and notes
+UPDOWN	up and down
+1/4D	dotted quarter
+1/8D	dotted eighth
+1/16D	dotted sixteenth
+X#	#
+FM	F M
+# the chords
+ADD9	add nine
+DOM7	dominant seventh
+MAJ7	major seventh
+MIN7	minor seventh
+MIN9	minor ninth
+MAJ9	major ninth
+SUS2	suspended second
+SUS4	suspended fourth
+AUG	augmented
+DIM	diminished
+# an LFO's targets: the layer's first letters
+CH DETUNE	choir detune
+CH FILTER	choir filter
+CH SHAPE	choir shape
+CH RESO	choir resonance
+CH SOFT	choir soft
+PA	partials
+BR	breath
+GL	glint
+BS	bass
+MS CUTOFF	master cutoff
+MS RESO	master resonance
+SEQ LEN	sequence length
+DRONE+BASS	drone and bass
+DRONE+GLINT	drone and glint
+GLINT+BASS	glint and bass
+METRONOME REC	metronome while recording
+1/1	whole
+H#	harmonic #
+GLINT I	glint 1
+BASS I	bass 1

@@ -1,0 +1,30 @@
+# made on the engine of 3.2, "FRS}" (0e9a4b2, card #152's base): NAME, its render from the top, joined half-way (engine/tests/old_streams.c make, then hash)
+# c-SCENE-KIND as engine/tests/old-streams-3.0.2/'s; their LEAD MOSS on this engine (an engine without the LEAD made them)
+c-0-arp-open.frstream 68c43e9f7db8f64c c6f2d9eae82f1c48
+c-0-arp.frstream 6b5d32bd10a3ac63 2285612c457844db
+c-0-plain.frstream 231e6f9b6453c541 f49df28172434097
+c-0-swell.frstream 88e6295586fa67d6 60fd494aa6e689a0
+c-1-arp-open.frstream 424a480c3a6b9c97 2b7c35dfe88de8ce
+c-1-arp.frstream 43d441f0f49e37a8 35c18ef317881a9d
+c-1-plain.frstream 7f2aaca6281050c1 617afc907b0bdb38
+c-1-swell.frstream 3e865270a0caa831 b288e68049192eb8
+c-2-arp-open.frstream 940b9af9c4cea274 b516d808c44e1087
+c-2-arp.frstream 15d21c89c0c9b551 0971ffdf55002dc7
+c-2-plain.frstream 6e1a0b7ff5ab5860 407acb1e9bc79ab7
+c-2-swell.frstream 647fd4f7d4846d7e 8fa5949c983fa61f
+c-3-arp-open.frstream 0f97a1121f47c20a 8dc177c96458241f
+c-3-arp.frstream 7c06c20fbd90a990 eeef8a34151d885d
+c-3-plain.frstream 4c08b0b7071e65ad 823bc6664df4b29c
+c-3-swell.frstream e8266b323ab254c1 5ac90a5902699244
+c-4-arp-open.frstream 5c8a676c61f188a6 6cbb8450c406a211
+c-4-arp.frstream 8418a14cec665d35 50f7fd7a775ab6a7
+c-4-plain.frstream 77e580ef0b18e2b9 cff92095e33c7750
+c-4-swell.frstream 4177c57a10abb65b 8ae42713ce26c3ed
+c-5-arp-open.frstream 78fb4729537f822d 9063ca2a9173a3d9
+c-5-arp.frstream 62e70c9349e07953 dfc2522cf2fbfae9
+c-5-plain.frstream 97a32d1caf321656 6d68da86716d6162
+c-5-swell.frstream 12c52c0d0010832e eae5e4be4702af5d
+c-6-arp-open.frstream 06d098916a8b86fc 703477514a3354d0
+c-6-arp.frstream e4e9070f0e990a41 e2859b68fc8ef327
+c-6-plain.frstream 7519a4ac32b4336c 632c6f6f18cd51fd
+c-6-swell.frstream 36c709736fff110b 4ec9591691e86dd9

@@ -6,7 +6,8 @@
 # counter-clockwise as it goes; held 400 ms: BACK, every setting the anchor's at once (3.1: the other way round before).
 # What plays plays on. anchordiff: the scene now (as STORE keeps it, its name and notes aside) and each of its settings
 # against the anchor's, the bytes that differ; moff: the settings a glide still moves; heardN: setting N as it sounds;
-# shownN: setting N as the screen shows it; framepx: the frame's pixels on the screen (of 3776), framegone its places
+# shownN: setting N as the screen shows it; framepx: the frame's pixels on the screen (of 3776; 3455 seen, the CPU line
+# and its label over its bottom row and corner, card #144's on the FM-1 too), framegone its places
 # erased (of 944), framelo and framehi its breath's dimmest and brightest (of 32)
 wait 100
 expect anchor 0
@@ -25,11 +26,11 @@ expect anchor 1
 expect octave -1
 expect anchordiff 0
 expect store_writes 0
-expect framepx 3776
+expect framepx 3455
 expect framegone 0
 # it breathes: still whole a second on (every pixel the frame's), from full to a fifth and back in under a second
 wait 1000
-expect framepx 3776
+expect framepx 3455
 expect framehi 32
 expect framelo <8
 shot anchor-frame.png
@@ -126,7 +127,7 @@ release OCT-
 release OCT+
 wait 80
 expect anchor 2
-expect framepx >3600
+expect framepx >3279
 expect heard5 >100
 expect heard73 <20
 expect p33 4
@@ -145,7 +146,7 @@ expect anchor 2
 expect heard5 >108
 expect shown5 >108
 expect shown5 <120
-expect framepx >3100
+expect framepx >2779
 shot anchor-morph-1.png
 gopage 42
 # a little before its half: the glide under way, the screen with it, the choices as they were, half the frame left and

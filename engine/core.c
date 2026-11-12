@@ -42,6 +42,9 @@ static struct {
     uint8_t v[NPARAM];                   /* every parameter now */
     uint8_t glint;                       /* the keys play GLINT */
     uint8_t bass;                        /* the keys play BASS */
+#if FRS_LEAD
+    uint8_t lead;                        /* the keys play LEAD (card #144: the app's builds, FRS_LEAD) */
+#endif
     uint8_t dirty;                       /* the sound changed since the scene was loaded or saved */
     uint8_t sustain;                     /* MIDI CC64 held */
     float swell_btn, swell_midi, swell_sent;
@@ -77,9 +80,8 @@ static void bit_put(uint32_t *b, int n, int on)
         b[n >> 5] &= ~(1u << (n & 31));
 }
 
-enum { K_NONE, K_LATCH, K_HOLD, K_GLINT, K_BASS, K_BSEQ, K_BARP, K_GRING };   /* (K_BSEQ: BASS's, into its sequence;
-                                                                               * K_BARP: its arpeggio; K_GRING: GLINT's
-                                                                               * on KEYS, LATCH on: into the ring) */
+enum { K_NONE, K_LATCH, K_HOLD, K_GLINT, K_BASS, K_BSEQ, K_BARP };   /* (K_BSEQ: BASS's, into its sequence; K_BARP: its
+                                                                      * arpeggio) */
 static struct {                          /* each key while it is down */
     uint8_t kind;                        /* what it started as (the mode may change while it is held) */
     int8_t root;                         /* K_LATCH: its chord's root; K_GLINT: the glint's note; K_BASS, K_BSEQ: the
@@ -89,7 +91,7 @@ static struct {                          /* each key while it is down */
     uint8_t gsound;                      /* K_GLINT: it sounded its glint itself (SEQ OFF, or RECORD on): its release
                                           * lets it go, whatever SEQ and RECORD are by then */
     uint8_t hold;                        /* K_BASS: held (LATCH off: KEY MODE HOLD), its up lets it go */
-    chord_t chord;                       /* K_HOLD: the chord it holds; K_GLINT, K_GRING, K_BARP: its notes (NOTES CHORD:
+    chord_t chord;                       /* K_HOLD: the chord it holds; K_GLINT, K_BARP: its notes (NOTES CHORD:
                                           * HARMONY's chord; else the one, gbase), without OCTAVE */
     uint8_t was_lit;                     /* it was latched already when pressed: a tap lets it go */
     uint8_t pressed_in;                  /* it was pressed into: no tap */
@@ -133,8 +135,10 @@ static arp_t arp = {.sounding = -1, .rng = 0x9E3779B9u, .latch = 1, .step_n = -1
 #ifndef ARP_TRACE
 #define ARP_TRACE(a, what, note)         /* (a runner's log of each step and each set taken: the simulator's arplog) */
 #endif
-/* GLINT's keys latched: on KEYS (SEQUENCE off) the last RING notes in its arpeggio's list ring on, held, in place of its
- * steps (ring_run; on ARP they step, on SEQ they wait, the list the same): those sounding so */
+/* GLINT's notes latched (THE KEYS' LATCH, a scene's): on KEYS (SEQUENCE off) the last RING notes in its arpeggio's list
+ * ring on, held, in place of its steps (ring_run; on ARP they step, on SEQ they wait, the list the same): those sounding
+ * so. The keys never put notes in it: on KEYS they sound while down, whatever KEYS' LATCH says, and a GLINT key there
+ * lets it go first (card #143) */
 #define RING 4u                          /* (GLINT's voices) */
 static struct {
     int8_t note[RING];
@@ -566,11 +570,19 @@ static int bseq_keys(void) { return bseq_owns() && (st.v[P_BQ_REC] || !step_hand
 
 /* -------------------------------------------------------------- engine --- */
 static float delay_s_now = 0.25f;        /* GLINT's delay time from the tempo (delay_sync) */
+#if FRS_LEAD
+static float ld_delay_s = 0.25f;         /* LEAD's, the same way (card #144) */
+#endif
 
 static uint8_t saved_bsp;                /* (the bass's SPACE, as saved_bq has the rest: scene_t's last) */
 static uint8_t saved_gv;                 /* (GLINT's AUTO VIB, the same) */
 static uint8_t saved_tp[4];              /* (LOFI TAPE II's four, the same: scene_t's tp_flutter ..) */
 static uint8_t saved_amt[SC_LFO_AMT], saved_sw;   /* (the LFOs' AMOUNTs, SWELL, the same: scene_t's lfo_amt, swell) */
+#if FRS_LEAD
+#define NLDS (P_LD_FRELEASE - P_LD_WAVE + 1)   /* LEAD's settings a scene keeps (card #144, app.c ldp_*: its own object) */
+static uint8_t saved_ld[NLDS];           /* (LEAD's, the same: P_LD_WAVE .. P_LD_FRELEASE, its MIXER level, PRESET with
+                                          * them, the filter's ADSR last) */
+#endif
 static uint8_t saved_v[NSOUND], saved_seq[SC_SEQ], saved_bnote[SC_BSEQ], saved_bq[NBQ];   /* (the sound as last loaded or
                                                                                      * saved; saved_bq: as scene_t has
                                                                                      * them from bq_on) */
@@ -597,6 +609,9 @@ static void engine_push(void)
     }
     b.a4_l2 = a4_l2;
     b.glint.delay_s = delay_s_now;
+#if FRS_LEAD
+    b.lead.dtime_s = ld_delay_s;
+#endif
     b.tape_l2 = tape_l2;                 /* TAPE SPEED as it glides (tape_run): the pitch, and the times unless clocked */
     b.time_l2 = tape_clocked ? 0.0f : tape_l2;
     tape_sent = tape_l2;
@@ -800,6 +815,9 @@ static void sound_mark(void)
     saved_sw = st.v[P_SWELL];
     memcpy(saved_dnote, dnote, sizeof dnote);
     dq_now(saved_dq);
+#if FRS_LEAD
+    memcpy(saved_ld, &st.v[P_LD_WAVE], sizeof saved_ld);
+#endif
     st.dirty = 0;
 }
 
@@ -816,6 +834,10 @@ static int sound_changed(void)
     bq_now(q);
     dq_now(d);
     tp_now(t);
+#if FRS_LEAD
+    if (memcmp(&st.v[P_LD_WAVE], saved_ld, sizeof saved_ld))
+        return 1;
+#endif
     return memcmp(bnote, saved_bnote, sizeof bnote) || memcmp(q, saved_bq, sizeof q) || st.v[P_BS_SPACE] != saved_bsp ||
            st.v[P_GL_VIB_AUTO] != saved_gv || memcmp(t, saved_tp, sizeof t) || memcmp(dnote, saved_dnote, sizeof dnote) || memcmp(d, saved_dq, sizeof d) ||
            memcmp(&st.v[P_L1_AMT1], saved_amt, sizeof saved_amt) || st.v[P_SWELL] != saved_sw;
@@ -2087,10 +2109,7 @@ static void keys_set(int p, int32_t x)
         for (k = 0; k < FRS_NKEYS; k++)
             if (key[k].kind == K_LATCH)
                 key[k].kind = K_NONE;
-    } else if (p == P_KY_GL_LATCH) {
-        for (k = 0; k < FRS_NKEYS; k++)
-            if (key[k].kind == K_GRING)
-                key[k].kind = K_NONE;
+    } else if (p == P_KY_GL_LATCH) {     /* (GLINT's keys never latch: what THE KEYS' LATCH rings, on KEYS) */
         if (!st.v[P_SQ_TYPE])
             arp_keep_held(&arp);
     } else {
@@ -2116,6 +2135,18 @@ static void param_set(int p, int32_t x)
         anc_hand(p);
     if (p == P_GL_PRESET)                /* a preset: its sound into the GLINT parameters */
         glint_preset(st.v, (uint32_t)x);
+#if FRS_LEAD
+    if (p >= P_LD_WAVE) {                /* LEAD's (card #144): a preset its sound; MODE turned (or a preset's), every
+                                          * voice let go (the keys held as they are: the next played in the new MODE) */
+        uint8_t m = st.v[P_LD_MODE];
+        if (p == P_LD_PRESET)
+            lead_preset(st.v, (uint32_t)x);
+        if (p == P_LD_MODE || st.v[P_LD_MODE] != m)
+            frasil_lead_off();
+        st.engine_dirty = 1;
+        st.dirty = (uint8_t)sound_changed();   /* (the scene's: its LEAD, app.c ldp_*) */
+    }
+#endif
     if (p == P_KEYS) {                   /* to held notes, or back: the latched ones go; KEYS' LATCH, the drones' and the
                                           * bass's, as it says (KEY MODE's in their place: read in so) */
         st.v[P_KY_DR_LATCH] = st.v[P_KY_BS_LATCH] = (uint8_t)!x;
@@ -2138,6 +2169,9 @@ static void param_set(int p, int32_t x)
     if (p == P_KB) {                     /* what the keys play (what sounds stays) */
         st.glint = x == 1;
         st.bass = x == 2;
+#if FRS_LEAD
+        st.lead = x == 3;
+#endif
     }
     if (p == P_FREEZE)
         st.engine_dirty = 1;
@@ -2231,6 +2265,12 @@ static uint32_t param_kind(uint32_t p)
 {
     if (p >= NPARAM || p == P_SC_GONE)
         return PK_NONE;
+#if FRS_LEAD
+    if (p >= P_LD_WAVE)                  /* LEAD's (card #144): a scene's (card #152: not in scene_t, a shard's, after
+                                          * it: eng_lead_*; the FM-1's in its own object, a slot each; LIVE tells them as
+                                          * they turn) */
+        return PK_SCENE;
+#endif
     if (p < NSOUND || p == P_TEMPO || p == P_BQ_ON || p == P_BQ_STEPS || p == P_BQ_TRANS || p == P_BQ_LEN ||
         p == P_BA_MODE || p == P_BA_RANGE || p == P_BA_CHANCE || p == P_BQ_GATE || p == P_BS_WEIGHT || p == P_BS_PUNCH ||
         p == P_BS_BITE || p == P_BS_SPACE || p == P_GL_VIB_AUTO || (p >= P_DQ_ON && p <= P_DQ_TRANS) ||
@@ -2589,6 +2629,13 @@ static void bass_tone(const scene_t *sc)
 /* a scene's sound and what it plays, taken as a load takes them (from a slot: the FM-1's scene_load; a shard the River
  * plays: scene_audition) */
 static void count_stop(void);            /* (COUNT-IN, below) */
+/* a scene's setting as this engine takes it: past its range, its range's last; a TARGET past the list this engine knows
+ * (another's LFO TARGETs: the LEAD's, card #144, on an engine without it) none, not the list's last (DROPOUT) */
+static uint8_t sound_val(uint32_t p, uint32_t x)
+{
+    return x <= PD[p].max ? (uint8_t)x : PD[p].fmt == F_LTGT ? 0u : PD[p].max;
+}
+
 static void scene_take(const scene_t *sc)
 {
     uint32_t i;
@@ -2596,7 +2643,7 @@ static void scene_take(const scene_t *sc)
     anchor_drop();                       /* (another scene: no ANCHOR, no way back to it) */
     rec_was.on = 0;                      /* (its PLAYS are the scene's now) */
     for (i = 0; i < NSOUND; i++)
-        st.v[i] = sc->v[i] > PD[i].max ? PD[i].max : sc->v[i];
+        st.v[i] = sound_val(i, sc->v[i]);
     drone_take();
     for (i = 0; i < SC_SEQ; i++)
         seq[i] = sc->seq[i];
@@ -2745,7 +2792,7 @@ static void eng_scene_go(const scene_t *sc)   /* (the FM-1's scene_go: its slot'
         for (i = 0; i < sizeof PLAYS_P; i++)
             kept[i] = st.v[PLAYS_P[i]];
         for (i = 0; i < NSOUND; i++)
-            st.v[i] = sc->v[i] > PD[i].max ? PD[i].max : sc->v[i];
+            st.v[i] = sound_val(i, sc->v[i]);
         bass_tone(sc);
         drone_take();
         sound_mark();                    /* (the scene as saved: its own sequences) */
@@ -2857,7 +2904,7 @@ static uint8_t anc_val(uint32_t p)
         uint8_t pre = anc.sc.v[P_DR_PRESET] > PD[P_DR_PRESET].max ? PD[P_DR_PRESET].max : anc.sc.v[P_DR_PRESET];
         if (pre && drone_of[p] >= 0)
             return DRONE_PRESET[(pre - 1u) % NDPRESET][drone_of[p]];
-        return anc.sc.v[p] > PD[p].max ? PD[p].max : anc.sc.v[p];
+        return sound_val(p, anc.sc.v[p]);
     }
     i = anc_x(p);
     if (i < 0)
@@ -3211,6 +3258,19 @@ static void delay_sync(void)
         delay_s_now = s;
         st.engine_dirty = 1;
     }
+#if FRS_LEAD
+    {                                    /* LEAD's (card #144): GLINT's TIME, its own; an LFO on it a division at a time
+                                          * (the delay glides there) */
+        int32_t t = (int32_t)((float)st.v[P_LD_DTIME] + mod_of(P_LD_DTIME) + 0.5f);
+        s = (float)GD_TICKS[clamp(t, 0, 11)] * 2.5f / bpm;
+        while (s > LEAD_DELAY_MAX)
+            s *= 0.5f;
+        if (fm_fabsf(s - ld_delay_s) > ld_delay_s * 0.003f) {
+            ld_delay_s = s;
+            st.engine_dirty = 1;
+        }
+    }
+#endif
 }
 
 /* PUMP on the arpeggiator's grid (MIDI clock, else TEMPO): where the beat is in RATE's period, and its pace */
@@ -3309,6 +3369,9 @@ static void lfo_run(void)
     lfo_grid = g;
     memset(mod, 0, sizeof mod);
     memset(mod_tp, 0, sizeof mod_tp);
+#if FRS_LEAD
+    memset(mod_ld, 0, sizeof mod_ld);
+#endif
     for (i = 0; i < NLFO; i++) {
         const uint8_t *L = &st.v[LFO_BASE[i]];
         float depth = (float)L[2] * (1.0f / 127.0f), w, off;
@@ -4144,6 +4207,42 @@ static void sound_off(void)
     dseq_stop();
 }
 
+#if FRS_LEAD
+/* one track's notes let go as RELEASE ALL lets them go (sound_off), that track's alone (the SMK-37's track pad held,
+ * admin #634), each fading as its RELEASE has it: DRONE its notes (latched, held, its sequence's) and its sequence
+ * stopped; GLINT its notes (the keys', MIDI's, the ring's), its arpeggio emptied, its sequence stopped; BASS the same;
+ * the LEAD its voices. RESTORE's notes not taken (PLAY held's alone) */
+static void track_off(uint32_t t)
+{
+    uint32_t k;
+    if (t == 0u) {
+        release_drones();
+        dseq_stop();
+    } else if (t == 1u) {
+        midi_glints_off();
+        frasil_glint_off(-1);
+        rung.n = 0;
+        arp.n = arp.pn = arp.gap = 0;
+        arp.dirty = 0;
+        arp.paused = 0;
+        seq_note_off();
+        sq.run = 0;
+    } else if (t == 2u) {
+        bass_stop();
+        mb_n = 0;
+        for (k = 0; k < FRS_NKEYS; k++)
+            if (key[k].kind == K_BASS || key[k].kind == K_BSEQ)
+                key[k].kind = K_NONE;
+        barp.n = barp.pn = barp.gap = 0;
+        barp.dirty = 0;
+        barp.paused = 0;
+        bseq_stop();
+    } else {
+        frasil_lead_off();
+    }
+}
+#endif
+
 /* a MIDI message (pkt as the platforms pack one: its status byte in bits 8 .. 15, its data in 16 .. 23 and 24 .. 31):
  * the clock, Start, All Sound Off on any channel; on each track's channel its notes, their pressure, the channel's, the
  * CCs (the drones': sustain, All Notes Off, the sound's: the runner's first, eng_cc, then CC_MAP), Program Change (the
@@ -4780,38 +4879,146 @@ static void arp_key(arp_t *a, uint32_t k, uint32_t kind, int stack, uint32_t vel
     for (i = 0; i < key[k].chord.k; i++)
         arp_add(a, key[k].chord.n[i], vel);
     a->hand_ms = eng_ms();
-    a->paused = 0;                       /* (waiting, PLAY tapped: a key plays it again, as frs_latch's and the ring's) */
+    a->paused = 0;                       /* (waiting, PLAY tapped: a key plays it again, as frs_latch's) */
 }
 
-/* GLINT on KEYS, LATCH on: a key's notes into the ring (its last RING ringing on, held: the arpeggio's list, as THE KEYS'
- * latch has it, eng_latch_arp). All there already: a tap lets them go. A new hand, STACK off (SWAP): in place of the ring */
-static void ring_key(uint32_t k, int stack, uint32_t vel)
+#if FRS_LEAD
+/* LEAD (card #144, the app's builds: FRS_LEAD). MONO: one note at a time, the last key down sounding. A key played while
+ * another is down glides there (legato, not struck again: GLIDE); one let go, back to the last one still down (gliding),
+ * none left: let go. POLY: each key its voice, struck, let go with its key (past LEAD_NV the DSP takes the quietest
+ * let go, else the oldest held). The note as played (no HARMONY: what the key says; OCTAVE on it in the DSP). Nothing
+ * latches, nothing goes into a sequence */
+enum { K_LEAD = 32 };                    /* (a key's kind, apart from the others' list) */
+#define LD_KEYS 8u
+static struct {
+    uint8_t n;                           /* the keys down, the oldest first */
+    uint8_t k[LD_KEYS], vel[LD_KEYS];
+    int8_t note[LD_KEYS];
+} ldk;
+
+static void ldk_drop(uint32_t i)
 {
-    uint32_t i, j, o;
-    if (arp_has_all(&arp, &key[k].chord)) {
-        key[k].was_lit = 1;
+    for (; i + 1u < ldk.n; i++) {
+        ldk.k[i] = ldk.k[i + 1u];
+        ldk.vel[i] = ldk.vel[i + 1u];
+        ldk.note[i] = ldk.note[i + 1u];
+    }
+    ldk.n--;
+}
+
+static void ldk_clean(void)              /* (a panic forgets the keys, frs_panic's memset: theirs no more) */
+{
+    uint32_t i = 0;
+    while (i < ldk.n)
+        if (key[ldk.k[i]].kind != K_LEAD)
+            ldk_drop(i);
+        else
+            i++;
+}
+
+static void lead_key_down(uint32_t k, int note, uint32_t vel)
+{
+    int legato, poly = st.v[P_LD_MODE] != 0;
+    ldk_clean();
+    legato = ldk.n > 0;
+    if (ldk.n >= LD_KEYS) {
+        if (poly)                        /* (its voice no more: let go) */
+            frasil_lead_poly_off(ldk.note[0]);
+        ldk_drop(0);
+    }
+    ldk.k[ldk.n] = (uint8_t)k;
+    ldk.vel[ldk.n] = (uint8_t)vel;
+    ldk.note[ldk.n] = (int8_t)note;
+    ldk.n++;
+    key[k].kind = K_LEAD;
+    key[k].root = (int8_t)note;
+    if (poly)
+        frasil_lead_poly_on(note, (float)vel * (1.0f / 127.0f));
+    else
+        frasil_lead_on(note, (float)vel * (1.0f / 127.0f), legato);
+}
+
+static void lead_key_up(uint32_t k)
+{
+    uint32_t i;
+    int top, note;
+    for (i = 0; i < ldk.n && ldk.k[i] != k; i++)
+        ;
+    if (i == ldk.n)
+        return;
+    top = i + 1u == ldk.n;
+    note = ldk.note[i];
+    ldk_drop(i);
+    key[k].kind = K_NONE;
+    ldk_clean();
+    if (st.v[P_LD_MODE]) {               /* POLY: its voice let go, the others as they are */
+        frasil_lead_poly_off(note);
         return;
     }
-    if (!stack && !keys_down(K_GRING, k)) {
-        arp.n = 0;
-        arp.dirty = 1;
-    }
-    for (i = 0; i < key[k].chord.k; i++) {
-        int b = key[k].chord.n[i];
-        for (j = 0; j < arp.n && arp.held[j] != b; j++)
-            ;
-        if (j < arp.n)
-            continue;
-        if (arp.n >= RING) {             /* (the oldest goes, the new one in its voice) */
-            for (o = 0, j = 1; j < arp.n; j++)
-                if ((int16_t)(arp.in[j] - arp.in[o]) < 0)
-                    o = j;
-            arp_remove(&arp, arp.held[o]);
-        }
-        arp_add(&arp, b, vel);
-    }
-    arp.paused = 0;
+    if (!top)
+        return;
+    if (ldk.n)
+        frasil_lead_on(ldk.note[ldk.n - 1u], (float)ldk.vel[ldk.n - 1u] * (1.0f / 127.0f), 1);
+    else
+        frasil_lead_off();
 }
+
+static int lead_key_top(uint32_t k) { return ldk.n && ldk.k[ldk.n - 1u] == k; }
+
+/* the SMK-37's wheels on the lead: mod 0 .. 127 (its VIBRATO, if more), the pitch wheel -8192 .. 8191 (two semitones
+ * either way): the same floats wherever they are heard (Perform LIVE's FST_LEAD_WHEELS, card #152) */
+static void eng_lead_wheels(uint32_t mod, int32_t bend)
+{
+    frasil_lead_mod((float)mod * (1.0f / 127.0f));
+    frasil_lead_bend((float)bend * (2.0f / 8192.0f));
+}
+#endif
+
+/* ------------------------------------------------------- the shard's LEAD --- */
+/* a shard's LEAD (card #152, "FRS~": the scene's bytes, then LEAD_BYTES, P_LD_WAVE .. P_LD_FRELEASE in order): MOSS's
+ * (none in it: an older layout's, a scene stored without one); taken as a scene's (app.c ldp_load's: each past its
+ * max its default, PRESET's CUSTOM: lead_in; the LEAD as saved with them, the voices as they are: a MODE changed so, the
+ * next key in it); put as
+ * the LEAD is now (each so, the LEAD as saved left; MODE changed: the voices let go, as param_set's); as it is. Without
+ * the LEAD (FRS_LEAD 0): MOSS's, nothing taken */
+static void eng_lead_none(uint8_t *out) { memcpy(out, LEAD_MOSS, LEAD_BYTES); }
+#if FRS_LEAD
+_Static_assert(NLDS == LEAD_BYTES && P_MX_LEAD == P_LD_WAVE + 16 && P_LD_PRESET == P_LD_WAVE + 17,
+               "a shard's LEAD: its 25 settings in a row, MOSS's in their order");
+static void lead_set(const uint8_t *in)
+{
+    uint32_t i;
+    for (i = 0; i < NLDS; i++) {
+        uint32_t p = P_LD_WAVE + i;
+        st.v[p] = lead_in(p, in[i]);
+    }
+    st.engine_dirty = 1;
+}
+static void eng_lead_take(const uint8_t *in)
+{
+    lead_set(in);
+    memcpy(saved_ld, &st.v[P_LD_WAVE], sizeof saved_ld);
+    st.dirty = (uint8_t)sound_changed();
+}
+static void eng_lead_put(const uint8_t *in)
+{
+    uint8_t m = st.v[P_LD_MODE];
+    lead_set(in);
+    if (st.v[P_LD_MODE] != m)
+        frasil_lead_off();
+    st.dirty = (uint8_t)sound_changed();
+}
+static void eng_lead_get(uint8_t *out) { memcpy(out, &st.v[P_LD_WAVE], NLDS); }
+#else
+static void eng_lead_take(const uint8_t *in) { (void)in; }
+static void eng_lead_put(const uint8_t *in) { (void)in; }
+static void eng_lead_get(uint8_t *out) { eng_lead_none(out); }
+static void eng_lead_wheels(uint32_t mod, int32_t bend)
+{
+    (void)mod;
+    (void)bend;
+}
+#endif
 
 static void eng_key_down(uint32_t k, int played, uint32_t vel, int single)
 {
@@ -4820,6 +5027,12 @@ static void eng_key_down(uint32_t k, int played, uint32_t vel, int single)
     chord_t c;
     touch_t t;
     key_begin(k);
+#if FRS_LEAD
+    if (st.lead) {                       /* LEAD: the note as played, one at a time (lead_key_down) */
+        lead_key_down(k, played, vel);
+        return;
+    }
+#endif
     if (st.glint) {                      /* a glint (its note, or HARMONY's chord): GLINT's octaves up (the arpeggio and
                                           * the sequence keep it without them, OCTAVE on them as they play) */
         int sk = seq_keys(), b;
@@ -4837,11 +5050,18 @@ static void eng_key_down(uint32_t k, int played, uint32_t vel, int single)
         }
         if (st.v[P_SQ_TYPE] == SQT_ARP) {
             arp_key(&arp, k, K_GLINT, t.stack || adds, vel);
-        } else if (t.latch && !st.v[P_SQ_TYPE]) {   /* KEYS, LATCH: the ring of four */
-            key[k].kind = K_GRING;
-            key[k].gsound = 0;
-            ring_key(k, t.stack || adds, vel);
-        } else {
+        } else {                         /* KEYS: sounding while down, whatever KEYS' LATCH says (card #143: its latch
+                                          * ARP II's, on ARP, and the sequence's) */
+            if (!st.v[P_SQ_TYPE] && ((arp.n && !arp.paused) || rung.n)) {   /* (the hand takes GLINT: what rings,
+                                                             * THE KEYS' latch, a scene's, ARP's list once ARP is off,
+                                                             * let go first, its voices free, as a new hand did on the
+                                                             * ring; waiting, PLAY tapped, it stays) */
+                key[k].kind = K_NONE;
+                arp.n = 0;
+                arp.dirty = 1;
+                ring_run();
+                key[k].kind = K_GLINT;
+            }
             for (i = 0; i < c.k; i++)
                 frasil_glint_on(c.n[i], (float)vel * (1.0f / 127.0f));
         }
@@ -4959,6 +5179,12 @@ static void key_up(uint32_t k)
         key[k].drec = 0;
         dseq_up();
     }
+#if FRS_LEAD
+    if (key[k].kind == K_LEAD) {
+        lead_key_up(k);
+        return;
+    }
+#endif
     switch (key[k].kind) {
     case K_GLINT:
         for (i = 0; i < key[k].chord.k; i++) {
@@ -4971,11 +5197,6 @@ static void key_up(uint32_t k)
             else if (st.v[P_SQ_TYPE] == SQT_ARP && arp.latch && key_tapped(k))
                 arp_remove(&arp, n);     /* (STACK on: a tap on notes latched lets them go) */
         }
-        break;
-    case K_GRING:
-        if (key_tapped(k))
-            for (i = 0; i < key[k].chord.k; i++)
-                arp_remove(&arp, key[k].chord.n[i]);
         break;
     case K_HOLD:
         chord_off(&key[k].chord);
@@ -5030,7 +5251,16 @@ static void key_pressure(uint32_t k, uint8_t p)
     if (!(p > key[k].prs + 2u || p + 2u < key[k].prs || (p == 0 && key[k].prs)))
         return;
     key[k].prs = p;
-    if (key[k].kind == K_GLINT || key[k].kind == K_GRING)
+#if FRS_LEAD
+    if (key[k].kind == K_LEAD) {         /* (MONO: the key sounding's; POLY: each key's voice) */
+        if (st.v[P_LD_MODE])
+            frasil_lead_pressure(key[k].root, f);
+        else if (lead_key_top(k))
+            frasil_lead_pressure(-1, f);
+        return;
+    }
+#endif
+    if (key[k].kind == K_GLINT)
         for (i = 0; i < key[k].chord.k; i++)
             glint_note_press(key[k].chord.n[i], f);
     else if (key[k].kind == K_HOLD)
@@ -5131,6 +5361,11 @@ static void eng_edit_param(uint32_t p, uint32_t x)
             memcmp(d0, dnote, sizeof d0) || memcmp(e0, e1, sizeof e0))
             eng_edits();                 /* (a step written as it was: nothing edited) */
     }
+#if FRS_LEAD
+    else if (p >= P_LD_WAVE && p < NPARAM)   /* the LEAD's (card #152: a shard's, eng_lead_get; PRESET a preset's sound,
+                                              * MODE its voices let go, as the hand's) */
+        param_set((int)p, (int32_t)x);
+#endif
 }
 
 static void eng_scene_edited(const scene_t *played, scene_t *e)
@@ -5602,6 +5837,11 @@ static void eng_reset(void)
     rec_counts = 0;
     metro_free = 0;
     delay_s_now = 0.25f;
+#if FRS_LEAD
+    ld_delay_s = 0.25f;
+    memset(&ldk, 0, sizeof ldk);         /* (its keys and the LEAD as saved: an engine opened again, as a first one) */
+    memset(saved_ld, 0, sizeof saved_ld);
+#endif
     memset(saved_v, 0, sizeof saved_v);
     memset(saved_seq, 0, sizeof saved_seq);
     memset(saved_bnote, 0, sizeof saved_bnote);
@@ -5645,6 +5885,9 @@ static void eng_reset(void)
     memset(morph_off, 0, sizeof morph_off);
     memset(mod, 0, sizeof mod);
     memset(mod_tp, 0, sizeof mod_tp);
+#if FRS_LEAD
+    memset(mod_ld, 0, sizeof mod_ld);
+#endif
     morph_at = swell_at = 0;
 }
 
