@@ -284,3 +284,5 @@ FRASIL is free software under the [Mozilla Public License 2.0](LICENSE): see [LI
 - Fonts: Barlow (The Barlow Project Authors) and Terminus (Dimitar Toshkov Zhekov), SIL OFL 1.1, through fm1-base.
 
 M-VAVE and FM-1 are trademarks of their owners.
+
+You can also try FRASIL in the browser, no flashing needed, in the free community [FM-1 Emulator](https://fm1-emulator.atst.tools/).
