@@ -18,6 +18,9 @@
                                           * SMK-37's (Styves, admin #741: the SMK-37's features on the FM-1 but its
                                           * pads' and controls'); the o2 units' too (fm1.toml o2_cflags), before any
                                           * engine header */
+#define FRS_MIDI_OUT 1                   /* MIDI, the fifth track (card #164: app.c mout): the keys out over USB (the
+                                          * SMK-37's MIDI OUT jack too), FRASIL playing on; the app's alone, the engine,
+                                          * the schema and the scenes as they were */
 #ifndef APP_CPU_LINE                     /* the load's line along the screen's last row (ui.c cl_*; Styves, admin #672):
                                           * the FM-1's too (card #147, admin #741) */
 #define APP_CPU_LINE 1
@@ -54,8 +57,10 @@ void app_tick(void);
  * inside the data area on both boards: the FM-1's 0x97000..0xDFFFF, the SMK-37's 0xC2000..0xE9FFF; the flash part,
  * Puya or UC25HQ80, the same map), the scene record as it was (the River's, the iPad's, Perform's). The settings pair
  * at PLAT_GLOB: the FM-1's 0xFC000, the SMK-37's 0xEB000 (card #111: its map's), the rest the same on both */
-enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES, OBJ_LEAD, OBJ_NOBJ };
-#define APP_STORE_MAP {PLAT_GLOB, 0xDC000u, 0xDA000u, 0xD8000u, 0xD6000u, 0xD4000u, 0xD2000u, 0xD0000u}
+/* each scene's MIDI arpeggio and sequence (card #169: app/mseq.c md_*) in the next pair under the LEAD's (0xCE000, inside
+ * the data area on both boards) */
+enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES, OBJ_LEAD, OBJ_MSEQ, OBJ_NOBJ };
+#define APP_STORE_MAP {PLAT_GLOB, 0xDC000u, 0xDA000u, 0xD8000u, 0xD6000u, 0xD4000u, 0xD2000u, 0xD0000u, 0xCE000u}
 /* backup and restore over USB (fm1.toml backup = true: device/backup.c): the settings and the scenes (their bass
  * sequences and their drone sequences too), never the panel's calibration (the unit's). The version stays 1 when a
  * record's layout changes: each object carries its own magic, and a restore reloads it as a boot does (an earlier
@@ -63,7 +68,10 @@ enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NA
  * the player's presets stay as they are, app_backup_restored writes them back; without OBJ_NAMES: every name its first
  * sixteen characters, as that FRASIL had them, the AMOUNTs +100 %, SWELL 0; 3.0.1's OBJ_NAMES, FRNM: the AMOUNTs, SWELL so). An earlier FRASIL refuses a backup with more objects than it has (3.0:
  * this one's, OBJ_NAMES in it) */
-#define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES, OBJ_LEAD}   /* (OBJ_LEAD:
+#define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NAMES, OBJ_LEAD, OBJ_MSEQ}   /* (OBJ_MSEQ:
+                                          * each scene's MIDI arpeggio and sequence, card #169; a backup without it: none,
+                                          * every scene's MIDI its defaults; the River's model passes it on as given;
+                                          * OBJ_LEAD:
                                           * each scene's LEAD and the player's LEAD presets, card #144; a FRASIL before
                                           * it refuses such a backup; one of it, without OBJ_LEAD: every scene's LEAD
                                           * MOSS, app.c ldp_load) */
@@ -71,7 +79,11 @@ enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SCENES, OBJ_BSEQ, OBJ_DSEQ, OBJ_UPRE, OBJ_NA
 #define APP_BACKUP_VERSION 1u
 #define APP_BACKUP_WHAT "replaces all scenes"
 #define APP_BACKUP_YES B_SEL               /* the restore question: SEL yes, FX no, as every question here */
+#if PLAT_SMK37
+#define APP_BACKUP_YES_NAME "SCALE"      /* (the SMK-37's SEL, as its panel names it: controls.h; its pads too) */
+#else
 #define APP_BACKUP_YES_NAME "SEL"
+#endif
 #define APP_BACKUP_NO B_FX
 #define APP_BACKUP_NO_NAME "FX"
 #define APP_BACKUP_ASK                   /* ... drawn as a pop-up (ui.c) */

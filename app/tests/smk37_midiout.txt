@@ -1,0 +1,166 @@
+# MIDI, the fifth track (card #164), on the SMK-37's simulator (its keys, wheels and pedal; its MIDI OUT jack gets what
+# goes to USB, base's TO_USB): FM1B_BOARD=smk37 FM1B_MODEL=elite ./build.sh --host, then
+#   app/build/host/frasil-smk37-elite_host app/tests/smk37_midiout.txt OUTDIR
+# (not in tools/runner/check.sh: its firmware area runs the FM-1's simulator)
+master 3000
+keysstay 1
+wait 1600
+# KNOB BANK: DRONE, GLINT, BASS, LEAD, MIDI, round
+tap KBANK
+tap KBANK
+tap KBANK
+tap KBANK
+wait 30
+expect mout 1
+expect p166 3
+# the middle 27 (key 12: C4, the FM-1's key 7) and the ten around them (key 0: C3), each at its velocity
+key37 12 down 100
+wait 30
+expect_out USB 90 3C 64
+key37 12 up
+wait 30
+expect_out USB 80 3C 00
+key37 0 down 90
+wait 30
+expect_out USB 90 30 5A
+key37 0 up
+wait 30
+expect_out USB 80 30 00
+out
+# the wheels: a bend (two semitones up at its top), back to rest; CC 1; the pedal, CC 64
+wheel pitch 4096
+wait 30
+expect_out USB E0 00 60
+wheel pitch 0
+wait 30
+expect_out USB E0 00 40
+wheel mod 64
+wait 30
+expect_out USB B0 01 40
+pedal down
+wait 30
+expect_out USB B0 40 7F
+pedal up
+wait 30
+expect_out USB B0 40 00
+out
+# nothing of them on the LEAD meanwhile (its mod as it was)
+expect leadmod 0
+# KNOB BANK again: round to DRONE, MIDI let go
+tap KBANK
+wait 30
+expect mout 0
+expect p166 0
+# the track pads: MIDI's the fifth (12), violet; from it, the DRONE's (8); held, its notes let go and CC 123
+expect pad_rgb12 919072
+pad 12 down
+wait 30
+pad 12 up
+wait 30
+expect mout 1
+expect pad_rgb12 3742336
+expect pad_rgb11 2098183
+pad 8 down
+wait 30
+pad 8 up
+wait 30
+expect mout 0
+expect p166 0
+pad 12 down
+wait 30
+pad 12 up
+wait 30
+expect mout 1
+key37 12 down 100
+wait 30
+expect_out USB 90 3C 64
+pad 12 down
+wait 700
+expect_out USB 80 3C 00
+expect_out USB B0 7B 00
+out
+pad 12 up
+key37 12 up
+wait 30
+expect_no_out USB 80 3C 00
+out
+# its ARP (card #169): an outer key and a middle one into it, stepped out; K7 RETURN (the computer's audio back)
+pad 12 down
+wait 30
+pad 12 up
+wait 30
+expect mout 1
+gopage 73
+wait 30
+turn K1 1
+wait 30
+expect md0 1
+key37 0 down 100
+key37 12 down 100
+wait 800
+expect marpn 2
+expect marpsteps >1
+key37 0 up
+key37 12 up
+wait 30
+spin ALGO -40
+wait 200
+expect moutret 60
+expect usb_play_gain 1474
+pad 12 down
+wait 700
+pad 12 up
+wait 30
+expect mdopen 0
+# the arpeggio for an instrument in a DAW (card #172), as the FM-1's (midiseq.txt): GATE 50 % at first, then MIDI ARP
+# II's GATE 20 % and SWING 66 % (the pairs 330 and 170 ms at 120 BPM), MIDI ARP III's VELOCITY 90
+setp 156 90
+key37 12 down 100
+wait 600
+expect marplen >118
+expect marplen <132
+gopage 75
+wait 30
+spin K3 -30
+spin K4 16
+wait 1100
+expect md15 20
+expect md17 16
+expect marplen >30
+expect marplen <70
+expect marpioihi >320
+expect marpioilo >159
+tap ARP
+wait 30
+expect page 79
+spin K1 90
+wait 30
+out
+wait 600
+expect_out USB 90 3C 5A
+key37 12 up
+pad 12 down
+wait 700
+pad 12 up
+wait 30
+expect mdopen 0
+# RETURN on MIXER (card #172), the DRONE selected: its fifth fader while the computer's audio comes back, K7 turning it
+# (as on MIDI), the faders the tracks' still
+tap KBANK
+wait 30
+expect mout 0
+gopage 42
+wait 30
+expect mixret 0
+usbplay 3000
+wait 30
+expect mixret 1
+spin ALGO 20
+wait 200
+expect moutret 80
+fader 3 64
+wait 30
+expect moutret 80
+usbplay off
+wait 2100
+expect mixret 0

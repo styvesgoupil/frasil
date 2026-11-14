@@ -45,7 +45,7 @@
 extern "C" {
 #endif
 
-#define FRS_VERSION "3.3"           /* the FRASIL this engine is (VERSION's: engine/tests/run.sh checks them alike) */
+#define FRS_VERSION "3.3.1"           /* the FRASIL this engine is (VERSION's: engine/tests/run.sh checks them alike) */
 #define FRS_BLOCK 256u                   /* frames the engine renders at a time (frs_render takes any count) */
 #define FRS_SCENE_BYTES 619u             /* a scene, a shard ("FRS}": its name's characters 17 .. 32, the LFOs' AMOUNTs and
                                           * SWELL last; the same bytes in "FRS|", 3.0.2-b5's test builds', its AMOUNTs as

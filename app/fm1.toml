@@ -26,3 +26,11 @@ tags = ["synth", "ambient", "chords"]
 install = "https://thefirmwarehub.com/#fw-frasil"
 site = "https://frasilsynth.com"
 screenshot = "docs/img/screen-play.png"
+# the SMK-37's builds (FM1B_BOARD=smk37 FM1B_MODEL=elite | pro | mke, card #111): KEY_smk37 is KEY there, never on the
+# FM-1. Its three models are one keyboard, each package under its own model's identity
+id_prefix_smk37 = "FM-1_4"     # its identity: "SMK-37 Elite_" leaves 7 of the 20 characters: dev SMK-37 Elite_400,
+                               # releases SMK-37 Elite_4XXYYZZ (3.3.1: SMK-37 Elite_4030301), SMK-37 Pro_4XXYYZZ,
+                               # MKE-P37_4XXYYZZ
+pool_spare_smk37 = 8032        # its pool's spare: the pads' LED frame (636 B) is the SMK's, 160 B under fm1-base's 8192
+install_smk37 = "https://frasilsynth.com/guide/install/?device=smk37"   # back up first, then install (no Hub installer)
+screenshot_smk37 = "app/docs/img/smk37/screen-play.png"

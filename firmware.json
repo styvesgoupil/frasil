@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "id": "frasil",
+  "name": "FRASIL",
+  "author": "Styves Goupil",
+  "license": "MPL-2.0",
+  "tagline": "drone textures frozen in motion",
+  "description": "An ambient drone instrument: tap a key to latch a drone, a note or a chord in your key. Three layers a voice into a big reverb with shimmer and freeze; GLINT's icy FM bells on top, by hand, arpeggio or sequence; BASS a deep line below, held or sequenced; three LFOs keep it all moving.",
+  "tags": ["synth", "ambient", "chords"],
+  "install": "https://thefirmwarehub.com/#fw-frasil",
+  "site": "https://frasilsynth.com",
+  "source": "https://github.com/styvesgoupil/frasil",
+  "screenshot": "docs/img/screen-play.png",
+  "hardware": {
+    "models": ["FM-1"],
+    "flash": ["856014", "B36014"],
+    "features": ["usb-audio-in", "usb-audio-out", "velocity", "pressure", "screen-reader", "backup"]
+  },
+  "credits": "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments)."
+}

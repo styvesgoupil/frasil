@@ -29,11 +29,11 @@ a stale submodule (git submodule update --init base), or commit the pointer; FRA
     fi
 fi
 # every build carries the version in VERSION (its identity FM-1_47XXYYZZ, its number on the logo's screen), unless
-# --release names another
+# --release names another; an SMK-37 build (FM1B_BOARD=smk37 FM1B_MODEL=elite | pro | mke, card #111) too: SMK-37
+# Elite_4XXYYZZ, SMK-37 Pro_4XXYYZZ, MKE-P37_4XXYYZZ (app/fm1.toml id_prefix_smk37), app/build/frasil-smk37-elite-
+# X.Y[.Z].fwsc, frasil-smk37-X.Y[.Z].fwsc (fm1-base's name for the Pro's: tools/release.sh names it -pro), frasil-
+# smk37-mke-X.Y[.Z].fwsc
 V="$(tr -d ' \n' < VERSION 2>/dev/null || true)"
-# an SMK-37 build (FM1B_BOARD=smk37 FM1B_MODEL=elite, card #111) is a dev build: its model's identity ("SMK-37 Elite_",
-# 13 characters) leaves no room for FRASIL's 47 and a version within 20: SMK-37 Elite_4700, until an SMK-37 release
-[ "${FM1B_BOARD:-}" = smk37 ] && V=""
 case " $* " in
 *" --release "*) ;;
 *) [ -n "$V" ] && set -- --release "$V" "$@" ;;

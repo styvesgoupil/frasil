@@ -1,5 +1,35 @@
 # Changelog
 
+## 3.3.1 (2026-11-13)
+
+**New**
+
+- **MIDI OUT**: FRASIL now has a fifth track, MIDI. Its keys play the instruments in your DAW over USB, while FRASIL keeps playing underneath. Your drones and a Logic or Ableton synth, together, from one FM-1.
+- **How it works**: turn SELECT one step past LEAD to MIDI (the header turns violet). On the SMK-37: KNOB BANK, or pad 13. The MIDI track makes no sound of its own. It sends notes to your computer over USB.
+- **Velocity and pressure**: real velocity, with four curves: SOFT, NORMAL, HARD, FIXED. Pressure as aftertouch: off, channel, or per key.
+- **The MIDI OUT page**: EDIT opens it: channel, octave, velocity, pressure. It shows the keys you hold, the last note sent, and whether a computer is listening. Notes never hang, even if you change channel or track while holding a key.
+- **Arpeggiator and sequencer**: MIDI gets its own. Their notes go to your DAW, in time with FRASIL.
+- **The arpeggio, for your DAW**: MIDI ARP II adds GATE (5 to 100 %, or LEGATO) and SWING (OFF, 51 to 75 %). MIDI ARP III sets VELOCITY: as played, or fixed from 1 to 127.
+- **MIDI clock out**: optional, so your DAW can follow FRASIL's tempo.
+- **Your DAW's sound, back in FRASIL**: if your DAW sends its audio back to the FM-1 over USB, MIXER shows a fifth fader, RETURN, for its volume. Turn it with ALGORITHM, or K7 on the SMK-37. With nothing coming back, MIXER keeps its four faders.
+- **On the SMK-37**: the pitch wheel, mod wheel and sustain pedal go out too, and its MIDI OUT socket carries the same notes.
+- **Guide**: a new MIDI OUT chapter, with step-by-step setup for Logic Pro and Ableton Live.
+- **SMK-37 Elite**: FRASIL now runs on the M-VAVE SMK-37 Elite. It gets everything in FRASIL 3.3: the drones, GLINT, BASS, LEAD, the sequencers, the cloud, scenes and presets.
+- **The SMK-37's panel**: every screen uses the names printed on its panel. Its 37 keys play the notes, with velocity. Faders 1 to 4 set the DRONE, BASS, GLINT and LEAD levels, and K8 is the master volume. The mod wheel moves the selected track's sound; the pitch wheel bends the LEAD.
+- **Pads**: 12 of the 16 pads work as buttons. They pick a track, open the LFOs, and answer OK or CANCEL.
+- **Guides**: the online guide, the cheat sheet and the four books now come in an SMK-37 version. Choose SMK-37 at the top of a guide page.
+- **Back up first**: before the first install, back up your keyboard with the backup tool. Its calibration belongs to your keyboard alone, and no download can replace it. The install page on frasilsynth.com shows each step.
+- **Install**: then install your model's package from a terminal. The Firmware Hub's SMK-37 page will link to the steps.
+- **SMK-37 Pro and MKE-P37**: the same keyboard as the Elite. Their packages are included, but not tested yet. Tell us if they work.
+
+**Fixes and changes**
+
+- **FM-1 owners**: update to get MIDI OUT.
+- **MIXER**: more room at the bottom of the page.
+- **Backups**: a 3.3.1 backup holds MIDI's sequences and doesn't restore on 3.3 or earlier.
+- Fixed: no sound in some FM-1 emulators (Harbor, fm1-emu's apps, RemoteFM1).
+- **RemoteFM1**: the release now includes FRASIL as an .rfm1 file, for apps that run FRASIL on a computer or a phone.
+
 ## 3.3 (2026-11-11)
 
 **New**

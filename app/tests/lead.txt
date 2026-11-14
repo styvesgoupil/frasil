@@ -10,7 +10,8 @@
 master 3000
 keysstay 1
 wait 300
-# SELECT: DRONE, GLINT, BASS, then the LEAD (its pages: LEAD I 63; the header its rose)
+# SELECT: DRONE, GLINT, BASS, then the LEAD (its pages: LEAD I 63; the header its rose); one more MIDI (card #164), and
+# back
 expect p166 0
 turn SELECT 3
 wait 30
@@ -18,6 +19,11 @@ expect p166 3
 expect lead 1
 turn SELECT 1
 wait 30
+expect p166 3
+expect mout 1
+turn SELECT -1
+wait 30
+expect mout 0
 expect p166 3
 # MOSS at the start: PRESET 0, MONO, the first LEAD's sound
 expect p260 0

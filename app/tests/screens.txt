@@ -446,6 +446,7 @@ tap GLO
 tap GLO
 tap GLO
 tap GLO
+tap GLO
 wait 30
 expect page 40
 turn K1 7
@@ -1035,4 +1036,127 @@ gopage 32
 wait 300
 shot screen-cloud-iii.png
 gopage 0
+wait 300
+# MIDI (card #164): a chord on the DRONE, then SELECT one past LEAD: the header violet, the drones on under it, TRACK
+# MIDI, CHANNEL 1, RETURN 100 %; MIDI OUT (EDIT), three keys held, pressed in more and less; its ARP (card #169), a chord
+# latched, stepping; its SEQ II, four steps written on STEP, playing; C turned: RETURN large; GLO's MIDI II, CLOCK OUT;
+# the DRONE again. Last (card #172, the shots before as they were): MIXER while the computer's audio comes back, RETURN
+# its fifth fader; MIDI ARP II, a chord latched, GATE 30 %, SWING 58 %
+battery -1
+gopage 0
+tapkey 9 90
+wait 300
+turn SELECT 4
+wait 1500
+shot screen-midi.png
+gopage 71
+key 7 down 112 75
+key 11 down 86 35
+key 14 down 64 5
+wait 700
+shot screen-midi-out.png
+key 7 up
+key 11 up
+key 14 up
+wait 300
+gopage 73
+wait 30
+turn K1 1
+wait 30
+key 7 down 100
+key 11 down 100
+key 14 down 100
+key 16 down 100
+wait 100
+key 7 up
+key 11 up
+key 14 up
+key 16 up
+wait 900
+shot screen-midi-arp.png
+turn K1 -1
+wait 300
+gopage 74
+wait 30
+turn K1 1
+turn K2 -8
+wait 30
+tap REC
+tap REC
+wait 30
+tapkey 7 110
+tapkey 11 90
+tap SEQ
+wait 30
+tap SEQ
+tap SEQ
+wait 30
+tapkey 14 90
+tapkey 9 90
+tapkey 12 110
+tapkey 16 90
+tapkey 14 90
+tapkey 11 90
+tap REC
+wait 30
+tap PLAY
+wait 1650
+shot screen-midi-seq.png
+tap PLAY
+wait 300
+gopage 0
+wait 1500
+spin ALGO -28
+wait 120
+shot screen-midi-return.png
+spin ALGO 28
+wait 1500
+gopage 78
+wait 30
+turn K1 1
+wait 300
+shot screen-midi-clock.png
+turn K1 -1
+wait 30
+gopage 0
+turn SELECT -4
+wait 300
+usbplay 9000
+gopage 42
+wait 600
+shot screen-mixer-return.png
+usbplay off
+wait 2100
+gopage 0
+wait 300
+turn SELECT 4
+wait 30
+gopage 73
+wait 30
+turn K1 1
+wait 30
+key 7 down 100
+key 11 down 100
+key 14 down 100
+key 16 down 100
+wait 100
+key 7 up
+key 11 up
+key 14 up
+key 16 up
+wait 300
+tap ARP
+wait 30
+spin K3 -20
+spin K4 8
+wait 900
+shot screen-midi-arp-ii.png
+spin K3 20
+spin K4 -8
+gopage 73
+wait 30
+turn K1 -1
+wait 30
+gopage 0
+turn SELECT -4
 wait 300

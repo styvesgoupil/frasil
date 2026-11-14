@@ -1,0 +1,311 @@
+# MIDI, the fifth track (card #164): SELECT one past LEAD, its keys out over USB to a computer's instrument, FRASIL
+# playing on under it. A key's note on CHANNEL at its velocity through VELOCITY, its off as its on went (its note, its
+# channel: an octave, a channel or the track changed meanwhile); PRESSURE OFF, CHANNEL (the hardest key's), POLY (each
+# key's); nothing sounds here, nothing told to LIVE; its octave its own (the panel's OCT turns it while MIDI is
+# selected, FRASIL's back after); its page (EDIT: MIDI OUT, K1 .. K4), B and C its CHANNEL and OCTAVE; ENV, ARP, SEQ
+# NOT AVAILABLE; REC refused; its settings kept with the device's (settings_t.mout, HEADER's byte), never a scene's.
+# RETURN on MIXER (card #172): its fifth fader while the computer's audio comes back (usbplay).
+#   app/build/host/frasil_host app/tests/midiout.txt OUTDIR
+# settings: P_KB 166 (LEAD's 3 while MIDI is selected), RECORD's GLINT 163, BASS 175, DRONE 203; pages: MIDI OUT 71,
+# its ENV 72, ARP 73, SEQ 74; LEAD SEQ 68
+master 3000
+keysstay 1
+wait 300
+listen
+expect mout 0
+expect octfrasil -1
+# SELECT: DRONE, GLINT, BASS, LEAD, then MIDI (the engine's P_KB on LEAD's); one more stays there
+turn SELECT 4
+wait 30
+expect mout 1
+expect p166 3
+wait 300
+said TRACK MIDI
+turn SELECT 1
+wait 30
+expect mout 1
+# its octave its own: 0 (the keys F3 .. G5), FRASIL's -1 kept
+expect octave 0
+expect octfrasil -1
+expect moutoct 0
+# a key: its note on channel 1 at its velocity (NORMAL: as played), its off; nothing sounds here
+key 7 down 100
+wait 30
+expect_out USB 90 3C 64
+expect voices 0
+expect leadgate 0
+expect mouthelt 128
+key 7 up
+wait 30
+expect_out USB 80 3C 00
+expect mouthelt 0
+out
+# PRESSURE CHANNEL (the default): the key's pressure as channel pressure, back to 0 as it eases
+key 7 down 100 70
+wait 400
+expect_out USB 90 3C 64
+expect moutcp >60
+key 7 down 100 0
+wait 800
+expect moutcp 0
+expect_out USB D0 00 00
+key 7 up
+wait 30
+out
+# EDIT: MIDI OUT, its four
+tap EDIT
+wait 30
+expect page 71
+# PRESSURE POLY: each key's own (A0), two keys at once
+turn K4 1
+wait 30
+expect moutprs 2
+key 7 down 100 80
+key 9 down 90 30
+wait 400
+expect_out USB 90 3C 64
+expect_out USB 90 3E 5A
+expect moutkp7 >70
+expect moutkp9 >20
+expect moutkp9 <50
+expect moutcp 0
+key 7 up
+key 9 up
+wait 30
+expect_out USB 80 3C 00
+expect_out USB 80 3E 00
+out
+# PRESSURE OFF: none
+turn K4 -2
+wait 30
+expect moutprs 0
+key 7 down 100 80
+wait 400
+expect_out USB 90 3C 64
+expect moutkp7 0
+expect moutcp 0
+key 7 up
+wait 30
+out
+turn K4 1
+wait 30
+expect moutprs 1
+# VELOCITY: SOFT (more for a light touch), HARD (less), FIXED (100), NORMAL
+turn K3 -1
+wait 30
+expect moutvel 0
+tapkey 7 100
+wait 30
+expect_out USB 90 3C 71
+turn K3 2
+wait 30
+expect moutvel 2
+tapkey 7 100
+wait 30
+expect_out USB 90 3C 4F
+turn K3 1
+wait 30
+expect moutvel 3
+tapkey 7 20
+wait 30
+expect_out USB 90 3C 64
+turn K3 -2
+wait 30
+expect moutvel 1
+out
+# CHANNEL: K1; a note held keeps its channel for its off
+key 7 down 100
+wait 30
+expect_out USB 90 3C 64
+turn K1 2
+wait 30
+expect moutch 3
+key 7 up
+wait 30
+expect_out USB 80 3C 00
+tapkey 9 100
+wait 30
+expect_out USB 92 3E 64
+expect_out USB 82 3E 00
+out
+# OCTAVE: K2, and OCT+ while MIDI is selected (the same); a note held keeps its own for its off
+turn K2 1
+wait 30
+expect moutoct 1
+expect octave 1
+key 7 down 100
+wait 30
+expect_out USB 92 48 64
+tap OCT+
+wait 30
+expect moutoct 2
+key 7 up
+wait 30
+expect_out USB 82 48 00
+tap OCT-
+wait 30
+expect moutoct 1
+out
+# B and C, the hands: CHANNEL and RETURN (card #169: the computer's audio back over USB, 0 .. 100 %, its level the
+# square of it, gliding there) from anywhere, large a moment (the footer's MIDI, its two); the octave on OCT alone
+turn PRESET 2
+wait 30
+expect moutch 5
+turn PRESET -2
+wait 30
+expect moutch 3
+expect moutret 100
+expect usb_play_gain 4096
+spin ALGO -50
+wait 200
+expect moutret 50
+expect usb_play_gain 1024
+spin ALGO 50
+wait 200
+expect moutret 100
+expect usb_play_gain 4096
+expect moutoct 1
+# ENV: NOT AVAILABLE FOR MIDI; ARP and SEQ its own (card #169, midiseq.txt); REC off this page: its pages first
+tap ENV
+wait 30
+expect page 72
+tap ARP
+wait 30
+expect page 73
+tap SEQ
+wait 30
+expect page 74
+expect p163 0
+expect p175 0
+expect p203 0
+# a key held from MIDI to LEAD: its off still MIDI's; LEAD's keys LEAD's again, FRASIL's octave back
+key 7 down 100
+wait 30
+expect_out USB 92 48 64
+turn SELECT -1
+wait 30
+expect mout 0
+expect p166 3
+expect octave -1
+expect page 68
+key 7 up
+wait 30
+expect_out USB 82 48 00
+key 7 down 100
+wait 30
+expect_no_out USB 92 3C 64
+expect leadgate 1
+key 7 up
+wait 30
+out
+# back on MIDI: its octave as it was left
+turn SELECT 1
+wait 30
+expect mout 1
+expect moutoct 1
+expect page 74
+# EDIT held, a black key: MIDI's one page
+press EDIT
+tapkey 1
+release EDIT
+wait 30
+expect page 71
+# LIVE (a PERFORM page listening): MIDI's keys never told
+pfhello 2
+wait 50
+tapkey 5
+key 7 down 100 60
+wait 300
+key 7 up
+wait 30
+pfnone
+pfbye
+out
+# kept with the device's settings (once nothing sounds): CHANNEL 3, OCTAVE +1, VELOCITY NORMAL, PRESSURE CHANNEL
+# (moutbyte 2: channel 3, 0 CHANNEL, 0 NORMAL; HEADER's byte: INVERT, +1 in bits 1 .. 3); a power-on: DRONE, FRASIL's
+# octave, MIDI's as kept
+turn SELECT -4
+wait 30
+expect mout 0
+expect p166 0
+wait 1500
+expect moutbyte 2
+expect headbyte 2
+reboot
+wait 300
+expect mout 0
+expect p166 0
+expect moutch 3
+expect moutoct 1
+expect moutvel 1
+expect moutprs 1
+expect octave -1
+turn SELECT 4
+wait 30
+expect octave 1
+tapkey 7 100
+wait 30
+expect_out USB 92 48 64
+# RETURN on MIXER (card #172), the DRONE selected: four faders while nothing comes back (ALGORITHM the drone's then),
+# a silent stream too; the fifth, RETURN, from the computer's first sound, ALGORITHM turning it (OCT- held too: no PAN of
+# its own), its meter the stream's; a silence and a gap under two seconds keep it; gone two seconds after the stream
+turn SELECT -4
+wait 30
+expect mout 0
+gopage 42
+wait 30
+expect mixret 0
+spin ALGO -3
+wait 30
+expect moutret 100
+usbplay 0
+wait 500
+expect mixret 0
+expect mixretlvl 0
+usbplay 3000
+wait 30
+expect mixret 1
+expect mixretlvl >5
+spin ALGO -20
+wait 200
+expect moutret 80
+expect usb_play_gain 2621
+said RETURN 80
+press OCT-
+spin ALGO 10
+release OCT-
+wait 30
+expect moutret 90
+usbplay 0
+wait 3000
+expect mixret 1
+usbplay off
+wait 1500
+expect mixret 1
+usbplay 0
+wait 500
+expect mixret 1
+usbplay off
+wait 1950
+expect mixret 1
+wait 100
+expect mixret 0
+expect mixretlvl 0
+spin ALGO 5
+wait 30
+expect moutret 90
+# MIDI selected, on MIXER: C RETURN all the same
+usbplay 3000
+wait 30
+expect mixret 1
+turn SELECT 4
+wait 30
+expect mout 1
+gopage 42
+wait 30
+spin ALGO 10
+wait 30
+expect moutret 100
+usbplay off
+wait 2100
+expect mixret 0

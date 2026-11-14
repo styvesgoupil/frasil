@@ -19,14 +19,15 @@ key you chose. Pressing harder makes it swell. The timbre drifts and ebbs on its
 change. Everything flows into a large, lush reverb with shimmer and freeze. Above the drones you can play GLINT, small
 icy FM bells, by hand, through an arpeggiator or a 32-step sequencer. Under them, BASS holds one deep note, or plays
 its own arpeggio or a line of up to 32 steps. The drone has a sequence of its own too: its chords, a step at a time.
-Over them all, LEAD plays your melodies: its keys sound only while you hold them.
+Over them all, LEAD plays your melodies: its keys sound only while you hold them. One step past it, MIDI sends the
+keys to an instrument on your computer, the drones playing on under it.
 All of them follow MIDI clock. Chance comes in only where you let it (CHANCE skips steps, RANDOM and DRIFT pick an
 arpeggio's order, SPARKLE lets glints fall on the notes your drones hold).
 
 FRASIL is designed as one voice in a larger setup. It takes MIDI notes, pressure, CCs and clock over USB and TRS.
 
-> **FRASIL 3.3.** Install at your own risk: the installer can always put M-VAVE's firmware back. FRASIL is not
-> affiliated with M-VAVE.
+> **FRASIL 3.3.1**, for the FM-1 and, new, the M-VAVE SMK-37 Elite. Install at your own risk: the installer can always
+> put M-VAVE's firmware back. FRASIL is not affiliated with M-VAVE.
 
 ## Install
 
@@ -35,9 +36,14 @@ FRASIL is designed as one voice in a larger setup. It takes MIDI notes, pressure
   then run `python3 base/tools/fm1_install.py frasil-X.Y.fwsc` from a checkout of this repository.
 - **Back to the official firmware:** install M-VAVE's V15 from the hub. If the FM-1 no longer starts, hold OCT−
   while you switch it on: it waits for an update over USB.
+- **On the SMK-37:** back the keyboard up first (`tools/smk37_backup.py`: its calibration is its own), then install
+  its model's package from a terminal: `frasil-smk37-elite-X.Y.Z.fwsc` for the Elite, `frasil-smk37-pro-X.Y.Z.fwsc`
+  for the Pro, `frasil-smk37-mke-X.Y.Z.fwsc` for the MKE-P37. The Pro's and the MKE-P37's are not tested yet: tell us
+  if they work. The steps: [docs/SMK37.md](docs/SMK37.md).
 
-Package identity: `FM-1_47XXYYZZ`, its version in it: 1.0 is `FM-1_47010000`, 2.0 `FM-1_47020000`. The version is in
-`VERSION`.
+Package identity: `FM-1_47XXYYZZ`, its version in it: 1.0 is `FM-1_47010000`, 2.0 `FM-1_47020000`; on the SMK-37
+its model's, `SMK-37 Elite_4XXYYZZ`, `SMK-37 Pro_4XXYYZZ`, `MKE-P37_4XXYYZZ` (3.3.1: `SMK-37 Elite_4030301`). The
+version is in `VERSION`.
 
 ### Where your scenes are kept
 
@@ -121,6 +127,11 @@ per scene.
 **LEAD** plays over everything: a warm voice for melodies. Its keys sound only while held, one note at a time with GLIDE
 (MONO) or chords (POLY). It has its own filter envelope and delay, no arpeggio and no sequence.
 
+**MIDI**, one step past LEAD, sounds nothing here: its keys go out over USB to an instrument on your computer (a DAW's),
+with their velocity and pressure, on CHANNEL 1–16 and an OCTAVE of their own (EDIT: MIDI OUT; B its CHANNEL), its own
+ARP and SEQ (GLINT's, recorded LIVE or STEP), MIDI clock out (GLO › MIDI II), while the four tracks play on; C sets
+RETURN, the level of the computer's sound coming back over USB.
+
 **DRONE SEQ**: the drone's own sequence, up to 32 steps, each the notes it plays there (up to eight: a chord and
 notes over it), a rest or a tie, on its own RATE (1 BAR at first). Recorded live or step by step with REC, one per
 scene. PLAY starts and stops the three sequences together.
@@ -134,7 +145,7 @@ low-pass.
 | Control | What it does |
 | --- | --- |
 | **Keys** | tap: light a drone (it rises slowly and stays). Tap it again: it fades. Tap another: it takes its place, or joins it with KEYS' STACK ON. Hold and press: it swells and opens |
-| **SELECT** (A) | TRACK: DRONE, GLINT, BASS or LEAD. The keys play it, the header takes its colour, and EDIT, ENV, ARP, SEQ and REC act on it; on their pages, the page follows. Hold OCT− and turn it: the track changes, the page stays. Hold a page button and turn SELECT: that button's pages |
+| **SELECT** (A) | TRACK: DRONE, GLINT, BASS, LEAD or MIDI (the keys to your computer). The keys play it, the header takes its colour, and EDIT, ENV, ARP, SEQ and REC act on it; on their pages, the page follows. Hold OCT− and turn it: the track changes, the page stays. Hold a page button and turn SELECT: that button's pages |
 | **PRESETS** (B) | the track's preset, on every page, in a grid of the names: the drone's (CUSTOM, the 36, yours), GLINT's, the bass's MODEL. Heard as you stop on one; SEL keeps it, FX goes back. Hold OCT− and turn it: picked unheard, taken when you let go |
 | **ALGORITHM** (C) | the track's brightness, on every page: the drone's TIMBRE, GLINT's BRIGHT, the bass's and the LEAD's FILTER. Hold GLO and turn it: MASTER FILTER's CUTOFF |
 | **K1–K4** | the four settings of the page on screen |
@@ -157,7 +168,7 @@ On screen, each setting wears the badge of its control: a blue disc 1–4 for K1
 three left encoders. On the play page, each layer of the drone shows in the river: the current is CHOIR, the crystals
 PARTIALS, the mist BREATH; the bass is a slow swell of lamp light across the river, the water darker under it. The
 four strata below the waterline show the exact mix, WARMTH with it. The header is the selected track's: the whole
-band in its colour, DRONE white, GLINT ice blue, BASS orange, LEAD rose, the page's name and the track's written on
+band in its colour, DRONE white, GLINT ice blue, BASS orange, LEAD rose, MIDI violet, the page's name and the track's written on
 it; on the play page it names the scene, with a dot once the sound has changed. Dots under each page's title say where
 it is among its button's pages. On the bottom row, a thin CPU line shows the processor's load: grey, yellow from 85 %,
 red from 92 %.
@@ -213,6 +224,9 @@ on them (they go into the track's arpeggiator or sequence while one is on); the 
 Polyphonic aftertouch swells a note; channel pressure swells the whole track. The sound's CCs come in on the drones'
 channel; 123 releases the notes of the track whose channel it comes on, 120 (All Sound Off), on any channel, everything. Program Change 0–15 on the drones'
 channel loads scenes 1–16.
+
+MIDI out: select MIDI (one step past LEAD) and the keys send notes, velocity and pressure (CHANNEL or POLY
+aftertouch) over USB, on MIDI OUT's CHANNEL. FRASIL's sound goes on over USB audio beside them.
 
 | CC | | CC | |
 | --- | --- | --- | --- |

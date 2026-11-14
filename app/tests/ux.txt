@@ -99,10 +99,12 @@ expect page 17
 turn SELECT 3
 wait 30
 expect p166 3
-# (the LEAD the last, card #144: back to BASS)
-turn SELECT -1
+expect mout 1
+# (MIDI the last, card #164, the LEAD's before it, card #144: back to BASS)
+turn SELECT -2
 wait 30
 expect p166 2
+expect mout 0
 # ENV, the same place on each
 tap ENV
 wait 30
@@ -566,6 +568,7 @@ wait 30
 expect page 37
 # (GLOBAL's K4: ARP SNAP, 225)
 expect knob4 225
+tap GLO
 tap GLO
 tap GLO
 tap GLO

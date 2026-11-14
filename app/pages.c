@@ -28,7 +28,19 @@ enum { PG_SON, PG_DRONE, PG_CHOEUR, PG_CHOEUR2, PG_CHOEUR3, PG_PARTIELS, PG_PART
        PG_LEAD3,                         /* EDIT's LEAD III (MODE, DETUNE, BREATH, DRIVE), after LEAD II */
        PG_LFENV,                         /* ENV's LEAD FILTER: FILTER ENV's own ADSR, after LEAD ADSR (admin #619) */
 #endif
+#if FRS_MIDI_OUT
+       PG_MOUT,                          /* MIDI's (card #164): EDIT's MIDI OUT; ENV's NOT AVAILABLE FOR MIDI; its ARP and */
+       PG_MNOENV, PG_MARP, PG_MSEQ,      /* SEQ (card #169: app/mseq.c), as GLINT's, their second and third pages last, */
+       PG_MARP2, PG_MSEQ2, PG_MSEQ3,     /* then GLO's MIDI II (CLOCK OUT). The FM-1's own: past the River's */
+       PG_MIDI2,                         /* (NPAGES_RIVER: the schema's) */
+       PG_MARP3,                         /* MIDI ARP III (card #172): VELOCITY, after MIDI ARP II */
+#endif
        NPAGES };
+#if FRS_MIDI_OUT
+#define NPAGES_RIVER PG_MOUT             /* the pages the schema tells (app.c schema_write): MIDI's are the FM-1's alone */
+#else
+#define NPAGES_RIVER NPAGES
+#endif
 #define T_ANY (3u + FRS_LEAD)            /* (LEAD the fourth track, 3, with FRS_LEAD) */
 #define K_ARP (NPARAM + 1u)              /* K1 of ARP and SEQ: ON, OFF, over the track's PLAYS (app.c ways_turn) */
 #define K_SEQ (NPARAM + 2u)
@@ -38,6 +50,18 @@ enum { PG_SON, PG_DRONE, PG_CHOEUR, PG_CHOEUR2, PG_CHOEUR3, PG_PARTIELS, PG_PART
                                           * either: settings_t.head) */
 #define K_TUNE (NPARAM + 5u)             /* RECORD's K3, TUNE A4: 415 .. 466 Hz (app.c a4; the device's, no setting in the
                                           * schema: settings_t.a4) */
+#if FRS_MIDI_OUT
+#define T_MIDI (T_ANY + 1u)              /* MIDI, the fifth track (card #164): SELECT one past LEAD, the app's alone (app.c
+                                          * mout: the engine's P_KB stays on LEAD's, nothing of it in the schema) */
+#define K_MO_CH (NPARAM + 6u)            /* MIDI OUT's K1 .. K4: CHANNEL 1 .. 16, OCTAVE, VELOCITY, PRESSURE (app.c mout; */
+#define K_MO_OCT (NPARAM + 7u)           /* the device's, as TUNE A4: settings_t.mout and HEADER's byte, mout_byte) */
+#define K_MO_VEL (NPARAM + 8u)
+#define K_MO_PRS (NPARAM + 9u)
+#define K_MO_RET (NPARAM + 10u)          /* C on MIDI: RETURN, the computer's audio back over USB (card #169: mout.ret) */
+#define K_CLKOUT (NPARAM + 11u)          /* GLO › MIDI II's K1, CLOCK OUT (card #169: mout.clk) */
+#define K_MD0 (NPARAM + 12u)             /* MIDI's ARP and SEQ, each a GLINT setting's (app/mseq.c md: K_MD0 + MD_*); the */
+#define K_MDN (K_MD0 + 18u)              /* arpeggio's own last, 15 .. 17 (card #172); (past the last) */
+#endif
 #if FRS_LEAD
 typedef uint16_t prm_t;                  /* a setting's number on a page, the one turned last: past 255 with LEAD's (card #144) */
 #else
@@ -139,36 +163,65 @@ static const page_t PAGES[NPAGES] = {
     [PG_LNOARP] = {"LEAD ARP", B_ARP, 3, {NPARAM, NPARAM, NPARAM, NPARAM}},   /* NOT AVAILABLE FOR LEAD */
     [PG_LNOSEQ] = {"LEAD SEQ", B_SEQ, 3, {NPARAM, NPARAM, NPARAM, NPARAM}},
 #endif
+#if FRS_MIDI_OUT
+    [PG_MOUT] = {"MIDI OUT", B_EDIT, T_MIDI, {K_MO_CH, K_MO_OCT, K_MO_VEL, K_MO_PRS}},   /* (ui.c mout_scope) */
+    [PG_MNOENV] = {"MIDI ENV", B_ENV, T_MIDI, {NPARAM, NPARAM, NPARAM, NPARAM}},   /* NOT AVAILABLE FOR MIDI */
+    [PG_MARP] = {"MIDI ARP", B_ARP, T_MIDI, {K_ARP, K_MD0 + 1u, K_MD0 + 2u, K_MD0 + 3u}},   /* MODE, RATE, RANGE */
+    [PG_MARP2] = {"MIDI ARP II", B_ARP, T_MIDI, {K_MD0 + 4u, K_MD0 + 5u, K_MD0 + 15u, K_MD0 + 17u}},   /* CHANCE, LATCH,
+                                                                                        * GATE, SWING (card #172) */
+    [PG_MARP3] = {"MIDI ARP III", B_ARP, T_MIDI, {K_MD0 + 16u, NPARAM, NPARAM, NPARAM}},   /* VELOCITY */
+    [PG_MSEQ] = {"MIDI SEQ", B_SEQ, T_MIDI, {K_SEQ, K_MD0 + 6u, K_MD0 + 2u, K_MD0 + 7u}},    /* SEQ LENGTH, RATE, GATE */
+    [PG_MSEQ2] = {"MIDI SEQ II", B_SEQ, T_MIDI, {K_MD0 + 9u, K_MD0 + 10u, K_MD0 + 11u, K_MD0 + 12u}},   /* STEP, NOTE,
+                                                                                        * LENGTH, ACCENT */
+    [PG_MSEQ3] = {"MIDI SEQ III", B_SEQ, T_MIDI, {K_MD0 + 4u, K_MD0 + 8u, K_MD0 + 13u, NPARAM}},   /* CHANCE,
+                                                                                        * TRANSPOSE, UNDO TAKE */
+    [PG_MIDI2] = {"MIDI II", B_GLO, T_ANY, {K_CLKOUT, NPARAM, NPARAM, NPARAM}},
+#endif
 };
+#if FRS_MIDI_OUT
+_Static_assert(K_MDN <= (prm_t)-1, "the pages' own knobs, past the settings, fit a page's bytes");
+#else
 _Static_assert(K_TUNE <= (prm_t)-1, "the pages' own knobs, past the settings, fit a page's bytes");
+#endif
 #if FRS_LEAD
 #define LD_(...) , __VA_ARGS__              /* (LEAD's pages in the lists below) */
 #else
 #define LD_(...)
 #endif
+#if FRS_MIDI_OUT
+#define MD_(...) , __VA_ARGS__              /* (MIDI's) */
+#else
+#define MD_(...)
+#endif
 /* the order a button's taps go through its pages, and SELECT with the button held */
 static const uint8_t PAGE_ORDER[NPAGES] = {
     PG_SON, PG_KEYS, PG_MIXER, PG_CSEND,
     PG_DRONE, PG_MOUVEMENT, PG_CHOEUR, PG_CHOEUR2, PG_CHOEUR3, PG_PARTIELS, PG_PARTIELS2, PG_SOUFFLE, PG_SOUFFLE2,
-    PG_GLINT, PG_GLINT2, PG_GDELAY, PG_BASS, PG_BASS2, PG_BDRIVE LD_(PG_LEAD, PG_LEAD2, PG_LEAD3, PG_LDELAY),
-    PG_FORME, PG_GLINT3, PG_BASS3 LD_(PG_LADSR, PG_LFENV),
-    PG_NOARP, PG_ARP, PG_ARP2, PG_BARP, PG_BARP2 LD_(PG_LNOARP),
-    PG_DSEQ, PG_DSEQ2, PG_DSEQ3, PG_SEQ, PG_SEQ2, PG_SEQ3, PG_BSEQ, PG_BSEQ2, PG_BSEQ3 LD_(PG_LNOSEQ),
+    PG_GLINT, PG_GLINT2, PG_GDELAY, PG_BASS, PG_BASS2, PG_BDRIVE LD_(PG_LEAD, PG_LEAD2, PG_LEAD3, PG_LDELAY) MD_(PG_MOUT),
+    PG_FORME, PG_GLINT3, PG_BASS3 LD_(PG_LADSR, PG_LFENV) MD_(PG_MNOENV),
+    PG_NOARP, PG_ARP, PG_ARP2, PG_BARP, PG_BARP2 LD_(PG_LNOARP) MD_(PG_MARP, PG_MARP2, PG_MARP3),
+    PG_DSEQ, PG_DSEQ2, PG_DSEQ3, PG_SEQ, PG_SEQ2, PG_SEQ3, PG_BSEQ, PG_BSEQ2, PG_BSEQ3 LD_(PG_LNOSEQ)
+    MD_(PG_MSEQ, PG_MSEQ2, PG_MSEQ3),
     PG_LFO1, PG_LFO1T, PG_LFO2, PG_LFO2T, PG_LFO3, PG_LFO3T,
     PG_HARMONY,
     PG_GENFX, PG_NUAGE, PG_NUAGE2, PG_NUAGE3, PG_FILTER, PG_TAPE, PG_TAPE2, PG_PUMP, PG_PUMP2,
-    PG_GLOBAL, PG_GLOBAL2, PG_MASTER, PG_EQ, PG_EQ2, PG_ROUTING, PG_SCREEN, PG_RECORD,
+    PG_GLOBAL, PG_GLOBAL2 MD_(PG_MIDI2), PG_MASTER, PG_EQ, PG_EQ2, PG_ROUTING, PG_SCREEN, PG_RECORD,
     PG_SAVE, PG_SAVEAS, PG_SCENES,
 };
-/* SELECT turned on a track's page: the same place on the new track's (first if hidden) */
-static const uint8_t TRACK_PAGES[][3 + FRS_LEAD] = {
-    {PG_FORME, PG_GLINT3, PG_BASS3 LD_(PG_LADSR)},
+/* SELECT turned on a track's page: the same place on the new track's (first if hidden); a column a track, MIDI's the
+ * last (NTRK_COL: app.c track_page) */
+#define NTRK_COL (3u + FRS_LEAD + FRS_MIDI_OUT)
+static const uint8_t TRACK_PAGES[][NTRK_COL] = {
+    {PG_FORME, PG_GLINT3, PG_BASS3 LD_(PG_LADSR) MD_(PG_MNOENV)},
 #if FRS_LEAD
-    {PG_FORME, PG_GLINT3, PG_BASS3, PG_LFENV},   /* (LEAD FILTER left: the others' ENV page) */
+    {PG_FORME, PG_GLINT3, PG_BASS3, PG_LFENV MD_(PG_MNOENV)},   /* (LEAD FILTER left: the others' ENV page) */
 #endif
-    {PG_NOARP, PG_ARP, PG_BARP LD_(PG_LNOARP)},
-    {PG_NOARP, PG_ARP2, PG_BARP2 LD_(PG_LNOARP)},
-    {PG_DSEQ, PG_SEQ, PG_BSEQ LD_(PG_LNOSEQ)},
-    {PG_DSEQ2, PG_SEQ2, PG_BSEQ2 LD_(PG_LNOSEQ)},
-    {PG_DSEQ3, PG_SEQ3, PG_BSEQ3 LD_(PG_LNOSEQ)},
+    {PG_NOARP, PG_ARP, PG_BARP LD_(PG_LNOARP) MD_(PG_MARP)},
+    {PG_NOARP, PG_ARP2, PG_BARP2 LD_(PG_LNOARP) MD_(PG_MARP2)},
+#if FRS_MIDI_OUT
+    {PG_NOARP, PG_ARP2, PG_BARP2 LD_(PG_LNOARP), PG_MARP3},   /* (MIDI ARP III: the others' second) */
+#endif
+    {PG_DSEQ, PG_SEQ, PG_BSEQ LD_(PG_LNOSEQ) MD_(PG_MSEQ)},
+    {PG_DSEQ2, PG_SEQ2, PG_BSEQ2 LD_(PG_LNOSEQ) MD_(PG_MSEQ2)},
+    {PG_DSEQ3, PG_SEQ3, PG_BSEQ3 LD_(PG_LNOSEQ) MD_(PG_MSEQ3)},
 };

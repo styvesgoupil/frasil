@@ -1,0 +1,372 @@
+# MIDI's ARP and SEQ (card #169): GLINT's way, on FRASIL's grid, their notes out on MIDI's CHANNEL, nothing sounding
+# here; every note out ended (mdopen: those not ended), whatever stops it. The arpeggio: ON on its page, a chord held
+# stepped UP over two octaves, LATCH keeping it, LATCH off letting it go. The sequence: STEP's keys written at STEP and
+# on, played on RATE's steps with PLAY, each note ended at GATE's end; LIVE on the playhead; UNDO TAKE; CLEAR; kept with
+# the scene it is stored with (OBJ_MSEQ), none in another; RELEASE ALL and CUT stop it. CLOCK OUT (GLO › MIDI II): 24
+# clocks a beat, Start with PLAY, Stop. RETURN: C on MIDI (midiout.txt). The arpeggio for an instrument in a DAW (card
+# #172): GATE, SWING (MIDI ARP II), VELOCITY (MIDI ARP III), kept with the scene; 3.3.1's OBJ_MSEQ at their defaults.
+#   app/build/host/frasil_host app/tests/midiseq.txt OUTDIR
+# settings: TEMPO 156 (90: 120 BPM, a 1/8 step 250 ms); pages: MIDI ARP 73, MIDI SEQ 74, MIDI ARP II 75, MIDI SEQ II 76,
+# MIDI SEQ III 77, MIDI II 78, MIDI ARP III 79. md: 0 PLAYS, 1 MODE, 2 RATE, 3 RANGE, 4 CHANCE, 5 LATCH, 6 SEQ LENGTH,
+# 9 STEP, 14 RECORD, 15 GATE, 16 VELOCITY, 17 SWING (the arpeggio's, card #172)
+master 3000
+keysstay 1
+wait 300
+setp 156 90
+turn SELECT 4
+wait 30
+expect mout 1
+# VELOCITY FIXED (100: the bytes exact), CHANNEL 3
+tap EDIT
+wait 30
+expect page 71
+turn K3 2
+turn K1 2
+wait 30
+expect moutvel 3
+expect moutch 3
+# ARP ON: a chord held, UP over RANGE's two octaves, a step each 1/8 (250 ms), each note ended before the next
+tap ARP
+wait 30
+expect page 73
+turn K1 1
+wait 30
+expect md0 1
+out
+key 7 down 100
+key 11 down 100
+key 14 down 100
+wait 30
+expect_no_out USB 92 3C 64
+wait 1100
+expect_out USB 92 3C 64
+expect_out USB 82 3C 00
+expect_out USB 92 40 64
+expect_out USB 92 43 64
+expect_out USB 92 48 64
+expect marpsteps >3
+expect marpsteps <7
+expect voices 0
+out
+# LATCH (on at first): the keys let go, it goes on
+key 7 up
+key 11 up
+key 14 up
+wait 600
+expect marpn 3
+expect marpsteps >5
+# ARP II's LATCH off: nothing held any more, it stops, its last note ended
+tap ARP
+wait 30
+expect page 75
+turn K2 -1
+wait 400
+expect md5 0
+expect marpn 0
+expect mdopen 0
+out
+turn K2 1
+wait 30
+# SEQ ON (ARP off with it); REC: LIVE, again: STEP (its SEQ II), keys written at STEP and on
+tap SEQ
+wait 30
+expect page 74
+turn K1 1
+wait 30
+expect md0 2
+turn K2 -12
+wait 30
+expect md6 3
+tap REC
+wait 30
+expect md14 2
+expect page 76
+tap REC
+wait 30
+expect md14 1
+expect msqrun 0
+tapkey 7 100
+tapkey 9 100
+tapkey 11 100
+wait 30
+expect mseq0 188
+expect mseq1 190
+expect mseq2 192
+expect mseq3 0
+expect md9 3
+# STEP 4, the last: a key there (C5), round to the first
+tapkey 14 80
+wait 30
+expect mseq3 67
+expect md9 0
+tap REC
+wait 30
+expect md14 0
+out
+# PLAY: from the top, a step each 250 ms, each note ended at GATE's end (half the step at first)
+tap PLAY
+wait 20
+expect msqrun 1
+wait 1050
+expect_out USB 92 3C 64
+expect_out USB 82 3C 00
+expect_out USB 92 3E 64
+expect_out USB 92 40 64
+expect_out USB 92 43 64
+expect msqsteps >3
+expect msqsteps <6
+out
+# PLAY again: stopped, its note ended
+tap PLAY
+wait 30
+expect msqrun 0
+expect mdopen 0
+out
+# UNDO TAKE (SEQ III's K3, turned twice): the steps as STEP's take found them (none)
+tap SEQ
+wait 30
+expect page 77
+turn K3 1
+wait 30
+turn K3 1
+wait 30
+expect mseq0 0
+expect mseq3 0
+# LIVE: PLAY, then REC LIVE; a key on the playhead's step written there, held two steps
+tap PLAY
+wait 30
+expect msqrun 1
+tap REC
+wait 30
+expect md14 2
+expect page 76
+# SEQ II on LIVE is no step editor (GLINT's): K1 SEQ LENGTH, K2 RATE, K3 UNDO TAKE
+turn K1 1
+wait 30
+expect md6 4
+expect md9 0
+turn K1 -1
+wait 30
+expect md6 3
+wait 340
+key 11 down 100
+wait 480
+key 11 up
+wait 30
+expect mdopen 0
+tap REC
+tap REC
+wait 30
+expect md14 0
+expect mseqs >0
+# RELEASE ALL (PLAY held): stopped, nothing open
+press PLAY
+wait 700
+release PLAY
+wait 30
+expect msqrun 0
+expect mdopen 0
+# CLEAR (OCT- and REC on its SEQ pages): no step left; again: EMPTY
+gopage 74
+wait 30
+press OCT-
+tap REC
+release OCT-
+wait 30
+expect mseqs 0
+# the scene keeps its MIDI: slot 16 (empty: none: from SEQ II, back on MIDI SEQ, SEQ II waiting for SEQUENCE), its
+# sequence written, STORE (SAVE held, REC); a power-on: back; slot 1 (a factory scene): none; slot 16 again: back
+gopage 76
+wait 30
+press SAVE
+tapkey w15
+release SAVE
+wait 100
+expect scene 15
+expect mout 1
+expect mseqs 0
+expect md0 0
+expect page 74
+# the SAVE flow left (FX): back on MIDI's page, MIDI still selected
+tap SAVE
+wait 30
+tap FX
+wait 30
+expect page 74
+expect mout 1
+turn K1 1
+turn K2 -12
+wait 30
+tap REC
+tap REC
+wait 30
+expect md14 1
+tapkey 7 100
+tapkey 9 100
+tap REC
+wait 30
+expect mseqs 2
+press SAVE
+tap REC
+release SAVE
+wait 300
+reboot
+wait 300
+expect mseqs 2
+expect md0 2
+expect md6 3
+press SAVE
+tapkey w0
+release SAVE
+wait 100
+expect mseqs 0
+press SAVE
+tapkey w15
+release SAVE
+wait 100
+expect mseqs 2
+turn SELECT 4
+wait 30
+expect mout 1
+# CLOCK OUT (GLO › MIDI II, off at first): 24 clocks a beat (120 BPM: 48 a second), Start as PLAY begins, Stop
+setp 156 90
+gopage 78
+wait 30
+expect moutclk 0
+expect clocksent 0
+turn K1 1
+wait 30
+expect moutclk 1
+wait 1000
+expect clocksent >45
+expect clocksent <57
+wait 1000
+expect clocksent >93
+expect clocksent <105
+out
+gopage 74
+tap PLAY
+wait 100
+expect_out USB FA 00 00
+tap PLAY
+wait 100
+expect_out USB FC 00 00
+expect mdopen 0
+# the arpeggio for an instrument in a DAW (card #172), a key held, C4 and C5 in turn, a step each 250 ms. GATE 50 % at
+# first (half the step, as before), SWING OFF, VELOCITY AS PLAYED (MIDI OUT's FIXED: 100)
+gopage 73
+wait 30
+turn K1 1
+wait 30
+expect md0 1
+expect md15 50
+expect md16 0
+expect md17 0
+out
+key 7 down 100
+wait 1100
+expect_out USB 92 3C 64
+expect_out USB 82 3C 00
+expect_out USB 92 48 64
+expect marplen >118
+expect marplen <132
+expect marpioilo >240
+expect marpioihi <260
+expect marpover 0
+# GATE 20 %: a fifth of the step
+tap ARP
+wait 30
+expect page 75
+spin K3 -30
+wait 600
+expect md15 20
+expect marplen >45
+expect marplen <56
+expect marpover 0
+# LEGATO (past 100 %): each note held till the next is out, one at a time between
+spin K3 90
+wait 30
+expect md15 101
+wait 800
+expect marpover >1
+expect marplen >245
+expect marplen <262
+expect mdopen 1
+# ... the same note again (RANGE 1 OCT): let go before it goes out, nothing over it
+gopage 73
+wait 30
+spin K4 -1
+wait 600
+expect md3 0
+expect marpover <2
+wait 800
+expect marpover 0
+expect mdopen 1
+spin K4 1
+wait 30
+# SWING 66 %: the pairs 330 ms and 170 ms (two thirds and a third of 500), GATE 50 % again
+gopage 75
+wait 30
+spin K3 -51
+spin K4 16
+wait 30
+expect md15 50
+expect md17 16
+wait 1100
+expect marpioihi >320
+expect marpioihi <341
+expect marpioilo >159
+expect marpioilo <180
+# VELOCITY (MIDI ARP III, after ARP II): 90 as it goes out, MIDI OUT's VELOCITY not on it
+tap ARP
+wait 30
+expect page 79
+spin K1 90
+wait 30
+expect md16 90
+out
+wait 600
+expect_out USB 92 3C 5A
+expect_out USB 92 48 5A
+expect_no_out USB 92 3C 64
+# kept with the scene (slot 16): STORE, a power-on, back as stored
+press SAVE
+tap REC
+release SAVE
+wait 300
+key 7 up
+wait 30
+press PLAY
+wait 700
+release PLAY
+wait 30
+expect mdopen 0
+reboot
+wait 300
+press SAVE
+tapkey w15
+release SAVE
+wait 100
+expect md0 1
+expect md15 50
+expect md16 90
+expect md17 16
+# 3.3.1's OBJ_MSEQ (mseq-3.3.1.frasil: slot 16 ARP, DOWN, 1/16, 3 OCT, CHANCE 100, LATCH off; RETURN 72 %): its
+# settings as kept, GATE, VELOCITY and SWING at their defaults
+restore app/tests/mseq-3.3.1.frasil
+wait 300
+expect restore_rc 0
+press SAVE
+tapkey w15
+release SAVE
+wait 100
+expect md0 1
+expect md1 1
+expect md2 7
+expect md3 2
+expect md4 100
+expect md5 0
+expect md15 50
+expect md16 0
+expect md17 0
+expect moutret 72

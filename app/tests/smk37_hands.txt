@@ -1,0 +1,72 @@
+# The SMK-37's hands moved by a button or a wheel (card #111, Styves): KNOB BANK the track, the mod wheel the track's
+# ALGORITHM setting (the drone's TIMBRE, GLINT's BRIGHT, the bass's FILTER; on the LEAD its vibrato, nothing else). The
+# play page names them in a key over TRACK's label and the setting's (the LEAD's FILTER: K7's badge); the large view
+# names the control that moved it, KNOB BANK or MOD WHEEL (handby 1, 2), its knob's badge after a knob (0). Shots:
+# OUTDIR/smk-home-*.png. On the SMK-37's simulator alone (its KBANK, its wheels):
+#   FM1B_BOARD=smk37 FM1B_MODEL=elite ./build.sh --host
+#   app/build/host/frasil-smk37-elite_host app/tests/smk37_hands.txt OUTDIR
+# settings: the bass's FILTER 56 (0 .. 127), P_KB 166 (0 DRONE, 1 GLINT, 2 BASS, 3 LEAD; MIDI: LEAD's, mout 1)
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+wait 1600
+gopage 0
+wait 1500
+expect p166 0
+expect handby 0
+shot smk-home.png
+# KNOB BANK: GLINT, the large view KNOB BANK's
+tap KBANK
+wait 100
+expect p166 1
+expect overlay 1
+expect handby 1
+shot smk-home-kbank.png
+# K6 (SELECT) turned: BASS, its badge again
+wait 1500
+turn SELECT 1
+wait 100
+expect p166 2
+expect handby 0
+wait 1500
+# the mod wheel on BASS: its FILTER where the wheel is (127 of 127: the top), the large view MOD WHEEL's
+wheel mod 127
+wait 100
+expect p56 127
+expect overlay 1
+expect handby 2
+shot smk-home-modwheel.png
+# K7 (ALGORITHM) turned: its badge again
+wait 1500
+turn ALGO -1
+wait 100
+expect p56 126
+expect handby 0
+# KNOB BANK again: the LEAD; the mod wheel moved: its vibrato, not its FILTER (the large view nothing new)
+wait 1500
+tap KBANK
+wait 100
+expect p166 3
+expect handby 1
+wait 1500
+wheel mod 0
+wait 100
+expect handby 1
+wait 1500
+shot smk-home-lead.png
+# KNOB BANK: MIDI (card #164), its hands TRACK MIDI, K5 CHANNEL, K7 OCTAVE (KNOB BANK's key over TRACK)
+tap KBANK
+wait 100
+expect p166 3
+expect mout 1
+expect handby 1
+shot smk-home-midi-kbank.png
+wait 1500
+shot smk-home-midi.png
+# KNOB BANK round: DRONE again
+tap KBANK
+wait 100
+expect p166 0
+expect mout 0
+expect handby 1

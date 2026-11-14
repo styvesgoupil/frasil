@@ -1,0 +1,145 @@
+# The SMK-37's name entry (card #111, Styves): < and > move the cursor, OCTAVE- and OCTAVE+ nothing; K1 the letters,
+# K2 the digits, K3 a space at the cursor, K4 the name cleared (the cursor at the first place; nothing stored until
+# SAVE or SEL, a name all spaces stores nothing, FX leaves the name as it was). Lit: SAVE and FX, < and > at the mid
+# level, OCT's out. NAME IT on STORE (SAVE held, REC) and in SAVE's flow (a preset's sixteen places). Shots:
+# OUTDIR/smk-name-*.png. On the SMK-37's simulator alone (its LEFT and RIGHT):
+#   FM1B_BOARD=smk37 FM1B_MODEL=elite ./build.sh --host
+#   app/build/host/frasil-smk37-elite_host app/tests/smk37_names.txt OUTDIR
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+wait 600
+testscene
+wait 100
+# STORE into slot 12: NAME IT, its 32 places, the cursor at the first
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 12
+wait 30
+press SAVE
+tap REC
+release SAVE
+wait 50
+expect naming 1
+expect nameflow 0
+expect namelen 32
+expect namecur 0
+expect saveled 3
+expect fxled 3
+expect leftled 2
+expect rightled 2
+expect octled 0
+# OCTAVE- and OCTAVE+ nothing; > and < the cursor, never past either end
+tap OCT+
+wait 30
+expect namecur 0
+tap RIGHT
+wait 30
+tap RIGHT
+wait 30
+tap RIGHT
+wait 30
+expect namecur 3
+tap OCT-
+wait 30
+expect namecur 3
+tap LEFT
+wait 30
+expect namecur 2
+tap LEFT
+tap LEFT
+tap LEFT
+wait 30
+expect namecur 0
+expect naming 1
+# K4: cleared, the cursor back at the first
+tap RIGHT
+wait 30
+turn K4 1
+wait 30
+expect namecur 0
+expect naming 1
+shot smk-name-clear.png
+# A, 1, a space over a B, C: "A1 C"
+turn K1 1
+wait 30
+tap RIGHT
+wait 30
+turn K2 2
+wait 30
+tap RIGHT
+wait 30
+turn K1 2
+wait 30
+turn K3 1
+wait 30
+tap RIGHT
+wait 30
+turn K1 3
+wait 30
+expect namecur 3
+shot smk-name-typed.png
+# SEL keeps it
+tap SEL
+wait 50
+expect naming 0
+expect scnchar0 65
+expect scnchar1 49
+expect scnchar2 32
+expect scnchar3 67
+expect scnchar4 0
+# STORE again: K4 clears it, SEL: all spaces, the name as stored
+press SAVE
+tap REC
+release SAVE
+wait 50
+expect naming 1
+turn K4 -1
+wait 30
+tap SEL
+wait 50
+expect naming 0
+expect scnchar0 65
+expect scnchar3 67
+# again: a letter turned, FX: the name as stored
+press SAVE
+tap REC
+release SAVE
+wait 50
+expect naming 1
+turn K1 1
+wait 30
+tap FX
+wait 50
+expect naming 0
+expect scnchar0 65
+# a preset's name (SAVE's flow, pad 2 SAVE, WHAT a DRONE PRESET): sixteen places, > stops at the last
+gopage 0
+wait 30
+tap SAVE
+wait 30
+pad 1 down 100
+pad 1 up
+wait 30
+turn K1 1
+wait 30
+expect svwhat 1
+tap SEL
+wait 30
+expect naming 1
+expect nameflow 1
+expect namelen 16
+expect leftled 2
+turn K4 1
+wait 30
+tap RIGHT
+tap RIGHT
+wait 30
+expect namecur 2
+shot smk-name-preset.png
+tap FX
+wait 30
+expect naming 0

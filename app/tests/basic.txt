@@ -418,7 +418,11 @@ expect p159 3
 turn K4 3
 wait 30
 expect p155 1
-# COMPRESSOR, GLO's third: the compressor off by default; RATIO 4:1, THRESHOLD -30 dB over a chord: it reduces
+# COMPRESSOR, GLO's fourth (MIDI II between: card #169): the compressor off by default; RATIO 4:1, THRESHOLD -30 dB
+# over a chord: it reduces
+tap GLO
+wait 30
+expect page 78
 tap GLO
 wait 30
 expect page 39
@@ -1237,6 +1241,7 @@ tap GLO
 tap GLO
 tap GLO
 tap GLO
+tap GLO
 wait 30
 expect page 46
 turn K4 -1
@@ -1254,6 +1259,7 @@ wait 600
 expect p31 67
 expect scene 7
 expect p180 0
+tap GLO
 tap GLO
 tap GLO
 tap GLO
@@ -6333,6 +6339,7 @@ tap GLO
 tap GLO
 tap GLO
 tap GLO
+tap GLO
 wait 30
 expect page 46
 turn K4 -1
@@ -6359,6 +6366,7 @@ expect p148 1
 expect p149 50
 expect p152 50
 expect p51 <12
+tap GLO
 tap GLO
 tap GLO
 tap GLO
@@ -6468,6 +6476,7 @@ spin K1 -127
 wait 30
 expect p153 0
 expect dirty 0
+tap GLO
 tap GLO
 tap GLO
 tap GLO

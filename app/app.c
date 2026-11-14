@@ -26,6 +26,7 @@ static uint8_t test_arp_log;             /* (arplog 1: each arpeggio's step and 
                    (double)(grid.wraps * 9600u + grid.tick), what, note);                                              \
     } while (0)
 #endif
+#include "controls.h"                   /* (the panel's controls as the screens name them: the FM-1's, the SMK-37's) */
 #include "core.c"                       /* (FRASIL's engine: every setting, the scenes, the brain; its hooks below) */
 #include "pages.c"
 
@@ -222,6 +223,9 @@ typedef struct {
                                           * in the padding, the record's size the same (300) */
     int8_t a4;                           /* GLO > RECORD's TUNE A4 less 440 Hz, -25 .. +26 (0, as FRSS's padding byte
                                           * reads: 440); in the padding too (300); then one byte of it */
+    uint8_t mout;                        /* MIDI OUT's CHANNEL, PRESSURE, VELOCITY (card #164: mout_byte; 0, as FRSS's last
+                                          * padding byte reads: 1, CHANNEL, NORMAL), its OCTAVE in HEADER's byte past
+                                          * DARK's bit; the padding's last, the record's size the same (300) */
 } settings_t;
 
 typedef struct {
@@ -406,9 +410,10 @@ _Static_assert(sizeof(settings_t) == 300u && FRSP_BYTES == offsetof(settings_t, 
                    FRSQ_BYTES == offsetof(settings_t, lfo_amt) && offsetof(settings_t, swell) == FRSQ_BYTES + 12u &&
                    offsetof(settings_t, arp_snap) == 278u && offsetof(settings_t, saver_off) == 279u &&
                    offsetof(settings_t, head) == offsetof(settings_t, swell) + 1u &&
-                   offsetof(settings_t, a4) == offsetof(settings_t, head) + 1u,
+                   offsetof(settings_t, a4) == offsetof(settings_t, head) + 1u &&
+                   offsetof(settings_t, mout) == offsetof(settings_t, a4) + 1u,
                "FRSP's 280 bytes (ARP SNAP and SCREENSAVER in its padding), LOFI TAPE II's four after them (FRSQ's 284), "
-               "then the twelve AMOUNTs and SWELL, HEADER and TUNE A4 in the padding");
+               "then the twelve AMOUNTs and SWELL, HEADER, TUNE A4 and MIDI OUT in the padding");
 _Static_assert(sizeof raw >= sizeof(upresets_t) && sizeof raw >= SCN_BYTES && sizeof raw >= BSQ_BYTES && sizeof raw >= DSQ_BYTES && sizeof raw >= sizeof(settings_t) &&
                    sizeof raw >= 8u + NSCENES * FRSH_REC && sizeof raw >= NMS_BYTES, "raw holds the largest");
 static uint32_t name_bytes(const layout_t *l) { return l->extra >= 3u ? SC_NAME : OLD_NAME; }
@@ -470,6 +475,342 @@ static uint8_t spk_page;                 /* a PERFORM page plays the FM-1's USB 
 
 static int b_held(uint32_t b) { return btn_now >> b & 1u; }
 static void b_used(uint32_t b) { fm.hold_done |= 1u << b; }   /* (its release no tap) */
+
+#if FRS_MIDI_OUT
+/* MIDI, the fifth track (card #164): SELECT one past LEAD. Its keys play nothing here: each goes out over USB (the
+ * SMK-37's MIDI OUT jack too: base's TO_USB) as a note on CHANNEL, its velocity through VELOCITY, the key's pressure as
+ * PRESSURE says (OFF, CHANNEL: the hardest key's, POLY: each its own), the SMK-37's wheels and pedal with them (pitch
+ * bend, CC 1, CC 64); FRASIL plays on under it, a computer's instrument over the drones. The app's alone: the engine's
+ * P_KB stays on LEAD's (nothing latches, records or arpeggiates, the refusals LEAD's), nothing told to LIVE (a DAW
+ * records what it gets), nothing in a scene. Its octave its own: the panel's OCT turns it while MIDI is selected
+ * (fm.octave, FRASIL's kept in oct_fr till it comes back). Each key's note off goes as its note on went (its note, its
+ * channel), whatever changed since; a note on goes only with room for it in USB's ring (a pressure with more), a note
+ * off always */
+enum { MO_VEL_SOFT, MO_VEL_NORMAL, MO_VEL_HARD, MO_VEL_FIXED };   /* VELOCITY, as K3 turns */
+enum { MO_PRS_OFF, MO_PRS_CHANNEL, MO_PRS_POLY };                /* PRESSURE, as K4 turns */
+#define MO_ROOM_NOTE 4u                  /* the ring's slots a note on leaves free (its note off's, and others') */
+#define MO_ROOM_PRS 16u                  /* ... a pressure (it never crowds the notes out) */
+static struct {
+    uint8_t sel;                         /* MIDI selected (st.v[P_KB] LEAD's meanwhile) */
+    uint8_t rd_sel;                      /* ... as the screen reader last saw it (speak.c: no OCTAVE said for the swap;
+                                          * here, not in its srd: the pool's spare kept, the SMK-37's at its floor) */
+    uint32_t own;                        /* bit k: key k went down on MIDI (its up MIDI's, whatever is selected then) */
+    uint8_t ch, vel, prs;                /* CHANNEL 0 .. 15, VELOCITY, PRESSURE */
+    int8_t oct, oct_fr;                  /* its OCTAVE while another track has the panel's; FRASIL's while it has it */
+    int8_t note[FRS_NKEYS];              /* each key's note out (-1: none, or not MIDI's) */
+    uint8_t kch[FRS_NKEYS];              /* ... on that channel */
+    uint8_t kp[FRS_NKEYS], kp_sent[FRS_NKEYS];   /* its pressure now, and as POLY sent it */
+#if PLAT_SMK37
+    uint8_t pos[FRS_NKEYS];              /* the SMK-37: its place among the 37 (0: C3; MIDI OUT's strip) */
+#endif
+    uint8_t cp_sent;                     /* CHANNEL's sent last */
+    uint8_t last, last_vel;              /* the last note out, its velocity (MIDI OUT's strip) */
+    uint8_t mod, pedal;                  /* the SMK-37's mod wheel and pedal as sent */
+    int16_t bend;                        /* its pitch wheel as sent */
+    uint32_t at, hand_at;                /* a knob of its turned (the page's lamp), PRESET's or ALGORITHM's (large) */
+    prm_t at_p;
+    uint32_t sent;                       /* messages out (the tests, the strip) */
+    int8_t anote[FRS_NKEYS];             /* a key's note into MIDI's arpeggio (card #169: app/mseq.c), -1 none */
+    uint8_t clk;                         /* GLO › MIDI II's CLOCK OUT (card #169: md_clock) */
+    uint8_t ret;                         /* RETURN, 0 .. 100 %: the computer's audio back over USB, its level (card #169:
+                                          * C on MIDI; plat_usb_play_gain, the square of it, as MASTER is) */
+    uint16_t ret_q12;                    /* ... as the platform has it now, gliding there (mout_ret_run) */
+    uint32_t ret_ms;
+} mout = {.vel = MO_VEL_NORMAL, .prs = MO_PRS_CHANNEL, .ret = 100, .ret_q12 = 4096};
+
+static void mout_init(void)
+{
+    uint32_t k;
+    for (k = 0; k < FRS_NKEYS; k++)
+        mout.note[k] = mout.anote[k] = -1;
+}
+static void mout_put(uint32_t status, uint32_t d1, uint32_t d2)   /* a channel message, CIN its status' high nibble */
+{
+    plat_midi_send(status >> 4 | status << 8 | (d1 & 127u) << 16 | (d2 & 127u) << 24, TO_USB);
+    mout.sent++;
+}
+static int mout_room(uint32_t keep)      /* room in USB's ring past keep (none listening: sent anyway, the SMK-37's jack
+                                          * takes it; USB drops it) */
+{
+    uint32_t r = plat_midi_out_room(TO_USB);
+    return !r || r > keep;
+}
+static uint32_t mout_curve(uint32_t v)   /* VELOCITY: the key's 1 .. 127 as it goes out */
+{
+    v = v < 1u ? 1u : v > 127u ? 127u : v;
+    if (mout.vel == MO_VEL_SOFT)         /* (more for a light touch: the square root's curve) */
+        v = (uint32_t)(fm_sqrtf((float)v * 127.0f) + 0.5f);
+    else if (mout.vel == MO_VEL_HARD)    /* (less: the square's) */
+        v = (v * v + 63u) / 127u;
+    else if (mout.vel == MO_VEL_FIXED)
+        v = 100u;
+    return v < 1u ? 1u : v > 127u ? 127u : v;
+}
+#include "mseq.c"                        /* MIDI's arpeggio and sequence (card #169) */
+/* RETURN's level as the platform takes it: to the square of the setting (as MASTER's), gliding there a whole turn in
+ * 80 ms, no zipper; nothing coming in, nothing to hear (the platform's mix reads the stream whatever it is) */
+static void mout_ret_run(void)
+{
+    uint32_t now = plat_ms(), want = (uint32_t)mout.ret * mout.ret * 4096u / 10000u, dt = now - mout.ret_ms, step;
+    mout.ret_ms = now;
+    if (want == mout.ret_q12)
+        return;
+    step = (dt > 80u ? 80u : dt) * 4096u / 80u + 1u;
+    mout.ret_q12 = (uint16_t)(want > mout.ret_q12 ? (want - mout.ret_q12 > step ? mout.ret_q12 + step : want)
+                                                  : (mout.ret_q12 - want > step ? mout.ret_q12 - step : want));
+    plat_usb_play_gain(mout.ret_q12);
+}
+/* RETURN on MIXER (card #172): a fifth fader while the computer's audio comes back over USB, from its first sound (a
+ * stream open and silent, nothing) till its stream stops (two seconds without a packet: no flicker through a gap); its
+ * meter the stream's peak at RETURN's level, falling 26 dB a second */
+#define RIN_GONE_MS 2000u
+#define RIN_FLOOR 8u                     /* (a peak past it a sound: -72 dB, over a dither's) */
+static struct {
+    uint32_t pkts, pkt_at;               /* the platform's packets, the last time they moved (0: none since) */
+    uint8_t on;                          /* the fader shown */
+    float lvl;                           /* its meter, 0 .. 1 (as the tracks' meters, at RETURN's level) */
+    uint32_t lvl_ms;
+} rin;
+static void rin_run(void)
+{
+    uint32_t pk, p = plat_usb_play_in(&pk), now = plat_ms();
+    float x = (float)pk * (1.0f / 32768.0f) * (float)mout.ret_q12 * (1.0f / 4096.0f);
+    if (p != rin.pkts) {
+        rin.pkts = p;
+        rin.pkt_at = now | 1u;
+    }
+    if (pk > RIN_FLOOR && rin.pkt_at)
+        rin.on = 1;
+    if (rin.pkt_at && (int32_t)(now - rin.pkt_at) >= (int32_t)RIN_GONE_MS)   /* (pkt_at may be a ms ahead: its | 1) */
+        rin.pkt_at = rin.on = 0;
+    if (rin.lvl > 0.0f)
+        rin.lvl *= fm_powf(0.997f, (float)(now - rin.lvl_ms > 1000u ? 1000u : now - rin.lvl_ms));
+    rin.lvl_ms = now;
+    if (x > rin.lvl)
+        rin.lvl = x;
+    if (!rin.on)
+        rin.lvl = 0.0f;
+}
+#define MIX_RET() (rin.on != 0)          /* (MIXER's fifth, RETURN) */
+/* a key down on MIDI: its note out (none outside 0 .. 127, or no room); MIDI's arpeggio's (a note into it, none out
+ * now), or into its sequence as well (md_key_down); the engine's key nothing (its key_up then nothing either) */
+static void mout_key_down(uint32_t k, int note, uint32_t vel)
+{
+    key_begin(k);
+    key[k].kind = K_NONE;
+    mout.own |= 1u << k;
+    mout.note[k] = mout.anote[k] = -1;
+    if (note < 0 || note > 127)
+        return;
+    if (md_key_down(k, note, vel)) {
+        mout.anote[k] = (int8_t)note;
+        return;
+    }
+    if (!mout_room(MO_ROOM_NOTE))
+        return;
+    vel = mout_curve(vel);
+    mout_put(0x90u | mout.ch, (uint32_t)note, vel);
+    mout.note[k] = (int8_t)note;
+    mout.kch[k] = mout.ch;
+    mout.kp[k] = mout.kp_sent[k] = 0;
+    mout.last = (uint8_t)note;
+    mout.last_vel = (uint8_t)vel;
+}
+static uint32_t mout_held(void)          /* keys down that went out (bit k) */
+{
+    uint32_t k, b = 0;
+    for (k = 0; k < FRS_NKEYS; k++)
+        b |= (uint32_t)(mout.note[k] >= 0) << k;
+    return b;
+}
+static void mout_channel_prs(void)       /* CHANNEL: the hardest key's, on a change of two or more, or to 0 */
+{
+    uint32_t k, top = 0;
+    for (k = 0; k < FRS_NKEYS; k++)
+        if (mout.note[k] >= 0 && mout.kp[k] > top)
+            top = mout.kp[k];
+    if (top + 2u > mout.cp_sent && top < mout.cp_sent + 2u && (top || !mout.cp_sent))
+        return;
+    if (top && !mout_room(MO_ROOM_PRS))
+        return;
+    mout_put(0xD0u | mout.ch, top, 0);
+    mout.cp_sent = (uint8_t)top;
+}
+/* a key up: 1 if it was MIDI's (its note off out), 0 the engine's */
+static int mout_key_up(uint32_t k)
+{
+    if (!(mout.own >> k & 1u))
+        return 0;
+    mout.own &= ~(1u << k);
+    md_key_up(k, mout.anote[k]);
+    mout.anote[k] = -1;
+    if (mout.note[k] < 0)                /* (none went out: no room, or past 0 .. 127) */
+        return 1;
+    mout_put(0x80u | mout.kch[k], (uint32_t)mout.note[k], 0);
+    mout.note[k] = -1;
+    mout.kp[k] = 0;
+    if (mout.prs == MO_PRS_CHANNEL)
+        mout_channel_prs();
+    return 1;
+}
+/* a held key's pressure, 0 .. 127: 1 if it was MIDI's (out as PRESSURE says), 0 the engine's */
+static int mout_pressure(uint32_t k, uint8_t p)
+{
+    if (!(mout.own >> k & 1u))
+        return 0;
+    if (mout.note[k] < 0)
+        return 1;
+    mout.kp[k] = p;
+    if (mout.prs == MO_PRS_CHANNEL) {
+        mout_channel_prs();
+    } else if (mout.prs == MO_PRS_POLY && (p > mout.kp_sent[k] + 1u || p + 1u < mout.kp_sent[k] ||
+                                            (!p && mout.kp_sent[k])) && (!p || mout_room(MO_ROOM_PRS))) {
+        mout_put(0xA0u | mout.kch[k], (uint32_t)mout.note[k], p);
+        mout.kp_sent[k] = p;
+    }
+    return 1;
+}
+static void mout_all_off(void)           /* every note out let go (an update coming), the wheels back */
+{
+    uint32_t k;
+    for (k = 0; k < FRS_NKEYS; k++)
+        (void)mout_key_up(k);
+    md_all_stop();
+    if (mout.bend) {
+        mout_put(0xE0u | mout.ch, 0, 64);
+        mout.bend = 0;
+    }
+    if (mout.pedal) {
+        mout_put(0xB0u | mout.ch, 64, 0);
+        mout.pedal = 0;
+    }
+}
+#if PLAT_SMK37
+/* the SMK-37 on MIDI: its mod wheel (CC 1), its pitch wheel (a bend, two semitones as the computer's instrument takes
+ * them; a change of 8 of its 16384 steps or more, or back to rest) and its pedal (CC 64) out on CHANNEL */
+static void mout_smk(int m, int b)
+{
+    int pd = plat_pedal();
+    if (m != (int)mout.mod && mout_room(MO_ROOM_PRS)) {
+        mout_put(0xB0u | mout.ch, 1, (uint32_t)m);
+        mout.mod = (uint8_t)m;
+    }
+    if ((b > mout.bend + 7 || b + 7 < mout.bend || (!b && mout.bend)) && mout_room(MO_ROOM_PRS)) {
+        uint32_t v = (uint32_t)(b + 8192);
+        mout_put(0xE0u | mout.ch, v & 127u, v >> 7);
+        mout.bend = (int16_t)b;
+    }
+    if (pd != (int)mout.pedal) {
+        mout_put(0xB0u | mout.ch, 64, pd ? 127u : 0u);
+        mout.pedal = (uint8_t)pd;
+    }
+}
+#endif
+static void mout_prs_zero(void)          /* the pressures out back to 0 (PRESSURE or CHANNEL changing) */
+{
+    uint32_t k;
+    for (k = 0; k < FRS_NKEYS; k++)
+        if (mout.note[k] >= 0 && mout.kp_sent[k]) {
+            mout_put(0xA0u | mout.kch[k], (uint32_t)mout.note[k], 0);
+            mout.kp_sent[k] = 0;
+        }
+    if (mout.cp_sent) {
+        mout_put(0xD0u | mout.ch, 0, 0);
+        mout.cp_sent = 0;
+    }
+}
+/* MIDI OUT's knobs turned (its page's K1 .. K4, or PRESET's and ALGORITHM's on MIDI: CHANNEL, OCTAVE): kept with the
+ * settings once nothing sounds, as TUNE A4 is; the notes held keep theirs (each its off as its on went) */
+static void mout_turn(uint32_t p, int32_t d)
+{
+    if (p == K_MO_CH) {
+        if (clamp((int32_t)mout.ch + d, 0, 15) != (int32_t)mout.ch)
+            mout_prs_zero();
+        mout.ch = (uint8_t)clamp((int32_t)mout.ch + d, 0, 15);
+    } else if (p == K_MO_OCT && mout.sel) {
+        fm.octave = (int8_t)clamp(fm.octave + d, -3, 2);
+    } else if (p == K_MO_OCT) {
+        mout.oct = (int8_t)clamp(mout.oct + d, -3, 2);
+    } else if (p == K_MO_VEL) {
+        mout.vel = (uint8_t)clamp((int32_t)mout.vel + d, MO_VEL_SOFT, MO_VEL_FIXED);
+    } else if (p == K_MO_PRS) {
+        mout_prs_zero();
+        mout.prs = (uint8_t)clamp((int32_t)mout.prs + d, MO_PRS_OFF, MO_PRS_POLY);
+    } else if (p == K_MO_RET) {          /* (card #169: C on MIDI, 0 .. 100 %) */
+        mout.ret = (uint8_t)clamp((int32_t)mout.ret + d, 0, 100);
+    } else if (p == K_CLKOUT) {          /* (GLO › MIDI II) */
+        mout.clk = d > 0;
+    }
+    mout.at = plat_ms() | 1u;
+    mout.at_p = (prm_t)p;
+    if (!fm.prefs_due)
+        fm.prefs_due = 1;
+}
+/* MIDI selected, or let go: the panel's octave its own, FRASIL's kept meanwhile */
+static void mout_select(int on)
+{
+    if (on && !mout.sel) {
+        mout.oct_fr = fm.octave;
+        fm.octave = mout.oct;
+    } else if (!on && mout.sel) {
+        mout.oct = fm.octave;
+        fm.octave = mout.oct_fr;
+        if (mout.bend) {                 /* (the pitch wheel's bend not left on the computer's instrument) */
+            mout_put(0xE0u | mout.ch, 0, 64);
+            mout.bend = 0;
+        }
+    }
+    mout.sel = (uint8_t)(on != 0);
+}
+static int8_t oct_frasil(void) { return mout.sel ? mout.oct_fr : fm.octave; }   /* FRASIL's octave, whoever has the panel */
+static void oct_frasil_set(int8_t o)
+{
+    if (mout.sel)
+        mout.oct_fr = o;
+    else
+        fm.octave = o;
+}
+/* the settings' bytes: settings_t.mout CHANNEL in bits 0 .. 3, PRESSURE 4 .. 5 (0 CHANNEL, 1 POLY, 2 OFF), VELOCITY
+ * 6 .. 7 (0 NORMAL, 1 HARD, 2 FIXED, 3 SOFT); HEADER's byte, past its bit 0, OCTAVE in bits 1 .. 3 (two's complement),
+ * CLOCK OUT in bit 4 (card #169). 0 each, as an earlier record's padding and HEADER read: channel 1, CHANNEL, NORMAL,
+ * octave 0, CLOCK OUT off. RETURN (card #169) in OBJ_MSEQ's head (app/mseq.c md_dev_save: no byte left here) */
+static uint8_t mout_byte(void)
+{
+    return (uint8_t)(mout.ch | (uint32_t)(mout.prs + 2u) % 3u << 4 | (uint32_t)(mout.vel + 3u) % 4u << 6);
+}
+static uint8_t mout_oct_bits(void)
+{
+    return (uint8_t)(((uint32_t)(mout.sel ? fm.octave : mout.oct) & 7u) << 1 | (uint32_t)mout.clk << 4);
+}
+static void mout_unbyte(uint8_t b, uint8_t head)
+{
+    int32_t o = (int32_t)(head >> 1 & 7u);
+    mout.clk = (uint8_t)(head >> 4 & 1u);
+    mout.ch = b & 15u;
+    mout.prs = (uint8_t)(((b >> 4 & 3u) + 1u) % 3u);
+    mout.vel = (uint8_t)(((b >> 6 & 3u) + 1u) % 4u);
+    o = o > 3 ? o - 8 : o;
+    mout.oct = (int8_t)clamp(o, -3, 2);
+}
+#define HEAD_BYTE() ((uint8_t)(hdr.dark | mout_oct_bits()))   /* settings_t.head: DARK, MIDI's OCTAVE, CLOCK OUT */
+#define MOUT_SEL() (mout.sel != 0)
+#define MD_REC_ON() (md[MD_REC] != 0)   /* (MIDI's sequence recording, card #169) */
+#define MD_SAVE(s) md_save(s)
+static uint32_t kb_ui(void) { return mout.sel ? T_MIDI : st.v[P_KB]; }   /* the track the pages are of (T_MIDI: MIDI's) */
+static int32_t mout_sel_at(void) { return mout.sel ? (int32_t)PD[P_KB].max + 1 : (int32_t)st.v[P_KB]; }   /* SELECT's place */
+#define TRK_COL(t) ((t) == T_MIDI ? NTRK_COL - 1u : (t))   /* its column in TRACK_PAGES */
+#else
+#define MOUT_SEL() 0
+#define MIX_RET() 0
+#define MD_REC_ON() 0
+#define MD_SAVE(s) 0
+static uint32_t kb_ui(void) { return st.v[P_KB]; }
+static int32_t mout_sel_at(void) { return (int32_t)st.v[P_KB]; }
+#define TRK_COL(t) (t)
+static int8_t oct_frasil(void) { return fm.octave; }
+static void oct_frasil_set(int8_t o) { fm.octave = o; }
+#define HEAD_BYTE() ((uint8_t)hdr.dark)
+#endif
 static uint32_t leds_now, midleds_now, glowleds_now, keyleds_now, keymid_now;   /* the lights last set (the tests) */
 static volatile uint8_t oct_soft;        /* OCT- and OCT+ in their blink now (app_tick lights them) */
 static float pump_low = 1.0f;            /* the drones' lowest pump gain since the tests last asked */
@@ -844,6 +1185,10 @@ static int popup_input(uint32_t btn)
 /* ARP and SEQ, each track's, over its PLAYS: on, its pages show; off, its first alone, its ON/OFF alone */
 static int ways_on(uint32_t track, uint32_t way)
 {
+#if FRS_MIDI_OUT
+    if (track == T_MIDI)                 /* (MIDI's, card #169: app/mseq.c) */
+        return md[MD_TYPE] == way;
+#endif
     return track == 0u ? way == SQT_SEQ && st.v[P_DQ_ON] : st.v[track == 1u ? P_SQ_TYPE : P_BQ_ON] == way;
 }
 
@@ -852,14 +1197,19 @@ static int page_off(uint32_t p)          /* a page that waits for its ARP or its
     return (p == PG_ARP2 && !ways_on(1u, SQT_ARP)) || (p == PG_BARP2 && !ways_on(2u, SQT_ARP)) ||
            ((p == PG_SEQ2 || p == PG_SEQ3) && !ways_on(1u, SQT_SEQ)) ||
            ((p == PG_BSEQ2 || p == PG_BSEQ3) && !ways_on(2u, SQT_SEQ)) ||
-           ((p == PG_DSEQ2 || p == PG_DSEQ3) && !ways_on(0u, SQT_SEQ)) || (p == PG_TAPE2 && !st.v[P_TP_ON]);
+           ((p == PG_DSEQ2 || p == PG_DSEQ3) && !ways_on(0u, SQT_SEQ)) || (p == PG_TAPE2 && !st.v[P_TP_ON])
+#if FRS_MIDI_OUT
+           || ((p == PG_MARP2 || p == PG_MARP3) && !ways_on(T_MIDI, SQT_ARP))
+           || ((p == PG_MSEQ2 || p == PG_MSEQ3) && !ways_on(T_MIDI, SQT_SEQ))
+#endif
+        ;
 }
 
 /* a button's pages: the selected track's, and those every track has; the flow's two SAVE pages, its own; LOFI TAPE II
  * only while TAPE is on (skipped, not greyed, when the pages are stepped through) */
 static int page_hidden(uint32_t p)
 {
-    return (PAGES[p].track != T_ANY && PAGES[p].track != st.v[P_KB]) || page_off(p) || p == PG_SAVE || p == PG_SAVEAS;
+    return (PAGES[p].track != T_ANY && PAGES[p].track != kb_ui()) || page_off(p) || p == PG_SAVE || p == PG_SAVEAS;
 }
 
 /* the setting under knob i of page p. KEYS: the selected track's. A first page of ARP or SEQ turned OFF: its ON/OFF alone.
@@ -880,12 +1230,20 @@ static prm_t page_knob(uint32_t p, uint32_t i)
               (p == PG_SEQ && !ways_on(1u, SQT_SEQ)) || (p == PG_BSEQ && !ways_on(2u, SQT_SEQ)) ||
               (p == PG_DSEQ && !ways_on(0u, SQT_SEQ))))
         return NPARAM;
+#if FRS_MIDI_OUT
+    if (i && ((p == PG_MARP && !ways_on(T_MIDI, SQT_ARP)) || (p == PG_MSEQ && !ways_on(T_MIDI, SQT_SEQ))))
+        return NPARAM;
+#endif
     if (p == PG_DSEQ2 && st.v[P_DQ_REC] == 2u)
         return LIVE_K[0][i & 3u];
     if (p == PG_SEQ2 && st.v[P_SQ_REC] == 2u)
         return LIVE_K[1][i & 3u];
     if (p == PG_BSEQ2 && st.v[P_BQ_REC] == 2u)
         return LIVE_K[2][i & 3u];
+#if FRS_MIDI_OUT
+    if (p == PG_MSEQ2 && md[MD_REC] == 2u)   /* (MIDI's as GLINT's: SEQ LENGTH, RATE, UNDO TAKE) */
+        return i == 0u ? K_MD(MD_LEN) : i == 1u ? K_MD(MD_RATE) : i == 2u ? K_MD(MD_UNDO) : (prm_t)NPARAM;
+#endif
     return PAGES[p].p[i];
 }
 
@@ -893,7 +1251,12 @@ static void page_back(void)              /* the page gone with its ARP or SEQ: t
 {
     if (page_off(fm.page))
         fm.page = fm.page == PG_ARP2 ? PG_ARP : fm.page == PG_BARP2 ? PG_BARP : fm.page <= PG_SEQ3 ? PG_SEQ
-                  : fm.page == PG_BSEQ2 || fm.page == PG_BSEQ3 ? PG_BSEQ : PG_DSEQ;
+                  : fm.page == PG_BSEQ2 || fm.page == PG_BSEQ3 ? PG_BSEQ
+#if FRS_MIDI_OUT
+                  : fm.page == PG_MARP2 || fm.page == PG_MARP3 ? PG_MARP
+                  : fm.page == PG_MSEQ2 || fm.page == PG_MSEQ3 ? PG_MSEQ
+#endif
+                  : PG_DSEQ;
 }
 
 static int flow_store(void);             /* (the SAVE flow, below) */
@@ -1005,7 +1368,13 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 #endif
 }
 
-void app_panic(void) { frasil_panic(); }
+void app_panic(void)
+{
+    frasil_panic();
+#if FRS_MIDI_OUT
+    mout_all_off();                      /* (the computer's notes let go too) */
+#endif
+}
 
 /* the render ran over 90 % of its time (audio interrupt), or the load is over 82 % (load_watch, ahead of it): one step
  * lighter at once, and the header's dot for 3 s. The
@@ -1421,6 +1790,10 @@ static void scene_go(uint32_t s)
     eng_scene_go(&sc);
 #if FRS_LEAD
     ldp_load(s);                         /* (its LEAD: its own object's; none, MOSS) */
+#if FRS_MIDI_OUT
+    md_load(s);                          /* (its MIDI arpeggio and sequence: OBJ_MSEQ's; none, the defaults: card #169) */
+    page_back();                         /* (a MIDI page now hidden left for its first, as eng_type_changed's) */
+#endif
 #endif
     lv_long(FST_SCENE, s);
     lv_lead(1u);                         /* (its LEAD after it, as the scene's: card #152) */
@@ -1468,7 +1841,7 @@ static int store_all(void)
     set.magic = SET_MAGIC;
     for (i = 0; i < NSOUND; i++)
         set.v[i] = kept_v(i);
-    set.octave = fm.octave;
+    set.octave = oct_frasil();           /* (FRASIL's, MIDI's or not: MIDI's in HEADER's byte) */
     set.keys = st.v[P_KEYS];
     set.channel = st.v[P_CANAL];
     set.ch_glint = st.v[P_CH_GLINT];
@@ -1481,8 +1854,11 @@ static int store_all(void)
     set.speaker_off = !st.v[P_SPEAKER];
     set.anim = st.v[P_ANIM];
     set.saver_off = saver_byte();
-    set.head = hdr.dark;
+    set.head = HEAD_BYTE();
     set.a4 = (int8_t)((int32_t)a4.hz - 440);
+#if FRS_MIDI_OUT
+    set.mout = mout_byte();
+#endif
     set.clock = st.v[P_CLOCK];
     set.load = st.v[P_LOAD];
     memcpy(set.bnote, bnote, sizeof bnote);
@@ -1676,12 +2052,18 @@ static void prefs_save(void)
     set.speaker_off = !st.v[P_SPEAKER];
     set.anim = st.v[P_ANIM];
     set.saver_off = saver_byte();
-    set.head = hdr.dark;
+    set.head = HEAD_BYTE();
     set.a4 = (int8_t)((int32_t)a4.hz - 440);
+#if FRS_MIDI_OUT
+    set.mout = mout_byte();
+#endif
     set.clock = st.v[P_CLOCK];
     set.load = st.v[P_LOAD];
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0)
         store_old &= ~2u;
+#if FRS_MIDI_OUT
+    md_dev_save();                       /* (RETURN, if it changed: OBJ_MSEQ's head, card #169) */
+#endif
 }
 
 static void name_open(uint32_t s);      /* (STORE's name, below) */
@@ -1712,7 +2094,7 @@ static int scene_write(uint32_t s, const char *name)
     scn.used |= (uint16_t)(1u << s);
     fm.scene = (uint8_t)s;
 #if FRS_LEAD                             /* (and its LEAD, its own object: ldp_save) */
-    if (scenes_save() == 0 && store_all() == 0 && ldp_save(s) == 0) {
+    if (scenes_save() == 0 && store_all() == 0 && ldp_save(s) == 0 && MD_SAVE(s) == 0) {
 #else
     if (scenes_save() == 0 && store_all() == 0) {
 #endif
@@ -1763,7 +2145,17 @@ static void scene_store(void)
 /* STORE written: the scene's name on the whole screen (ui.c name_screen), to change or keep. OCT- and OCT+ move the
  * cursor along the places (a scene's SC_LONG, in two rows; a preset's SC_NAME); K4 turns its letter (a space before A), K3
  * its digit (and - .); SEL (OK) stores the name (the scenes written again if it changed); FX leaves it as it was stored.
- * Meanwhile the keys and MIDI play; the other buttons and the encoders wait */
+ * Meanwhile the keys and MIDI play; the other buttons and the encoders wait.
+ * The SMK-37's (Styves, card #111): < and > the cursor (OCTAVE- and OCTAVE+ nothing, as the other buttons); K1 the
+ * letters, K2 the digits, K3 a space at the cursor, K4 the name cleared (every place a space, the cursor at the first,
+ * at once: nothing is stored before SAVE or SEL, and a name all spaces stores nothing, FX leaving it as it was) */
+#if PLAT_SMK37
+#define NM_PREV B_LEFT
+#define NM_NEXT B_RIGHT
+#else
+#define NM_PREV B_OCTDN
+#define NM_NEXT B_OCTUP
+#endif
 static const char NM_LETTERS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ", NM_DIGITS[] = "0123456789-.";
 static int text_is(const char *a, const char *b);   /* (below) */
 static struct {
@@ -1912,6 +2304,10 @@ static uint32_t track_page(uint32_t p, uint32_t t)
     uint32_t i, w;
     if (PAGES[p].track == T_ANY || PAGES[p].track == t)
         return p;
+#if FRS_MIDI_OUT
+    if (PAGES[p].button == B_EDIT && t == T_MIDI)
+        return PG_MOUT;
+#endif
 #if FRS_LEAD
     if (PAGES[p].button == B_EDIT && t == 3u)
         return PG_LEAD;
@@ -1919,9 +2315,9 @@ static uint32_t track_page(uint32_t p, uint32_t t)
     if (PAGES[p].button == B_EDIT)
         return t == 1u ? PG_GLINT : t == 2u ? PG_BASS : PG_DRONE;
     for (i = 0; i < sizeof TRACK_PAGES / sizeof TRACK_PAGES[0]; i++)
-        for (w = 0; w < 3u + FRS_LEAD; w++)
+        for (w = 0; w < NTRK_COL; w++)
             if (TRACK_PAGES[i][w] == p)
-                return TRACK_PAGES[i][t];
+                return TRACK_PAGES[i][TRK_COL(t)];
     return PG_SON;
 }
 
@@ -1936,7 +2332,7 @@ static void flow_back(void)              /* the flow left: back where it came fr
                                           * turns on SAVE's pages too) */
 {
     fm.page = fm.prev_page < NPAGES && fm.prev_page != PG_SCENES && fm.prev_page != PG_SAVE && fm.prev_page != PG_SAVEAS
-                  ? (uint8_t)track_page(fm.prev_page, st.v[P_KB]) : PG_SON;
+                  ? (uint8_t)track_page(fm.prev_page, kb_ui()) : PG_SON;   /* (MIDI's own, MIDI selected) */
     page_back();
 }
 
@@ -2029,6 +2425,20 @@ static int name_input(uint32_t btn)
     nm.btn = btn;
     for (e = 0; e < NE; e++) {
         int32_t d = enc_read((int)e);
+#if PLAT_SMK37
+        if (d && e == EN_K1)
+            name_turn(NM_LETTERS, (int32_t)sizeof NM_LETTERS - 1, d);
+        else if (d && e == EN_K2)
+            name_turn(NM_DIGITS, (int32_t)sizeof NM_DIGITS - 1, d);
+        else if (d && e == EN_K3) {
+            nm.name[nm.cur] = ' ';
+            nm.drawn = 0;
+        } else if (d && e == EN_K4) {
+            name_fill("", nm.len);
+            nm.cur = 0;
+            nm.drawn = 0;
+        }
+#else
         if (d && e == EN_K4)
             name_turn(NM_LETTERS, (int32_t)sizeof NM_LETTERS - 1, d);
         else if (d && e == EN_K3)
@@ -2040,12 +2450,13 @@ static int name_input(uint32_t btn)
             nm.name[nm.cur] = ' ';
             nm.drawn = 0;
         }
+#endif
     }
-    if ((down >> B_OCTDN & 1u) && nm.cur > 0) {
+    if ((down >> NM_PREV & 1u) && nm.cur > 0) {
         nm.cur--;
         nm.drawn = 0;
     }
-    if ((down >> B_OCTUP & 1u) && nm.cur + 1u < nm.len) {
+    if ((down >> NM_NEXT & 1u) && nm.cur + 1u < nm.len) {
         nm.cur++;
         nm.drawn = 0;
     }
@@ -2323,6 +2734,9 @@ static void state_load(void)
 {
     uint32_t i;
     int keys_kept;
+#if FRS_MIDI_OUT
+    mout_select(0);                      /* (a restore on MIDI: the tracks from DRONE, FRASIL's octave the record's) */
+#endif
     eng_power_on();
     fm.metro_on = 1;
     fm.octave = OCT_DEF;
@@ -2417,7 +2831,11 @@ static void state_load(void)
     for (i = 0; i < NSCENES; i++)        /* scenes kept before their TEMPO: the one they were played at (the settings') */
         if (scn.s[i].tempo > PD[P_TEMPO].max)
             scn.s[i].tempo = set.magic == SET_MAGIC && set.tempo <= PD[P_TEMPO].max ? set.tempo : PD[P_TEMPO].def;
-    hdr.dark = set.magic == SET_MAGIC && set.head == 1u;   /* HEADER (an earlier record, none: INVERT) */
+    hdr.dark = set.magic == SET_MAGIC && (set.head & 1u);   /* HEADER (an earlier record, none: INVERT) */
+#if FRS_MIDI_OUT
+    mout_unbyte(set.magic == SET_MAGIC ? set.mout : 0u, set.magic == SET_MAGIC ? set.head : 0u);   /* MIDI OUT's */
+    md_dev_load();                       /* (RETURN: OBJ_MSEQ's head, card #169) */
+#endif
     a4_take(set.magic == SET_MAGIC ? (uint32_t)(440 + set.a4) : 440u);   /* TUNE A4 (an earlier record, none: 440) */
     if (set.magic == SET_MAGIC) {
         for (i = 0; i < NSOUND; i++)
@@ -2486,6 +2904,9 @@ static void state_load(void)
     fm.page = PG_SON;
 #if FRS_LEAD
     ldp_load(fm.scene);                  /* (LEAD's: the scene's, as last stored; NEW SHARD, none: MOSS) */
+#if FRS_MIDI_OUT
+    md_load(fm.scene);                   /* (MIDI's arpeggio and sequence: the scene's; NEW SHARD, none) */
+#endif
 #endif
     sound_mark();                        /* the sound saved last: nothing changed yet */
     engine_push();
@@ -2495,6 +2916,9 @@ void app_init(void)
 {
     eng_init(44100.0f);                  /* (the FM-1: 44.1 kHz) */
     eng_keys_touch(1);                   /* (3.0: the keys honour KEYS) */
+#if FRS_MIDI_OUT
+    mout_init();
+#endif
     step_stays = step_hand = !test_step_moves;   /* (RECORD STEP: K1 moves STEP, the keys never do) */
     frasil_profile(plat_ticks);          /* (where the render's time goes: the log's word) */
 #if !defined(PLAT_HOST) && !defined(PLAT_WEB)
@@ -2512,8 +2936,8 @@ static void cc_learn(uint32_t cc)
     uint32_t i, at = NLEARN;
     char t[12];
     if (!fm.touched_at || fm.touched >= NPARAM) {
-        popup(POP_WARN, "MIDI LEARN", "TURN ONE FIRST", "TURN A SETTING ON THE FM-1,", "THEN HOLD GLO AND MOVE",
-              "A KNOB ON YOUR CONTROLLER.");
+        popup(POP_WARN, "MIDI LEARN", "TURN ONE FIRST", "TURN A SETTING ON THE " CN_DEVICE ",",
+              "THEN HOLD " CN_GLO " AND MOVE", "A KNOB ON YOUR CONTROLLER.");
         return;
     }
 #if FRS_LEAD
@@ -2549,6 +2973,13 @@ static void midi_in(void)
         lv_cc_took = 0;
         eng_midi(pkt);
         lv_midi(pkt);
+#if FRS_MIDI_OUT                         /* (MIDI's sequence: Start from its top, CLOCK AUTO; All Sound Off, any channel,
+                                          * its notes let go and it stops, as the others do: card #169) */
+        if ((pkt >> 8 & 0xFFu) == 0xFAu && !st.v[P_CLOCK] && md[MD_TYPE] == SQT_SEQ)
+            md_begin(2);
+        if ((pkt >> 8 & 0xF0u) == 0xB0u && (pkt >> 16 & 0x7Fu) == 120u)
+            md_all_stop();
+#endif
     }
 }
 
@@ -3174,7 +3605,7 @@ static void grid_turn(uint32_t p, uint32_t e, int32_t d)
         if (pick) {                      /* the first detent: OCT- a hand, its step undone; picking from what plays */
             fm.octave = pv.oct;
             b_used(B_OCTDN);
-            app_say("PICKING", "LET GO OCT-");
+            app_say("PICKING", "LET GO " CN_OCTDN);
         }
     }
     ng.v = (uint8_t)clamp((int32_t)ng.v + d, 0, (int32_t)list_n(p) - 1);
@@ -3233,21 +3664,36 @@ static uint32_t macro_of(uint32_t e)
  * recording: not at all */
 static void track_turn(int32_t d)
 {
-    uint32_t was = st.v[P_KB], t;
+    uint32_t was = kb_ui(), t;
     int follow = !(b_held(B_OCTDN) && !b_held(B_OCTUP));
-    if (rec_any()) {
-        app_say("RECORDING", "REC: OFF");
+    if (rec_any() || MD_REC_ON()) {
+        app_say("RECORDING", CN_REC ": OFF");
         return;
     }
     if (!follow && !(fm.hold_done >> B_OCTDN & 1u)) {
         fm.octave = pv.oct;
         b_used(B_OCTDN);
     }
+#if FRS_MIDI_OUT
+    {                                    /* (MIDI one past LEAD: the engine's P_KB on LEAD's meanwhile) */
+        int32_t at = (mout.sel ? (int32_t)PD[P_KB].max + 1 : (int32_t)st.v[P_KB]) + d;
+        if (at > (int32_t)PD[P_KB].max) {
+            if (st.v[P_KB] != PD[P_KB].max)
+                param_set(P_KB, PD[P_KB].max);
+            mout_select(1);
+        } else {
+            mout_select(0);
+            if (at != (int32_t)st.v[P_KB])
+                param_set(P_KB, at);
+        }
+    }
+#else
     param_set(P_KB, (int32_t)was + d);
+#endif
     fm.touched = P_KB;
     fm.touched_enc = EN_SELECT;
     fm.touched_at = plat_ms();
-    t = st.v[P_KB];
+    t = kb_ui();
     if (t == was || !follow || PAGES[fm.page].track == T_ANY)
         return;
     fm.page = (uint8_t)track_page(fm.page, t);
@@ -3259,6 +3705,21 @@ static void ways_turn(uint32_t k, int32_t d)
 {
     uint32_t bs = PAGES[fm.page].track == 2u, tp = bs ? P_BQ_ON : P_SQ_TYPE, way = k == K_ARP ? SQT_ARP : SQT_SEQ;
     uint32_t was = st.v[tp];
+#if FRS_MIDI_OUT
+    if (PAGES[fm.page].track == T_MIDI) {   /* (MIDI's: app/mseq.c) */
+        was = md[MD_TYPE];
+        if (d > 0 && was != way) {
+            md_type(way);
+            if (was)
+                app_say(k == K_ARP ? "ARP ON" : "SEQ ON", k == K_ARP ? "SEQ OFF" : "ARP OFF");
+        } else if (d < 0 && was == way) {
+            md_type(0);
+        }
+        msq.at = plat_ms() | 1u;
+        msq.at_i = MD_TYPE;
+        return;
+    }
+#endif
     if (d > 0 && was != way) {
         param_set((int)tp, (int32_t)way);
         if (was) {
@@ -3365,6 +3826,22 @@ static void encoders(void)
             track_turn(d);
             continue;
         }
+#if FRS_MIDI_OUT
+        if (fm.page == PG_MIXER && MIX_RET() && e == EN_ALGO && !b_held(B_GLO)) {   /* MIXER's fifth fader, RETURN
+                                                                                    * (card #172): ALGORITHM, as on
+                                                                                    * MIDI (its fader its view, nothing
+                                                                                    * large over it) */
+            mout_turn(K_MO_RET, accel(e, d));
+            continue;
+        }
+        if (mout.sel && (e == EN_PRESET || (e == EN_ALGO && !b_held(B_GLO)))) {   /* MIDI's hands: CHANNEL, RETURN
+                                                                                * (card #169; its OCTAVE on OCT- and
+                                                                                * OCT+), large over the river a moment */
+            mout_turn(e == EN_PRESET ? K_MO_CH : K_MO_RET, e == EN_ALGO ? accel(e, d) : d);
+            mout.hand_at = plat_ms() | 1u;
+            continue;
+        }
+#endif
         if (e < EN_K1) {
             p = (int32_t)macro_of(e);
             if (p == P_FL_CUT) {         /* (GLO a hand: no page on its release; the filter OFF: on, or nothing would move) */
@@ -3392,6 +3869,16 @@ static void encoders(void)
                     fm.prefs_due = 1;
                 continue;
             }
+#if FRS_MIDI_OUT
+            if (p >= (int32_t)K_MO_CH && p <= (int32_t)K_CLKOUT) {   /* MIDI OUT's (card #164), RETURN, CLOCK OUT */
+                mout_turn((uint32_t)p, p == (int32_t)K_MO_RET ? accel(e, d) : d);
+                continue;
+            }
+            if (p >= (int32_t)K_MD0 && p < (int32_t)K_MDN) {   /* MIDI's ARP and SEQ (card #169: app/mseq.c) */
+                md_turn((uint32_t)p - K_MD0, d, accel(e, d));
+                continue;
+            }
+#endif
             if (p == (int32_t)K_TUNE) {      /* TUNE A4: a hertz a detent (quicker, more), stopping at 432 and 440 */
                 a4_take((uint32_t)a4_catch(a4.hz, clamp((int32_t)a4.hz + accel(e, d), (int32_t)A4_LO, (int32_t)A4_HI)));
                 a4.at = plat_ms() | 1u;
@@ -3474,6 +3961,12 @@ static void track_clear(void)
     static const char *const W[3] = {"DRONE SEQUENCE", "SEQUENCE", "BASS SEQUENCE"};
     uint32_t t = st.v[P_KB] % 3u, i, n = t == 0u ? sizeof dnote : t == 1u ? sizeof seq : sizeof bnote;
     const uint8_t *s = t == 0u ? &dnote[0][0] : t == 1u ? seq : bnote;
+#if FRS_MIDI_OUT
+    if (MOUT_SEL()) {                    /* (MIDI's: card #169) */
+        app_say("MIDI SEQUENCE", md_clear() ? "CLEARED" : "EMPTY");
+        return;
+    }
+#endif
 #if FRS_LEAD
     if (st.lead)                         /* (LEAD: no sequence) */
         return;
@@ -3492,9 +3985,22 @@ static void rec_tap(void)
 {
     uint32_t layer = st.v[P_KB];         /* (before: RECORD moves the keys, rec_keys) */
     int was = rec_any(), r;
+#if FRS_MIDI_OUT
+    if (MOUT_SEL() && !was) {            /* MIDI: its own sequence's take, OFF, LIVE, STEP (card #169: md_rec_tap), its
+                                          * SEQ II shown */
+        md_rec_tap();
+        if (md[MD_REC]) {
+            fm.logo = 0;
+            fm.help = 0;
+            fm.page = PG_MSEQ2;
+        }
+        app_say("RECORD", md[MD_REC] == 2u ? "LIVE" : md[MD_REC] == 1u ? "STEP" : "OFF");
+        return;
+    }
+#endif
 #if FRS_LEAD
     if (st.lead && !was) {               /* (LEAD: played, never recorded: no sequence; a take under way: REC ends it) */
-        app_say("REC", "NOT FOR LEAD");
+        app_say(CN_REC, MOUT_SEL() ? "NOT FOR MIDI" : "NOT FOR LEAD");
         return;
     }
 #endif
@@ -3521,8 +4027,11 @@ static void play_tap(void)
         twice = 0;
         sound_off();
         grid_top(0);
+#if FRS_MIDI_OUT
+        md_all_stop();                   /* (MIDI's arpeggio and sequence too: card #169) */
+#endif
         lv_op(LV_RELEASE, 0, 0);
-        app_say("RELEASE ALL", rst_valid ? "HOLD PLAY: RESTORE" : "");
+        app_say("RELEASE ALL", rst_valid ? "HOLD " CN_PLAY ": RESTORE" : "");
         return;
     }
     twice = fm.page != PG_SCENES && holding_any() ? now : 0u;
@@ -3540,6 +4049,26 @@ static void play_tap(void)
     } else {                             /* nothing playing at all: its three tracks, as PLAY held; else the transport;
                                           * stopping a take ends it, RECORD off */
         int ran = sq.run || bq.run || dq.run || cnt.run;
+#if FRS_MIDI_OUT
+        int eng_seq = st.v[P_SQ_TYPE] == SQT_SEQ || st.v[P_BQ_ON] == SQT_SEQ || st.v[P_DQ_ON];
+        int eng_ran = (st.v[P_SQ_TYPE] == SQT_SEQ && sq.run) || (st.v[P_BQ_ON] == SQT_SEQ && bq.run) ||
+                      (st.v[P_DQ_ON] && dq.run);
+        if (md[MD_TYPE] == SQT_SEQ) {    /* MIDI's sequence with the others (card #169): playing, stopped with them (none
+                                          * playing: it alone); stopped, from the top with them */
+            if (msq.run) {
+                md_rec_off();
+                md_stop();
+                if (!eng_ran) {
+                    app_say("SEQUENCE", "STOPPED");
+                    return;
+                }
+            } else if (!eng_ran) {
+                md_begin(1);
+            }
+        } else if (md[MD_TYPE] == SQT_ARP && marp.n && !eng_seq) {   /* (its arpeggio waits, or plays on: GLINT's way) */
+            arp_wait(&marp, !marp.paused);
+        }
+#endif
         scene_get(fm.scene, &sc);
         eng_play_tap(&sc);
         lv_op(FST_PLAY, 0, 0);
@@ -3555,6 +4084,10 @@ static void play_hold(void)
 {
     scene_t sc;
     scene_get(fm.scene, &sc);
+#if FRS_MIDI_OUT
+    md_rec_off();                        /* (MIDI's arpeggio and sequence let go: card #169) */
+    md_all_stop();
+#endif
     eng_release_all(&sc);
     lv_op(LV_RELEASE_ALL, 0, 0);
     if (rec_any())
@@ -3576,6 +4109,12 @@ static uint32_t help_for(uint32_t b)     /* the help's page with button b on it 
          : b == B_EDIT || b == B_GLO || b == B_HOME || b == B_SAVE ? 1u : 2u;
 }
 
+#if PLAT_SMK37
+/* a hand moved by the SMK-37's KNOB BANK (1: the track) or its mod wheel (2: the track's ALGORITHM setting), not its knob,
+ * at fm.touched_at hand_at: the large view names that control (ui.c hand_key; Styves, card #111) */
+static uint8_t hand_by;
+static uint32_t hand_at;
+#endif
 static void tap(uint32_t k)              /* a button let go before its hold, alone */
 {
     switch (k) {
@@ -3655,17 +4194,24 @@ static void tap(uint32_t k)              /* a button let go before its hold, alo
         fm.help = 0;
         page_turn(PAGES[fm.page].button, k == B_RIGHT ? 1 : -1);
         break;
-    case B_KBANK:                        /* the SMK-37's KNOB BANK: the next track (DRONE, GLINT, BASS, round), as SELECT
-                                          * turned (Styves, 2026-11-09) */
-        track_turn(st.v[P_KB] >= PD[P_KB].max ? -(int32_t)st.v[P_KB] : 1);
+    case B_KBANK: {                      /* the SMK-37's KNOB BANK: the next track (DRONE, GLINT, BASS, round), as SELECT
+                                          * turned (Styves, 2026-11-09); MIDI the last (card #164) */
+        uint32_t at = fm.touched_at;
+        int32_t pos = mout_sel_at();
+        track_turn(pos >= (int32_t)PD[P_KB].max + FRS_MIDI_OUT ? -pos : 1);
+        if (fm.touched_at != at) {       /* (a track changed: KNOB BANK's, on the screen) */
+            hand_by = 1;
+            hand_at = fm.touched_at;
+        }
         break;
+    }
     case B_FBANK: {                      /* the SMK-37's FADER BANK: the selected track's KEYS NOTES, SINGLE NOTE or CHORD
                                           * (to CHORD with HARMONY off: HARMONY on, as KEYS' K2 does); held: its LATCH
                                           * (holds) (Styves, 2026-11-09) */
         uint32_t t = st.v[P_KB], np = P_KY_DR_NOTES + 4u * t;
 #if FRS_LEAD
         if (st.lead) {                   /* (LEAD: one note at a time, always) */
-            app_say("LEAD", "ONE NOTE");
+            app_say(MOUT_SEL() ? "MIDI" : "LEAD", MOUT_SEL() ? "AS PLAYED" : "ONE NOTE");
             break;
         }
 #endif
@@ -3704,7 +4250,7 @@ static void anchor_back_to(uint32_t ms)
 {
     anchor_back(ms);
     lv_op(FST_ANCHOR_BACK, ms & 0xFFu, ms >> 8 & 0xFFu);
-    fm.octave = fm.anc_oct;
+    oct_frasil_set(fm.anc_oct);          /* (FRASIL's: MIDI keeps its own) */
     app_say(ms ? "MORPH" : "BACK", "TO " ANCHOR_NAME);
 }
 
@@ -3721,7 +4267,7 @@ static void anchor_press(void)           /* the two down */
     } else {
         anchor_set();
         lv_long(FST_ANCHOR, LV_ANC);     /* (its bytes: frs_anchor_put) */
-        fm.anc_oct = fm.octave;
+        fm.anc_oct = oct_frasil();
         app_say(ANCHOR_NAME, "SET");
     }
 }
@@ -3759,6 +4305,13 @@ static void smk_wheels(void)
     int m = plat_wheel(PLAT_WHEEL_MOD), b = plat_wheel(PLAT_WHEEL_PITCH), d = m - was;
     if (b > -96 && b < 96)               /* (its rest: dead still) */
         b = 0;
+#if FRS_MIDI_OUT
+    if (mout.sel) {                      /* MIDI: the wheels and the pedal out, nothing here (card #164) */
+        mout_smk(m, b);
+        was = (int16_t)m;
+        return;
+    }
+#endif
     if (trk != st.v[P_KB] || plat_ms() - moved_at > 1000u) {
         trk = (uint8_t)st.v[P_KB];
         awake = 0;
@@ -3780,6 +4333,8 @@ static void smk_wheels(void)
             fm.touched = (prm_t)p;
             fm.touched_enc = EN_ALGO;
             fm.touched_at = plat_ms();
+            hand_by = 2;                 /* (the mod wheel's, on the screen) */
+            hand_at = fm.touched_at;
         }
     }
 #if FRS_LEAD
@@ -3936,7 +4491,7 @@ static void pad_lfo(uint32_t hit, int choice)
 }
 
 /* the SMK-37's track pads (Styves, 2026-11-09): the bottom row's first four (base's 8 .. 11), DRONE, GLINT, BASS, LEAD as
- * KNOB BANK goes; each its track's colour as the screen has it, made for the LEDs (the screen's gamma undone, green a
+ * KNOB BANK goes, MIDI's the fifth (12, card #164: held, its notes out let go, and CC 123 on its channel); each its track's colour as the screen has it, made for the LEDs (the screen's gamma undone, green a
  * little less: it reads brighter), the selected at half the LED's full as the others pads' tops, the rest a quarter of
  * it; a tap the track, as KNOB BANK or SELECT landing on it (its page followed, the header's colour); the selected's tap
  * its EDIT pages (admin #607), as EDIT tapped (PARA on the SMK-37): from elsewhere its first, on one of them the next,
@@ -3945,17 +4500,22 @@ static void pad_lfo(uint32_t hit, int choice)
 #define PAD_TRK0 8u
 #define PAD_RGB(r, g, b) ((uint32_t)(r) << 16 | (uint32_t)(g) << 8 | (uint32_t)(b))   /* (not a hex word: base's check
                                                                                         * reads 0x01.... as an address) */
-static const uint32_t PAD_TRK[3 + FRS_LEAD] = {PAD_RGB(112, 90, 128), PAD_RGB(1, 20, 128), PAD_RGB(128, 42, 15),
-                                               PAD_RGB(128, 16, 30)};   /* fog, azure, lamp, rose */
+#define NPAD_TRK (3u + FRS_LEAD + FRS_MIDI_OUT)
+static const uint32_t PAD_TRK[NPAD_TRK] = {PAD_RGB(112, 90, 128), PAD_RGB(1, 20, 128), PAD_RGB(128, 42, 15),
+                                           PAD_RGB(128, 16, 30)
+#if FRS_MIDI_OUT
+                                           , PAD_RGB(57, 26, 128)
+#endif
+};                                       /* fog, azure, lamp, rose, violet */
 static void pad_tracks(uint32_t hit, int choice)
 {
-    static const char *const NAME[4] = {"DRONE", "GLINT", "BASS", "LEAD"};
-    static uint32_t at[4];
+    static const char *const NAME[5] = {"DRONE", "GLINT", "BASS", "LEAD", "MIDI"};
+    static uint32_t at[NPAD_TRK];
     static uint8_t down, used;           /* (a bit a pad: down since a hit; its hold done) */
-    uint32_t t, cur = st.v[P_KB], held = plat_pads(), now = plat_ms();
-    for (t = 0; t < 3u + FRS_LEAD; t++)
+    uint32_t t, cur = (uint32_t)mout_sel_at(), held = plat_pads(), now = plat_ms();
+    for (t = 0; t < NPAD_TRK; t++)
         plat_pad_rgb((int)(PAD_TRK0 + t), t == cur ? PAD_TRK[t] : PAD_TRK[t] >> 2 & 0x3F3F3Fu);
-    for (t = 0; t < 3u + FRS_LEAD; t++) {
+    for (t = 0; t < NPAD_TRK; t++) {
         uint32_t bit = 1u << (PAD_TRK0 + t);
         if ((hit & bit) && !choice) {
             down |= (uint8_t)(1u << t);
@@ -3975,7 +4535,13 @@ static void pad_tracks(uint32_t hit, int choice)
         } else if (!(used >> t & 1u) && now - at[t] >= HOLD_MS && !choice) {   /* held: its notes let go (admin
                                                                                 * #634), no tap at its release */
             used |= (uint8_t)(1u << t);
-            track_off(t);
+#if FRS_MIDI_OUT
+            if (t == NPAD_TRK - 1u) {    /* (MIDI's: the notes it sent let go, the computer's instrument quiet) */
+                mout_all_off();
+                mout_put(0xB0u | mout.ch, 123, 0);
+            } else
+#endif
+                track_off(t);
             app_say(NAME[t], "RELEASED");
         }
     }
@@ -4101,6 +4667,10 @@ static void buttons(uint32_t btn)
             b_used(B_OCTDN);
             b_used(B_PLAY);
             eng_cut();
+#if FRS_MIDI_OUT
+            md_rec_off();                /* (MIDI's too: card #169) */
+            md_all_stop();
+#endif
             lv_op(FST_CUT, 0, 0);
             app_say("CUT", "ALL SOUND");
         } else if (k == B_EDIT && (btn >> B_OCTDN & 1u) && !(btn >> B_OCTUP & 1u)) {   /* OCT- held, EDIT: COMPARE,
@@ -4136,6 +4706,15 @@ static void holds(void)
             arp_t *a = st.bass ? &barp : &arp;
             int bs = a == &barp, tp = bs ? P_BQ_ON : P_SQ_TYPE;
             b_used(b);
+#if FRS_MIDI_OUT
+            if (MOUT_SEL()) {            /* MIDI's (card #169): its LATCH, ARP on with it */
+                md_turn(MD_LATCH, md[MD_LATCH] ? -1 : 1, md[MD_LATCH] ? -1 : 1);
+                if (md[MD_LATCH] && md[MD_TYPE] != SQT_ARP)
+                    md_type(SQT_ARP);
+                app_say("MIDI ARP LATCH", md[MD_LATCH] ? "ON" : "OFF");
+                continue;
+            }
+#endif
             if (!st.bass && !st.glint)
                 continue;                /* (nothing done: nothing for SELECT to undo, hold_acted stays off) */
             a->latch ^= 1u;
@@ -4262,6 +4841,10 @@ static int32_t edit_group(void)          /* the group of the page on the screen,
 {
     const uint8_t (*g)[3] = EDIT_GROUPS[st.v[P_KB] % (3u + FRS_LEAD)];
     uint32_t i, j;
+#if FRS_MIDI_OUT
+    if (mout.sel)
+        return fm.page == PG_MOUT ? 0 : -1;
+#endif
     for (i = 0; i < 3u; i++)
         for (j = 0; j < 3u; j++)
             if (g[i][j] == fm.page)
@@ -4272,6 +4855,14 @@ static void edit_jump(uint32_t i)
 {
     const uint8_t *g = EDIT_GROUPS[st.v[P_KB] % (3u + FRS_LEAD)][i];
     uint32_t j, n = g[1] == g[0] ? 1u : g[2] == g[1] ? 2u : 3u;
+#if FRS_MIDI_OUT
+    if (mout.sel) {                      /* (MIDI: its one page, whichever key) */
+        fm.logo = 0;
+        fm.help = 0;
+        fm.page = PG_MOUT;
+        return;
+    }
+#endif
     fm.logo = 0;
     fm.help = 0;
     for (j = 0; j < n; j++)
@@ -4307,8 +4898,30 @@ static void key_down(uint32_t k, uint32_t vel)
     }
     if (b_held(B_SEL))                   /* (SEL with a key: no HARMONY on its release, whatever the keys play) */
         b_used(B_SEL);
+#if FRS_MIDI_OUT
+    if (mout.sel) {                      /* MIDI: out to the computer, nothing here (nothing to LIVE either) */
+        mout_key_down(k, 53 + (int)k + 12 * fm.octave, vel);
+#if PLAT_SMK37
+        mout.pos[k] = (uint8_t)(k + 5u);   /* (the middle 27 from its sixth, F3) */
+#endif
+        return;
+    }
+#endif
     eng_key_down(k, 53 + (int)k + 12 * fm.octave, vel, b_held(B_SEL));   /* (SEL held: a single note) */
     lv_key(k, 53 + (int)k + 12 * fm.octave, vel, b_held(B_SEL));
+}
+
+/* a key let go: MIDI's note off (card #164), or the engine's and LIVE's */
+static void key_let_go(uint32_t k)
+{
+#if FRS_MIDI_OUT
+    if (mout_key_up(k)) {
+        key_up(k);                       /* (its K_NONE: nothing) */
+        return;
+    }
+#endif
+    key_up(k);
+    lv_key_up(k);
 }
 
 #if PLAT_SMK37
@@ -4352,11 +4965,17 @@ static void keys_outer(void)
                 b_used(B_SEL);
             note = 48 + (int)k + 12 * fm.octave;   /* (key 0 is C3, 48; key 5 F3, 53: the FM-1's first) */
             vel = (uint32_t)plat_key_vel((int)k);
+#if FRS_MIDI_OUT
+            if (mout.sel) {
+                mout_key_down(id, note, vel);
+                mout.pos[id] = (uint8_t)k;
+                continue;
+            }
+#endif
             eng_key_down(id, note, vel, b_held(B_SEL));
             lv_key(id, note, vel, b_held(B_SEL));
         } else if (id_of[k] >= 0) {
-            key_up((uint32_t)id_of[k]);
-            lv_key_up((uint32_t)id_of[k]);
+            key_let_go((uint32_t)id_of[k]);
             id_of[k] = -1;
         }
     }
@@ -4380,10 +4999,13 @@ static void keys_scan(void)
             key_down(k, touch_vel(k));
 #endif
         } else if (!(keys & bit) && (keys_prev & bit)) {
-            key_up(k);
-            lv_key_up(k);
+            key_let_go(k);
         } else if (keys & bit) {
             uint8_t p = touch_pressure(k);
+#if FRS_MIDI_OUT
+            if (mout_pressure(k, p))     /* (MIDI's: out as PRESSURE says) */
+                continue;
+#endif
             lv_pressure(k, p);           /* (before: it reads what the key had) */
             key_pressure(k, p);
         }
@@ -4458,6 +5080,15 @@ static void keys_lights(uint32_t *bright, uint32_t *dim)
         *bright |= keys_prev;
         return;
     }
+#if FRS_MIDI_OUT
+    if (mout.sel) {                      /* MIDI: the scale's dim, the keys down bright (nothing latches) */
+        for (k = 0; k < NKEYS; k++)
+            if (bits != 0xFFFu && in_scale(53 + (int)k + 12 * fm.octave, st.v[P_ROOT] % 12, bits))
+                *dim |= 1u << k;
+        *bright |= keys_prev;
+        return;
+    }
+#endif
     for (k = 0; k < NKEYS; k++) {
         int n = 53 + (int)k + 12 * fm.octave;
         if (bit_get(lit, n))
@@ -4498,6 +5129,18 @@ static void input(void)
 #endif
     eng_steps();                         /* (the engine's millisecond, around the MIDI) */
     midi_in();
+#if FRS_MIDI_OUT
+    if (mout.sel && st.v[P_KB] != PD[P_KB].max)   /* (the track changed elsewhere, a take begun: MIDI let go, FRASIL's
+                                                   * octave back) */
+        mout_select(0);
+    md_pass();                           /* MIDI's arpeggio, sequence and CLOCK OUT on the grid (card #169) */
+    mout_ret_run();                      /* RETURN's level, gliding */
+    rin_run();                           /* ... and whether it comes (MIXER's fifth fader: card #172) */
+    if (MD_REC_ON() && !test_rec_anywhere && PAGES[fm.page].button != B_SEQ && PAGES[fm.page].button != B_ARP) {
+        md_rec_off();                    /* (MIDI's take, as the others': its pages left, it ends) */
+        app_say("RECORD OFF", "");
+    }
+#endif
     eng_moves();
     grid_tick();
     if (rec_any() && !test_rec_anywhere && PAGES[fm.page].button != B_SEQ && PAGES[fm.page].button != B_ARP) {   /* a take lives on the SEQ and ARP
@@ -4539,9 +5182,10 @@ static void input(void)
         lights_set(1u << B_SEL | 1u << B_FX, 0, 0, 0, 0, 0);
         return;
     }
-    if (nm.on) {                         /* a name: its answers lit, SAVE (store) and FX (cancel); OCT at the mid level */
+    if (nm.on) {                         /* a name: its answers lit, SAVE (store) and FX (cancel); OCT at the mid level
+                                          * (the SMK-37: < and >) */
         oct_soft = 0;
-        lights_set(1u << B_SAVE | 1u << B_FX, 1u << B_OCTDN | 1u << B_OCTUP, 0, 0, 0, 0);
+        lights_set(1u << B_SAVE | 1u << B_FX, 1u << NM_PREV | 1u << NM_NEXT, 0, 0, 0, 0);
         return;
     }
     if (fm.page == PG_SAVE || fm.page == PG_SAVEAS) {   /* the flow: its answers lit, the keys as they are */
@@ -4676,8 +5320,13 @@ void app_say(const char *a, const char *b)
     uint32_t i;
     if (text_is(a, "STOP FIRST")) {      /* (the River lets it all go first, CC 120: what is left, a key held down;
                                           * from a terminal, anything) */
+#if PLAT_SMK37                           /* (its SEQ PLAY, longer: the lines wrapped later) */
         popup(POP_WARN, "RESTORE FROM USB", "STOP FIRST", "SOMETHING IS PLAYING: LET GO",
-              "OF THE KEYS, OR HOLD PLAY TO", "RELEASE ALL, THEN TRY AGAIN.");
+              "OF THE KEYS, OR HOLD " CN_PLAY, "TO RELEASE ALL, THEN TRY AGAIN.");
+#else
+        popup(POP_WARN, "RESTORE FROM USB", "STOP FIRST", "SOMETHING IS PLAYING: LET GO",
+              "OF THE KEYS, OR HOLD " CN_PLAY " TO", "RELEASE ALL, THEN TRY AGAIN.");
+#endif
         return;
     }
     if (text_is(a, "RESTORE FROM USB")) {
@@ -4747,7 +5396,8 @@ void app_ui_init(void)
  *                 2 SCENE slot (16: NEW SHARD), dirty, name (16 ASCII)     at HELLO, and when one of them changes
  *                 3 VALUES first (2), n, then n values (2 each)            every setting: at HELLO, after a load
  *                 4 VALUE p (2), v (2), enc (EN_*, 127: no knob's)          a setting that moved
- *                 5 PAGE page, octave + 3, keys (0 DRONE, 1 GLINT, 2 BASS, 3 LEAD)  when one of them changes
+ *                 5 PAGE page, octave + 3, keys (0 DRONE, 1 GLINT, 2 BASS, 3 LEAD, 4 MIDI: card #164, a page
+ *                   past the schema's)  when one of them changes
  *                 6 FRAME 20 a second, what sounds: the drones' 8 (note, level), GLINT's 4 (note, level as heard,
  *                   1/20 s since struck), the bass (note, level), the LFOs on (bits), then each LFO where in its turn
  *                   (0..127), its value ((-1..1) to 0..127) and its turns (3 bytes: RANDOM's and DRIFT's values, the
@@ -5345,7 +5995,7 @@ static void pf_tick(void)
 {
     uint32_t now = plat_ms(), i, n, sent = 0, btn, k;
 #if FRS_LEAD
-    uint8_t b[4u + 2u * PF_DUMP], keys = st.lead ? 3u : st.glint ? 1u : st.bass ? 2u : 0u;
+    uint8_t b[4u + 2u * PF_DUMP], keys = MOUT_SEL() ? 4u : st.lead ? 3u : st.glint ? 1u : st.bass ? 2u : 0u;
 #else
     uint8_t b[4u + 2u * PF_DUMP], keys = st.glint ? 1u : st.bass ? 2u : 0u;
 #endif
@@ -6230,7 +6880,7 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "battmv"))
         *got = batt.mv16 / 16;
 #ifndef PLAT_WEB
-    else if (!strcmp(what, "pfkeys"))       /* PAGE's keys as the page was last told (0 DRONE, 1 GLINT, 2 BASS, 3 LEAD) */
+    else if (!strcmp(what, "pfkeys"))       /* PAGE's keys as the page was last told (0 DRONE, 1 GLINT, 2 BASS, 3 LEAD, 4 MIDI) */
         *got = pf.keys;
     else if (!strcmp(what, "pfframelen"))   /* the last FRAME a PERFORM page got: its bytes, its cmd first */
         *got = (int)pf_frame_n;
@@ -6244,6 +6894,75 @@ int app_expect(const char *what, int *got)
 #endif
     else if (!strcmp(what, "headbyte"))
         *got = set.head;
+#if FRS_MIDI_OUT
+    else if (!strcmp(what, "mout"))      /* MIDI selected (card #164); moutch 1 .. 16, moutoct, moutvel (SOFT 0 .. FIXED 3),
+                                          * moutprs (OFF 0, CHANNEL 1, POLY 2), moutsent (messages out), mouthelt (keys
+                                          * whose notes are out), moutbyte (the settings' record's), octfrasil */
+        *got = mout.sel;
+    else if (!strcmp(what, "moutch"))
+        *got = mout.ch + 1;
+    else if (!strcmp(what, "moutoct"))
+        *got = mout.sel ? fm.octave : mout.oct;
+    else if (!strcmp(what, "moutvel"))
+        *got = mout.vel;
+    else if (!strcmp(what, "moutprs"))
+        *got = mout.prs;
+    else if (!strcmp(what, "moutsent"))
+        *got = (int)mout.sent;
+    else if (!strcmp(what, "mouthelt"))
+        *got = (int)mout_held();
+    else if (!strcmp(what, "moutbyte"))
+        *got = set.mout;
+    else if (!strcmp(what, "moutcp"))    /* CHANNEL's pressure sent last; moutkpK: POLY's, key K's */
+        *got = mout.cp_sent;
+    else if (!strncmp(what, "moutkp", 6))
+        *got = (uint32_t)atoi(what + 6) < FRS_NKEYS ? mout.kp_sent[atoi(what + 6)] : -1;
+    else if (!strcmp(what, "octfrasil"))
+        *got = oct_frasil();
+    else if (!strncmp(what, "mseq", 4) && what[4] >= '0' && what[4] <= '9')   /* MIDI's sequence (card #169): step N's
+                                          * byte; mdN: md[N] (MD_TYPE 0 .. MD_REC 14); msqrun, msqpos, msqsteps (notes
+                                          * it sent), marpn (its arpeggio's notes), marpsteps, moutret (RETURN %),
+                                          * moutclk (CLOCK OUT), clocksent (clocks out) */
+        *got = (uint32_t)atoi(what + 4) < SC_SEQ ? mseq[atoi(what + 4)] : -1;
+    else if (!strncmp(what, "md", 2) && what[2] >= '0' && what[2] <= '9')
+        *got = (uint32_t)atoi(what + 2) < NMD ? md[atoi(what + 2)] : -1;
+    else if (!strcmp(what, "mseqs")) {   /* MIDI's sequence: its steps with a note */
+        uint32_t i;
+        for (*got = 0, i = 0; i < SC_SEQ; i++)
+            *got += (mseq[i] & 127u) != SQ_REST && (mseq[i] & 127u) != SQ_TIE;
+    } else if (!strcmp(what, "msqrun"))
+        *got = msq.run;
+    else if (!strcmp(what, "msqpos"))
+        *got = msq.pos;
+    else if (!strcmp(what, "msqsteps"))
+        *got = (int)msq.steps;
+    else if (!strcmp(what, "marpn"))
+        *got = marp.n;
+    else if (!strcmp(what, "marpsteps"))
+        *got = (int)ma_steps;
+    else if (!strcmp(what, "marplen"))   /* its notes out (card #172): the last let go's length, ms; marpioihi, marpioilo:
+                                          * the longer and the shorter of the last two times between notes out, ms (a
+                                          * swung pair's); marpover: notes out over another since last asked (LEGATO's);
+                                          * mixret: MIXER's RETURN shown; mixretlvl: its meter x 100 */
+        *got = (int)ma.len;
+    else if (!strcmp(what, "marpioihi") || !strcmp(what, "marpioilo"))
+        *got = (int)((ma.ioi[0] > ma.ioi[1]) == (what[7] == 'h') ? ma.ioi[0] : ma.ioi[1]);
+    else if (!strcmp(what, "marpover")) {
+        *got = (int)ma.over;
+        ma.over = 0;
+    } else if (!strcmp(what, "mixret"))
+        *got = rin.on;
+    else if (!strcmp(what, "mixretlvl"))
+        *got = (int)(rin.lvl * 100.0f + 0.5f);
+    else if (!strcmp(what, "moutret"))
+        *got = mout.ret;
+    else if (!strcmp(what, "moutclk"))
+        *got = mout.clk;
+    else if (!strcmp(what, "clocksent"))
+        *got = (int)mck.sent;
+    else if (!strcmp(what, "mdopen"))    /* MIDI's notes out not ended: the arpeggio's, the sequence's, the keys' */
+        *got = (ma.note[0] >= 0) + (ma.note[1] >= 0) + (msq.sounding >= 0) + (int)__builtin_popcount(mout_held());
+#endif
     else if (!strcmp(what, "a4"))        /* GLO > RECORD's TUNE A4, Hz; a4byte: the settings' record's (less 440) */
         *got = a4.hz;
     else if (!strcmp(what, "a4byte"))
@@ -6273,6 +6992,13 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "arpled") || !strcmp(what, "seqled")) {   /* as recled: 0 off, 1 glow, 2 mid, 3 lit */
         uint32_t b = what[0] == 'a' ? B_ARP : B_SEQ;
         *got = (leds_now >> b & 1u) ? 3 : (midleds_now >> b & 1u) ? 2 : (glowleds_now >> b & 1u) ? 1 : 0;
+#if PLAT_SMK37
+    } else if (!strcmp(what, "handby")) {   /* the hand turned last moved by KNOB BANK (1), the mod wheel (2), a knob (0) */
+        *got = hand_at == fm.touched_at ? hand_by : 0;
+    } else if (!strcmp(what, "leftled") || !strcmp(what, "rightled")) {   /* the SMK-37's < and >, as recled */
+        uint32_t b = what[0] == 'l' ? B_LEFT : B_RIGHT;
+        *got = (leds_now >> b & 1u) ? 3 : (midleds_now >> b & 1u) ? 2 : (glowleds_now >> b & 1u) ? 1 : 0;
+#endif
     } else if (!strcmp(what, "arpflashes") || !strcmp(what, "seqflashes")) {   /* the flashes since last asked */
         *got = (int)flashes[what[0] == 's'];
         flashes[what[0] == 's'] = 0;
@@ -6616,6 +7342,9 @@ static int schema_write(const char *path)
 #if FRS_LEAD
     fprintf(f, ",\"lead\":%d", OBJ_LEAD);
 #endif
+#if FRS_MIDI_OUT
+    fprintf(f, ",\"mseq\":%d", OBJ_MSEQ);
+#endif
     fprintf(f, "},\n\"seq\":{\"rest\":%u,\"tie\":%u,\"accent\":%u},\n", SQ_REST, SQ_TIE, SQ_ACC);
     /* OBJ_UPRE (3.0), the player's presets: after its magic NUP of the drone's, of GLINT's, of the bass's, each its bytes
      * (the engine's "FRp": "FRp", version, track, n, name of SC_NAME, n pairs of setting and value; its first byte 0: none);
@@ -6636,6 +7365,12 @@ static int schema_write(const char *path)
     fprintf(f, "\"shard_t\":{\"size\":%u,\"lead\":%u},\n", (unsigned)(sizeof(scene_t) + NLDS), (unsigned)sizeof(scene_t));
 #else
     fprintf(f, "\"shard_t\":{\"size\":%u},\n", (unsigned)sizeof(scene_t));
+#endif
+#if FRS_MIDI_OUT
+    /* OBJ_MSEQ (card #169: mseq.c md_*), each scene's MIDI arpeggio and sequence, found by its record's sum, and the
+     * device's RETURN in its head: the River's model passes it on as given (a slot it puts a shard into: none there, its
+     * record's sum another); absent (an earlier FRASIL's store or backup): none, RETURN 100 % */
+    fprintf(f, "\"mseq_t\":{\"magic\":%u,\"size\":%u},\n", (unsigned)MDQ_MAGIC, (unsigned)MDQ_BYTES);
 #endif
     /* the drone's sequence (scene_t's dq, dnote): SC_DSEQ steps of DQ_NOTES bytes, each step its notes low to high (1 ..
      * 126, MIDI's, TRANSPOSE off them), 0 after the last, all 0 a rest, "tie" first (the rest 0) a tie; RATE's ticks the
@@ -6819,7 +7554,7 @@ static int schema_write(const char *path)
         fprintf(f, "]}");
     }
     fprintf(f, "],\n\"pages\":[\n");
-    for (i = 0; i < NPAGES; i++) {
+    for (i = 0; i < NPAGES_RIVER; i++) { /* (MIDI's the FM-1's alone: card #164) */
         fprintf(f, "%s{\"name\":", i ? ",\n" : "");
         js_str(f, PAGES[i].name);
         fprintf(f, ",\"button\":\"%s\",\"track\":%u,\"p\":[", BUTTON[PAGES[i].button % NB], PAGES[i].track);

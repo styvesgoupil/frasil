@@ -13,6 +13,8 @@
  *   st_render(n)                   n frames (128 a quantum) into st_l(), st_r(): 256 at most
  *   st_ms()                        the stream's clock (live: the engine's milliseconds since it opened)
  *   st_live()                      frs_live's floats
+ *   st_lead()                      what the LEAD sounds (frs_view's lead_*, card #158): FRS_LEAD_NV notes (-1 free), their
+ *                                  levels (0..1), its meter: 13 floats, after st_live's in the pictures' frame (river.js LD)
  *   st_pcount(), st_param(p), st_pmax(p)   the settings, for the picture
  *   st_version()                   frs_version's string
  * Live (LIVE.md section 3):
@@ -61,7 +63,7 @@ static fst_live lv;
 static fst_start start;
 static int on_air;                       /* (the engine is a stream's: fst_air's hook and clock; else a live one's) */
 static uint32_t live_t0;
-static float L[256], R[256], live[FRS_LIVE];
+static float L[256], R[256], live[FRS_LIVE], lead[2u * FRS_LEAD_NV + 1u];
 static uint32_t info[6], counts[3];
 
 EMSCRIPTEN_KEEPALIVE uint8_t *st_alloc(uint32_t n) { return malloc(n); }
@@ -110,6 +112,18 @@ EMSCRIPTEN_KEEPALIVE float *st_live(void)
 {
     frs_live(live);
     return live;
+}
+EMSCRIPTEN_KEEPALIVE float *st_lead(void)
+{
+    frs_view_t v;
+    uint32_t i;
+    frs_view(&v);
+    for (i = 0; i < FRS_LEAD_NV; i++) {  /* (as PERFORM's FRAME: a voice gone silent, no note) */
+        lead[i] = v.lead_note[i] >= 0 && v.lead_level[i] > 0.0f ? (float)v.lead_note[i] : -1.0f;
+        lead[FRS_LEAD_NV + i] = v.lead_note[i] < 0 ? 0.0f : v.lead_level[i];
+    }
+    lead[2u * FRS_LEAD_NV] = v.lead_meter;
+    return lead;
 }
 EMSCRIPTEN_KEEPALIVE uint32_t st_pcount(void) { return frs_param_count(); }
 EMSCRIPTEN_KEEPALIVE uint32_t st_param(uint32_t p) { return frs_param_get(p); }

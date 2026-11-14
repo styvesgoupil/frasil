@@ -6,5 +6,11 @@
   ],
   "play": "https://frasilsynth.com/play/",
   "editor": "https://editor.frasilsynth.com/",
-  "image": "docs/img/screen-play.png"
+  "image": "docs/img/screen-play.png",
+  "smk37": {
+    "what": "FRASIL on the SMK-37: tap a key to latch a drone, a note or a chord in your key, into a big reverb with shimmer and freeze. GLINT's icy FM bells above, BASS below, LEAD for melodies. Tested on the Elite; the Pro and MKE-P37 packages are not tested yet. Back the keyboard up first.",
+    "image": "app/docs/img/smk37/screen-play.png",
+    "install": "https://frasilsynth.com/guide/install/?device=smk37",
+    "guide": "https://frasilsynth.com/guide/smk37/?device=smk37"
+  }
 }

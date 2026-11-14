@@ -1,0 +1,82 @@
+# The SMK-37's own screens, beside app/tests/screens.txt (card #111): tools/screens.sh smk37 runs that list on the
+# SMK-37's simulator first (every page with its panel's names), then this one, for what only the SMK-37 has: CHORD
+# held (its keys have no pressure), FADER BANK, KNOB BANK, a track pad held, K8's MASTER, the mod wheel.
+#   FM1B_BOARD=smk37 FM1B_MODEL=elite ./build.sh --host
+#   tools/screens.sh smk37
+keysstay 1
+nogrid 1
+setp 214 1
+setp 216 0
+setp 217 0
+setp 224 0
+master 3000
+wait 1500
+# a chord in D minor, some voices (as screens.txt), then CHORD held: every drone swells
+tap SEL
+turn K2 2
+turn K3 2
+tap HOME
+tapkey 9 90
+wait 1500
+tapkey 2 80
+wait 6000
+press ENV
+wait 1700
+shot screen-swell.png
+release ENV
+wait 1800
+# the mod wheel: the selected track's ALGORITHM setting, large over the river (the drone's TIMBRE)
+wheel mod 30
+wait 40
+wheel mod 34
+wait 40
+wheel mod 38
+wait 120
+shot screen-wheel.png
+wait 1500
+# K8: MASTER, said a moment
+turn K8 -2
+wait 120
+shot screen-master.png
+wait 1500
+# FADER BANK: the keys' NOTES, SINGLE NOTE or CHORD
+tap FBANK
+wait 120
+shot screen-fbank.png
+wait 1500
+tap FBANK
+wait 1500
+# KNOB BANK: the next track (GLINT)
+tap KBANK
+wait 400
+shot screen-kbank.png
+wait 1500
+# a track pad held (pad 9, the DRONE): its notes let go (KNOB BANK round from GLINT: BASS, LEAD, MIDI, the DRONE)
+tap KBANK
+tap KBANK
+tap KBANK
+tap KBANK
+wait 400
+pad 8 down 100
+wait 700
+shot screen-pad-release.png
+pad 8 up
+wait 1500
+# MIDI OUT again (card #164), its keys as the SMK-37's are: no pressure, the bars low (screens.txt's has the FM-1's)
+gopage 0
+wait 300
+tap KBANK
+tap KBANK
+tap KBANK
+tap KBANK
+wait 1500
+gopage 71
+key 7 down 112
+key 11 down 86
+key 14 down 64
+wait 700
+shot screen-midi-out.png
+key 7 up
+key 11 up
+key 14 up
+wait 300

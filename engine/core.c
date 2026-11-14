@@ -25,6 +25,10 @@ static inline int32_t clamp(int32_t v, int32_t lo, int32_t hi) { return v < lo ?
 #define FRS_NKEYS 32                     /* keys down at once the engine follows (each its number, below it) */
 #endif
 #define TAP_MS 350u                      /* a lit key let go sooner than this, without pressing in: it goes out */
+#ifndef FRS_PLAY_NAME
+#define FRS_PLAY_NAME "PLAY"             /* the play button, as its words name it ("HOLD PLAY"): the runner's own
+                                          * (the SMK-37's SEQ PLAY: app/controls.h) */
+#endif
 
 /* what it asks of whoever runs it */
 static uint32_t eng_ms(void);            /* milliseconds, the main loop's clock */
@@ -132,6 +136,13 @@ typedef struct {
 } arp_t;
 static arp_t arp = {.sounding = -1, .rng = 0x9E3779B9u, .latch = 1, .step_n = -1},   /* latched from the start */
              barp = {.sounding = -1, .rng = 0x7F4A7C15u, .latch = 1, .step_n = -1};
+#if FRS_MIDI_OUT
+/* MIDI's (card #169: the FM-1's and the SMK-37's app, app.c md_*): run there on this grid (arp_turn), its steps out
+ * over MIDI, nothing sounding here (the app's mout_arp_on, mout_arp_off) */
+static arp_t marp = {.sounding = -1, .rng = 0x2545F491u, .latch = 1, .step_n = -1};
+static void mout_arp_on(int note, float v);
+static void mout_arp_off(int note);
+#endif
 #ifndef ARP_TRACE
 #define ARP_TRACE(a, what, note)         /* (a runner's log of each step and each set taken: the simulator's arplog) */
 #endif
@@ -3170,6 +3181,10 @@ static void arp_stop(arp_t *a)
     if (a->sounding >= 0) {
         if (a == &arp)
             frasil_glint_off(a->sounding);
+#if FRS_MIDI_OUT
+        else if (a == &marp)             /* (MIDI's: its note off out) */
+            mout_arp_off(a->sounding);
+#endif
         else if (bass_note == a->sounding)   /* (let go already: not another's note) */
             bass_stop();
     }
@@ -3675,6 +3690,10 @@ static void arp_step(arp_t *a, uint32_t mode, uint32_t range, uint32_t chance, u
             frasil_glint_on(note, v);
             if (a->pprs[at] > 0.0f)      /* its key pressed: the step louder */
                 frasil_glint_pressure(note, a->pprs[at]);
+#if FRS_MIDI_OUT
+        } else if (a == &marp) {         /* MIDI's: out on its channel */
+            mout_arp_on(note, v);
+#endif
         } else {
             bass_play(note, (uint32_t)(v * 127.0f));
             if (a->pprs[at] > 0.0f)
@@ -4716,7 +4735,7 @@ static void eng_play(void)
             grid_top(0);
         eng_say("ARPEGGIO", w ? "WAITING" : "PLAYING");
     } else {
-        eng_say("HOLD PLAY", "RELEASE ALL");
+        eng_say("HOLD " FRS_PLAY_NAME, "RELEASE ALL");
     }
 }
 
@@ -4737,7 +4756,7 @@ static void eng_play_tap(const scene_t *saved)
         return;
     }
     if (eng_scene_again(saved)) {
-        eng_say("PLAY", "FROM THE TOP");
+        eng_say(FRS_PLAY_NAME, "FROM THE TOP");
         return;
     }
     eng_play();

@@ -199,6 +199,33 @@ static void sp_knob_at(uint32_t pg, uint32_t p, uint32_t x, int now)
         sp_add(" HZ");
         return;
     }
+#if FRS_MIDI_OUT
+    if (p >= K_MD0 && p < K_MDN) {       /* MIDI's ARP and SEQ (card #169), as the screen writes them */
+        char t[16];
+        sp_add(md_name(p - K_MD0));
+        sp_add(" ");
+        if (now)
+            sp_add(md_text(p - K_MD0, t));
+        else
+            sp_num((int32_t)x);
+        return;
+    }
+    if ((p >= K_MO_CH && p <= K_MO_PRS) || p == K_MO_RET || p == K_CLKOUT) {   /* MIDI OUT's (card #164), RETURN, CLOCK
+                                                                              * OUT (card #169), as the screen writes them */
+        char t[12];
+        sp_add(mout_name(p));
+        sp_add(" ");
+        if (now)
+            sp_add(mout_text(p, t));
+        else
+            sp_num((int32_t)x);
+        return;
+    }
+    if (p == P_KB && now && mout.sel) {  /* (TRACK: MIDI, the engine's on LEAD's) */
+        sp_add("TRACK MIDI");
+        return;
+    }
+#endif
     if (p >= NPARAM)
         return;
     if (p == P_TEMPO && now && ext_bpm())
@@ -230,6 +257,16 @@ static void sp_knob(uint32_t p) { sp_knob_at(fm.page, p, 0, 1); }
 /* the three hands, A B C: the track, its preset, its filter */
 static void sp_hands(void)
 {
+#if FRS_MIDI_OUT
+    if (mout.sel) {                      /* (MIDI's: its CHANNEL, its OCTAVE) */
+        sp_knob(P_KB);
+        sp_comma();
+        sp_knob(K_MO_CH);
+        sp_comma();
+        sp_knob(K_MO_RET);
+        return;
+    }
+#endif
     sp_knob(P_KB);
     sp_comma();
     sp_knob(track_preset());
@@ -392,16 +429,20 @@ static void sp_page(int all)
     }
     sp_stop();
     if (pg == PG_SAVE) {                 /* (its title: SAVE, or LOAD's SCENES) */
+#if PLAT_SMK37                           /* (K1 nothing there: its pads 1 and 2, app.c pad_taps) */
+        sp_add("PAD 1: LOAD. PAD 2: SAVE.");
+#else
         sp_add("K1: LOAD OR SAVE, NOW ");
         sp_add(sv.load ? "LOAD" : "SAVE");
+#endif
         sp_stop();
-        sp_add("SEL: NEXT. FX: BACK.");
+        sp_add(CN_SEL ": NEXT. " CN_FX ": BACK.");
         return;
     }
     if (pg == PG_SAVEAS) {
         sp_saveas(1, 1);
         sp_stop();
-        sp_add("SEL: NEXT. FX: BACK.");
+        sp_add(CN_SEL ": NEXT. " CN_FX ": BACK.");
         return;
     }
     if (pg == PG_SCENES) {
@@ -411,7 +452,7 @@ static void sp_page(int all)
         sp_comma();
         sp_knob(P_LOAD);
         sp_stop();
-        sp_add(fm.pick < NSCENES ? "PLAY: LOAD. SAVE + REC: STORE." : "PLAY: LOAD.");
+        sp_add(fm.pick < NSCENES ? CN_PLAY ": LOAD. " CN_SAVE " + " CN_REC ": STORE." : CN_PLAY ": LOAD.");
         return;
     }
     if (pg == PG_NOARP) {
@@ -425,6 +466,12 @@ static void sp_page(int all)
             sp_comma();
         }
     }
+#if FRS_MIDI_OUT
+    if (pg == PG_MIXER && MIX_RET()) {   /* (its fifth while the computer's audio comes back: card #172) */
+        sp_knob(K_MO_RET);
+        sp_comma();
+    }
+#endif
     if (all && pg == PG_SCREEN) {
         sp_stop();
         sp_add("REDUCE ANIMATIONS TO SAVE CPU IN HEAVY SCENES.");
@@ -443,7 +490,7 @@ static void sp_popup(void)
             sp_add(" ");
         }
     sp_stop();
-    sp_add("SEL: OK.");
+    sp_add(CN_SEL ": OK.");
 }
 
 /* the name being written: what it is for, the name; all: and its controls */
@@ -458,8 +505,12 @@ static void sp_name(uint32_t part)       /* 0: what it is for, the name, the cur
     int32_t n = (int32_t)nm.len, i;
     if (part) {
         if (part == 1u) {
+#if PLAT_SMK37                           /* (< and >, which sp_add skips: THE ARROWS) */
+            sp_add("THE ARROWS: MOVE THE CURSOR. K1: LETTERS. K2: DIGITS. K3: SPACE. K4: CLEAR. ");
+#else
             sp_add("OCT- OCT+ OR K1: MOVE THE CURSOR. K2: SPACE. K3: DIGITS. K4: LETTERS. ");
-            sp_add(nm.flow ? "SAVE: STORE. FX: BACK." : "SAVE: KEEP THE NAME. FX: CANCEL.");
+#endif
+            sp_add(nm.flow ? CN_SAVE ": STORE. " CN_FX ": BACK." : CN_SAVE ": KEEP THE NAME. " CN_FX ": CANCEL.");
         }
         return;
     }
@@ -503,7 +554,7 @@ static void sp_grid(void)
     srd.sec = (uint8_t)(sp_section(ng.v) + 1);
     if (grid_asks()) {
         sp_stop();
-        sp_add("SEL: SELECT. FX: CANCEL.");
+        sp_add(CN_SEL ": SELECT. " CN_FX ": CANCEL.");
     }
 }
 
@@ -549,7 +600,7 @@ static void sp_help(int all, uint32_t part)   /* 0: its name (all: how to turn i
     sp_add(")");
     sp_stop();
     if (all)
-        sp_add("SELECT: NEXT PAGE. HOME: CLOSE.");
+        sp_add(CN_SELECT ": NEXT PAGE. " CN_HOME ": CLOSE.");
 }
 
 static void sp_logo(int all)
@@ -766,6 +817,16 @@ static int sp_readout(uint32_t e)
         sp_hands();
         return 1;
     }
+#if FRS_MIDI_OUT
+    if (mout.sel && (e == EN_PRESET || (e == EN_ALGO && !b_held(B_GLO)))) {   /* (MIDI's hands) */
+        sp_knob(e == EN_PRESET ? K_MO_CH : K_MO_RET);
+        return 1;
+    }
+    if (fm.page == PG_MIXER && MIX_RET() && e == EN_ALGO && !b_held(B_GLO)) {   /* (MIXER's RETURN: card #172) */
+        sp_knob(K_MO_RET);
+        return 1;
+    }
+#endif
     if (fm.touched_enc == e && fm.touched < NPARAM && plat_ms() - fm.touched_at < 100u)
         p = fm.touched;                  /* (what it turned: MIXER's PAN with OCT- held, GLO's CUTOFF) */
     else if (e < EN_K1)
@@ -872,6 +933,12 @@ static void speak(void)
         srd.read_sig = 0;
     } else {                             /* the same view: what the hand changed */
         sp_clear();
+#if FRS_MIDI_OUT
+        if (mout.sel != mout.rd_sel) {   /* (MIDI taken or left: the octave its or FRASIL's, the track's readout says it) */
+            mout.rd_sel = mout.sel;
+            srd.oct = fm.octave;
+        }
+#endif
         if (nm.on && (nm.cur != srd.nm_cur || (uint8_t)nm.name[nm.cur] != srd.nm_ch)) {   /* the name: the cursor's place
                                                                                           * and its character */
             int moved = nm.cur != srd.nm_cur;
@@ -926,7 +993,7 @@ static void sp_out(const char *kind)
 
 static void sp_dump_knob(uint32_t pg, uint32_t p)
 {
-    uint32_t x, hi = p == K_IDLE ? 60u : p == K_HEAD || p == K_ARP || p == K_SEQ ? 1u : p == K_TUNE ? A4_HI : PD[p].max;
+    uint32_t x, hi = p == K_IDLE ? 60u : p == K_HEAD || p == K_ARP || p == K_SEQ ? 1u : p == K_TUNE ? A4_HI : p >= NPARAM ? 0u : PD[p].max;
     if (p < NPARAM && list_param(p)) {
         for (x = 0; x < list_n(p); x++) {
             sp_row(p, x, 1);
@@ -1007,7 +1074,7 @@ void app_speak_dump(void)
         sp_num(HELP_PAGES);
         sp_add(")");
         sp_stop();
-        sp_add("SELECT: NEXT PAGE. HOME: CLOSE.");
+        sp_add(CN_SELECT ": NEXT PAGE. " CN_HOME ": CLOSE.");
         sp_out("SCREEN");
         for (i = 0; i < 4u; i++) {
             sp_help_line(&HELP[fm.help_page][i]);
