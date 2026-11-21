@@ -1,0 +1,4 @@
+# made on the engine of card #122 (engine/tests/shape.c make): NAME, its render from the top as that engine hears it (LINE), as history/dev ef2cbb5's hears it (CURVE: engine/tests/shape_old.c hash, built on that engine)
+# line-start: NORTH RIVER, every shape LINE in its start's state; each track a note in turn, twice (ATTACKs 70, 100, 80, 80 and the LEAD's filter's 80). line-turned: the same notes, CURVE at the start, FST_STATE every shape LINE at 5.9 s, GLINT's and BASS's CURVE again at 14.9 s
+line-start.frstream f11ee62998cf1987 9e12c31ac0a4fea1
+line-turned.frstream aa4cc69bb78e93bd 9e12c31ac0a4fea1

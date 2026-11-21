@@ -1,0 +1,17 @@
+# made on the iPad's engine of 2026-11-05, 3.0.2-b5, "FRS{" (68a4be7: TAPE SPEED's byte log2's own, x0.79 at 53): NAME, its render from the top, joined half-way (engine/tests/old_streams.c make-tape, then hash)
+# c-SCENE-tape: arp's arpeggios, keys and chords, TAPE SPEED dragged 64 -> 53 from 8 s, -> 30 from 16 s, 100 at 26 s; -open: the engine opened again at 21 s (card #160)
+# card #148: c-0, c-5 and c-6-tape-open play BASS II's PULSE: hashed on this engine (PULSE's strike in over 5.8 ms; PULSE_RISE 0, their engine's again)
+c-0-tape-open.frstream 14180d0a7ae26508 b85c5ca0334775c8
+c-0-tape.frstream 6f6320234e03f4fe e6aec304093aa90e
+c-1-tape-open.frstream c91cd9f9a6ed97d1 c2a0cba1e06661a5
+c-1-tape.frstream 5727eb6dcb72233b 3a56b1b02b4e7c2d
+c-2-tape-open.frstream 0191614406e2a8c4 69e345e8953a2e55
+c-2-tape.frstream f84ee6fcedf0dcef 05943f722ee21921
+c-3-tape-open.frstream a8eb363b6a6aed65 ddbd816834b97d99
+c-3-tape.frstream 0a1778be57152492 17959e988638c96a
+c-4-tape-open.frstream fd3951444fa18782 85186592743d1873
+c-4-tape.frstream c64816c6ab3bef51 b4db0ae13676feeb
+c-5-tape-open.frstream 007f13e450519c0e 6f8748dc220db422
+c-5-tape.frstream d4cf341457cc7969 c23cd406a8c4035e
+c-6-tape-open.frstream 999b7a8132f89c93 eb0b78754d50183a
+c-6-tape.frstream 4b38b79ba1ad04bf bcbefe20f7891f16

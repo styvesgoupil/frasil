@@ -83,6 +83,9 @@ static const struct {
     uint16_t bytes;
 } OLD_LAYOUT[] = {{"FRS}", 619u}, {"FRS{", 590u}, {"FRSz", 586u}};
 #define SC_SWELL (FRS_SCENE_BYTES - 1u)  /* (SWELL's byte, the scene's last: params.c scene_t) */
+/* a stream of 3.0.2's layout ("FRS{"), its TAPE SPEED's byte as its engine read it (frs_tape_302: the iPad's takes of
+ * 2026-11-05, 3.0.2-b5's TAPE SPEED; read as 3.1's, X0.79 played X0.89 and the grid ran on past the hands: card #160) */
+static uint8_t tape_302_of(uint32_t sbytes) { return (uint8_t)(sbytes == 590u); }
 
 /* the scene of one of sbytes (a shard, FST_SCENE_BYTES; or an older layout's: "FRS}"'s as it is, the ones before it
  * made over, SWELL at swell) copied into o, FRS_SCENE_BYTES long: the scene alone */
@@ -109,6 +112,7 @@ void fst_capture(fst_start *s, const uint8_t *from)
     uint32_t p, n = frs_param_count();
     frs_view(&v);
     s->tracks = v.playing;
+    s->tape302 = 0;                      /* (a take of this engine's: its TAPE SPEED 3.1's) */
     frs_scene_store(s->scene, from);
     frs_lead_get(s->scene + FRS_SCENE_BYTES);
     s->state_n = frs_state_save(s->state);
@@ -128,14 +132,19 @@ int fst_fresh(const fst_start *s, float fs)
     frs_close();
     if (frs_init(fs))
         return -1;
+    frs_tape_302(s->tape302);            /* (before anything plays: its first TAPE SPEED its own, no glide) */
     frs_keys_touch(1);
     frs_step_stays(1);
-    if (s->state_n)                      /* (a state from before ARP SNAP has none: OFF, as its engine played; a later one's
+    if (s->state_n) {                    /* (a state from before ARP SNAP has none: OFF, as its engine played; a later one's
                                           * sets it. No state, a shard alone on air (shard_stream): the engine's own) */
         frs_param_set(P_ARP_SNAP, 0);
+        frs_morph_331(1);                /* (the same for MORPH's mark, card #202: none, a scene's MORPH as 3.3.1 made it) */
+    }
     frs_state_load(s->state, s->state_n);
     frs_scene_take(s->scene);
     frs_lead_take(s->scene + FRS_SCENE_BYTES);   /* (its LEAD, as the FM-1 takes a scene's: card #152) */
+    frs_state_link(s->state, s->state_n);   /* (TRACKS LINK's baselines and note followed as the state has them: the
+                                             * scene taken left none, card #212) */
     for (i = 0; i < s->moves_n; i++)
         frs_param_set(s->moves[2u * i], s->moves[2u * i + 1u]);
     if (s->tracks == 0u)
@@ -187,6 +196,7 @@ static uint32_t start_get(const uint8_t *b, size_t n, fst_start *s, uint32_t sb)
     s->tracks = b[0];
     s->state_n = b[1];
     s->moves_n = b[2];
+    s->tape302 = 0;                      /* (a journal: this engine's take) */
     memcpy(s->scene, b + 3, FRS_SCENE_BYTES);
     lead_copy(s->scene + FRS_SCENE_BYTES, b + 3, sb);
     memcpy(s->state, b + 3 + sb, s->state_n);
@@ -629,6 +639,7 @@ void fst_start_of(const fst_file *f, fst_start *s)
     if (f->moves_n)
         memcpy(s->moves, f->moves, 2u * f->moves_n);
     s->tracks = f->tracks;
+    s->tape302 = tape_302_of(f->sbytes);
 }
 
 /* ------------------------------------------------------------------ playing --- */
@@ -818,6 +829,7 @@ int fst_apply(fst_player *p, const fst_dec *e, uint64_t frames)
         memcpy(s.state, a + 8, sn);
         s.moves_n = (uint8_t)mn;
         memcpy(s.moves, a + 9 + sn, 2u * mn);
+        s.tape302 = tape_302_of(p->f.sbytes);
         fst_fresh(&s, frs_rate());
         return 1;
     }

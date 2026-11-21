@@ -70,3 +70,156 @@ wait 100
 expect p166 0
 expect mout 0
 expect handby 1
+# the LFO pads (card #198): the top row's last three, base's pads 5, 6, 7: a tap, LFO 1, 2, 3's page; the bottom row's
+# old places (13, 14) nothing
+gopage 0
+pad 5 down 100
+pad 5 up
+wait 100
+expect page 22
+pad 6 down 100
+pad 6 up
+wait 100
+expect page 24
+pad 7 down 100
+pad 7 up
+wait 100
+expect page 26
+gopage 0
+pad 13 down 100
+pad 13 up
+pad 14 down 100
+pad 14 up
+wait 100
+expect page 0
+# the LFOs on the LFOs (card #199): LFO 2's pad held (base's 6) on LFO 1's page, K2 its RATE: LFO1 RATE onto LFO 2
+# (TARGET 1, x1.00, DEPTH 0 up to a quarter); LFO 2 a SQUARE, UP, at its top, 16 BARS (MIDI Start: the top of its turn),
+# x0.08: LFO 1 an octave up (187 -> 385 mHz). Then LFO 2's TARGET 2 on the grid's last page (OCT+ six times): LFO1
+# DEPTH, SEL: LFO 1 from 64 to 127 of its DEPTH, its swing at its top
+listen
+testscene
+wait 100
+setp 98 0
+setp 99 0
+setp 100 0
+setp 101 0
+setp 106 0
+setp 107 0
+setp 108 0
+setp 109 0
+setp 119 0
+setp 120 0
+setp 121 0
+setp 122 0
+setp 94 0
+setp 95 30
+setp 96 64
+setp 97 0
+setp 98 1
+setp 102 4
+setp 103 64
+setp 104 0
+setp 105 1
+gopage 22
+wait 600
+expect lfopace0 >182
+expect lfopace0 <192
+pad 6 down 100
+wait 450
+expect lfopad 2
+turn K2 1
+pad 6 up
+wait 100
+expect page 22
+expect p106 84
+expect p235 100
+expect p104 32
+said LFO1 RATE LFO 2
+setp 104 127
+setp 235 8
+midi FA
+wait 600
+expect lfoon1 1
+expect lfopace0 >375
+expect lfopace0 <395
+gopage 25
+wait 30
+turn K2 1
+wait 30
+expect grid_on 1
+expect gridp 107
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+wait 300
+expect gridv 84
+turn K2 1
+wait 300
+expect gridv 85
+said LFO1 DEPTH
+shot smk-targets-lfo.png
+tap SEL
+wait 30
+expect grid_on 0
+expect p107 85
+setp 236 100
+wait 600
+expect lfodepth0 127
+wait 6000
+expect lfopeak0 >99
+setp 106 0
+setp 107 0
+setp 104 0
+wait 600
+expect lfoon1 0
+expect lfodepth0 64
+expect lfopace0 >182
+expect lfopace0 <192
+gopage 0
+wait 30
+# TRACKS LINK (card #212), as on the FM-1: HOME's after CLOUD SEND, K1 FOLLOW, K2 .. K4 the three others; the logo next.
+# Linked while the drones hold F, not ROOT (D, CHROMATIC): its baseline, nothing moved (Styves, admin #1929, on this
+# one); then on G, two up (F to G); FOLLOW BASS: GLINT keeps its two up
+gopage 51
+wait 30
+tap HOME
+wait 30
+expect page 80
+expect link 0
+midi 90 41 64
+wait 30
+turn K2 1
+turn K3 1
+wait 30
+expect link 6
+expect linkb1 65
+expect linkb2 65
+expect linkd 100
+midi 80 41 00
+midi 90 43 64
+wait 30
+expect linkd1 102
+expect linkd2 102
+midi 80 43 00
+wait 30
+turn K1 1
+wait 30
+expect link 22
+expect linkd2 102
+expect knob2 306
+wait 1500
+shot smk-link.png
+turn K1 -1
+turn K3 -1
+wait 30
+expect link 2
+turn K2 -1
+wait 30
+expect link 0
+tap HOME
+wait 30
+expect page 0
+expect logo 1

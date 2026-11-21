@@ -10,8 +10,9 @@
  *                                         layers' second pages' costly settings on); rust8 ...: the same with the
  *                                         drone preset RUST's settings (the heaviest); render SECONDS
  *                                         without writing anything
- *   build/bench/bench fx WHICH OUT.wav    8 s through the master effects (base, eq, lp, hp, tape ...), RUST's
- *                                         (rust, rusttape: eight voices, glints, the bass), a release (rel, 16 s) */
+ *   build/bench/bench fx WHICH OUT.wav    8 s through the master effects (base, eq, lp, hp, tape, vinyl, am, phone
+ *                                         ...), RUST's (rust, rusttape, rustvinyl, rustam, rustphone: eight voices,
+ *                                         glints, the bass), a release (rel, 16 s) */
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -639,7 +640,10 @@ int main(int argc, char **argv)
             frasil_note_on(40 + 5 * (int)k, 0.8f);
         if (strchr(a, 'f')) {            /* voicesNf: and the master effects, all on: MASTER EQ (its three bands
                                          * moved), MASTER FILTER (a low pass on the drones and GLINT), LOFI TAPE (on
-                                         * everything): the most they cost together; voicesNfe, fl, ft: one alone */
+                                         * everything): the most they cost together; voicesNfe, fl, ft: one alone;
+                                         * fv, fa: LOFI TAPE's VINYL or AM alone (card #99), fp its PHONE (card #218);
+                                         * ...n: its NOISE and DROPOUT up (the hiss, the crackle, the static, the line's
+                                         * hiss and hum: what costs most) */
             const char *o = strchr(a, 'f') + 1;
             p.eq_on = 1;
             p.eq_low = 3.0f;
@@ -657,10 +661,14 @@ int main(int argc, char **argv)
             p.tp_sat = 0.6f;
             p.tp_wobble = 0.6f;
             p.tp_tracks = 7;
-            if (*o) {
+            if (*o && *o != 'n') {
                 p.eq_on = *o == 'e';
                 p.fl_type = *o == 'l';
-                p.tp_on = *o == 't';
+                p.tp_on = *o == 't' ? FR_TAPE : *o == 'v' ? FR_VINYL : *o == 'a' ? FR_AM : *o == 'p' ? FR_PHONE : 0;
+            }
+            if (strchr(o, 'n')) {
+                p.tp_noise = 0.6f;
+                p.tp_dropout = 0.5f;
             }
             frasil_set(&p);
         }
@@ -756,7 +764,10 @@ int main(int argc, char **argv)
         p.eq_on = !strcmp(w, "eq");
         p.eq_mid = p.eq_on ? -12.0f : 0.0f;
         p.fl_type = !strcmp(w, "lp") ? 1 : !strcmp(w, "hp") ? 2 : 0;
-        p.tp_on = !strcmp(w, "tape") || !strcmp(w, "rusttape");
+        p.tp_on = !strcmp(w, "tape") || !strcmp(w, "rusttape") ? FR_TAPE : !strcmp(w, "vinyl") || !strcmp(w, "rustvinyl")
+                  ? FR_VINYL : !strcmp(w, "am") || !strcmp(w, "rustam") ? FR_AM
+                  : !strcmp(w, "phone") || !strcmp(w, "rustphone") ? FR_PHONE : 0;   /* (vinyl, am: card #99; phone:
+                                                                                     * card #218) */
         if (rust) {
             p.glint = (glint_params_t){.ratio = 3.5f, .bright = 0.55f, .decay = 0.55f, .level = 0.7f, .space = 0.7f,
                                        .release = 0.6f, .delay_s = 0.3f, .delay_fb = 0.4f, .delay_mix = 0.3f,

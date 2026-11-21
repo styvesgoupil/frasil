@@ -4,7 +4,8 @@
 # key's); nothing sounds here, nothing told to LIVE; its octave its own (the panel's OCT turns it while MIDI is
 # selected, FRASIL's back after); its page (EDIT: MIDI OUT, K1 .. K4), B and C its CHANNEL and OCTAVE; ENV, ARP, SEQ
 # NOT AVAILABLE; REC refused; its settings kept with the device's (settings_t.mout, HEADER's byte), never a scene's.
-# RETURN on MIXER (card #172): its fifth fader while the computer's audio comes back (usbplay).
+# RETURN on MIXER (card #172): its fifth fader while the computer's audio comes back (usbplay). KEYS on MIDI (card
+# #194): its own HARMONY and NOTES, chords out (at the end).
 #   app/build/host/frasil_host app/tests/midiout.txt OUTDIR
 # settings: P_KB 166 (LEAD's 3 while MIDI is selected), RECORD's GLINT 163, BASS 175, DRONE 203; pages: MIDI OUT 71,
 # its ENV 72, ARP 73, SEQ 74; LEAD SEQ 68
@@ -309,3 +310,470 @@ expect moutret 100
 usbplay off
 wait 2100
 expect mixret 0
+# KEYS on MIDI (card #194): MIDI's own HARMONY and NOTES on HOME's second page (K1, K2; K3 and K4 empty: its keys sound
+# while down), as the other tracks': HARMONY OFF, the note as played (as MIDI always sent); ON, the scale's note at or
+# below it; NOTES CHORD, HARMONY's chord on it (ROOT, SCALE, CHORD, VOICING), every note out on CHANNEL at the key's
+# velocity, each let go with its key (a note two keys have out: on once, off with the last of them); NOTES to CHORD
+# with HARMONY OFF turns HARMONY on; SEL held, one note; MIDI's ARP takes the chord's notes, its SEQ one note a step
+# (NOT ON SEQ); kept with the device's settings (OBJ_MSEQ's head), whatever the scene; CHORD · MIDI in the header and
+# the chord's notes on MIDI OUT's strip; the SMK-37's FADER BANK turns NOTES (smk37_midiout.txt).
+# settings: ROOT 33, SCALE 34, CHORD 35, VOICING 36; pages: KEYS 58, MIDI OUT 71, MIDI ARP 73, MIDI SEQ 74; knobs: MIDI's
+# HARMONY 298, NOTES 299 (md18, md19); empty 268. MIDI OUT back to channel 1, octave 0, NORMAL, CHANNEL first
+gopage 71
+wait 30
+turn K1 -15
+turn K2 -5
+turn K2 3
+turn K3 -3
+turn K3 1
+turn K4 -2
+turn K4 1
+wait 30
+expect moutoct 0
+expect moutprs 1
+out
+# C MAJOR, TRIAD, CLOSE
+setp 33 0
+setp 34 1
+setp 35 2
+setp 36 0
+wait 30
+turn SELECT 4
+wait 30
+expect mout 1
+gopage 58
+wait 30
+expect page 58
+expect knob1 298
+expect knob2 299
+expect knob3 268
+expect knob4 268
+# its defaults: HARMONY OFF, SINGLE NOTE (as MIDI played before)
+expect md18 0
+expect md19 0
+wait 600
+said KEYS (2/6), MIDI. HARMONY OFF, NOTES SINGLE NOTE
+shot keys-midi-off.png
+# HARMONY OFF: C#4 as played
+key 8 down 100
+wait 30
+expect_out USB 90 3D 64
+key 8 up
+wait 30
+expect_out USB 80 3D 00
+out
+# HARMONY ON, SINGLE NOTE: C#4 falls to C4, alone
+turn K1 1
+wait 30
+expect md18 1
+expect md19 0
+key 8 down 100
+wait 30
+expect_out USB 90 3C 64
+expect_no_out USB 90 3D 64
+expect_no_out USB 90 40 64
+key 8 up
+wait 30
+expect_out USB 80 3C 00
+out
+# two keys on one note of the scale (C4 and C#4): one note on, its off with the last let go
+key 7 down 100
+key 8 down 100
+wait 30
+key 7 up
+wait 30
+expect_no_out USB 80 3C 00
+key 8 up
+wait 30
+expect_out USB 80 3C 00
+out
+# NOTES to CHORD with HARMONY OFF: HARMONY on too
+turn K1 -1
+wait 30
+expect md18 0
+turn K2 1
+wait 30
+expect md19 1
+expect md18 1
+wait 300
+said NOTES CHORD
+shot keys-midi-chord.png
+# C#4 falls to C4: C E G out at the key's velocity; let go, each off
+key 8 down 90
+wait 30
+expect_out USB 90 3C 5A
+expect_out USB 90 40 5A
+expect_out USB 90 43 5A
+expect mouthelt 256
+key 8 up
+wait 30
+expect_out USB 80 3C 00
+expect_out USB 80 40 00
+expect_out USB 80 43 00
+expect mouthelt 0
+out
+# D4: D F A, the scale's own
+key 9 down 100
+wait 30
+expect_out USB 90 3E 64
+expect_out USB 90 41 64
+expect_out USB 90 45 64
+key 9 up
+wait 30
+out
+# C4 (C E G) held, then E4 (E G B): only B goes out; C4 let go, only C off; E4 let go, the rest
+key 7 down 100
+wait 30
+out
+key 11 down 100
+wait 30
+expect_out USB 90 47 64
+expect_no_out USB 90 40 64
+expect_no_out USB 90 43 64
+out
+key 7 up
+wait 30
+expect_out USB 80 3C 00
+expect_no_out USB 80 40 00
+expect_no_out USB 80 43 00
+key 11 up
+wait 30
+expect_out USB 80 40 00
+expect_out USB 80 43 00
+expect_out USB 80 47 00
+out
+# a channel changed while the chord is held: its offs on the channel it went out on
+key 7 down 100
+wait 30
+tap EDIT
+wait 30
+expect page 71
+# MIDI OUT's strip: the notes out, the chord's three
+shot midi-out-chord.png
+turn K1 2
+wait 30
+key 7 up
+wait 30
+expect_out USB 80 3C 00
+expect_out USB 80 40 00
+expect_out USB 80 43 00
+key 7 down 100
+wait 30
+expect_out USB 92 3C 64
+expect_out USB 92 43 64
+key 7 up
+wait 30
+expect_out USB 82 43 00
+turn K1 -2
+wait 30
+out
+# PRESSURE POLY: each note of the chord its key's pressure
+turn K4 1
+wait 30
+expect moutprs 2
+key 7 down 100 80
+wait 400
+expect_out USB 90 3C 64
+expect_out USB A0 3C 11
+expect_out USB A0 40 11
+expect_out USB A0 43 11
+expect moutkp7 >70
+key 7 up
+wait 30
+turn K4 -1
+wait 30
+out
+# SEL held: one note, whatever NOTES says
+press SEL
+wait 30
+key 8 down 100
+wait 30
+expect_out USB 90 3C 64
+expect_no_out USB 90 40 64
+key 8 up
+wait 30
+release SEL
+wait 30
+expect_out USB 80 3C 00
+out
+# VOICING OPEN: the second note an octave up (C G E5)
+setp 36 1
+wait 30
+key 7 down 100
+wait 30
+expect_out USB 90 3C 64
+expect_out USB 90 4C 64
+expect_out USB 90 43 64
+key 7 up
+wait 30
+setp 36 0
+wait 30
+out
+# MIDI's ARP: the chord's three notes into it
+tap ARP
+wait 30
+expect page 73
+turn K1 1
+wait 30
+expect md0 1
+key 7 down 100
+wait 200
+expect marpn 3
+key 7 up
+wait 30
+turn K1 -1
+wait 30
+expect md0 0
+out
+# its SEQ: one note a step, NOTES says why
+tap SEQ
+wait 30
+expect page 74
+turn K1 1
+wait 30
+gopage 58
+wait 30
+expect page 58
+expect md19 1
+shot keys-midi-seq.png
+key 8 down 100
+wait 30
+expect_out USB 90 3C 64
+expect_no_out USB 90 40 64
+key 8 up
+wait 30
+tap SEQ
+wait 30
+turn K1 -1
+wait 30
+out
+# kept with the device's settings: a power cut, as they were
+wait 2000
+reboot
+wait 1600
+expect md18 1
+expect md19 1
+turn SELECT 9
+setp 33 0
+setp 34 1
+setp 35 2
+setp 36 0
+wait 30
+key 7 down 100
+wait 30
+expect_out USB 90 3C 64
+expect_out USB 90 40 64
+expect_out USB 90 43 64
+key 7 up
+wait 30
+out
+# NOTES OUT (card #201, GLO › MIDI II's K3, OFF at first): the notes FRASIL plays by itself out over USB as they sound,
+# GLINT's arpeggio and sequence on channel 14, SPARKLE's glints on 15, the bass's arpeggio and sequence on 16, at their
+# strikes' velocity; each let go as the engine lets its own go (the arpeggio's half a step on), every one at STOP's (its
+# tracks'), RELEASE ALL, CUT, a scene's load, turned OFF; nothing out while OFF; the sound as it was. RESILIENCE (slot
+# 03): its drone's chords, GLINT's arpeggio on three notes, the bass's sequence; SPARKLE up (p124)
+setp 166 0
+wait 30
+expect mout 0
+press SAVE
+tapkey w2
+release SAVE
+wait 300
+expect scene 2
+expect arpnotes 3
+expect bseqrun 1
+setp 124 127
+wait 3000
+expect sparkles >0
+expect nout 0
+expect noutsent 0
+out
+# ON (MIDI II, K3): out on 14, 15 and 16, balanced (no note on twice, no off of none), MIDI's CHANNEL 1 untouched
+listen
+gopage 78
+wait 30
+expect page 78
+turn K3 1
+wait 600
+said NOTES OUT ON
+expect nout 1
+expect moutch 1
+wait 3000
+expect nouton0 >8
+expect nouton1 >2
+expect nouton2 >1
+expect noutoff0 >7
+expect noutnote2 33
+expect noutvel2 100
+expect noutvel0 >40
+expect noutlen0 >80
+expect noutlen0 <87
+expect noutlen2 >160
+expect noutopen <5
+expect nouttwice 0
+expect noutstray 0
+expect glints >0
+expect_out USB 9F 21 64
+expect_out USB 9F 25 64
+expect_out USB 8F 25 00
+out
+# STOP (PLAY): GLINT's and the bass's let go at once; SPARKLE plays on over the drone held, its own let go
+tap PLAY
+wait 20
+expect bseqrun 0
+expect paused 1
+expect noutopen0 0
+expect noutopen2 0
+expect noutnew >0
+wait 1500
+expect noutopen0 0
+expect noutopen2 0
+expect nouton1 >4
+expect nouttwice 0
+expect noutstray 0
+# PLAY: out again
+tap PLAY
+wait 1500
+expect bseqrun 1
+expect noutopen2 1
+expect nouttwice 0
+out
+# TRACKS LINK (card #212), FOLLOW DRONE, BASS LINKED: its baseline the drones' note (RESILIENCE's B, two degrees over
+# ROOT, F# PENTA MIN), nothing moved; a drone note on ROOT, two degrees down from it: the bass's note out moved as the
+# bass retunes (F#1 out as C#1), let go first; let go, the offset stays; NO LINK again, back
+gopage 80
+wait 30
+expect noutnote2 30
+turn K2 1
+wait 30
+expect linkb1 35
+expect linkd 100
+expect bassvoice 30
+expect noutnote2 30
+midi 90 36 64
+wait 30
+expect linkd 98
+expect bassvoice 25
+expect noutnote2 25
+expect noutopen2 1
+expect nouttwice 0
+expect noutstray 0
+midi 80 36 00
+wait 30
+expect linkd 98
+expect noutnote2 25
+turn K2 -1
+wait 30
+expect link 0
+expect noutnote2 30
+expect noutopen2 1
+expect nouttwice 0
+expect noutstray 0
+gopage 78
+wait 30
+out
+# PULSE (BASS II, p129 2: a quarter beat): the bass's long notes struck again, each let go for its gap first
+setp 129 2
+expect pulses >-1
+expect noutagain 0
+wait 3000
+expect pulses >2
+expect noutagain >2
+expect nouttwice 0
+expect noutstray 0
+setp 129 0
+wait 30
+# GLINT's sequence (p123 2): four steps written (STEP p160, NOTE p161, SEQ LENGTH p110 3), out on 14 as they sound
+# (GLINT's OCTAVE on them: p42 1)
+setp 110 3
+setp 160 0
+setp 161 62
+setp 160 1
+setp 161 65
+setp 160 2
+setp 161 69
+setp 160 3
+setp 161 72
+setp 123 2
+wait 30
+expect seqrun 1
+expect noutopen0 0
+expect noutnew >-1
+wait 2000
+expect seqsteps >3
+expect noutopen0 <2
+expect noutnote0 >73
+expect noutnote0 <85
+expect nouttwice 0
+expect noutstray 0
+out
+# a scene's load (slot 16, empty): what was out let go at once, nothing after it; RESILIENCE again, its own out
+expect noutopen >0
+press SAVE
+tapkey w15
+release SAVE
+wait 5
+expect scene 15
+expect noutopen 0
+expect noutnew >0
+wait 1500
+expect noutnew 0
+press SAVE
+tapkey w2
+release SAVE
+wait 2000
+expect scene 2
+expect noutopen2 1
+expect arpnotes 3
+expect nouttwice 0
+expect noutstray 0
+# RELEASE ALL (PLAY twice): every note let go at once, nothing after it
+tap PLAY
+wait 100
+tap PLAY
+wait 5
+expect noutopen 0
+expect noutnew >0
+wait 1500
+expect noutnew 0
+expect noutopen 0
+# CUT (OCT- held, PLAY) with all three playing: every note let go at once
+tap PLAY
+wait 2000
+expect bseqrun 1
+expect noutopen >0
+press OCT-
+press PLAY
+release PLAY
+release OCT-
+wait 5
+expect noutopen 0
+expect noutnew >0
+wait 1000
+expect noutnew 0
+# kept with the device's settings: a power cut, NOTES OUT as it was (RESILIENCE never quite silent: kept now)
+prefs
+wait 30
+reboot
+wait 1600
+expect nout 1
+# OFF while all three play: every note let go at once, then nothing out
+press SAVE
+tapkey w2
+release SAVE
+wait 2000
+expect noutopen >0
+gopage 78
+wait 30
+turn K3 -1
+wait 5
+expect nout 0
+expect noutopen 0
+expect noutnew >0
+wait 3000
+expect noutnew 0
+expect noutopen 0
+expect nouttwice 0
+expect noutstray 0
+expect glints >0
+out

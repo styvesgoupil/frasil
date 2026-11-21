@@ -70,6 +70,7 @@ static void ev_push(uint8_t type, int note, float v)
     ev_w = w + 1u;
 }
 
+uint32_t frasil_ev_room(void) { return NEV - (ev_w - ev_r); }
 void frasil_note_on(int note, float vel) { ev_push(EV_ON, note, vel); }
 void frasil_note_off(int note) { ev_push(EV_OFF, note, 0.0f); }
 void frasil_all_off(void) { ev_push(EV_ALLOFF, 0, 0.0f); }
@@ -316,8 +317,15 @@ static void note_on(int note, float vel)
     voice_start(v, note, vel, 0);        /* its phases go on: no click, the new pitch from its level */
 }
 
+/* VINYL's stop (card #224, frasil_render's: CUT with the needle on the record): its time so far (s), -1 none; the
+ * record's speed now, at the chunk's start; a note played in it: the queue held a block */
+#define VN_STOP 0.75f                    /* s */
+static float vn_wt = -1.0f, vn_sp = 1.0f, vn_sp0 = 1.0f;
+static uint8_t vn_hold;
 static void events(void)
 {
+    if (vn_hold)
+        return;
     while (ev_r != ev_w) {
         ev_t e = evq[ev_r & (NEV - 1u)];
         uint32_t i;
@@ -1118,7 +1126,7 @@ static void breath_noise(uint32_t n)
 /* ---------------------------------------------------------------- render --- */
 static void render_part(float *ol, float *or_, uint32_t n)
 {
-    float ka, kr, sl, sr, pk = br_k(0.15f), sk = br_k(0.35f);   /* (a chunk's, made for 44.1 kHz) */
+    float ka, kr, la, sl, sr, pk = br_k(0.15f), sk = br_k(0.35f);   /* (a chunk's, made for 44.1 kHz) */
     uint32_t i, c, j;
     if (pend_seen != pend_seq) {
         pend_seen = pend_seq;
@@ -1142,6 +1150,8 @@ static void render_part(float *ol, float *or_, uint32_t n)
     /* envelope coefficients a chunk: one-pole to the target, a third of the time a time constant */
     ka = 1.0f - fm_expf(-(float)CH * BR_INV_FS * br_tk * 3.0f / (0.005f * fm_powf(6000.0f, P.attack)));
     kr = 1.0f - fm_expf(-(float)CH * BR_INV_FS * br_tk * 3.0f / (0.05f * fm_powf(1200.0f, P.release)));
+    la = T.a_line ? (float)CH * BR_INV_FS * br_tk / (0.005f * fm_powf(6000.0f, P.attack)) : 0.0f;   /* (ATTACK SHAPE's
+                                          * LINE, card #122: the gain's step a chunk, at the top at ATTACK's time) */
     {                                    /* shedding: no more voices sounding than the level allows, the ones over it
                                           * let go quickly (some 15 ms: cut, they clicked); the partials' cap gliding
                                           * to the level's, a partial in some 50 ms (voice_block: the top one fading) */
@@ -1181,7 +1191,12 @@ static void render_part(float *ol, float *or_, uint32_t n)
         voice_block(v);
         for (c = 0; c < n; c += CH) {
             float bc[CH], ba[CH], bb[CH], g0 = v->lvl, g1, dg, lvl, al, ar, bl, br;
-            v->env += ((v->gate ? 1.0f : 0.0f) - v->env) * (v->gate ? ka : v->shed ? sk : kr);
+            if (v->gate && la > 0.0f) {  /* LINE: the gain (env's square) straight up, from where it is to the top */
+                float g = v->env * v->env + la;
+                v->env = g >= 1.0f ? 1.0f : fm_sqrtf(g);
+            } else {
+                v->env += ((v->gate ? 1.0f : 0.0f) - v->env) * (v->gate ? ka : v->shed ? sk : kr);
+            }
             v->prs += (v->prs_t - v->prs) * pk;
             lvl = (1.0f - P.velocity + P.velocity * v->vel) * (1.0f + 1.2f * P.pressure * br_clampf(v->prs + swell, 0.0f, 1.0f)) * VOICE_G;
             g1 = !v->gate && v->env < TAIL_END ? 0.0f : lvl * v->env * v->env;   /* (its tail's end: down to nothing
@@ -1338,11 +1353,22 @@ static int16_t tp_bl[TP_N(BR_FS_MAX)] BR_POOL, tp_br[TP_N(BR_FS_MAX)] BR_POOL;
 #define fx_ramp FX_RAMP
 #define tp_kdc 0.0007f                    /* the tape's DC blocker's step, a sample's */
 #define TP_PICKED(r) ((r) >> 22 == 0u)   /* the wow's rate picked again: a chunk in 1024 */
+#define md_kr 0.11f                       /* MEDIA's (card #99), a chunk's: VINYL's rumble's poles (some 24 Hz), AM's */
+#define md_ka 0.12f                       /* compressor's attack (6 ms) and release (150 ms); a sample's: AM's high */
+#define md_kl 0.005f                      /* pass (160 Hz) */
+#define md_kh 0.022538268f
+#define vn_kb 0.021144629f                /* VINYL's (card #224), a sample's: the cut's side under 150 Hz, the surface's */
+#define vn_ks 0.29966021f                 /* noise under 2.5 kHz; its stop's heads: the first as far behind as the loop */
+#define vn_dmax 1640.0f                   /* lets it go (the crossfade's 350 samples after it within it), the next from */
+#define vn_dmin 8.0f                      /* near the groove's front, in over 350 */
+#define vn_xk (1.0f / 350.0f)
 #else                                     /* at the rate (frasil_init) */
 static uint32_t tp_m = TP_N(44100) - 1u, tp_pick = 4194304u;   /* (a chunk in 1024 at 44.1 kHz: as often a second) */
 #define TP_PICKED(r) ((r) < tp_pick)
 static float tp_d0 = TP_D0, tp_xmax = TP_XMAX, tp_wd = 400.0f, tp_fd = 6.0f, tp_wg = 410.0f, fx_ramp = FX_RAMP;
 static float tp_kdc = 0.0007f;
+static float md_kr = 0.11f, md_ka = 0.12f, md_kl = 0.005f, md_kh = 0.022538268f;
+static float vn_kb = 0.021144629f, vn_ks = 0.29966021f, vn_dmax = 1640.0f, vn_dmin = 8.0f, vn_xk = 1.0f / 350.0f;
 #endif
 static uint32_t tp_w;                     /* where it writes next */
 static float tp_ph1, tp_ph2, tp_ph3, tp_d = TP_D0, tp_l, tp_r, tp_dcl, tp_dcr, tp_dip = 1.0f;
@@ -1412,6 +1438,709 @@ static inline void tp_step(float *l, float *r, float d, float tg, float bias, fl
     tp_ao += fm_fabsf(tp_l) + fm_fabsf(tp_r);
     *l += (tp_l * dip - *l) * mix;
     *r += (tp_r * dip - *r) * mix;
+}
+
+/* MEDIA (card #99): LOFI TAPE's first setting, OFF, TAPE (the tape above, as it ever was), VINYL, AM, PHONE (card
+ * #218). The new ones in the tape's place: its mix, its TRACKS and ROUTING, a change of medium through its fade (out,
+ * the new one settled at 0, in); its level kept as the tape keeps it (tp_ai .. tp_ug); its dips (tp_do_*), its phases
+ * (tp_ph1, tp_ph2; PHONE's hum tp_ph3), its generator (tp_nz): the running state a listener is told (frasil_lv) as it
+ * was, nothing new in it. Each a stage of its own after the groups (VINYL's record, vn_groove or its stop's vn_heads,
+ * then its stylus, vn_stylus; am_stage, ph_stage: short loops, as the FM-1's registers want), on what the tape would
+ * have taken (tql, tqr), its chunk made before them (md_chunk). Their settings, each a meaning of its own:
+ * VINYL: what is on it cut as a record is (its lows one side: the side's own under some 150 Hz out), a little warm
+ * (SATURATION: the tape's curve, gentler), onto the tape's loop and read back off a record turning slightly off its
+ * centre (WOBBLE: a wow at the record's turn, 33 1/3 a minute at TAPE SPEED's pace, a fifth of its second, and past
+ * half of it a warp's hiccup at one place of the turn; 0.95 % at most, no drag, no flutter), dulled gently by the stylus
+ * (a pole at 10 kHz, 7 as SATURATION grows, TONE's times); NOISE: its surface, as a stylus picks it up (card #224): a
+ * soft hush; dust ticking all over it, in clusters now and then, thicker on a dirty arc of the record; fewer, larger
+ * pops; now and then a scratch's rip; marks of its own (six, louder and duller than the dust, more of them as NOISE
+ * grows) ticking again at their place each turn; each tick a ring of the stylus (its doublet through a resonance:
+ * bright and short for dust, lower and longer for a pop), each at its place across the two sides; a little rumble under
+ * (all of it before the pole: TONE softens it; at the groove's pace, TAPE SPEED's); DROPOUT: a worn patch now and then,
+ * the level and the highs dipping a tenth of a second to half of one, noisier there.
+ *   The record player (card #224): the needle drops when music first reaches the record (PLAY; VINYL chosen while
+ * something plays: as its mix comes in; never after a skip or a listener's load: the needle already on it): a thump,
+ * the stylus touching, a bounce, the lead-in's crackle; till then (VINYL chosen on silence, after a CUT, PANIC) the
+ * record makes no sound. CUT stops the turntable (cut_at 3, vn_heads: the brake's knock, the record slowing to a stop,
+ * its pitch and its pace with it, 0.75 s, its level out over the last of it), then empties everything as CUT does, the
+ * needle up; a note played meanwhile (PLAY again) ends it at once (the old faded within the block, the new from the
+ * next: nothing waits). Every sound of its own on NOISE (none at 0); its stop on every NOISE.
+ * AM: one side (a radio's one speaker), between some 200 Hz (two poles at 160) and the band's top (an SVF, a little
+ * resonant: 3.2 kHz times TONE, 4 kHz at its default, 500 Hz .. 9 kHz; a pole at 1.4 times it after the curve, its
+ * speaker), its level held by a soft compressor (6 ms up, 150 ms down) and driven a little into the tape's curve
+ * (SATURATION: more of both), made up as the tape's but 6 dB at most (its lows gone stay gone); WOBBLE: the signal
+ * fading slowly, its level and its top with it (some 8 and 21 s, together); NOISE: static in the band, now and then a
+ * crackle, louder as the signal fades; DROPOUT: now and then it fades away a while (half a second to two and a half).
+ * PHONE (card #218): an old handset on a landline, one side, its lows cut hard, its mids pushed, its highs muffled
+ * (Styves: "more pronounced"): its bottom some 420 Hz (four poles there, Butterworth's: 300 Hz 10 dB down, 200 Hz 26,
+ * 100 Hz 50; an earpiece's pole at 300 Hz after the curve), a bell at 1.4 kHz (+9 dB, an octave and a half wide: the
+ * earpiece's), its top low (an SVF, flat: 2.36 kHz at TONE's default, 1 .. 4.5 kHz, TONE's half in octaves; the
+ * earpiece's pole there too after the curve); SATURATION the line's compression (harder than AM's) and the earpiece's
+ * drive into the tape's curve, lopsided (a carbon microphone's), made up to 15.6 dB (its band narrower than AM's);
+ * WOBBLE: the line's level drifting slowly (some 14 and 43 s, together; 4.4 dB at most, AM's fades deeper), its band
+ * as it is;
+ * NOISE: the line's hiss in the band, a faint mains hum under it (60 Hz rectified: its harmonics, the band's, a buzz);
+ * DROPOUT: now and then the line cuts (down in some 11 ms, gone a twelfth of a second to over half of one, back), its
+ * hiss and hum left on. In AM's places (its states, its compressor), its hum's phase the flutter's (tp_ph3).
+ * TAPE SPEED stays the voices' pitch and pace on all three (the record's turn with it). At NOISE 0 none makes a sound
+ * of its own: silent in, silent out */
+static int tp_kind;                       /* the medium sounding (T's, once its mix is down): FR_TAPE, FR_VINYL, FR_AM,
+                                          * FR_PHONE */
+static float tql[32], tqr[32];            /* a chunk of what the medium takes (its bus's sum, the groups' stages') */
+static struct {
+    float tg, tb, tcb, itg, ta;           /* VINYL: onto the record (the tape's curve: driven, lopsided), off it, its pole;
+                                           * PHONE's tb, tcb: its curve's lean */
+    float tick_l, rs, drs;                /* AM's crackle's height; VINYL's rumble (and the arm's thump) now, its step a
+                                           * sample */
+    int32_t at;                           /* the tick's (AM's crackle's) sample in the chunk, -1 none */
+    float kh, c1, c2, c3, kp, cg, og, ns, lv, dlv;   /* AM: its high pass's step, its low pass (an SVF, then a pole
+                                           * after the curve: its speaker), its drive in and gain out, the static's
+                                           * level; the signal's (its fades) now, its step. PHONE's alike (kh its
+                                           * earpiece's high pass, ns its hiss, lv its line) */
+    float hc1, hc2, hc3, hd1, hd2, hd3, pk1, pk2, pk3, hm, dhm;   /* PHONE: its bottom (two SVFs' high pass), its
+                                           * mids' bell (an SVF's band), its hum now and its step a sample */
+} md;
+static float ph_h3, ph_h4, ph_m1, ph_m2;  /* PHONE: its bottom's second SVF, its mids' */
+static float vn_rb, vn_rb2;               /* VINYL: the rumble's two poles */
+#define VN_MARKS 6u
+static struct {                           /* VINYL's record and its player (card #224) */
+    float y1, y2, a1, a2, gl, gr;         /* the stylus's ring (each tick's shape): its states, its poles; its pan */
+    float q, h;                           /* a tick's second half (its doublet: the next sample); this chunk's height */
+    float sl, nl, nr, ns;                 /* the cut's side under 150 Hz; the surface's hush each side, its level */
+    uint32_t g;                           /* the hush's and the marks' generator (not told: noise) */
+    float tp, ta, tw, tk;                 /* the arm's thump: its phase, its height, its rate (Hz), its fall a second */
+    float et;                             /* since the needle dropped (s), -1 none (the lead-in's crackle) */
+    float qt;                             /* a join's (s left, the loop settled): music then finds the needle on it */
+    float bt, st, sx;                     /* a cluster of dust under way (s left); a scratch's (s left), its side */
+    float wa, wd, wp;                     /* this record's: its worn arc, its dirty arc, its warp (turns) */
+    float ha, hb, xf;                     /* the stop's heads (samples behind), the crossfade to the second (0 none) */
+    int32_t ring;                         /* samples a lower ring still has (a tick then keeps its shape) */
+    uint8_t dn, fresh, clunk;             /* the needle down; a record to draw; the brake's knock to come */
+    float mk[VN_MARKS][4];                /* its marks: their place in the turn, height, ring (Hz), side */
+} vn = {.g = 0x9E3779B9u};             /* (frasil_reset's too) */
+static volatile uint8_t vn_lift;          /* frasil_panic's: the needle up (any thread) */
+static float vn_wg = 1.0f;                /* the stop's level out (vn_wt), at the last block's end */
+static uint8_t vn_keep;                   /* a note played in it (vn_hold): the queue kept through the empty */
+#define VN_IN 1.92e-3f                    /* music on the record: a chunk's sum of both sides over it (~ -90 dB) */
+static float am_h1, am_h2, am_s1, am_s2, am_p, am_q, am_env, am_acc;   /* AM: its high pass's states, its low pass's,
+                                          * its speaker's; a tick's second half; its level followed, the last chunk's.
+                                          * PHONE's: its bottom's first SVF (h1, h2), its top's, its earpiece's pole and high
+                                          * pass (p, q), its compressor's */
+
+static volatile float md_sig = 1.0f;      /* frasil_tape_signal */
+int frasil_tape_medium(void) { return tp_bits ? tp_kind : 0; }
+float frasil_tape_signal(void) { return tp_bits && (tp_kind == FR_AM || tp_kind == FR_PHONE) ? md_sig : 1.0f; }
+
+static void md_empty(void)               /* (a medium coming in: from nothing, its signal at full; VINYL a record of its
+                                          * own, the needle up, a join's word kept) */
+{
+    vn_rb = vn_rb2 = 0.0f;
+    vn.y1 = vn.y2 = vn.a1 = vn.a2 = vn.q = vn.h = vn.sl = vn.nl = vn.nr = vn.ns = 0.0f;
+    vn.gl = vn.gr = 1.0f;
+    vn.tp = vn.ta = vn.bt = vn.st = 0.0f;
+    vn.et = -1.0f;
+    vn.ring = 0;
+    vn.dn = vn.clunk = 0;
+    vn.fresh = 1;
+    am_h1 = am_h2 = am_s1 = am_s2 = am_p = am_q = am_env = am_acc = 0.0f;
+    ph_h3 = ph_h4 = ph_m1 = ph_m2 = 0.0f;
+    md.rs = md.drs = 0.0f;
+    md.lv = 1.0f;
+    md.dlv = 0.0f;
+    md.at = -1;
+}
+
+static inline float md_u(void) { return 0.5f * (tp_rnd() + 1.0f); }   /* 0 .. 1 */
+
+static inline float vn_u(void)           /* VINYL's own generator, 0 .. 1 (its record's marks; the hush's, vn_stylus) */
+{
+    vn.g ^= vn.g << 13;
+    vn.g ^= vn.g >> 17;
+    vn.g ^= vn.g << 5;
+    return (float)(vn.g >> 8) * (1.0f / 16777216.0f);
+}
+
+/* a tick this chunk at its sample at: its height h (signed), its ring (f Hz, as the record turns now; Q qq), its side p
+ * (-1 left .. 1 right). A ring still going keeps its shape and its side (a tick in it rings as it does) unless this one
+ * is a low one (low: a pop, a mark's scratch, the arm's) */
+static void vn_tick(float h, float f, float qq, float p, uint32_t n, float at, int low)
+{
+    int32_t k = (int32_t)(at * (float)n);
+    md.at = k >= (int32_t)n ? (int32_t)n - 1 : k;
+    vn.h = h;
+    if (vn.ring <= 0 || low) {
+        float w = 6.2831853f * f * vn_sp * BR_INV_FS, r;
+        w = w > 2.4f ? 2.4f : w < 0.004f ? 0.004f : w;
+        r = fm_expf(-0.5f * w / qq);
+        vn.a1 = 2.0f * r * fm_cosf(w);
+        vn.a2 = r * r;
+        vn.gl = 1.0f - p;
+        vn.gr = 1.0f + p;
+        vn.ring = (int32_t)(10.0f * qq / w);   /* (some 43 dB down by then) */
+    }
+}
+
+/* the arm's thump (a chunk's: low enough for its step), h high, f Hz, falling k a second; on one still sounding, more */
+static void vn_thump(float h, float f, float k)
+{
+    if (vn.ta <= 0.0f)
+        vn.tp = 0.0f;                    /* (from its zero: no step) */
+    vn.ta += h;
+    vn.tw = f;
+    vn.tk = k;
+}
+
+static float vn_gain(float sp)           /* the stop's level out at the record's speed sp: all of it, then down to none as it
+                                          * comes to a stand (from 0.3 of its speed) */
+{
+    float x = (sp - 0.02f) * (1.0f / 0.28f);
+    x = x < 0.0f ? 0.0f : x > 1.0f ? 1.0f : x;
+    return x * x * (3.0f - 2.0f * x);
+}
+
+static void vn_end(void)                 /* (the stop over, or none) */
+{
+    vn_wt = -1.0f;
+    vn_sp = vn_sp0 = vn_wg = 1.0f;
+    vn_hold = vn_keep = 0;
+}
+
+static int vn_winds(void)                /* CUT: VINYL in, its needle on the record: the turntable stops */
+{
+    return tp_bits && tp_kind == FR_VINYL && tp_mix > 0.5f && vn.dn;
+}
+
+static int vn_played(void)               /* a note struck since the last block (PLAY in the stop) */
+{
+    uint32_t r = ev_r, w = ev_w;
+    for (; r != w; r++) {
+        uint8_t t = evq[r & (NEV - 1u)].type;
+        if (t == EV_ON || t == EV_SPON || t == EV_BON
+#if FRS_LEAD
+            || t == EV_LON || t == EV_LLEG || t == EV_LPON
+#endif
+        )
+            return 1;
+    }
+    return 0;
+}
+
+/* VINYL's chunk (md_chunk's, n samples, ch s; s, w, nz, q: SATURATION, WOBBLE, NOISE as they sound, the worn patch's
+ * dip; in: what reached the record the chunk before): the needle, the turn and its wow, the curve and the stylus's pole,
+ * the surface's events (one tick a chunk at most: the arm's, a mark's, a scratch's, a pop, dust, in that order), the
+ * hush, the rumble and the arm's thump */
+static void vn_chunk(uint32_t n, float ch, float s, float w, float nz, float q, float in)
+{
+    const float chs = ch * br_tk * vn_sp;   /* (the groove's pace: TAPE SPEED's, the stop's) */
+    float ph0 = tp_ph1, u, fc, lead = 0.0f, th = 0.0f;
+    uint32_t k;
+    int hit = 0;
+    if (vn.fresh) {                      /* a record put on: its arcs, its warp, its marks (louder and duller than its
+                                          * dust: heard coming round; the last a scratch, the largest, from NOISE 0.75) */
+        vn.fresh = 0;
+        vn.wa = vn_u();
+        vn.wd = vn_u();
+        vn.wp = vn_u();
+        for (k = 0; k < VN_MARKS; k++) {
+            float a = vn_u(), last = k + 1u == VN_MARKS ? 1.0f : 0.0f;
+            vn.mk[k][0] = vn_u();
+            vn.mk[k][1] = (0.05f + 0.03f * a + last * 0.05f) * (vn_u() < 0.5f ? -1.0f : 1.0f);
+            vn.mk[k][2] = last ? 1100.0f + 500.0f * vn_u() : 1600.0f + 1800.0f * vn_u();
+            vn.mk[k][3] = 1.5f * vn_u() - 0.75f;
+        }
+    }
+    if (vn_lift) {                       /* (PANIC, CUT's empty: the needle up, at once) */
+        vn_lift = 0;
+        vn.dn = 0;
+        vn.et = -1.0f;
+    }
+    if (!vn.dn && !tp_warm && in > VN_IN) {   /* music reaching the record: the needle down (on a join, without a sound) */
+        vn.dn = 1;
+        vn.et = vn.qt > 0.0f ? -1.0f : 0.0f;
+        vn.qt = 0.0f;
+    }
+    if (!tp_warm && vn.qt > 0.0f)        /* (a join's music in its attack, the drones' from nothing: heard as on) */
+        vn.qt -= ch;
+    vn.ring -= (int32_t)n;
+    tp_ph1 += 0.5555556f * chs;          /* (the record's turn: TAPE SPEED's pace) */
+    tp_ph1 -= tp_ph1 >= 1.0f ? 1.0f : 0.0f;
+    u = w * fm_sqrtf(w);
+    tp_d = tp_d0 + 0.25f * tp_wd * u * (fm_sin_turns(tp_ph1) + 0.2f * fm_sin_turns(2.0f * tp_ph1 + 0.125f));
+    if (w > 0.5f) {                      /* past half: a warp, the record's speed hiccuping at one place of each turn */
+        float x = tp_ph1 - vn.wp;
+        x -= fm_floorf(x + 0.5f);
+        tp_d += 0.1f * tp_wd * (w - 0.5f) * fm_expf(-x * x * 1100.0f);
+    }
+    tp_dip = (1.0f - q) * tp_ug;
+    md.tg = 1.0f + 6.0f * s * s;
+    md.tb = 0.08f * s;
+    md.tcb = tp_clip(md.tb);
+    md.itg = 1.0f / (md.tg * TP_ONE);
+    fc = (10000.0f - 3000.0f * s) * tp_tn_g * (1.0f - 0.6f * q) * vn_sp;   /* (the stop: all of it lower) */
+    fc = fc > 0.45f * BR_FS ? 0.45f * BR_FS : fc < 60.0f ? 60.0f : fc;
+    md.ta = 1.0f - fm_expf(-6.2831853f * fc * BR_INV_FS);
+    md.at = -1;
+    vn.h = 0.0f;
+    if (vn.et >= 0.0f) {                 /* the needle down: the arm's thump and the stylus touching, a bounce after it,
+                                          * then the lead-in's crackle, fading over a second */
+        float t0 = vn.et;
+        vn.et += ch;
+        if (t0 == 0.0f) {
+            vn_thump(0.09f * nz, 46.0f, 14.0f);
+            vn_tick(0.06f * nz, 1400.0f, 1.5f, 0.15f, n, 0.0f, 1);
+            hit = 1;
+        } else if (t0 < 0.03f && vn.et >= 0.03f) {
+            vn_thump(0.03f * nz, 52.0f, 18.0f);
+            vn_tick(0.022f * nz, 1900.0f, 1.2f, 0.1f, n, 0.5f, 1);
+            hit = 1;
+        }
+        lead = fm_expf(-3.0f * vn.et);
+        if (vn.et > 1.5f)
+            vn.et = -1.0f;
+    }
+    if (vn.clunk) {                      /* the stop: the brake's knock */
+        vn.clunk = 0;
+        vn_thump(0.06f * nz, 78.0f, 30.0f);
+        vn_tick(0.12f * nz, 430.0f, 3.5f, 0.35f, n, 0.3f, 1);
+        hit = 1;
+    }
+    if (nz > 0.0f && vn.dn) {            /* the surface (as fast as the groove passes: TAPE SPEED's pace) */
+        float wear = 1.0f + 2.0f * q, d = tp_ph1 - ph0, rate;
+        d += d < 0.0f ? 1.0f : 0.0f;
+        vn.ns = (0.0034f * nz + 0.0007f) * nz * (1.0f + 0.3f * fm_sin_turns(tp_ph1 + vn.wa)) * wear *
+                (1.0f + 1.2f * lead) * vn_sp * (1.0f / 32768.0f);   /* the hush (some -58 dB at the top), worn here more */
+        for (k = 0; k < VN_MARKS && !hit && d > 0.0f; k++) {   /* its marks, each at its place as it comes round (most
+                                                              * turns: a speck moves) */
+            float x = vn.mk[k][0] - ph0, lv;
+            x += x < 0.0f ? 1.0f : 0.0f;
+            lv = (nz - 0.15f * (float)k) * 6.0f;   /* (one from the first steps of NOISE, all six past 0.9) */
+            if (x >= d || lv <= 0.0f || md_u() < 0.1f)
+                continue;
+            lv = lv > 1.0f ? 1.0f : lv;
+            vn_tick(vn.mk[k][1] * nz * lv * (0.75f + 0.5f * md_u()), vn.mk[k][2], k + 1u == VN_MARKS ? 1.3f : 1.0f,
+                    vn.mk[k][3], n, x / d, 1);
+            hit = 1;
+        }
+        if (vn.st > 0.0f) {              /* a scratch's rip under way: ticks close together about one place */
+            vn.st -= ch;
+            if (!hit && md_u() < 0.6f) {
+                vn_tick(nz * (0.02f + 0.04f * md_u()) * (tp_rnd() < 0.0f ? -1.0f : 1.0f), 1600.0f + 1600.0f * md_u(),
+                        0.9f, vn.sx + 0.15f * tp_rnd(), n, md_u(), 0);
+                hit = 1;
+            }
+        } else if (md_u() < 0.05f * nz * nz * chs) {   /* (one in a minute at NOISE 64, three at the top) */
+            vn.st = 0.02f + 0.05f * md_u();
+            vn.sx = 0.7f * tp_rnd();
+        }
+        if (vn.bt > 0.0f)                /* a cluster of dust (thicker a moment) */
+            vn.bt -= ch;
+        else if (md_u() < 1.2f * nz * nz * chs)
+            vn.bt = 0.03f + 0.12f * md_u();
+        if (!hit && md_u() < 2.5f * nz * nz * wear * chs) {   /* a pop (two or three a second at the top) */
+            float a = md_u();
+            vn_tick(nz * (0.035f + 0.08f * a * a) * (tp_rnd() < 0.0f ? -1.0f : 1.0f), 700.0f + 1100.0f * md_u(),
+                    1.0f + 0.6f * md_u(), 0.7f * tp_rnd(), n, md_u(), 1);
+            hit = 1;
+        }
+        rate = 550.0f * nz * nz * (0.6f + 0.4f * fm_sin_turns(tp_ph1 + vn.wd)) * wear * (vn.bt > 0.0f ? 5.0f : 1.0f) *
+               (1.0f + 4.0f * lead);     /* dust (some twelve a second at NOISE 20, 550 at the top), the loud ones rare */
+        if (!hit && md_u() < rate * chs) {
+            float a = md_u();
+            vn_tick(nz * (0.005f + 0.045f * a * a * a) * (tp_rnd() < 0.0f ? -1.0f : 1.0f),
+                    2500.0f * fm_exp2f(1.7f * md_u()), 0.6f + 0.5f * md_u(), 0.85f * tp_rnd(), n, md_u(), 0);
+        }
+        vn_rb += (0.02f * nz * nz * vn_sp * tp_rnd() - vn_rb) * md_kr;
+    } else {
+        vn.ns = 0.0f;
+        vn_rb -= vn_rb * md_kr;
+    }
+    vn_rb = fm_flush(vn_rb);
+    vn_rb2 = fm_flush(vn_rb2 + (vn_rb - vn_rb2) * md_kr);
+    if (vn.ta > 1e-6f) {                 /* the thump, under the rumble */
+        vn.tp += vn.tw * ch;
+        vn.tp -= vn.tp >= 1.0f ? 1.0f : 0.0f;
+        th = vn.ta * fm_sin_turns(vn.tp);
+        vn.ta *= fm_expf(-vn.tk * ch);
+    } else {
+        vn.ta = 0.0f;
+    }
+    md.drs = (vn_rb2 + th - md.rs) / (float)n;
+}
+
+/* VINYL, AM and PHONE's chunk (n samples), before the stage: their settings as they sound (gliding as the tape's), a
+ * dip, the level kept, the noise's events; tp_d (VINYL's wow) and tp_dip (the gain out) at its end */
+static void md_chunk(uint32_t n, float k15, float k02, float ktp)
+{
+    const float ch = (float)n * BR_INV_FS, in = tp_ai;   /* (in: what reached the record the chunk before, VINYL's) */
+    const int am = tp_kind == FR_AM, ph = tp_kind == FR_PHONE;
+    float s, w, nz, q = 0.0f, u, fc;
+    tp_sat_g += (T.tp_sat - tp_sat_g) * k15;
+    tp_wob_g += (T.tp_wobble - tp_wob_g) * k02;
+    tp_tn_g += (T.tp_tone - tp_tn_g) * k15;
+    tp_ns_g += (T.tp_noise - tp_ns_g) * k15;
+    tp_do_g += (T.tp_dropout - tp_do_g) * k15;
+    s = tp_sat_g;
+    w = tp_wob_g;
+    nz = tp_ns_g > 0.001f ? tp_ns_g : 0.0f;   /* (none drawn at NOISE 0: silent in, silent out) */
+    if (tp_do_t > 0.0f) {                /* a dip under way (DROPOUT): in and out as an arch; PHONE's a cut */
+        if (ph) {                        /* (down in some 11 ms, held, back as quickly) */
+            float e = tp_do_n - tp_do_t, r = (e < tp_do_t ? e : tp_do_t) * 90.0f;
+            q = tp_do_depth * (r < 1.0f ? r : 1.0f);
+        } else
+            q = tp_do_depth * fm_sin_turns(0.5f * tp_do_t / tp_do_n);
+        tp_do_t -= ch;
+    } else if (tp_do_g > 0.001f && md_u() < tp_do_g * tp_do_g * ch * (am ? 0.4f : ph ? 0.8f : 1.2f)) {
+        float r1 = md_u(), r2 = md_u();  /* (VINYL a worn patch, 0.1 .. 0.5 s; AM a fade away, 0.5 .. 2.5 s; PHONE a
+                                          * cut, 0.08 .. 0.58 s, near silent as DROPOUT grows) */
+        if (ph) {
+            tp_do_n = tp_do_t = 0.08f + 0.5f * r1 * r1;
+            tp_do_depth = (0.8f + 0.2f * r2) * (0.4f + 0.6f * tp_do_g);
+        } else {
+            tp_do_n = tp_do_t = am ? 0.5f + 2.0f * r1 * r1 : 0.1f + 0.4f * r1 * r1;
+            tp_do_depth = (am ? 0.4f + 0.5f * r2 : 0.3f + 0.4f * r2) * tp_do_g;
+        }
+    }
+    if (tp_warm)                         /* its level kept as the tape's (what comes off as loud as what went on) */
+        tp_ai = tp_ao = 0.0f;
+    tp_ei += (tp_ai - tp_ei) * ktp;
+    tp_eo += (tp_ao - tp_eo) * ktp;
+    tp_ai = tp_ao = 0.0f;
+    u = (tp_ei + 1e-3f) / (tp_eo + 1e-3f);
+    fc = am ? 2.0f : ph ? 6.0f : 4.0f;   /* (AM's lows gone, not made up past 6 dB: no bass from it; PHONE's band
+                                          * narrower still, made up to 15.6 dB: its mids as loud as what went on) */
+    u = u > fc ? fc : u;
+    tp_ug += ((u < 0.5f ? 0.5f : u) - tp_ug) * ktp;
+    md.at = -1;
+    if (ph) {                            /* PHONE (card #218) */
+        float lv, g, hk, h0;
+        tp_ph1 += 0.071f * ch;           /* (the line's drift: in real time) */
+        tp_ph2 += 0.023f * ch;
+        tp_ph1 -= tp_ph1 >= 1.0f ? 1.0f : 0.0f;
+        tp_ph2 -= tp_ph2 >= 1.0f ? 1.0f : 0.0f;
+        u = w * fm_sqrtf(w);
+        lv = (1.0f - 0.4f * u * (0.5f + 0.3f * fm_sin_turns(tp_ph1) + 0.2f * fm_sin_turns(tp_ph2))) * (1.0f - q);
+        md.dlv = (lv - md.lv) / (float)n;
+        md_sig = lv;
+        tp_dip = tp_ug;
+        fc = 2117.0f * fm_sqrtf(tp_tn_g);   /* (the band's top, muffled: its low pass, then the earpiece's pole there;
+                                             * 2.36 kHz at TONE's default, 1.06 .. 4.2 kHz: TONE's half) */
+        fc = fc < 1000.0f ? 1000.0f : fc > 4500.0f ? 4500.0f : fc;
+        fc = fc > 0.4f * BR_FS ? 0.4f * BR_FS : fc;
+        g = fm_tanf(3.14159265f * fc * BR_INV_FS);
+        md.c1 = 1.0f / (1.0f + g * (g + 1.2f));
+        md.c2 = g * md.c1;
+        md.c3 = g * md.c2;
+        md.kp = 1.0f - fm_expf(-6.2831853f * fc * BR_INV_FS);
+        g = fm_tanf(3.14159265f * 420.0f * BR_INV_FS);   /* (its bottom: Butterworth's fourth order, two SVFs) */
+        md.hc1 = 1.0f / (1.0f + g * (g + 0.76536686f));
+        md.hc2 = g * md.hc1;
+        md.hc3 = g * md.hc2;
+        md.hd1 = 1.0f / (1.0f + g * (g + 1.8477591f));
+        md.hd2 = g * md.hd1;
+        md.hd3 = g * md.hd2;
+        g = fm_tanf(3.14159265f * 1400.0f * BR_INV_FS);   /* (its mids: a bell at 1.4 kHz, +9 dB, the earpiece's) */
+        md.pk1 = 1.0f / (1.0f + g * (g + 0.9f));
+        md.pk2 = g * md.pk1;
+        md.pk3 = g * md.pk2;
+        md.kh = 1.0f - fm_expf(-6.2831853f * 300.0f * BR_INV_FS);
+        am_env += (am_acc - am_env) * (am_acc > am_env ? md_ka : md_kl);
+        u = 4.0f + 20.0f * s;            /* (the compressor's depth, the drive: SATURATION) */
+        md.cg = (1.0f + 5.0f * s * s) / (1.0f + u * am_env);
+        md.og = (1.0f + 0.06f * u) / (1.0f + 5.0f * s * s);
+        md.tb = 0.12f * s;
+        md.tcb = tp_clip(md.tb);
+        md.ns = 0.025f * nz * nz;
+        hk = 0.1f * nz * nz;             /* (the hum: |sin| at 60 Hz, its phase the flutter's, through the chunk in a
+                                          * straight line) */
+        h0 = fm_fabsf(fm_sin_turns(tp_ph3));
+        tp_ph3 += 60.0f * ch;
+        tp_ph3 -= tp_ph3 >= 1.0f ? 1.0f : 0.0f;
+        md.hm = hk * h0;
+        md.dhm = hk * (fm_fabsf(fm_sin_turns(tp_ph3)) - h0) / (float)n;
+    } else if (!am) {                    /* VINYL */
+        vn_chunk(n, ch, s, w, nz, q, in);
+    } else {                             /* AM */
+        float lv, g;
+        tp_ph1 += 0.13f * ch;            /* (the fading's: in real time, the ionosphere's) */
+        tp_ph2 += 0.047f * ch;
+        tp_ph1 -= tp_ph1 >= 1.0f ? 1.0f : 0.0f;
+        tp_ph2 -= tp_ph2 >= 1.0f ? 1.0f : 0.0f;
+        u = w * fm_sqrtf(w);
+        lv = (1.0f - 0.7f * u * (0.5f + 0.3f * fm_sin_turns(tp_ph1) + 0.2f * fm_sin_turns(tp_ph2))) * (1.0f - q);
+        md.dlv = (lv - md.lv) / (float)n;
+        md_sig = lv;
+        tp_dip = tp_ug;
+        fc = 3200.0f * tp_tn_g * (0.6f + 0.4f * lv);   /* (its top sinks with it) */
+        fc = fc < 500.0f ? 500.0f : fc > 9000.0f ? 9000.0f : fc;
+        fc = fc > 0.4f * BR_FS ? 0.4f * BR_FS : fc;
+        g = fm_tanf(3.14159265f * fc * BR_INV_FS);
+        md.c1 = 1.0f / (1.0f + g * (g + 1.1f));
+        md.c2 = g * md.c1;
+        md.c3 = g * md.c2;
+        md.kp = 1.0f - fm_expf(-6.2831853f * 1.4f * fc * BR_INV_FS);
+        md.kh = md_kh;
+        am_env += (am_acc - am_env) * (am_acc > am_env ? md_ka : md_kl);
+        u = 3.0f + 12.0f * s;            /* (the compressor's depth, its drive: SATURATION) */
+        md.cg = (1.0f + 3.0f * s * s) / (1.0f + u * am_env);
+        md.og = (1.0f + 0.08f * u) / (1.0f + 3.0f * s * s);
+        md.ns = 0.012f * nz * nz * (1.0f + 1.5f * (1.0f - lv));
+        if (nz > 0.0f && md_u() < 40.0f * nz * nz * ch) {   /* (a crackle of static, some forty a second at the top) */
+            float a = md_u();
+            md.tick_l = 0.04f * nz * a * a * (tp_rnd() < 0.0f ? -1.0f : 1.0f);
+            md.at = (int32_t)(md_u() * (float)n);
+            md.at = md.at >= (int32_t)n ? (int32_t)n - 1 : md.at;
+        }
+    }
+}
+
+/* VINYL's stage, in two short loops (the FM-1's sixteen registers): the record (vn_groove, or its stop's, vn_heads)
+ * into vrl, vrr, then the stylus (vn_stylus) into the chunk's mix */
+static float vrl[32], vrr[32];           /* a chunk off the record */
+
+static inline void vn_cut(float l, float r, float tg, float tb, float tcb, float *sl)   /* each sample cut (its lows one
+                                          * side: the side's own under some 150 Hz out), onto the record */
+{
+    float cl, cr;
+    *sl += (0.5f * (l - r) - *sl) * vn_kb;
+    cl = l - *sl;
+    cr = r + *sl;
+    tp_ai += fm_fabsf(cl) + fm_fabsf(cr);
+    tp_bl[tp_w] = (int16_t)(TP_ONE * (tp_clip(cl * tg + tb) - tcb));
+    tp_br[tp_w] = (int16_t)(TP_ONE * (tp_clip(cr * tg + tb) - tcb));
+    tp_w = (tp_w + 1u) & tp_m;
+}
+
+static inline void vn_read(float d, float itg, float *a, float *b)   /* (the record, d samples behind its front) */
+{
+    float x = (float)tp_w - d, f;
+    uint32_t k0, k1;
+    x += x < 0.0f ? (float)(tp_m + 1u) : 0.0f;
+    k0 = (uint32_t)x;
+    f = x - (float)k0;
+    k0 &= tp_m;
+    k1 = (k0 + 1u) & tp_m;
+    *a = ((float)tp_bl[k0] + (float)(tp_bl[k1] - tp_bl[k0]) * f) * itg;
+    *b = ((float)tp_br[k0] + (float)(tp_br[k1] - tp_br[k0]) * f) * itg;
+}
+
+/* the record: each sample cut onto it and read back d behind (dd more a sample), as the tape's (tp_step) */
+static void vn_groove(uint32_t n, float d, float dd)
+{
+    const float tg = md.tg, tb = md.tb, tcb = md.tcb, itg = md.itg;
+    float sl = vn.sl;
+    uint32_t j;
+    for (j = 0; j < n; j++) {
+        d += dd;
+        vn_cut(tql[j], tqr[j], tg, tb, tcb, &sl);
+        vn_read(d, itg, &vrl[j], &vrr[j]);
+        tp_ao += fm_fabsf(vrl[j]) + fm_fabsf(vrr[j]);   /* (the record's level before its own noise: that kept as it is) */
+    }
+    vn.sl = fm_flush(sl);
+}
+
+/* the record in its stop (card #224): read slower and slower (its speed sp, dsp more a sample: each head falling behind
+ * the front by 1 - sp a sample), as far behind as the loop lets it, then a head from near the front, crossfaded in,
+ * slowing on (the record's pitch and pace falling together, everything on it: the cloud's tail too) */
+static void vn_heads(uint32_t n, float sp, float dsp)
+{
+    const float tg = md.tg, tb = md.tb, tcb = md.tcb, itg = md.itg;
+    float sl = vn.sl, ha = vn.ha, hb = vn.hb, xf = vn.xf;
+    uint32_t j;
+    for (j = 0; j < n; j++) {
+        float a, b;
+        sp += dsp;
+        vn_cut(tql[j], tqr[j], tg, tb, tcb, &sl);
+        ha += 1.0f - sp;
+        if (xf <= 0.0f && ha >= vn_dmax) {   /* (as far as the loop lets it: the next head from near the front) */
+            hb = vn_dmin;
+            xf = vn_xk;
+        }
+        vn_read(ha, itg, &a, &b);
+        if (xf > 0.0f) {
+            float a_, b_, k = xf * xf * (3.0f - 2.0f * xf);
+            hb += 1.0f - sp;
+            vn_read(hb, itg, &a_, &b_);
+            a += (a_ - a) * k;
+            b += (b_ - b) * k;
+            xf += vn_xk;
+            if (xf >= 1.0f) {
+                ha = hb;
+                xf = 0.0f;
+            }
+        }
+        vrl[j] = a;
+        vrr[j] = b;
+        tp_ao += fm_fabsf(a) + fm_fabsf(b);
+    }
+    vn.sl = fm_flush(sl);
+    vn.ha = ha;
+    vn.hb = hb;
+    vn.xf = xf;
+}
+
+/* the stylus: what comes off the record, the ring of its tick (its doublet through its resonance, at its side), the
+ * hush, the rumble, before its pole; into the chunk's mix (mxl, mxr: the groups' rest there) in at m over what went on
+ * (tql, tqr), at dp */
+static void vn_stylus(uint32_t n, float m, float dm, float dp, float ddp)
+{
+    const float ta = md.ta, drs = md.drs, a1 = vn.a1, a2 = vn.a2, gl = vn.gl, gr = vn.gr, h = vn.h;
+    const float ns = vn.ns * (1.0f / 65536.0f);   /* (its draws' two halves, signed 32-bit) */
+    const int32_t at = md.at;
+    const int hush = ns > 0.0f || vn.nl != 0.0f || vn.nr != 0.0f;   /* (off: down to nothing, then none drawn) */
+    float y1 = vn.y1, y2 = vn.y2, q = vn.q, nl = vn.nl, nr = vn.nr, rs = md.rs;
+    uint32_t g = vn.g, j;
+    for (j = 0; j < n; j++) {
+        float a = vrl[j], b = vrr[j], x = q;
+        m += dm;
+        dp += ddp;
+        q = 0.0f;
+        if ((int32_t)j == at) {          /* a tick: up this sample, down the next, through the ring */
+            x += h;
+            q = -h;
+        }
+        x += a1 * y1 - a2 * y2;
+        y2 = y1;
+        y1 = x;
+        rs += drs;
+        if (hush) {                      /* the hush, each side its own (its draw's halves), dulled */
+            g ^= g << 13;
+            g ^= g >> 17;
+            g ^= g << 5;
+            nl += ((float)(int32_t)g * ns - nl) * vn_ks;
+            nr += ((float)(int32_t)(g << 16) * ns - nr) * vn_ks;
+        }
+        a += x * gl + rs + nl;
+        b += x * gr + rs + nr;
+        tp_dcl += (a - tp_dcl) * tp_kdc;
+        tp_dcr += (b - tp_dcr) * tp_kdc;
+        tp_l += (a - tp_dcl - tp_l) * ta;
+        tp_r += (b - tp_dcr - tp_r) * ta;
+        mxl[j] += tql[j] + (tp_l * dp - tql[j]) * m;
+        mxr[j] += tqr[j] + (tp_r * dp - tqr[j]) * m;
+    }
+    vn.y1 = fm_flush(y1);
+    vn.y2 = fm_flush(y2);
+    vn.q = q;
+    vn.nl = fm_flush(nl);
+    vn.nr = fm_flush(nr);
+    vn.g = g;
+    md.rs = fm_flush(rs);
+}
+
+/* AM's stage: each sample both sides as one (at its fade), its static and crackle in, through the band, the compressor
+ * and the curve; into the chunk's mix both sides alike, in at m over what went on, at dp */
+static void am_stage(uint32_t n, float m, float dm, float dp, float ddp)
+{
+    const float kh = md.kh, c1 = md.c1, c2 = md.c2, c3 = md.c3, kp = md.kp, cg = md.cg, og = md.og, ns = md.ns;
+    const float dlv = md.dlv;
+    float h1 = am_h1, h2 = am_h2, s1 = am_s1, s2 = am_s2, p = am_p, q = am_q, lv = md.lv, acc = 0.0f;
+    uint32_t j;
+    for (j = 0; j < n; j++) {
+        float l = tql[j], r = tqr[j], x, v1, v2, v3, y;
+        m += dm;
+        dp += ddp;
+        lv += dlv;
+        tp_ai += (fm_fabsf(l) + fm_fabsf(r)) * lv;   /* (as loud as what went on, faded: the fades kept) */
+        x = 0.5f * (l + r) * lv + q;
+        q = 0.0f;
+        if (ns > 0.0f)
+            x += ns * tp_rnd();
+        if ((int32_t)j == md.at) {       /* a crackle: up this sample, down the next */
+            x += md.tick_l;
+            q = -md.tick_l;
+        }
+        h1 += (x - h1) * kh;             /* the band: its bottom, two poles */
+        x -= h1;
+        h2 += (x - h2) * kh;
+        x -= h2;
+        v3 = x - s2;                     /* its top (an SVF's low pass) */
+        v1 = c1 * s1 + c2 * v3;
+        v2 = s2 + c2 * s1 + c3 * v3;
+        s1 = 2.0f * v1 - s1;
+        s2 = 2.0f * v2 - s2;
+        acc += fm_fabsf(v2);
+        p += (tp_clip(v2 * cg) * og - p) * kp;   /* (the curve's harmonics through the speaker) */
+        tp_ao += 2.0f * fm_fabsf(p);
+        y = p * dp;
+        mxl[j] += l + (y - l) * m;
+        mxr[j] += r + (y - r) * m;
+    }
+    am_h1 = fm_flush(h1);
+    am_h2 = fm_flush(h2);
+    am_s1 = fm_flush(s1);
+    am_s2 = fm_flush(s2);
+    am_p = fm_flush(p);
+    am_q = q;
+    am_acc = acc / (float)n;
+    md.lv = lv;
+}
+
+/* PHONE's stage (card #218): each sample both sides as one (at the line's level), its hiss and hum in, through its
+ * band's bottom (an SVF's high pass) and top (its low pass), the compressor, the earpiece's curve, pole and high pass;
+ * into the chunk's mix both sides alike, in at m over what went on, at dp */
+static void ph_stage(uint32_t n, float m, float dm, float dp, float ddp)
+{
+    const float hc1 = md.hc1, hc2 = md.hc2, hc3 = md.hc3, hd1 = md.hd1, hd2 = md.hd2, hd3 = md.hd3;
+    const float pk1 = md.pk1, pk2 = md.pk2, pk3 = md.pk3, c1 = md.c1, c2 = md.c2, c3 = md.c3, kp = md.kp, kh = md.kh;
+    const float cg = md.cg, og = md.og, tb = md.tb, tcb = md.tcb, ns = md.ns, dlv = md.dlv, dhm = md.dhm;
+    float b1 = am_h1, b2 = am_h2, b3 = ph_h3, b4 = ph_h4, m1 = ph_m1, m2 = ph_m2, s1 = am_s1, s2 = am_s2, p = am_p;
+    float h = am_q, lv = md.lv, hm = md.hm, acc = 0.0f;
+    uint32_t j;
+    for (j = 0; j < n; j++) {
+        float l = tql[j], r = tqr[j], x, v1, v2, v3, y;
+        m += dm;
+        dp += ddp;
+        lv += dlv;
+        tp_ai += (fm_fabsf(l) + fm_fabsf(r)) * lv;   /* (as loud as what went on, at the line's level: its cuts kept) */
+        x = 0.5f * (l + r) * lv;
+        if (ns > 0.0f) {                 /* (the line's own, its cuts' too) */
+            x += ns * tp_rnd() + hm;
+            hm += dhm;
+        }
+        v3 = x - b2;                     /* the band: its bottom (two SVFs' high pass) */
+        v1 = hc1 * b1 + hc2 * v3;
+        v2 = b2 + hc2 * b1 + hc3 * v3;
+        b1 = 2.0f * v1 - b1;
+        b2 = 2.0f * v2 - b2;
+        x -= 0.76536686f * v1 + v2;
+        v3 = x - b4;
+        v1 = hd1 * b3 + hd2 * v3;
+        v2 = b4 + hd2 * b3 + hd3 * v3;
+        b3 = 2.0f * v1 - b3;
+        b4 = 2.0f * v2 - b4;
+        x -= 1.8477591f * v1 + v2;
+        v3 = x - m2;                     /* its mids pushed (a bell: the band's part, 0.9 wide, times 1.8 added) */
+        v1 = pk1 * m1 + pk2 * v3;
+        v2 = m2 + pk2 * m1 + pk3 * v3;
+        m1 = 2.0f * v1 - m1;
+        m2 = 2.0f * v2 - m2;
+        x += 1.62f * v1;
+        v3 = x - s2;                     /* its top (its low pass) */
+        v1 = c1 * s1 + c2 * v3;
+        v2 = s2 + c2 * s1 + c3 * v3;
+        s1 = 2.0f * v1 - s1;
+        s2 = 2.0f * v2 - s2;
+        acc += fm_fabsf(v2);
+        p += ((tp_clip(v2 * cg + tb) - tcb) * og - p) * kp;   /* (the earpiece: driven, lopsided, its pole) */
+        h += (p - h) * kh;
+        y = p - h;                       /* (its own bottom: the lean's DC gone) */
+        tp_ao += 2.0f * fm_fabsf(y);
+        y *= dp;
+        mxl[j] += l + (y - l) * m;
+        mxr[j] += r + (y - r) * m;
+    }
+    am_h1 = fm_flush(b1);
+    am_h2 = fm_flush(b2);
+    ph_h3 = fm_flush(b3);
+    ph_h4 = fm_flush(b4);
+    ph_m1 = fm_flush(m1);
+    ph_m2 = fm_flush(m2);
+    am_s1 = fm_flush(s1);
+    am_s2 = fm_flush(s2);
+    am_p = fm_flush(p);
+    am_q = fm_flush(h);
+    am_acc = acc / (float)n;
+    md.lv = lv;
 }
 
 /* MASTER EQ: three biquads each side (transposed direct form II); their coefficients made again when a setting moves,
@@ -1507,14 +2236,50 @@ static inline float eq_side(float x, uint32_t s)   /* the three bands on one sid
 
 /* CUT (OCT- held, PLAY): the block after it is asked fades out (no click), the next one empties everything (the
  * voices, GLINT and its echoes, the cloud, TAPE's loop) and stays silent */
-static volatile uint8_t cut_at;          /* 1: asked (this block fades out), 2: the next empties everything */
+static volatile uint8_t cut_at;          /* 1: asked (this block fades out), 2: the next empties everything; 3: VINYL's
+                                          * stop under way (card #224), 2 at its end */
 void frasil_cut(void)
 {
     if (!cut_at)
         cut_at = 1;
 }
 
+/* VINYL's stop over (card #224, CUT's empty after it): the mix's filters, GLINT's echoes' and the cloud's from nothing
+ * too (the slowed waves leave them far off: heard after the empty, a thump, a ghost of the tail, music enough to drop
+ * the needle again) */
+static void vn_settle(void)
+{
+    uint32_t b, j;
+    glint_hush();                        /* (its echoes' filters; the cloud's poles: CUT's empty leaves them) */
+    nuage_hush();
+    dcl = dcr = thl = thr = nlp = 0.0f;
+    bs_lpl = bs_lpr = 0.0f;
+    sk_l1 = sk_l2 = sk_r1 = sk_r2 = 0.0f;
+    fa1 = fa2 = fb1 = fb2 = ga1 = ga2 = gb1 = gb2 = 0.0f;
+    for (j = 0; j < 12u; j++)
+        pf[j] = 0.0f;
+    for (b = 0; b < 3u; b++)
+        for (j = 0; j < 4u; j++)
+            eq_z[b][j] = 0.0f;
+    tp_l = tp_r = tp_dcl = tp_dcr = tp_ai = tp_ao = 0.0f;   /* (tp_ai: what reached the record, the needle's) */
+    vn.y1 = vn.y2 = vn.q = vn.sl = vn.nl = vn.nr = vn.ta = 0.0f;
+    vn_rb = vn_rb2 = md.rs = md.drs = 0.0f;
+}
+
 #ifndef __PI32V2__
+static const float *cin_l, *cin_r;       /* an outside input into the cloud, the next render's (frasil_cloud_in) */
+static volatile uint8_t cin_clear;       /* 1: the cloud emptied at the next render's end, its return faded out in it */
+void frasil_cloud_in(const float *l, const float *r)
+{
+    cin_l = l && r ? l : 0;
+    cin_r = l && r ? r : 0;
+}
+
+void frasil_cloud_clear(void)
+{
+    cin_clear = 1;
+}
+
 /* what a block's start does without a block: the render is what empties the queue, and it drops what doesn't fit, so this
  * runs every millisecond. The drones' and the bass's notes kept (they start from their attacks after it); a drone let go
  * is free at once (its release never ran); GLINT's glints kept by their own milliseconds (glint_skip_*: one held or
@@ -1523,12 +2288,21 @@ void frasil_skip(uint32_t ms)
 {
     uint32_t i;
     if (cut_at) {
+        uint32_t r = ev_r;
+        int keep = cut_at == 3 && vn_played();   /* (VINYL's stop: a note played in it kept, as a render keeps it) */
         frasil_panic();
         glint_cut();
         nuage_clear();
         for (i = 0; i <= tp_m; i++)
             tp_bl[i] = tp_br[i] = 0;
         cut_at = 0;
+        if (vn_wt >= 0.0f)
+            vn_settle();
+        vn_end();
+        if (keep) {
+            ev_r = r;
+            vn_lift = 0;
+        }
     }
     T = pend;
     while (ev_r != ev_w) {
@@ -1593,6 +2367,7 @@ void frasil_skip_done(void)
     T = pend;
     P = pend;
     glint_skip_done(&T.glint);
+    vn.qt = 1.5f;                        /* (VINYL's needle on it already where music plays: no drop, card #224) */
 }
 #endif
 
@@ -1628,10 +2403,12 @@ static void voice_lv_rest(voice_t *v, uint32_t slot)
 }
 
 void frasil_live_done(void)              /* (a state loaded: the settings the main loop set, heard at once, no glide; the
-                                          * glints ringing left as they are, not a skip's) */
+                                          * glints ringing left as they are, not a skip's; VINYL's needle on it already
+                                          * where music plays, card #224) */
 {
     T = pend;
     P = pend;
+    vn.qt = 1.5f;
 }
 
 void frasil_lv(br_live *c)
@@ -1739,18 +2516,37 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
      * fall, PUMP's nudge), a chunk's (the filter's glides, the pans', PUMP on the cloud's, the tape's) */
     const float kdc = br_k(0.0014f), ckd = br_d(0.9925f), md = br_d(0.94f), pkd = br_d(0.97f), kpn = br_k(0.05f);
     const float k15 = br_k(0.15f), k25 = br_k(0.25f), k02 = br_k(0.02f), k003 = br_k(0.003f);
+#ifndef __PI32V2__
+    const float *cil = cin_l, *cir = cin_r;   /* (frasil_cloud_in's, this render's alone) */
+    int clr = cin_clear;
+    cin_l = cin_r = 0;
+#endif
     if (cut_at == 2) {
-        uint32_t i;
+        uint32_t i, r = ev_r;
+        int keep = vn_keep;              /* (VINYL's stop, a note played in it: kept, played from here; card #224) */
         frasil_panic();
         glint_cut();
         nuage_clear();
         for (i = 0; i <= tp_m; i++)
             tp_bl[i] = tp_br[i] = 0;
-        for (i = 0; i < 2u * n; i++)
-            lr[i] = 0;
         cut_at = 0;
-        return;
+#ifndef __PI32V2__
+        cin_clear = 0;                   /* (CLEAR in CUT's: the cloud emptied already) */
+        clr = 0;
+#endif
+        if (vn_wt >= 0.0f)
+            vn_settle();
+        vn_end();
+        if (!keep) {
+            for (i = 0; i < 2u * n; i++)
+                lr[i] = 0;
+            return;
+        }
+        ev_r = r;
+        vn_lift = 0;                     /* (the needle still on the record: no drop) */
     }
+    if (cut_at == 3 && !vn_hold && vn_played())
+        vn_hold = 1;                     /* (PLAY in VINYL's stop: the old out over this block, the new from the next) */
     if (prof_clk) {
         prof_t = prof_clk();
         prof_at = FR_PROF_SETUP;
@@ -1945,7 +2741,22 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
 #endif
         /* the reverb, and the mix of dry and wet (equal power: SPACE), the cloud's return at its level */
         prof(FR_PROF_CLOUD);
+#ifndef __PI32V2__
+        if (cil)                         /* an outside input, with the tracks' shares (frs_render_in) */
+            for (i = 0; i < m; i++) {
+                rinl[i] += cil[off + i];
+                rinr[i] += cir[off + i];
+            }
+#endif
         nuage_process(rinl, rinr, wetl, wetr, m);
+#ifndef __PI32V2__
+        if (clr)                         /* CLEAR: its return out to silence over the render, emptied after it */
+            for (i = 0; i < m; i++) {
+                float g = 1.0f - (float)(off + i + 1u) / (float)n;
+                wetl[i] *= g;
+                wetr[i] *= g;
+            }
+#endif
         prof(FR_PROF_MIX);
         wd = fm_cosf(P.mix * 1.5707963f);
         ww = fm_sinf(P.mix * 1.5707963f) * 1.2f * P.mx_cloud;
@@ -1975,7 +2786,9 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
             float fm0 = f->m0, dfm = f->dm, fk = f->k, fc1 = f->c1, fc2 = f->c2, fc3 = f->c3;
             if (f->reset)
                 fa1 = fa2 = fb1 = fb2 = ga1 = ga2 = gb1 = gb2 = 0.0f;
-            float tm0, em0, td0, dp0, dtm, dem, ddt, ddp;
+            float tm0, em0, td0, dp0, dtm, dem, ddt, ddp, tm_s, td_s, dp_s;
+            int tk, tq;                  /* the medium on: TAPE (tp_step), or another (VINYL, AM, PHONE: md_chunk, their
+                                          * stage) */
             float tg = 1.0f, tb = 0.0f, tcb = 0.0f, itg = 1.0f, ta = 1.0f, hs = 0.0f, gl4[4], gr4[4];
             float wx[4], wy[4], wz[4];        /* the groups (the drones, the cloud's return, GLINT, BASS) in X, Y, Z */
             uint32_t j;
@@ -2005,14 +2818,17 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
             em0 = eq_mix;
             td0 = tp_d;
             dp0 = tp_dip;
-            {                            /* LOFI TAPE: in, out, or out to change its TRACKS or ROUTING, the loop filled
-                                          * at 0, then in */
-                int wb = T.tp_on ? T.tp_tracks : 0, wp = wb ? T.tp_pre : 0;
-                if (wb != tp_bits || wp != tp_pre_on) {
+            {                            /* LOFI TAPE: in, out, or out to change its TRACKS, ROUTING or MEDIA, the loop
+                                          * filled at 0, then in */
+                int wb = T.tp_on ? T.tp_tracks : 0, wp = wb ? T.tp_pre : 0, wk = wb ? T.tp_on : 0;
+                if (wb != tp_bits || wp != tp_pre_on || wk != tp_kind) {
                     if (tp_mix <= 0.0f) {
                         uint32_t k;
                         tp_bits = wb;
                         tp_pre_on = wp;
+                        if (wk != tp_kind)   /* (another medium: VINYL's, AM's and PHONE's own from nothing) */
+                            md_empty();
+                        tp_kind = wk;
                         for (k = 0; k <= tp_m; k++)   /* (an empty tape: not what it had the last time) */
                             tp_bl[k] = tp_br[k] = 0;
                         tp_l = tp_r = tp_dcl = tp_dcr = tp_ai = tp_ao = tp_ei = tp_eo = 0.0f;
@@ -2062,7 +2878,16 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                 gr4[j] = pn < 0.0f ? fm_sin_turns(0.25f + 0.25f * pn) : 1.0f;
                 pan_on |= pn > 0.001f || pn < -0.001f;
             }
-            if (tp_bits) {               /* the tape's place at the chunk's end: wow, flutter, a drag */
+            if (vn_wt >= 0.0f) {         /* VINYL's stop (card #224): the record's speed over this chunk, falling */
+                vn_sp0 = vn_sp;
+                vn_wt += (float)(e - c) * BR_INV_FS;
+                vn_sp = vn_wt < VN_STOP ? 1.0f - vn_wt * (0.98f / VN_STOP) : 0.02f;
+            }
+            tk = tp_bits && tp_kind == FR_TAPE;
+            tq = tp_bits && !tk;         /* (VINYL, AM, PHONE: their chunk, their stage after the groups) */
+            if (tq)
+                md_chunk(e - c, k15, k02, ktp);
+            if (tk) {                    /* the tape's place at the chunk's end: wow, flutter, a drag */
                 float w, ch = (float)(e - c) * BR_INV_FS, chs = ch * br_tk, v = 0.0f, u;   /* (chs: TAPE SPEED's
                                                                                           * pace, for its wow and flutter) */
                 tp_sat_g += (T.tp_sat - tp_sat_g) * k15;
@@ -2135,8 +2960,11 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
             }
             ddt = (tp_d - td0) / (float)(e - c);
             tp_speed = tp_bits ? 1.0f - ddt : 1.0f;   /* (reading further behind: slower) */
-            tp_dragd = tp_bits && tp_drag > 0.0f ? tp_drag_s : 0.0f;
+            tp_dragd = tk && tp_drag > 0.0f ? tp_drag_s : 0.0f;
             ddp = (tp_dip - dp0) / (float)(e - c);
+            tm_s = tm0;                  /* (VINYL's and AM's stage from the chunk's start) */
+            td_s = td0;
+            dp_s = dp0;
             {                            /* the chunk in stages, each a short loop (on the FM-1 the FPU's registers
                                           * are the CPU's sixteen: one loop for all of it spilled at every turn): the
                                           * groups to the sides (the filter and the tape on theirs) with the meters,
@@ -2214,8 +3042,13 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                                 l += (svf(l, &fa1, &fa2, fc1, fc2, fc3, fk, hp) - l) * fm0;
                                 r += (svf(r, &ga1, &ga2, fc1, fc2, fc3, fk, hp) - r) * fm0;
                             }
-                            if (tp_bits)
+                            if (tk)
                                 tp_step(&l, &r, td0, tg, tb, tcb, itg, ta, dp0, tm0, hs);
+                            else if (tq) {   /* (VINYL, AM: theirs, md_stage's) */
+                                tql[i - c] = l;
+                                tqr[i - c] = r;
+                                l = r = 0.0f;
+                            }
                         } else {             /* the groups to their buses, the filters on X and Y, the tape on
                                               * fA(X) + Z, W the rest */
                             float xl = wx[0] * dl + wx[1] * wl + wx[2] * gl_ + wx[3] * bl2;
@@ -2235,8 +3068,13 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                             }
                             l = xl + zl;
                             r = xr + zr;
-                            if (tp_bits && (hx | hz))
+                            if (tk && (hx | hz))
                                 tp_step(&l, &r, td0, tg, tb, tcb, itg, ta, dp0, tm0, hs);
+                            else if (tq) {
+                                tql[i - c] = l;
+                                tqr[i - c] = r;
+                                l = r = 0.0f;
+                            }
                             l += yl + wl_;
                             r += yr + wr_;
                         }
@@ -2251,6 +3089,19 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
                             pk[2] = a > pk[2] ? a : pk[2];
                             a = fm_fabsf(wl) + fm_fabsf(wr);
                             pk[3] = a > pk[3] ? a : pk[3];
+                        }
+                    }
+                    if (tq) {            /* VINYL, AM, PHONE: their stage, on their bus's sum (tql, tqr), into the mix */
+                        if (tp_kind == FR_VINYL) {   /* (the record, or its stop's: card #224; the stylus) */
+                            if (vn_wt >= 0.0f)
+                                vn_heads(e - c, vn_sp0, (vn_sp - vn_sp0) / (float)(e - c));
+                            else
+                                vn_groove(e - c, td_s, ddt);
+                            vn_stylus(e - c, tm_s, dtm, dp_s, ddp);
+                        } else if (tp_kind == FR_AM) {
+                            am_stage(e - c, tm_s, dtm, dp_s, ddp);
+                        } else {
+                            ph_stage(e - c, tm_s, dtm, dp_s, ddp);
                         }
                     }
                 }
@@ -2382,7 +3233,15 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
         if (rv_vs)
             cost_voice += ((float)rv_ticks / (float)rv_vs - cost_voice) * 0.1f;
     }
-    if (cut_at == 1) {                   /* CUT: this block out to silence */
+    if (cut_at == 1 && vn_winds()) {     /* CUT on VINYL, its needle on the record: the turntable stops from the next block
+                                          * (card #224: the brake's knock, its speed in the chunks, its level out below) */
+        cut_at = 3;
+        vn_wt = 0.0f;
+        vn_wg = 1.0f;
+        vn.clunk = 1;
+        vn.ha = tp_d;                    /* (its head where the record reads now) */
+        vn.xf = 0.0f;
+    } else if (cut_at == 1) {            /* CUT: this block out to silence */
         uint32_t i;
         for (i = 0; i < n; i++) {
             float g = 1.0f - (float)(i + 1u) / (float)n;
@@ -2390,7 +3249,31 @@ void frasil_render(int32_t *lr, uint32_t n, float gain)
             lr[2u * i + 1u] = (int32_t)((float)lr[2u * i + 1u] * g);
         }
         cut_at = 2;
+    } else if (cut_at == 3) {            /* VINYL's stop: its level out as it comes to a stand (then CUT's empty), or a
+                                          * note played: this block out to silence, the next empties all but it */
+        float g0 = vn_wg, g1 = vn_hold ? 0.0f : vn_gain(vn_sp);
+        uint32_t i;
+        for (i = 0; i < n; i++) {
+            float g = g0 + (g1 - g0) * (float)(i + 1u) / (float)n;
+            lr[2u * i] = (int32_t)((float)lr[2u * i] * g);
+            lr[2u * i + 1u] = (int32_t)((float)lr[2u * i + 1u] * g);
+        }
+        vn_wg = g1;
+        if (g1 <= 0.0f) {
+            vn_keep = vn_hold;
+            cut_at = 2;
+        }
     }
+#ifndef __PI32V2__
+    if (clr) {                           /* (its filters' and the shimmer's states too: thawed, they would ring on) */
+#if BR_FS_CONST
+        nuage_clear();
+#else
+        nuage_hush();
+#endif
+        cin_clear = 0;
+    }
+#endif
     if (prof_clk)
         prof_n += n;
 }
@@ -2423,6 +3306,15 @@ void frasil_init(float fs)
     tp_kdc = br_k(0.0007f);
     tp_pick = (uint32_t)(4194304.0f * BR_R44);   /* (44.1 kHz's: 2^22, (r >> 22) == 0, exactly) */
     tp_d = tp_d0;
+    md_kr = br_k(0.11f);                 /* (MEDIA's: card #99) */
+    md_ka = br_k(0.12f);
+    md_kl = br_k(0.005f);
+    md_kh = 1.0f - fm_expf(-6.2831853f * 160.0f * BR_INV_FS);
+    vn_kb = 1.0f - fm_expf(-6.2831853f * 150.0f * BR_INV_FS);   /* (VINYL's: card #224) */
+    vn_ks = 1.0f - fm_expf(-6.2831853f * 2500.0f * BR_INV_FS);
+    vn_dmax = br_n(1640.0f);
+    vn_dmin = br_n(8.0f);
+    vn_xk = BR_R44 / 350.0f;
 #else
     (void)fs;
 #endif
@@ -2454,6 +3346,10 @@ static void fr_zero(void *p, uint32_t n)
 void frasil_reset(void)
 {
     uint32_t i;
+#ifndef __PI32V2__
+    cin_l = cin_r = 0;
+    cin_clear = 0;
+#endif
     fr_zero(vo, sizeof vo);
     fr_zero(&P, sizeof P);
     T = pend = P;
@@ -2495,6 +3391,12 @@ void frasil_reset(void)
     tp_tn_g = 1.0f;
     tp_ns_g = tp_do_g = tp_do_t = tp_do_n = tp_do_depth = tp_hl = tp_hr = 0.0f;
     tp_nz = 2463534242u;
+    tp_kind = 0;
+    md_empty();
+    vn.g = 0x9E3779B9u;                  /* (VINYL's record player: card #224) */
+    vn.qt = 0.0f;
+    vn_lift = 0;
+    vn_end();
     pc_g = 1.0f;
     fa1 = fa2 = fb1 = fb2 = ga1 = ga2 = gb1 = gb2 = 0.0f;
     fr_zero(pf, sizeof pf);
@@ -2544,8 +3446,10 @@ void frasil_silence(void)
     fr_zero(tp_br, sizeof tp_br);
     tp_l = tp_r = tp_dcl = tp_dcr = tp_ai = tp_ao = tp_ei = tp_eo = 0.0f;
     tp_ug = 1.0f;
+    md_empty();                          /* (VINYL's and AM's own: card #99) */
     fr_zero(eq_z, sizeof eq_z);
     cut_at = 0;
+    vn_end();                            /* (VINYL's stop: none; card #224) */
 }
 #endif
 
@@ -2569,6 +3473,7 @@ void frasil_panic(void)
     lead_hush();
 #endif
     ev_r = ev_w;
+    vn_lift = 1;                         /* (VINYL's needle up: card #224) */
 }
 
 void frasil_view(frasil_view_t v[FR_NV])

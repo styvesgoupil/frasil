@@ -33,6 +33,7 @@ typedef struct {
     float delay_fb;                      /* 0..1: feedback */
     float delay_mix;                     /* 0..1: the echoes' level */
     int delay_pp;                        /* 1: ping-pong, 0: mono */
+    int line;                            /* ATTACK's shape (card #122): 0 CURVE (as ever), 1 LINE: the onset straight up */
 } glint_params_t;
 
 void glint_init(void);

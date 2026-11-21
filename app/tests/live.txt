@@ -53,9 +53,11 @@ pfnone
 setp 157 0
 wait 10
 pfop 409d00
-# MIDI in: on FRASIL's channels as it came, the clock; on another nothing
+# MIDI in: on FRASIL's channels as it came, the clock; on another nothing (4 too: LEAD CH OFF at first, card #228)
 midi 90 3C 64
 midi 80 3C 00
+midi 93 3C 64
+midi 83 3C 00
 clock 2
 midi 9F 3C 64
 midi 8F 3C 00
@@ -513,3 +515,116 @@ key 9 up
 wait 100
 pfnone
 pfwatch
+# the LEAD's chords (card #194): POLY, KEYS' NOTES on CHORD (HARMONY with it), C MAJOR, TRIAD, CLOSE; each note its
+# own FST_KEY_LEAD, the first on its key, the others on keys past the FM-1's (27, 28), their ups as any key's. Its
+# MIDI notes' chords with them (card #228), LEAD CH OFF: nothing told (a take as before it)
+pfhello 2
+wait 50
+setp 166 3
+setp 261 1
+setp 33 0
+setp 34 1
+setp 35 2
+setp 36 0
+gopage 58
+wait 30
+turn K2 1
+wait 30
+pfop 40a603
+pfop 8905010100
+pfop 402100
+pfop 402201
+pfop 402302
+pfop 402400
+pfnone
+# A#2 falls to A2 (45): A MINOR, A2 C3 E3
+tapkey 5
+wait 10
+pfop 87052d0364
+pfop 871b300364
+pfop 871c340364
+pfop 450500
+pfop 451b00
+pfop 451c00
+pfnone
+# ATTACK SHAPE (card #122), OCT- held and K1 on GLINT ADSR: the state's pair alone as it turns (FST_STATE, "FRst" 3,
+# 253, GLINT's bit; LEAD CH OFF, its chords or not: none of its, card #228), the same way again nothing, back CURVE
+gopage 11
+wait 30
+press OCT-
+turn K1 1
+turn K1 1
+release OCT-
+wait 10
+pfop c14652737403fd02
+pfnone
+press OCT-
+turn K1 -1
+release OCT-
+wait 10
+pfop c14652737403fd00
+pfnone
+# LEAD CH (GLO › MIDI's K4, card #228): the state's pairs as it turns, a step each, OFF to 5 with the LEAD's KEYS on
+# CHORD (250: 0x21 .. 0x25; STATE on 5: its pair last); MIDI on 5 told as it came; the LEAD's KEYS off CHORD on 5:
+# the pair again (5); back OFF: ATTACK SHAPE's pair alone at OFF (a state without 250: LEAD CH OFF, no chords)
+gopage 38
+wait 30
+turn K4 5
+wait 10
+pfop c14652737403fd00fa21
+pfop c14652737403fd00fa22
+pfop c14652737403fd00fa23
+pfop c14652737403fd00fa24
+pfop c14652737403fd00fa25
+pfnone
+pfstate
+wait 60
+pfcheck
+pfnone
+midi 94 3C 64
+midi 84 3C 00
+wait 10
+pfop 83943c6400
+pfop 83843c0000
+pfnone
+gopage 58
+wait 30
+turn K2 -1
+wait 30
+pfop c14652737403fd00fa05
+pfnone
+gopage 38
+wait 30
+turn K4 -5
+wait 10
+pfop c14652737403fd00fa04
+pfop c14652737403fd00fa03
+pfop c14652737403fd00fa02
+pfop c14652737403fd00fa01
+pfop c14652737403fd00
+# TRACKS LINK (card #212), HOME's: FOLLOW turned with no track LINKED, nothing told; a track LINKED, ATTACK SHAPE's pair
+# with its (252: the tracks, 16 the bass followed), its note followed (251: the drones' lowest held, C#2) and the bass's
+# baseline (247: the same, linked then); FOLLOW turned, the one followed's LINKED alone left (none moved), told without
+# its note; back, again; NO LINK, told
+gopage 80
+wait 30
+turn K1 1
+turn K1 -1
+wait 10
+pfnone
+turn K2 1
+wait 10
+pfop c14652737403fd00fc02fb25f725
+pfnone
+turn K1 1
+wait 10
+pfop c14652737403fd00fc12
+pfnone
+turn K1 -1
+wait 10
+pfop c14652737403fd00fc02fb25f725
+pfnone
+turn K2 -1
+wait 10
+pfop c14652737403fd00fc00
+pfnone

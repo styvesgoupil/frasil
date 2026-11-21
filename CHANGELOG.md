@@ -1,5 +1,32 @@
 # Changelog
 
+## 3.4 (2026-11-20)
+
+**New**
+
+- **TRACKS LINK**: a new HOME page, after CLOUD SEND. FOLLOW picks the track to follow, DRONE or BASS. Set the other tracks (DRONE, BASS, GLINT, MIDI) to LINKED: nothing moves, the note followed at that moment is their starting point. Then change the drone's chord, and the bass, GLINT and the MIDI track follow it along the scale. Changing FOLLOW keeps them where they are. Your links stay after power-off. On the FM-1 and the SMK-37.
+- **LOFI TAPE**: three new MEDIA next to TAPE: VINYL, AM and PHONE, each with its own drawing on the screen. The pages take the medium's name (LOFI VINYL, LOFI AM, LOFI PHONE), and TAPE SPEED is now SPEED. Switching medium fades through with no click. On the SMK-37 too.
+- **VINYL**: a record on a turntable. Crackle and dust across the stereo, some coming back each turn, surface noise, rumble, wow, and the bass narrowing to mono. You also hear the needle drop, the turntable's mechanism and the record slowing to a stop.
+- **AM**: an old radio, with its dial on the screen.
+- **PHONE**: an old landline handset. Mono, with the lows cut, the mids pushed and the highs muffled. TONE moves the top of the band from 1 to 4.5 kHz. On the screen, the handset's cord swings with WOBBLE.
+- **LEAD CH**: play the LEAD from your keyboard or DAW on its own MIDI channel: GLO › MIDI, K4 (OFF, 1 to 16 or OMNI). MONO or POLY as its MODE says, with velocity, pressure, mod wheel and pitch bend. OFF at first.
+- **LFO targets**: each LFO's RATE and DEPTH are now TARGETs. One LFO can move another's speed or amount.
+- **Chord mode**: now on LEAD, GLINT and the MIDI track too.
+- **ATTACK**: can now rise in a straight line, not only in a curve. Hold OCT- on an ENV page and turn K1.
+- **MIDI sync**: with CLOCK on AUTO, FRASIL follows your DAW's Stop, Continue and Song Position. Stop halts the sequences and arps while the drones keep sounding. Continue picks up where it stopped. A new TRANSPORT setting: FOLLOW, or TEMPO ONLY.
+- **GLINT, SPARKLE and BASS as MIDI**: with NOTES OUT (GLO › MIDI II), the notes they generate go out to your DAW, to record and edit.
+- **MORPH**: when a scene loads with MORPH, a frame round the screen erases itself as the transition goes, like ANCHOR's.
+- **LEAD on screen**: the playing visual now shows LEAD in its colour, moving with its notes.
+
+**Fixes and changes**
+
+- **Your scenes**: old scenes, streams and live states keep their LFO targets.
+- **CLOCK**: now on GLO › MIDI II's K4. LEAD CH takes its place on GLO › MIDI.
+- **MORPH**: a long MORPH, even 2 minutes, sometimes ended in about a second. Fixed.
+- **Streams**: a LEAD played after lowering SPEED could sound off tempo. Fixed.
+- **SMK-37 pads**: the LFO pads move to the last three of the first row, AMOUNT to the last button of the second row.
+- **USB audio**: sound sent into the FM-1 over USB is no longer resampled.
+
 ## 3.3.1 (2026-11-13)
 
 **New**

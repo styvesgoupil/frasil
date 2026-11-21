@@ -81,6 +81,7 @@ expect page 58
 tap HOME
 tap HOME
 tap HOME
+tap HOME
 wait 100
 expect page 0
 # a button held from the wake on: no hold either (PLAY held would let everything go)

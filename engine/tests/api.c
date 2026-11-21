@@ -106,6 +106,80 @@ static double bass_alone(uint32_t space, uint32_t cloud, uint32_t note)
     return e * (1.0 / 16777216.0) * (1.0 / 16777216.0);
 }
 
+/* an outside input into CLOUD (frs_render_in, FrasilVibe's IN, card #210): a new scene at 48 kHz, nothing playing, a
+ * 440 Hz burst of 0.1 s in at 0.25 (from frame 4800), FREEZE from `freeze_at` s (0: never), CLEAR at `clear_at` s (0:
+ * never), its rest silence; through frs_render_in 128 frames at a time (with 0: frs_render's; 2: silence in). Each
+ * tenth of a second's mean square in ms[] (4 s), the samples' hash */
+static uint32_t cloud_shimmer;           /* (cloud_in's SHIMMER, 0 the new scene's) */
+static uint64_t cloud_in(int with, float freeze_at, float clear_at, double *ms)
+{
+    static float il[128], ir[128], ol[128], or_[128];
+    uint8_t sc[FRS_SCENE_BYTES];
+    uint64_t h = 0xCBF29CE484222325u;
+    uint32_t f, i;
+    frs_close();
+    frs_init(48000.0f);
+    frs_scene_new(sc);
+    frs_scene_take(sc);
+    if (cloud_shimmer)
+        frs_param_set(P_SHIMMER, cloud_shimmer);
+    for (i = 0; i < 40u; i++)
+        ms[i] = 0.0;
+    for (f = 0; f < 4u * 48000u; f += 128u) {
+        for (i = 0; i < 128u; i++) {
+            uint32_t k = f + i;
+            il[i] = ir[i] = with == 1 && k >= 4800u && k < 9600u ? 0.25f * sinf(6.2831853f * 440.0f * (float)k / 48000.0f)
+                                                                   : 0.0f;
+        }
+        if (freeze_at > 0.0f && f == (uint32_t)(freeze_at * 48000.0f) / 128u * 128u)
+            frs_param_set(P_FREEZE, 1);
+        if (clear_at > 0.0f && f == (uint32_t)(clear_at * 48000.0f) / 128u * 128u)
+            frs_cloud_clear();
+        if (with)
+            frs_render_in(il, ir, ol, or_, 128);
+        else
+            frs_render(ol, or_, 128);
+        for (i = 0; i < 128u; i++) {
+            uint32_t a, b;
+            memcpy(&a, &ol[i], 4);
+            memcpy(&b, &or_[i], 4);
+            h = (h ^ a) * 0x100000001B3u;
+            h = (h ^ b) * 0x100000001B3u;
+            ms[(f + i) / 4800u] += ((double)ol[i] * ol[i] + (double)or_[i] * or_[i]) / 9600.0;
+        }
+    }
+    return h;
+}
+
+/* frs_render_in with no input: frs_render's samples (a scene playing, any chunk) */
+static uint64_t played_in(uint32_t chunk, int with)
+{
+    static float l[1024], r[1024];
+    uint8_t sc[FRS_SCENE_BYTES];
+    uint64_t h = 0xCBF29CE484222325u;
+    uint32_t done = 0, i;
+    frs_close();
+    frs_init(44100.0f);
+    frs_scene_factory(0, sc);
+    frs_scene_take(sc);
+    while (done < 3u * 44100u) {
+        uint32_t n = 3u * 44100u - done < chunk ? 3u * 44100u - done : chunk;
+        if (with)
+            frs_render_in(0, 0, l, r, n);
+        else
+            frs_render(l, r, n);
+        for (i = 0; i < n; i++) {
+            uint32_t a, b;
+            memcpy(&a, &l[i], 4);
+            memcpy(&b, &r[i], 4);
+            h = (h ^ a) * 0x100000001B3u;
+            h = (h ^ b) * 0x100000001B3u;
+        }
+        done += n;
+    }
+    return h;
+}
+
 static float l_[4096], r_[4096];
 static float rms(uint32_t frames)        /* (the mean square) */
 {
@@ -170,6 +244,39 @@ static void on_say(void *user, const char *a, const char *b)
 {
     (void)user;
     snprintf(said, sizeof said, "%s %s", a, b);
+}
+static int programmed = -1;              /* (a Program Change told: its number, the app's to take a scene for) */
+static void on_program(void *user, uint32_t n)
+{
+    (void)user;
+    programmed = (int)n;
+}
+
+/* a host playing from `beat` to `to` at 118 BPM in buffers of 512 frames, frs_host_song `song`, TRANSPORT `tempo_only`,
+ * on a factory scene (OPEN WATER: GLINT's sequence and the bass's): the steps playing at `to`, the renders' hash */
+static uint64_t host_from(double beat, double to, int song, int tempo_only, int8_t *pos)
+{
+    static int32_t lr[2 * 512];
+    uint8_t o[FRS_SCENE_BYTES];
+    uint64_t h = 0xCBF29CE484222325u;
+    frs_view_t v;
+    frs_close();
+    frs_init(48000.0f);
+    frs_scene_factory(4, o);
+    frs_scene_take(o);
+    frs_host_song(song);
+    frs_param_set(P_TRANSPORT, (uint32_t)tempo_only);
+    frs_render_i24(lr, 512);
+    while (beat < to) {
+        frs_host_tempo(118.0, beat, 1);
+        frs_render_i24(lr, 512);
+        h = fnv(lr, 512, h);
+        beat += 512.0 / 48000.0 * 118.0 / 60.0;
+    }
+    frs_view(&v);
+    pos[0] = v.seq_pos;
+    pos[1] = v.bseq_pos;
+    return h;
 }
 
 /* a host at 48 kHz, its MIDI clock at 120 BPM time-stamped in its buffers of `buf` frames: the tempo the engine finds */
@@ -566,6 +673,23 @@ int main(void)
     frs_param_set(P_CLOCK, 0);
     check(n <= FRS_STATE_BYTES && frs_state_load(state, n) == 0 && frs_param_get(P_CLOCK) == 1,
           "CLOCK beside a scene: saved, back");
+    {                                    /* TRANSPORT (card #204): in SCENES' UNDO's number, beside a scene as CLOCK */
+        const char *nm;
+        uint32_t max, def;
+        char a[FRS_TEXT], b[FRS_TEXT];
+        frs_param_text(P_TRANSPORT, 0, a);
+        frs_param_text(P_TRANSPORT, 1, b);
+        check(P_TRANSPORT == 169 && param("TRANSPORT", 0) == P_TRANSPORT && !frs_param_info(P_TRANSPORT, &nm, &max, &def) &&
+                  max == 1u && def == 0u && !strcmp(a, "FOLLOW") && !strcmp(b, "TEMPO ONLY") &&
+                  frs_param_kind(P_TRANSPORT) == FRS_P_STATE,
+              "TRANSPORT (169): FOLLOW at the start, or TEMPO ONLY, beside a scene");
+        frs_param_set(P_TRANSPORT, 1);
+        n = frs_state_save(state);
+        frs_param_set(P_TRANSPORT, 0);
+        check(n <= FRS_STATE_BYTES && frs_state_load(state, n) == 0 && frs_param_get(P_TRANSPORT) == 1,
+              "  saved, back");
+        frs_param_set(P_TRANSPORT, 0);
+    }
     for (k = 0; k < 80u; k++)            /* (CLOCK INTERNAL: a host's tempo not followed) */
         frs_host_tempo(97.0, (double)k * 1024.0 / 48000.0 * 97.0 / 60.0, 1), rms(1024);
     frs_view(&v);
@@ -573,7 +697,7 @@ int main(void)
     frs_host_tempo(0.0, 0.0, 0);
     frs_param_set(P_CLOCK, 0);
     frs_param_text(P_L1_T1, 41, t);
-    check(frs_lfo_targets() == 61u && frs_lfo_target(0) == -1 && frs_lfo_target(62) == -1 &&
+    check(frs_lfo_targets() == 89u && frs_lfo_target(0) == -1 && frs_lfo_target(62) == -1 &&
               frs_lfo_target(1) == P_TIMBRE && frs_lfo_target(41) == P_FL_CUT && frs_lfo_target(42) == P_FL_RESO &&
               frs_lfo_target(43) == P_PN_DRONE && frs_lfo_target(46) == P_PN_CLOUD &&
               frs_lfo_target(47) == P_CH_SOFT && !strcmp(t, "MS CUTOFF") &&
@@ -583,15 +707,28 @@ int main(void)
               frs_lfo_target(56) == P_TP_SAT && frs_lfo_target(57) == P_TP_WOBBLE &&
               frs_lfo_target(58) == P_TP_FLUTTER && frs_lfo_target(59) == P_TP_TONE && frs_lfo_target(60) == P_TP_NOISE &&
               frs_lfo_target(61) == P_TP_DROPOUT,
-          "LFO TARGET: 61 choices, 41 MS CUTOFF .. 46 CLOUD PAN, 47 CH SOFT (2.6's) as they were, 48 .. 55 the ADSRs, 56 TAPE SAT, 57 WOBBLE, 58 .. 61 LOFI TAPE II's, OFF none");
+          "LFO TARGET: 89 choices, 41 MS CUTOFF .. 46 CLOUD PAN, 47 CH SOFT (2.6's) as they were, 48 .. 55 the ADSRs, 56 LOFI SAT, 57 WOBBLE, 58 .. 61 LOFI TAPE II's, OFF none");
+    {                                    /* (62 .. 83 the LEAD's: none without it; 84 .. 89 the LFOs', card #199) */
+        static const uint32_t X[6] = {P_L1_RATE, P_L1_DEPTH, P_L2_RATE, P_L2_DEPTH, P_L3_RATE, P_L3_DEPTH};
+        static const char *const W[6] = {"LFO1 RATE", "LFO1 DEPTH", "LFO2 RATE", "LFO2 DEPTH", "LFO3 RATE", "LFO3 DEPTH"};
+        uint32_t k;
+        int ok = frs_lfo_target(83) == -1 && frs_lfo_target(90) == -1;
+        for (k = 0; k < 6u; k++) {
+            frs_param_text(P_L3_T4, 84u + k, t);
+            ok &= frs_lfo_target(84u + k) == (int)X[k] && !strcmp(t, W[k]);
+        }
+        check(ok, "  62 .. 83 none here (the LEAD's), 84 .. 89 LFO1 RATE, LFO1 DEPTH .. LFO3 DEPTH, 90 none");
+    }
     {
         char t1[FRS_TEXT], t2[FRS_TEXT], t3[FRS_TEXT], t4[FRS_TEXT];
         frs_param_text(P_L1_T1, 58, t1);
         frs_param_text(P_L1_T1, 59, t2);
         frs_param_text(P_L1_T1, 60, t3);
         frs_param_text(P_L1_T1, 61, t4);
-        check(!strcmp(t1, "TAPE SPEED") && !strcmp(t2, "TAPE TONE") && !strcmp(t3, "TAPE NOISE") && !strcmp(t4, "DROPOUT"),
-              "  58 .. 61: TAPE SPEED, TAPE TONE, TAPE NOISE, DROPOUT");
+        check(!strcmp(t1, "SPEED") && !strcmp(t2, "LOFI TONE") && !strcmp(t3, "LOFI NOISE") && !strcmp(t4, "DROPOUT"),
+              "  58 .. 61: SPEED, LOFI TONE, LOFI NOISE, DROPOUT (TAPE SPEED, TAPE TONE, TAPE NOISE till card #229)");
+        frs_param_text(P_L1_T1, 56, t1);
+        check(!strcmp(t1, "LOFI SAT"), "  56: LOFI SAT (TAPE SAT till card #229)");
     }
     frs_param_text(P_FL_TRACKS, FRS_TRACKS_GLINT_BASS, t);
     check(frs_tracks_bits(FRS_TRACKS_ALL) == 7u && frs_tracks_bits(FRS_TRACKS_DRONE) == FRS_TRK_DRONE &&
@@ -711,8 +848,8 @@ int main(void)
         double b1 = tape_hz(64, 2, 0, &g1), bh = tape_hz(14, 2, 0, &gh), bq = tape_hz(0, 2, 0, &gq), bd = tape_hz(127, 2, 0, &gd);
         double l1 = tape_hz(64, 1, 0, &g2), lh = tape_hz(14, 1, 0, &g2), x1 = tape_hz(64, 2, 1, &g2), xh = tape_hz(14, 2, 1, &gx);
         double b3 = tape_hz(48, 2, 0, &g2);
-        check(!frs_param_info(P_TP_FLUTTER, &nm, &max, &def) && max == 127u && def == 64u && !strcmp(nm, "TAPE SPEED"),
-              "TAPE SPEED: 0 .. 127 from 64");
+        check(!frs_param_info(P_TP_FLUTTER, &nm, &max, &def) && max == 127u && def == 64u && !strcmp(nm, "SPEED"),
+              "SPEED (TAPE SPEED till card #229): 0 .. 127 from 64");
         frs_param_text(P_TP_FLUTTER, 64, tx);
         frs_param_text(P_TP_FLUTTER, 0, t0);
         frs_param_text(P_TP_FLUTTER, 14, t1);
@@ -1676,6 +1813,173 @@ int main(void)
         frs_view(&v);
         check((v.bnote[0] & 128u) != 0u && v.seq[0] == 60u && v.seq[1] == 127u && v.seq[2] == 127u && v.seq[3] == 0u,
               "  ACCENT in the bass's step; GLINT's LENGTH, its TIEs");
+    }
+
+    {   /* an outside input into CLOUD (card #210) */
+        static double none[40], in[40], frz[40], frz_in[40], clr[40];
+        double tail_in = 0.0, tail_none = 0.0;
+        uint32_t i;
+        check(played_in(128, 1) == played_in(128, 0) && played_in(333, 1) == played_in(333, 0),
+              "frs_render_in without an input: frs_render's samples, bit for bit");
+        check(cloud_in(0, 0.0f, 0.0f, none) == cloud_in(2, 0.0f, 0.0f, none), "  an input of silence: none's samples");
+        cloud_in(1, 0.0f, 0.0f, in);
+        for (i = 5; i < 10u; i++) {
+            tail_in += in[i];
+            tail_none += none[i];
+        }
+        check(tail_none < 1e-12 && tail_in > 1e-6, "  a burst in: the cloud's tail after it");
+        cloud_in(1, 0.4f, 0.0f, frz);
+        check(frz[35] > 0.25 * frz[8] && in[35] < 0.25 * in[8], "  FREEZE after it: its tail held (thawed, it fades)");
+        cloud_in(1, 0.001f, 0.0f, frz_in);   /* (FREEZE glides in, some 0.1 s: a burst after it barely comes in) */
+        for (i = 0; i < 40u && frz_in[i] < 1e-4 * in[2]; i++)
+            ;
+        check(i == 40u, "  FREEZE before it: nothing comes in (40 dB under)");
+        cloud_in(1, 0.4f, 2.0f, clr);
+        check(clr[15] > 1e-6 && clr[21] < 1e-9 * clr[15] && clr[39] < 1e-9 * clr[15],
+              "  CLEAR: the held tail gone, FREEZE on");
+        cloud_shimmer = 100;             /* (thawed, SHIMMER up: its states and the lines' filters emptied too) */
+        cloud_in(1, 0.0f, 1.0f, clr);
+        cloud_shimmer = 0;
+        for (i = 11; i < 40u && clr[i] < 1e-9 * clr[8]; i++)
+            ;
+        check(clr[8] > 1e-6 && i == 40u, "  CLEAR, thawed, SHIMMER up: the tail gone, nothing ringing on");
+    }
+
+    /* card #219, what the iPad needs of the FM-1's 3.4: ATTACK SHAPE (card #122) set and read, the state's pair, the
+     * view's, heard; MORPH's progress (card #203), a Program Change's too; the notes a key makes on the LEAD or MIDI
+     * (card #194); SONG POSITION for a host */
+    {
+        static int32_t lr[2 * 4096];
+        uint64_t h[3];
+        uint32_t j, i, m;
+        frs_close();
+        frs_init(48000.0f);
+        check(frs_ashape_get() == 0u, "ATTACK SHAPE: every envelope CURVE at the start");
+        frs_ashape_set(FRS_ASH_GLINT | FRS_ASH_LFILT | 0x60u);
+        frs_view(&v);
+        check(frs_ashape_get() == (FRS_ASH_GLINT | FRS_ASH_LFILT) && v.ashape == (FRS_ASH_GLINT | FRS_ASH_LFILT),
+              "  GLINT's and the LEAD's filter's LINE, none past the fifth bit; the view's");
+        n = frs_state_save(state);
+        frs_ashape_set(0);
+        check(frs_state_load(state, n) == 0 && frs_ashape_get() == (FRS_ASH_GLINT | FRS_ASH_LFILT), "  kept in the state");
+        frs_ashape_set(0);
+        n = frs_state_save(state);
+        frs_ashape_set(FRS_ASH_BASS);
+        check(frs_state_load(state, n) == 0 && frs_ashape_get() == 0u, "  a state without its pair: every one CURVE");
+        frs_ashape_set(FRS_ASH_DRONE);
+        rms(4800);
+        check(frs_snapshot(&w, 0) == 0 && w.ashape == FRS_ASH_DRONE && !frs_dirty(),
+              "  the snapshot's; no setting, nothing edited");
+        for (j = 0; j < 3u; j++) {           /* (the drones' chord on a slow ATTACK: CURVE, LINE, CURVE again) */
+            frs_close();
+            frs_init(48000.0f);
+            frs_param_set(P_ATTAQUE, 70);
+            frs_ashape_set(j == 1u ? FRS_ASH_DRONE : 0u);
+            frs_latch(0, 48, FRS_CHORD_HARMONY);
+            h[j] = 0xCBF29CE484222325u;
+            for (i = 0; i < 12u; i++) {
+                frs_render_i24(lr, 4096);
+                h[j] = fnv(lr, 4096, h[j]);
+            }
+        }
+        check(h[0] == h[2] && h[0] != h[1], "  heard: the drones' LINE not their CURVE; CURVE as before, bit for bit");
+
+        frs_close();
+        frs_init(48000.0f);
+        check(frs_morph_progress() < 0.0f, "MORPH's progress: none at the start");
+        frs_scene_factory(3, st);
+        frs_param_set(P_MORPH, 1);           /* (1 S) */
+        frs_scene_go(st);
+        rms(24000);
+        frs_view(&v);
+        check(frs_morph_progress() > 0.48f && frs_morph_progress() < 0.52f && v.morph == frs_morph_progress(),
+              "  a scene gone to, MORPH 1 S: half a second in, 0.5; the view's the same");
+        rms(28800);
+        check(frs_morph_progress() < 0.0f && frs_snapshot(&w, 0) == 0 && w.morph < 0.0f, "  over: none (the snapshot's too)");
+        frs_callbacks(on_say, on_program, 0);
+        frs_midi(0xC0, 4, 0);                /* (a Program Change on the drones' channel: the app takes its scene) */
+        rms(480);
+        if (programmed >= 0 && !frs_scene_factory((uint32_t)programmed % 7u, st))
+            frs_scene_go(st);
+        rms(4800);
+        check(programmed == 4 && frs_morph_progress() > 0.08f && frs_morph_progress() < 0.14f,
+              "  a Program Change's scene: its MORPH seen");
+        frs_callbacks(on_say, 0, 0);
+        rms(48000);
+        frs_anchor_set();
+        frs_param_set(P_TIMBRE, 100);
+        frs_anchor_back(1000);
+        rms(4800);
+        check(frs_anchor_state(0) == 2 && frs_morph_progress() < 0.0f, "  ANCHOR's way back: frs_anchor_state's, not a MORPH");
+
+        {
+            uint8_t c[FRS_CHORD_MAX];
+            uint32_t ok = 1, snapped = 0, chords = 0;
+            frs_close();
+            frs_init(48000.0f);
+            for (j = 36; j < 96u; j++)
+                ok &= frs_key_notes((int)j, 0, 1, c) == 1u && c[0] == j;
+            check(ok, "frs_key_notes: HARMONY OFF, the note as played, CHORD or not");
+            ok = 1;
+            for (j = 36; j < 96u; j++) {
+                uint8_t s[FRS_CHORD_MAX];
+                uint32_t held[4] = {0, 0, 0, 0};
+                m = frs_key_notes((int)j, 1, 1, c);
+                ok &= frs_key_notes((int)j, 1, 0, s) == 1u && s[0] <= j && s[0] == c[0];
+                snapped += s[0] != j;
+                frs_hold(0, j, 1, FRS_CHORD_HARMONY);   /* (the drones' chord on it: HARMONY's, the same notes) */
+                frs_view(&v);
+                frs_hold(0, j, 0, FRS_CHORD_HARMONY);
+                for (i = 0; i < m; i++)
+                    held[c[i] >> 5] |= 1u << (c[i] & 31u);
+                ok &= m >= 1u && m <= FRS_CHORD_MAX && !memcmp(held, v.held, sizeof held);
+                chords += m > 1u;
+            }
+            check(ok && snapped > 0u && chords > 50u, "  SINGLE NOTE the scale's note at or below it; CHORD the drones' "
+                                                      "chord on it, its root first");
+        }
+
+        {
+            int8_t p[6][2];
+            uint64_t hs[6];
+            hs[0] = host_from(0.0, 7.0, 1, 0, p[0]);   /* (SONG POSITION on, from beat 0: the reference) */
+            host_from(6.0, 7.0, 1, 0, p[1]);           /* (on, from beat 6) */
+            host_from(6.0, 7.0, 0, 0, p[2]);           /* (off: from the tops) */
+            hs[3] = host_from(0.0, 7.0, 0, 0, p[3]);
+            hs[4] = host_from(6.0, 7.0, 1, 1, p[4]);   /* (TEMPO ONLY) */
+            hs[5] = host_from(6.0, 7.0, 0, 1, p[5]);
+            printf("  (a host from beat 0, at beat 7: GLINT's step %d, the bass's %d; from 6 with SONG POSITION %d %d, "
+                   "without %d %d)\n", p[0][0], p[0][1], p[1][0], p[1][1], p[2][0], p[2][1]);
+            check(p[0][0] >= 0 && p[0][1] >= 0 && p[1][0] == p[0][0] && p[1][1] == p[0][1],
+                  "SONG POSITION: a host starting at beat 6, at beat 7 each sequence where from beat 0 it is");
+            check(p[2][0] != p[0][0] || p[2][1] != p[0][1], "  without it: from their tops (the control)");
+            check(hs[0] == hs[3], "  a start at beat 0: a Start, bit for bit as without it");
+            check(hs[4] == hs[5], "  TRANSPORT TEMPO ONLY: none of it, bit for bit");
+        }
+        for (j = 0; j < 2u; j++) {           /* (its stop: a Stop with it, TEMPO again without it; again, at its place) */
+            int8_t p[2], q[2];
+            double beat = 2.0;
+            uint32_t ran;
+            host_from(0.0, 2.0, (int)!j, 0, p);
+            frs_host_tempo(118.0, beat, 0);
+            rms(24000);
+            frs_view(&v);
+            ran = v.seq_run;
+            for (; beat < 3.0; beat += 512.0 / 48000.0 * 118.0 / 60.0) {
+                frs_host_tempo(118.0, beat, 1);
+                rms(512);
+            }
+            frs_view(&v);
+            q[0] = v.seq_pos;
+            q[1] = v.bseq_pos;
+            if (!j) {
+                host_from(0.0, 3.0, 1, 0, p);
+                check(!ran && q[0] == p[0] && q[1] == p[1],
+                      "  the host's stop a Stop (GLINT's sequence stopped); played again from beat 2, where it would be");
+            } else {
+                check(ran == 1u, "  without it: its stop TEMPO again, the sequences playing on (as before)");
+            }
+        }
     }
 
     frs_close();

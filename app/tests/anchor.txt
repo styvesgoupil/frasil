@@ -8,7 +8,9 @@
 # against the anchor's, the bytes that differ; moff: the settings a glide still moves; heardN: setting N as it sounds;
 # shownN: setting N as the screen shows it; framepx: the frame's pixels on the screen (of 3776; 3455 seen, the CPU line
 # and its label over its bottom row and corner, card #144's on the FM-1 too), framegone its places
-# erased (of 944), framelo and framehi its breath's dimmest and brightest (of 32)
+# erased (of 944), framelo and framehi its breath's dimmest and brightest (of 32). Last, a scene's MORPH's frame round
+# the screen on the same places, erased as it goes (card #203; #225): alone, with ANCHOR set during it, in DARK with
+# ANIMATIONS LOW
 wait 100
 expect anchor 0
 expect framepx 0
@@ -375,4 +377,158 @@ expect p163 1
 expect p123 2
 expect anchordiff 1
 setp 163 0
+wait 30
+# a scene's MORPH (card #203; card #225: as ANCHOR's MORPH back): its progress round the screen on the frame's places,
+# in the battery's green, whole as it starts, erased counter-clockwise from the top's middle by the clock, gone at its
+# end (morphgone: its places erased, of 944, -1 none; morphpx: its pixels on the screen, of 3776, 3455 seen as framepx's
+# while the bottom's left is still there). MORPH 4 S: a second in, a quarter of it erased; another page, three seconds
+# in, three quarters (the right side's top and the top's right half left: four pixels a place)
+setp 167 3
+scnstore 2 DRIFT
+setp 5 120
+wait 50
+expect morphgone -1
+scnload 2
+wait 60
+expect morph 1
+expect anchor 0
+expect morphgone <30
+expect morphpx >3330
+wait 1000
+expect morphgone >220
+expect morphgone <270
+expect morphpx >2350
+expect morphpx <2600
+expect framepx 0
+shot morph-1s.png
+gopage 2
+wait 2000
+expect morphgone >680
+expect morphgone <760
+expect morphpx >730
+expect morphpx <1060
+shot morph-3s.png
+# its end: gone, nothing left of it
+wait 1100
+expect morph 0
+expect morphgone -1
+expect morphpx 0
+# another scene taken during it: the frame whole again, erased from its start
+gopage 0
+setp 5 120
+scnload 2
+wait 2000
+expect morphgone >440
+expect morphpx <1950
+scnload 2
+wait 60
+expect morph 1
+expect morphgone <30
+expect morphpx >3330
+wait 4100
+expect morph 0
+expect morphpx 0
+# ANCHOR set during it (MORPH 8 S): the green steady on the places not erased yet, ANCHOR's frame breathing on those it
+# has left (between them, the frame's 3455 seen); the MORPH done, the violet whole
+setp 5 120
+setp 167 4
+wait 50
+scnload 2
+wait 2000
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 100
+expect anchor 1
+expect morph 1
+expect morphgone >220
+expect morphgone <280
+expect morphpx >2330
+expect morphpx <2580
+expect framepx >870
+expect framepx <1130
+shot morph-anchor.png
+wait 3000
+expect morphgone >570
+expect morphgone <640
+expect morphpx >1200
+expect morphpx <1500
+expect framepx >1950
+expect framepx <2260
+wait 3200
+expect morph 0
+expect anchor 1
+expect morphpx 0
+expect framepx 3455
+# ANCHOR's MORPH back: its frame alone, no green
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 2000
+expect anchor 2
+expect morph 1
+expect morphgone -1
+expect morphpx 0
+expect framepx >2300
+wait 6500
+expect anchor 0
+expect framepx 0
+expect morphpx 0
+# HEADER DARK, ANIMATIONS LOW (ANCHOR's frame still at 26 of 32, no breath): the same, the top's erased places the
+# dark band's; ANCHOR set a second into a MORPH of 4 S, then BACK (held) once it is done
+gopage 47
+wait 100
+turn K4 1
+wait 100
+expect headdark 1
+setp 181 1
+gopage 0
+setp 5 120
+setp 167 3
+wait 50
+scnload 2
+wait 1000
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 100
+expect anchor 1
+expect framelo >0
+expect framehi >0
+# (its breath asked: from here) a second on, still
+wait 1000
+expect framelo 26
+expect framehi 26
+expect morphgone >460
+expect morphgone <560
+expect morphpx >1450
+expect morphpx <1900
+expect framepx >1550
+expect framepx <2000
+shot morph-dark-low.png
+wait 2000
+expect morph 0
+expect morphpx 0
+expect framepx 3455
+press OCT-
+press OCT+
+wait 450
+release OCT-
+release OCT+
+wait 100
+expect anchor 0
+expect framepx 0
+setp 181 0
+gopage 47
+wait 100
+turn K4 -1
+wait 100
+expect headdark 0
+gopage 0
 wait 30

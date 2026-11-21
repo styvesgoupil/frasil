@@ -20,7 +20,10 @@
 # - a stream from before ARP SNAP as its engine played it (engine/tests/old_streams: engine/tests/old-streams/'s takes, made
 #   on the engine just before it, bit for bit from the top and joined; a newer one with its own ARP SNAP); 3.0.2-b5's,
 #   "FRS{" (engine/tests/old-streams-3.0.2/), the same; 3.2's, "FRS}" (engine/tests/old-streams-3.2/), the same, their LEAD
-#   MOSS;
+#   MOSS; 3.3.1's timed MORPHs (engine/tests/old-streams-3.3/), the same, card #202's MORPH moving every one;
+# - a scene's MORPH (engine/tests/morph, card #202: NORTH RIVER to LONG NIGHT and back over 2:00, the notes let go and
+#   played over it, not on the scene left's envelope; MASTERING, CLOUD and MASTER EQ gliding; its mark in the state, a
+#   stream without it 3.3.1's MORPH), also under ASan and UBSan;
 # - ANCHOR (engine/tests/anchor: set, BACK and MORPH bit for bit, a hand, a STORE and a scene during it; a take with it
 #   journaled and played on air, every sample the live one's, joined inside its MORPH), also under ASan and UBSan;
 # - a performance heard live (engine/tests/live: fst_op, each op by itself, a scene by its bytes: every sample, setting
@@ -32,6 +35,36 @@
 # - the LEAD (engine/tests/lead, card #152, with it: frs_lead_*, its ops, a take with it in "FRS~" on air every sample
 #   the same take live, an "FRS}" stream with MOSS, the running state's LEAD part: a listener opened on it the artist's
 #   brain and voices, one on the first part alone none stuck), also under ASan and UBSan;
+# - MIDI OUT (engine/tests/mout, card #192, built as the iPad builds it: FRS_MIDI_OUT, engine/mout.c): its keys, its
+#   arpeggio, its sequence and CLOCK OUT on the grid, what goes out and when, nothing sounding; card #219's: its KEYS'
+#   chords, CLOCK OUT's Start and Stop after a skip, NOTES OUT (card #201: the sound bit for bit with it), the LEAD's
+#   chord from frs_key_notes; also under ASan and UBSan (the API's card #219 calls in engine/tests/api: ATTACK SHAPE,
+#   MORPH's progress, frs_key_notes, SONG POSITION for a host);
+# - ATTACK SHAPE (engine/tests/shape, card #122, with the LEAD): CURVE bit for bit the engine's of before, LINE straight up
+#   on each envelope, the state's pair; takes made with LINE (engine/tests/line-streams/) heard with it here, and read
+#   and heard CURVE on history/dev ef2cbb5's engine (engine/tests/shape_old, built on it from git: not in a tree without
+#   that commit, said); also under ASan and UBSan;
+# - LOFI TAPE's MEDIA (engine/tests/media, card #99): TAPE bit for bit as before them, VINYL and AM bounded and as loud,
+#   silent in silent out at NOISE 0, their noise, their dips, a medium changed while it plays; VINYL's record player
+#   (card #224: OFF, TAPE, AM and their CUT bit for bit, the needle's drop, its marks each turn, CUT's stop, PLAY in
+#   it); also under ASan and UBSan;
+#   PHONE (card #218): AM bit for bit as before it (VINYL's own since card #224), PHONE one side in its band, its hiss
+#   and hum, its cuts; takes made with it heard on the engines before it (engine/tests/media_old, built from git on
+#   history/dev 49bcaa8, PHONE as AM, and on 70c3ad0, before the media, as TAPE: not in a tree without those commits,
+#   said);
+# - LEAD CH (engine/tests/ldch, card #228, with the LEAD): OFF at the start; the LEAD's MIDI channel, its notes MONO's,
+#   POLY's, CHORD's, their pressure and wheels, none hanging (CC 123, CC 120, the channel and MODE turned); the state's
+#   pair only while not OFF; a take with it on air every sample the take live; a listener opened on MIDI's chord held,
+#   the same brain; what it makes read on 3.4's engine (engine/tests/ldch_old, built from git on c5398e68: not in a
+#   tree without that commit, said): the state as at the start byte for byte, its pair not taken, the sound with
+#   nothing on the LEAD bit for bit, its take played; 3.4's take with notes on channel 4 (ldch_old make) heard here
+#   every sample as 3.4 played it; also under ASan and UBSan;
+# - TRACKS LINK (engine/tests/link, card #212, built as the app builds it: FRS_LEAD, FRS_MIDI_OUT; every note the voices
+#   are sent logged, -DFRASIL_EV_LOG=link_log): the offset's degrees; the bass, GLINT's arpeggio and keys, MIDI OUT's
+#   keys and arpeggio moved on the drone's note, the drones' chord on the bass's, at the pitches wanted; every note struck
+#   let go once, where it went, through the link turned, FOLLOW, ROOT, SCALE, RELEASE ALL, scenes, SPARKLE beside GLINT,
+#   GLINT's notes onto one pitch, 40 drones moved at once (none dropped from the voices' queue); the state's pairs, the
+#   running state's; also under ASan and UBSan;
 # - ENERGY, FRASIL STREAM's measure of a piece (engine/tools/test.sh: the drones alone calm, a busy sequence high, the
 #   same piece the same numbers);
 #   engine/tests/run.sh [OUT_DIR]
@@ -81,15 +114,95 @@ ${CC:-cc} $CF -o "$OUT/live" engine/tests/live.c engine/frasil_stream.c engine/f
 ${CC:-cc} $CF $SAN -o "$OUT/live-san" engine/tests/live.c engine/frasil_stream.c engine/frasil_engine.c $DSP -lm
 ${CC:-cc} $CF -o "$OUT/snap" engine/tests/snap.c engine/frasil_stream.c $DSP -lm
 ${CC:-cc} $CF $SAN -o "$OUT/snap-san" engine/tests/snap.c engine/frasil_stream.c $DSP -lm
+${CC:-cc} $CF -o "$OUT/morph" engine/tests/morph.c engine/frasil_stream.c $DSP -lm
+${CC:-cc} $CF $SAN -o "$OUT/morph-san" engine/tests/morph.c engine/frasil_stream.c $DSP -lm
 LD="-DFRS_LEAD=1 engine/dsp/lead.c"      # (with the LEAD, as stream.wasm: tools/stream_wasm.sh, card #152)
 ${CC:-cc} $CF -o "$OUT/lead" engine/tests/lead.c engine/frasil_stream.c $DSP $LD -lm
 ${CC:-cc} $CF $SAN -o "$OUT/lead-san" engine/tests/lead.c engine/frasil_stream.c $DSP $LD -lm
 ${CC:-cc} $CF -o "$OUT/live-lead" engine/tests/live.c engine/frasil_stream.c engine/frasil_engine.c $DSP $LD -lm
 ${CC:-cc} $CF -o "$OUT/snap-lead" engine/tests/snap.c engine/frasil_stream.c $DSP $LD -lm
 ${CC:-cc} $CF -o "$OUT/anchor-lead" engine/tests/anchor.c engine/frasil_stream.c engine/frasil_engine.c $DSP $LD -lm
+${CC:-cc} $CF -o "$OUT/ldch" engine/tests/ldch.c engine/frasil_stream.c $DSP $LD -lm   # (LEAD CH, card #228)
+${CC:-cc} $CF $SAN -o "$OUT/ldch-san" engine/tests/ldch.c engine/frasil_stream.c $DSP $LD -lm
+LDCH_OLD=""                              # (card #228's: what it makes on 3.4's engine, c5398e68's, as git has it)
+if git cat-file -e "c5398e68^{commit}" 2>/dev/null; then
+    O="$OUT/c5398e68"
+    rm -rf "$O" && mkdir -p "$O" && git archive c5398e68 engine | tar -x -C "$O"
+    ${CC:-cc} -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -I"$O/engine" -I"$O/engine/dsp" \
+        -DFRS_LEAD=1 -o "$OUT/ldch-old" engine/tests/ldch_old.c "$O/engine/frasil_stream.c" "$O/engine/frasil_engine.c" \
+        "$O/engine/dsp/frasil.c" "$O/engine/dsp/glint.c" "$O/engine/dsp/bass.c" "$O/engine/dsp/nuage.c" \
+        "$O/engine/dsp/lead.c" -lm
+    LDCH_OLD="ldch-old"
+else
+    echo "ldch-old: no c5398e68 in this tree (LEAD CH's on 3.4's engine): not run"
+fi
+${CC:-cc} $CF -o "$OUT/shape" engine/tests/shape.c engine/frasil_stream.c $DSP $LD -lm
+${CC:-cc} $CF $SAN -o "$OUT/shape-san" engine/tests/shape.c engine/frasil_stream.c $DSP $LD -lm
+SHAPE_OLD=""                             # (card #122's takes on the engine of before it: ef2cbb5's, as git has it)
+if git cat-file -e "ef2cbb51^{commit}" 2>/dev/null; then
+    O="$OUT/ef2cbb5"
+    rm -rf "$O" && mkdir -p "$O" && git archive ef2cbb51 engine | tar -x -C "$O"
+    ${CC:-cc} -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -I"$O/engine" -I"$O/engine/dsp" \
+        -DFRS_LEAD=1 -o "$OUT/shape-old" engine/tests/shape_old.c "$O/engine/frasil_stream.c" "$O/engine/frasil_engine.c" \
+        "$O/engine/dsp/frasil.c" "$O/engine/dsp/glint.c" "$O/engine/dsp/bass.c" "$O/engine/dsp/nuage.c" \
+        "$O/engine/dsp/lead.c" -lm
+    SHAPE_OLD="shape-old"
+else
+    echo "shape-old: no ef2cbb51 in this tree (card #122's takes on the engine of before it): not run"
+fi
+MO="-DFRS_MIDI_OUT=1"                    # (MIDI OUT, as the iPad builds it: engine/mout.c, card #192)
+${CC:-cc} $CF -o "$OUT/mout" engine/tests/mout.c $DSP $LD $MO -lm
+${CC:-cc} $CF $SAN -o "$OUT/mout-san" engine/tests/mout.c $DSP $LD $MO -lm
+${CC:-cc} $CF -o "$OUT/api-mout" engine/tests/api.c engine/frasil_engine.c $DSP $MO -lm   # (the API's own, MIDI OUT in)
+${CC:-cc} $CF -o "$OUT/media" engine/tests/media.c engine/frasil_engine.c engine/frasil_stream.c $DSP -lm   # (LOFI
+                                         # TAPE's MEDIA, card #99; its takes for the engines before PHONE, card #218)
+${CC:-cc} $CF $SAN -o "$OUT/media-san" engine/tests/media.c engine/frasil_engine.c engine/frasil_stream.c $DSP -lm
+MEDIA_OLD=""                             # (PHONE's takes on the engines before it: 49bcaa8's with VINYL and AM, 70c3ad0's
+for c in 49bcaa81 70c3ad07; do           # before them, as git has them)
+    if git cat-file -e "$c^{commit}" 2>/dev/null; then
+        O="$OUT/$c"
+        rm -rf "$O" && mkdir -p "$O" && git archive "$c" engine | tar -x -C "$O"
+        ${CC:-cc} -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -I"$O/engine" -I"$O/engine/dsp" \
+            -DFRS_LEAD=1 -o "$OUT/media-old-$c" engine/tests/media_old.c "$O/engine/frasil_stream.c" \
+            "$O/engine/frasil_engine.c" "$O/engine/dsp/frasil.c" "$O/engine/dsp/glint.c" "$O/engine/dsp/bass.c" \
+            "$O/engine/dsp/nuage.c" "$O/engine/dsp/lead.c" -lm
+        MEDIA_OLD="$MEDIA_OLD media-old-$c"
+    else
+        echo "media-old: no $c in this tree (PHONE's takes on the engine of before it): not run"
+    fi
+done
+LK="-DFRASIL_EV_LOG=link_log"            # (TRACKS LINK, card #212: what the voices are sent)
+${CC:-cc} $CF $LK -o "$OUT/link" engine/tests/link.c engine/frasil_stream.c $DSP $LD $MO -lm
+${CC:-cc} $CF $SAN $LK -o "$OUT/link-san" engine/tests/link.c engine/frasil_stream.c $DSP $LD $MO -lm
 for t in api api-c11 inside api-san inside-san rate threads skip old_streams anchor anchor-san live live-san snap snap-san \
-    lead lead-san live-lead snap-lead anchor-lead; do
+    morph morph-san lead lead-san live-lead snap-lead anchor-lead mout mout-san api-mout media media-san ldch-san link link-san; do
     "$OUT/$t" > "$OUT/$t.txt" 2>&1 || { cat "$OUT/$t.txt"; echo "run.sh: $t failed"; exit 1; }
+    tail -1 "$OUT/$t.txt"
+done
+for t in shape shape-san $SHAPE_OLD; do   # (card #122's: the takes' directory its argument there)
+    if [ "$t" = shape-old ]; then "$OUT/$t" engine/tests/line-streams; else "$OUT/$t"; fi > "$OUT/$t.txt" 2>&1 ||
+        { cat "$OUT/$t.txt"; echo "run.sh: $t failed"; exit 1; }
+    tail -1 "$OUT/$t.txt"
+done
+if [ -n "$MEDIA_OLD" ]; then             # (card #218's: the takes made here, heard there)
+    rm -rf "$OUT/media-takes" && mkdir -p "$OUT/media-takes"
+    "$OUT/media" make "$OUT/media-takes" > "$OUT/media-make.txt" 2>&1 ||
+        { cat "$OUT/media-make.txt"; echo "run.sh: media make failed"; exit 1; }
+    for t in $MEDIA_OLD; do
+        if [ "$t" = media-old-49bcaa81 ]; then w=with; else w=before; fi
+        "$OUT/$t" $w "$OUT/media-takes" > "$OUT/$t.txt" 2>&1 || { cat "$OUT/$t.txt"; echo "run.sh: $t failed"; exit 1; }
+        tail -1 "$OUT/$t.txt"
+    done
+fi
+rm -rf "$OUT/ldch-made" && mkdir -p "$OUT/ldch-made"   # (card #228's: 3.4's take made on 3.4's engine, heard here; made
+for t in $LDCH_OLD; do                                 # here, read on 3.4's engine)
+    "$OUT/$t" make "$OUT/ldch-made" > "$OUT/$t-make.txt" 2>&1 || { cat "$OUT/$t-make.txt"; echo "run.sh: $t make failed"; exit 1; }
+    tail -1 "$OUT/$t-make.txt"
+done
+"$OUT/ldch" make "$OUT/ldch-made" > "$OUT/ldch.txt" 2>&1 || { cat "$OUT/ldch.txt"; echo "run.sh: ldch failed"; exit 1; }
+tail -1 "$OUT/ldch.txt"
+for t in $LDCH_OLD; do
+    "$OUT/$t" "$OUT/ldch-made" > "$OUT/$t.txt" 2>&1 || { cat "$OUT/$t.txt"; echo "run.sh: $t failed"; exit 1; }
     tail -1 "$OUT/$t.txt"
 done
 grep -h 'Hz' "$OUT/rate.txt"

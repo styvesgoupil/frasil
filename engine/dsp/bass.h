@@ -30,6 +30,8 @@ typedef struct {
     float punch;                         /* 0..1: each note struck opens the filter and the level a moment */
     float bite;                          /* 0..1: its edge, the clipped wave's mids, over the low-pass */
     float space;                         /* 0..1: its share of the cloud (frasil.c, after MASTER FILTER's place) */
+    int line;                            /* ATTACK's shape (card #122): 0 CURVE (as ever), 1 LINE: the gain (the envelope's
+                                          * square) straight up to the top over ATTACK's time, then DECAY */
 } bass_params_t;
 
 void bass_init(void);

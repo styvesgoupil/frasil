@@ -331,11 +331,18 @@ void lead_mod(float m) { L.mod = br_clampf(m, 0.0f, 1.0f); }
 void lead_bend(float semis) { L.bend_t = br_clampf(semis, -12.0f, 12.0f); }
 
 /* an envelope a chunk on: held, ATTACK up (to 0.95, then DECAY), DECAY to SUSTAIN (all of it: ATTACK's way); let go,
- * RELEASE; let go by the shedding, out in some 15 ms (kq). The level's, and FILTER ENV's own (admin #619) */
-static inline void env_step(float *e, uint8_t *dec, int gate, int cut, float ka, float kd, float kr, float kq, float sus)
+ * RELEASE; let go by the shedding, out in some 15 ms (kq). The level's, and FILTER ENV's own (admin #619). ATTACK
+ * SHAPE's LINE (card #122): la a chunk's step, 0 the curve's: straight up to the top, then DECAY (sq: the level's, its
+ * gain the envelope's square; the filter's, the envelope itself) */
+static inline void env_step(float *e, uint8_t *dec, int gate, int cut, float ka, float la, int sq, float kd, float kr,
+                            float kq, float sus)
 {
     if (!gate) {
         *e += (0.0f - *e) * (cut ? kq : kr);
+    } else if (!*dec && la > 0.0f) {
+        float g = (sq ? *e * *e : *e) + la;
+        *e = g >= 1.0f ? 1.0f : sq ? fm_sqrtf(g) : g;
+        *dec = g >= 1.0f;
     } else if (!*dec) {
         *e += (1.0f - *e) * ka;
         *dec = *e >= 0.95f;
@@ -443,7 +450,7 @@ int lead_render(float *o, float *o2, float *rl, float *rr, uint32_t n, const lea
     const float ch_t = (float)CH * BR_INV_FS * br_tk;
     float kg, ka, kd, kr, kq, kf, kp, kb, ksc, ks, sus, dlt, fb, mix, sp, klp, khp, kdl, det, w, dgn, gm, nb, nw;
     float khs, kls;
-    float na, dw, fe, fka, fkd, fkr, fsus;
+    float na, dw, fe, fka, fkd, fkr, fsus, la, fla;
     float tg[8];
     shape_t sh;
     float send = 0.0f;
@@ -510,6 +517,8 @@ int lead_render(float *o, float *o2, float *rl, float *rr, uint32_t n, const lea
     ksc = fm_expf(-ch_t * (1.0f / 0.04f));
     sus = p->sustain >= 1.0f ? 1.0f : fm_sqrtf(p->sustain);
     fka = 1.0f - fm_expf(-ch_t * 3.0f / (0.005f * fm_powf(1000.0f, p->fattack)));   /* FILTER ENV's own, the same way */
+    la = p->line ? ch_t / (0.005f * fm_powf(1000.0f, p->attack)) : 0.0f;   /* (ATTACK SHAPE's LINE, card #122: a */
+    fla = p->fline ? ch_t / (0.005f * fm_powf(1000.0f, p->fattack)) : 0.0f;   /* chunk's step, the top at ATTACK's time) */
     fkr = 1.0f - fm_expf(-ch_t * 3.0f / (0.03f * fm_powf(500.0f, p->frelease)));
     fkd = 1.0f - fm_expf(-ch_t * 3.0f / (0.01f * fm_powf(1000.0f, p->fdecay)));
     fsus = p->fsustain >= 1.0f ? 1.0f : fm_sqrtf(p->fsustain);
@@ -599,8 +608,8 @@ int lead_render(float *o, float *o2, float *rl, float *rr, uint32_t n, const lea
             if (!live[j])
                 continue;
             v->oct += (v->oct_t - v->oct) * (v->gliding ? kg : 1.0f);
-            env_step(&v->env, &v->dec, v->gate, v->cut, ka, kd, kr, kq, sus);
-            env_step(&v->fenv, &v->fdec, v->gate, v->cut, fka, fkd, fkr, kq, fsus);   /* (its own, struck and let go
+            env_step(&v->env, &v->dec, v->gate, v->cut, ka, la, 1, kd, kr, kq, sus);
+            env_step(&v->fenv, &v->fdec, v->gate, v->cut, fka, fla, 0, fkd, fkr, kq, fsus);   /* (its own, struck and let go
                                                                                       * with the level's) */
             v->prs += (v->prs_t - v->prs) * kp;
             v->vel += (v->vel_t - v->vel) * kp;
@@ -915,6 +924,9 @@ void lead_view(lead_view_t *o)
     o->echol = L.echo[0];
     o->echor = L.echo[1];
     o->mod = L.mod;
+    o->bend = L.bend_t;
+    o->prs = v ? v->prs_t : 0.0f;
+    o->vel = v ? v->vel_t : 0.0f;
     o->ons = L.ons;
     o->glides = L.glides;
 }

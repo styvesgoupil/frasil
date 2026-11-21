@@ -238,3 +238,118 @@ wait 300
 expect cpucol 2
 cpuload 0
 wait 1500
+# KEYS on the LEAD (card #194): K1 HARMONY, K2 NOTES (md20, md21: knobs 300, 301), off: one note a key, as before
+setp 166 3
+setp 261 0
+setp 33 0
+setp 34 1
+setp 35 2
+setp 36 0
+listen
+gopage 58
+wait 30
+expect page 58
+expect knob1 300
+expect knob2 301
+expect knob3 268
+expect knob4 268
+expect md20 0
+expect md21 0
+wait 600
+said KEYS (2/6), LEAD. HARMONY OFF, NOTES SINGLE NOTE
+# HARMONY ON, SINGLE NOTE: C#4 falls to C4
+turn K1 1
+wait 30
+expect md20 1
+expect md21 0
+key 8 down 100 0
+wait 200
+expect leadnote 60
+key 8 up
+wait 3000
+# NOTES to CHORD with HARMONY OFF: HARMONY on too; MONO still one note (POLY ONLY)
+turn K1 -1
+wait 30
+turn K2 1
+wait 30
+expect md21 1
+expect md20 1
+key 7 down 100 0
+wait 200
+expect leadheld 1
+expect leadnote 60
+key 7 up
+wait 3000
+# POLY: C4 its triad (C E G); E4 with it (E G B): a voice a note, four; C4 let go, E and G kept for E4
+setp 261 1
+wait 50
+key 7 down 100 0
+wait 200
+expect leadheld 3
+key 11 down 100 0
+wait 200
+expect leadheld 4
+key 7 up
+wait 200
+expect leadheld 3
+key 11 up
+wait 200
+expect leadheld 0
+wait 3000
+# SEL with a key: one note; SEL let go after it, NOTES as it was (SEL used)
+press SEL
+wait 30
+key 7 down 100 0
+wait 500
+expect leadheld 1
+key 7 up
+release SEL
+wait 50
+expect md21 1
+expect page 58
+wait 3000
+# SEL held alone, let go: NOTES turns (SINGLE NOTE), said; the page stays
+press SEL
+wait 500
+release SEL
+wait 50
+expect md21 0
+expect md20 1
+expect page 58
+said NOTES SINGLE NOTE
+key 7 down 100 0
+wait 200
+expect leadheld 1
+key 7 up
+wait 3000
+press SEL
+wait 500
+release SEL
+wait 50
+expect md21 1
+said NOTES CHORD
+# kept with the device's settings: a power cut, as they were
+wait 2000
+reboot
+wait 1600
+expect md20 1
+expect md21 1
+# SEL tapped (before its hold): its pages, NOTES as it was
+gopage 58
+wait 30
+tap SEL
+wait 50
+expect page 28
+expect md21 1
+# SEL held with another button (OCT+, then OCT-): NOTES as it was
+gopage 58
+wait 30
+press SEL
+wait 500
+tap OCT+
+wait 30
+tap OCT-
+wait 30
+release SEL
+wait 50
+expect md21 1

@@ -31,6 +31,7 @@ VIB	vibrato
 DRONE CH	drone channel
 GLINT CH	glint channel
 BASS CH	bass channel
+LEAD CH	lead channel
 OMNI	all channels
 PRE CLOUD	before the cloud
 POST CLOUD	after the cloud
@@ -66,6 +67,7 @@ BS	bass
 MS CUTOFF	master cutoff
 MS RESO	master resonance
 SEQ LEN	sequence length
+LFO#	L F O #
 DRONE+BASS	drone and bass
 DRONE+GLINT	drone and glint
 GLINT+BASS	glint and bass

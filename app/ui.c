@@ -347,6 +347,10 @@ static void badge_of(int32_t cx, int32_t cy, int p, int enc)
         return;
     }
 #endif
+    if (p == (int)K_SHAPE) {             /* (an ENV page's K1, OCT- held: its ATTACK SHAPE) */
+        badge(cx, cy, '1', 1);
+        return;
+    }
     for (i = 0; i < 3u; i++)
         if (macro_of(i) == (uint32_t)p) {
             badge(cx, cy, HAND[i], 0);
@@ -448,9 +452,10 @@ static inline float smooth01(float t)
     return t * t * (3.0f - 2.0f * t);
 }
 
-static float note_y(int n, int32_t top, int32_t bottom)    /* C1 on the waterline, D6 at the top */
+static float note_y(float n, int32_t top, int32_t bottom)  /* C1 on the waterline, D6 at the top (the LEAD's: as it
+                                                            * glides, between two) */
 {
-    float y = (float)bottom - (float)(n - 24) * (float)(bottom - top) * (1.0f / 62.0f);
+    float y = (float)bottom - (n - 24.0f) * (float)(bottom - top) * (1.0f / 62.0f);
     return y < (float)top + 6.0f ? (float)top + 6.0f : y > (float)bottom - 4.0f ? (float)bottom - 4.0f : y;
 }
 
@@ -690,11 +695,179 @@ static void sink(int32_t top, int32_t bottom, float dim)
     }
 }
 
+#if FRS_LEAD
+/* the LEAD (card #200, as Perform's LUCID, card #158): each voice a light in its rose a quarter in from the left, at its
+ * note's height as the drone's and the bass's are (top: on the play page under its top row, the harmony's and what goes
+ * on, where the LEAD's high notes would be lost), as bright as it sounds, gliding to a new note as the LEAD glides
+ * (GLIDE: 2 g^2 s, lead.c's; struck, eased in 0.12 s; from silence there at once); what it sang drifts downstream at
+ * the river's pace (MOTION) and fades out in LT_N x LT_MS, thinner as it fades, the currents' sway taking it as it ages:
+ * the melody as it was sung, POLY's voices each theirs. In the air over the river: FREEZE stills the water, not it (its
+ * own clock); ANIMATIONS LOW: the lights alone. Its newest note named a moment while the keys play the LEAD (HOME). The
+ * trail: a point every LT_MS, its note in quarter tones (drawn at any river's height: HOME's, a page's strip) and how
+ * bright, two bytes a voice a point */
+#define LT_N 20
+#define LT_MS 300u
+static struct {
+    uint32_t at, last, named_at;         /* the trail's newest point; the frame before; the newest note come */
+    float p[LEAD_NV];                    /* each light's note as it glides */
+    int8_t n[LEAD_NV], named;            /* the note each sings (-1 silent); the voice named */
+    uint8_t lv[LEAD_NV], head;           /* how bright each is (the envelope's root), 0 .. 255; the newest point */
+    uint8_t tn[LEAD_NV][LT_N], tl[LEAD_NV][LT_N];   /* its trail: (note - 24) x 4, how bright */
+} ld;
+
+/* a stretch of a trail, older to the right: a line a pixel thick, a dim row either side as it is bright; a step
+ * between two notes drawn whole (never a dotted rise) */
+static void lead_seg(float xa, float ya, float xb, float yb, float a, float sw, float ph)
+{
+    int32_t x = (int32_t)xa + 1, x1 = (int32_t)xb, y, ylo, yhi;
+    float k = xb > xa ? (yb - ya) / (xb - xa) : 0.0f;
+    int32_t ac = (int32_t)(29.0f * a), ag = a > 0.35f ? (int32_t)(6.0f * a * a) : 0;
+    if (ac <= 0)
+        return;
+    if (x1 > MR)
+        x1 = MR;
+    for (; x <= x1; x++) {
+        float s = sw * sn((float)x * 0.0064f + ph), y0 = ya + k * ((float)x - 0.5f - xa) + s,
+              y1 = ya + k * ((float)x + 0.5f - xa) + s, yy = 0.5f * (y0 + y1), f;
+        int32_t yi = (int32_t)yy;
+        if (y1 - y0 > 1.0f || y0 - y1 > 1.0f) {   /* steep: the rows it crosses */
+            ylo = (int32_t)(y0 < y1 ? y0 : y1);
+            yhi = (int32_t)(y0 < y1 ? y1 : y0);
+            for (y = ylo; y <= yhi; y++)
+                bl(x, y, C_LEAD_TRACK, ac);
+        } else {
+            f = yy - (float)yi;
+            bl(x, yi, C_LEAD_TRACK, (int32_t)((float)ac * (1.0f - f)));
+            bl(x, yi + 1, C_LEAD_TRACK, (int32_t)((float)ac * f));
+            ylo = yi;
+            yhi = yi + 1;
+        }
+        bl(x, ylo - 1, C_LEAD_TRACK, ag);
+        bl(x, yhi + 1, C_LEAD_TRACK, ag);
+    }
+}
+
+static int keys_on_lead(void)
+{
+#if FRS_MIDI_OUT
+    if (mout.sel)
+        return 0;
+#endif
+    return st.lead != 0;
+}
+
+static void lead_lights(int32_t top, int32_t bottom, float dim, int labels, float t)
+{
+    static const char *const NN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+    lead_view_t l;
+    uint32_t now = plat_ms(), j, i, k;
+    int still = st.v[P_ANIM] != 0;
+    float dt = ld.last ? (float)(now - ld.last) * 0.001f : 0.0f, g = vh(P_LD_GLIDE) / 127.0f, tg = 2.0f * g * g, kg;
+    float hx = (float)ML + 0.27f * (float)(MR - ML);
+    frasil_lead_view(&l);
+    ld.last = now;
+    if (dt > 0.1f)
+        dt = 0.1f;
+    kg = 1.0f - fm_expf(-dt * 3.0f / (tg < 0.12f ? 0.12f : tg));
+    for (j = 0; j < LEAD_NV; j++) {      /* where each sings, how bright */
+        int n = l.vnote[j];
+        float lv = n >= 0 ? br_clamp01(l.venv[j]) : 0.0f;
+        if (n >= 0 && lv > 0.004f) {
+            if (ld.n[j] < 0 || ld.lv[j] < 26u || still)
+                ld.p[j] = (float)n;
+            else
+                ld.p[j] += ((float)n - ld.p[j]) * kg;
+            if (n != ld.n[j]) {
+                ld.named = (int8_t)j;
+                ld.named_at = now;
+            }
+            ld.n[j] = (int8_t)n;
+        } else {
+            ld.n[j] = -1;
+            lv = 0.0f;
+        }
+        ld.lv[j] = (uint8_t)(fm_sqrtf(lv) * 255.0f + 0.5f);
+    }
+    k = (now - ld.at) / LT_MS;           /* the trail: a point every LT_MS (unseen a while, or still: gone) */
+    if (still || k > LT_N) {
+        memset(ld.tl, 0, sizeof ld.tl);
+        ld.at = now;
+    } else if (k) {
+        for (i = 0; i < k; i++) {
+            ld.head = (uint8_t)((ld.head + 1u) % LT_N);
+            for (j = 0; j < LEAD_NV; j++) {
+                float q = (ld.p[j] - 24.0f) * 4.0f + 0.5f;
+                ld.tn[j][ld.head] = (uint8_t)(q < 0.0f ? 0.0f : q > 255.0f ? 255.0f : q);
+                ld.tl[j][ld.head] = i + 1u == k ? ld.lv[j] : 0u;
+            }
+        }
+        ld.at += k * LT_MS;
+    }
+    if (!still) {                        /* the trails: older, further downstream, fainter, swaying more */
+        float pace = (float)(MR - ML) * (0.03f + 0.03f * vh(P_MOUVEMENT) / 127.0f), life = (float)(LT_N * LT_MS) * 0.001f;
+        float a0 = (float)(now - ld.at) * 0.001f, ph = t * (0.004f + 0.03f * vh(P_MOUVEMENT) / 127.0f) * 0.8f;
+        for (j = 0; j < LEAD_NV; j++) {
+            float xa = hx, ya = note_y(ld.p[j], top, bottom), la = (float)ld.lv[j] * (1.0f / 255.0f), age = 0.0f;
+            for (i = 0; i < LT_N; i++) {
+                uint32_t q = (ld.head + LT_N - i) % LT_N;
+                float ag = a0 + (float)i * (float)LT_MS * 0.001f, xb = hx + ag * pace;
+                float yb = note_y((float)ld.tn[j][q] * 0.25f + 24.0f, top, bottom), lb = (float)ld.tl[j][q] * (1.0f / 255.0f);
+                float u = 1.0f - ag / life, a = (la < lb ? la : lb) * u * dim;
+                if (xa > (float)MR)
+                    break;
+                if (a > 0.03f)
+                    lead_seg(xa, ya, xb, yb, a, 1.2f * (age / life * 1.6f > 1.0f ? 1.0f : age / life * 1.6f), ph);
+                xa = xb;
+                ya = yb;
+                la = lb;
+                age = ag;
+            }
+        }
+    }
+    for (j = 0; j < LEAD_NV; j++) {      /* the lights, where they sing: a glow, a white heart */
+        float a, lv, yf, r;
+        int32_t x0 = (int32_t)(hx + 0.5f), yc, ri, dx, dy;
+        uint16_t core;
+        if (ld.n[j] < 0)
+            continue;
+        a = (float)ld.lv[j] * (1.0f / 255.0f);
+        lv = a * a;
+        a *= dim;
+        yf = note_y(ld.p[j], top, bottom);
+        yc = (int32_t)(yf + 0.5f);
+        r = 3.5f + 4.0f * lv;
+        ri = (int32_t)r;
+        for (dy = -ri; dy <= ri; dy++)
+            for (dx = -ri; dx <= ri; dx++) {
+                float d = fm_sqrtf((float)(dx * dx + dy * dy)) / r, e;
+                if (d >= 1.0f || (dx == 0 && dy == 0))
+                    continue;
+                e = 1.0f - d;
+                bl(x0 + dx, yc + dy, C_LEAD_TRACK, (int32_t)(32.0f * 0.85f * a * e * e * e));
+            }
+        core = mix565(C_LEAD_TRACK, C_WHITE, 19);
+        bl(x0, yc, core, (int32_t)(32.0f * a));
+    }
+    if (labels && keys_on_lead() && ld.named >= 0 && ld.n[ld.named] >= 0 && now - ld.named_at < 1800u) {
+        float u = 1.4f * (1.0f - (float)(now - ld.named_at) * (1.0f / 1800.0f)), lv = (float)ld.lv[ld.named] / 255.0f;
+        int32_t n = ld.n[ld.named], y = (int32_t)note_y(ld.p[ld.named], top, bottom) - (int32_t)FONT_XS.h / 2;
+        char s[8];
+        if (y < R2 + 17)                 /* (a high note's: under the river's top row, the harmony's) */
+            y = R2 + 17;
+        s[0] = 0;
+        text_cat(s, NN[n % 12]);
+        int_text(n / 12 - 1, s + strlen_(s));
+        text_r((int32_t)hx - 10, y, &FONT_XS, s,
+               mix565(C_BG, C_LEAD_TRACK, (int32_t)(32.0f * (u > 1.0f ? 1.0f : u) * (lv > 0.4f ? lv : 0.4f) * dim)), 0);
+    }
+}
+#endif
+
 static void river(int32_t top, int32_t bottom, float dim, int labels, float t)
 {
     static const char *const NN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     frasil_view_t v[FR_NV];
-    float fz, tt;
+    float fz, tt, dim0 = dim;            /* (the LEAD's: not the drones' duck, PUMP) */
     int32_t order[FR_NV], nv = 0, i, j, last_label = -100;
     if (ui.frz != st.v[P_FREEZE]) {
         ui.frz = st.v[P_FREEZE];
@@ -739,6 +912,11 @@ static void river(int32_t top, int32_t bottom, float dim, int labels, float t)
     }
     glints(top, bottom, dim);
     sink(top, bottom, dim);
+#if FRS_LEAD
+    lead_lights(bottom == HZ_HOME ? top + 12 : top, bottom, dim0, labels, t);   /* (over SINK's veil: in the air) */
+#else
+    (void)dim0;
+#endif
     hline(ML, MR, bottom, mix565(C_BG, st.v[P_FREEZE] ? C_ICE : C_SLATE, (int32_t)(32.0f * dim)));   /* the waterline */
 }
 
@@ -802,13 +980,23 @@ static void river_status(void)
 
 /* ------------------------------------------------------------ the bands --- */
 static int touched_now(void) { return fm.touched_at && plat_ms() - fm.touched_at < TOUCH_MS && fm.touched < NPARAM; }
+/* an ENV page's K1 its ATTACK SHAPE (K_SHAPE) while OCT- is held, or a moment after it turned (card #122: app.c
+ * encoders, MIXER's PANs' way) */
+static int shape_hot(void) { return shape_at && plat_ms() - shape_at < TOUCH_MS && fm.page == shape_pg; }
+static int shape_shown(void)
+{
+    return page_shape(fm.page) >= 0 && ((b_held(B_OCTDN) && !b_held(B_OCTUP)) || shape_hot());
+}
+static int shape_line(void) { return page_shape(fm.page) >= 0 && (st.ashape >> page_shape(fm.page) & 1u); }
+/* TRACKS LINK's cell p turned a moment ago (card #212: app.c link_turn) */
+static int link_hot(uint32_t p) { return lkh.at && lkh.p == (prm_t)p && plat_ms() - lkh.at < TOUCH_MS; }
 
 #if FRS_MIDI_OUT
 /* MIDI OUT's knobs (card #164: app.c mout): a name, a value as the screen writes it */
 static const char *mout_name(uint32_t p)
 {
     return p == K_MO_CH ? "CHANNEL" : p == K_MO_OCT ? "OCTAVE" : p == K_MO_VEL ? "VELOCITY" : p == K_MO_RET ? "RETURN"
-         : p == K_CLKOUT ? "CLOCK OUT" : "PRESSURE";
+         : p == K_CLKOUT ? "CLOCK OUT" : p == K_NOUT ? "NOTES OUT" : "PRESSURE";
 }
 static int32_t mout_oct(void) { return mout.sel ? fm.octave : mout.oct; }
 static const char *mout_text(uint32_t p, char *t)
@@ -824,8 +1012,8 @@ static const char *mout_text(uint32_t p, char *t)
     } else if (p == K_MO_RET) {          /* (card #169: the computer's audio back, %) */
         int_text((int32_t)mout.ret, t);
         text_cat(t, " %");
-    } else if (p == K_CLKOUT) {
-        text_cat(t, mout.clk ? "ON" : "OFF");
+    } else if (p == K_CLKOUT || p == K_NOUT) {   /* (NOTES OUT: card #201) */
+        text_cat(t, (p == K_CLKOUT ? mout.clk : nout.on) ? "ON" : "OFF");
     } else {
         text_cat(t, p == K_MO_VEL ? VEL[mout.vel & 3u] : PRS[mout.prs % 3u]);
     }
@@ -833,12 +1021,12 @@ static const char *mout_text(uint32_t p, char *t)
 }
 static uint32_t mout_steps(uint32_t p)
 {
-    return p == K_MO_CH ? 16u : p == K_MO_OCT ? 6u : p == K_MO_VEL ? 4u : p == K_CLKOUT ? 2u : 3u;
+    return p == K_MO_CH ? 16u : p == K_MO_OCT ? 6u : p == K_MO_VEL ? 4u : p == K_CLKOUT || p == K_NOUT ? 2u : 3u;
 }
 static uint32_t mout_at(uint32_t p)      /* the value's place among them */
 {
     return p == K_MO_CH ? mout.ch : p == K_MO_OCT ? (uint32_t)(mout_oct() + 3) : p == K_MO_VEL ? mout.vel
-         : p == K_CLKOUT ? mout.clk : mout.prs;
+         : p == K_CLKOUT ? mout.clk : p == K_NOUT ? nout.on : mout.prs;
 }
 static int mout_big(void) { return mout.sel && mout.hand_at && plat_ms() - mout.hand_at < TOUCH_MS; }   /* B or C turned */
 #endif
@@ -974,9 +1162,17 @@ static int32_t clear_w(void)
 static const char *notes_why(int p);
 static int chord_tag(void)
 {
+#if FRS_MIDI_OUT
+    if (mout.sel)                        /* (MIDI's own KEYS, card #194) */
+        return fm.page != PG_GLOBAL && !md[MD_REC] && md[MD_KHARM] && md[MD_KNOTES] && !md_notes_why(MD_KNOTES);
+#endif
 #if FRS_LEAD
-    if (st.lead)
+    if (st.lead)                         /* (the LEAD's, card #194: on POLY) */
+#if FRS_MIDI_OUT
+        return fm.page != PG_GLOBAL && md[MD_LHARM] && md[MD_LNOTES] && !md_notes_why(MD_LNOTES);
+#else
         return 0;
+#endif
 #endif
     uint32_t t = st.glint ? 1u : st.bass ? 2u : 0u;
     int p = (int)(P_KY_DR_NOTES + 4u * t);
@@ -1014,7 +1210,7 @@ static void track_tag(int32_t x0)
 }
 
 /* where the page is among its button's: a dot each under the title, the page's dark (HOME: SOUND, KEYS, MIXER, CLOUD
- * SEND, the logo) */
+ * SEND, TRACKS LINK, the logo) */
 static void page_dots(void)
 {
     uint32_t p, n = 0, i = 0, k, o;
@@ -1028,8 +1224,8 @@ static void page_dots(void)
         }
     }
     if (PAGES[fm.page].button == B_HOME) {   /* (its last, the logo) */
-        n = 5;
-        i = fm.page == PG_KEYS ? 2u : fm.page == PG_MIXER ? 3u : fm.page == PG_CSEND ? 4u : 1u;
+        n = 6;
+        i = fm.page == PG_KEYS ? 2u : fm.page == PG_MIXER ? 3u : fm.page == PG_CSEND ? 4u : fm.page == PG_LINK ? 5u : 1u;
     }
     if (n < 2u)
         return;
@@ -1216,16 +1412,50 @@ static void af_band(int32_t y0)
     }
 }
 
+/* a scene's MORPH (SCENES' MORPH, a time; card #203, admin #1580): its progress round the screen as ANCHOR's MORPH
+ * back shows its own (card #225, Styves #1792: #203's line grew the other way), a frame on the frame's places, whole as
+ * it starts, erased place by place by the clock from the top's middle counter-clockwise, nearly gone as the settings
+ * arrive, gone with the MORPH. In the battery's green: across from ANCHOR's violet, apart from every track's band (the
+ * header's top rows on it: INVERT's fog, ice, lamp and rose; the master's pale mint, C_GLOB, faded there, and a pale
+ * colour reads washed out on the FM-1's panel, as ANCHOR's thin mauve did). ANCHOR set during it: its frame breathes on
+ * the places the green has left, the green steady over the rest; the MORPH done, the violet whole (inside the frame, a
+ * second one would cut the battery and the lowest hints). ANCHOR's MORPH back has its frame alone: a scene taken drops
+ * ANCHOR, ANCHOR's way back takes the MORPH's place. Each band draws the green over ANCHOR's before its blit; between
+ * them, only the places just erased (morph_frame: a fill or two a frame, ANCHOR's violet there if it is set) */
+#define C_MORPH C_BATT
+static struct {
+    uint8_t on;                          /* on the screen */
+    uint16_t gone;                       /* its places erased (of AF_N) */
+} mf;
+
+/* its part in the band being drawn (rows y0 .. y0 + cv_h - 1), as it is to be on the screen */
+static void mf_band(int32_t y0)
+{
+    int32_t y, x, y1 = y0 + (int32_t)cv_h;
+    uint16_t c;
+    if (!mf.on || mf.gone >= AF_N)
+        return;
+    c = swap16(C_MORPH);
+    for (y = y0; y < y1; y++) {
+        uint16_t *row = &cv_px[(uint32_t)(y - y0) * cv_w];
+        for (x = 0; x < 240; x = y >= AF_W && y < 240 - AF_W && x == AF_W - 1 ? 240 - AF_W : x + 1)   /* (as af_band) */
+            if (af_place(x, y) >= (int32_t)mf.gone)
+                row[x] = c;
+    }
+}
+
 static void band_blit(int32_t y0)
 {
     af_band(y0);
+    mf_band(y0);                         /* (a MORPH's frame over ANCHOR's) */
     cl_band(y0);                         /* (the load's line and its label over it) */
     cv_blit(0, (uint32_t)y0);
 }
 
-/* a rectangle of the frame filled with what is under it (the header's band, else the night), or with the frame */
+/* a rectangle of the frame filled with what is under it (the header's band, else the night: frame 0), or with the
+ * frame (1) */
 #if defined PLAT_HOST && !defined PLAT_WEB
-static uint32_t af_px, af_fills;         /* (the tests: what it sent the screen alone, framecost) */
+static uint32_t af_px, af_fills;         /* (the tests: what it sent the screen alone, framecost; a MORPH's erasing too) */
 static uint8_t af_lo = 255u, af_hi;      /* (... its breath: framelo, framehi) */
 #endif
 static void af_fill(int32_t x, int32_t y, int32_t w, int32_t h, int frame)
@@ -1264,20 +1494,21 @@ static void af_fill(int32_t x, int32_t y, int32_t w, int32_t h, int frame)
         lcd_fill((uint32_t)x, (uint32_t)y, (uint32_t)w, (uint32_t)h, C_BG);
 }
 
-static void af_erase(int32_t a, int32_t b)   /* places a .. b - 1, gone */
+static void af_paint(int32_t a, int32_t b, int frame)   /* places a .. b - 1 filled as af_fill's frame says (0: gone) */
 {
-    const int32_t s1 = 360 - AF_W, s2 = 600 - 2 * AF_W, s3 = 840 - 4 * AF_W;   /* (where each side starts) */
+    const int32_t s1 = 360 - AF_W, s2 = 600 - 2 * AF_W, s3 = 840 - 3 * AF_W;   /* (where each side starts, af_place's:
+                                                                               * the right side up to the top row) */
     int32_t lo, hi;
     if ((lo = a) < 120 && (hi = b < 120 ? b : 120) > lo)   /* (the top's left half: x 119 - s) */
-        af_fill(120 - hi, 0, hi - lo, AF_W, 0);
+        af_fill(120 - hi, 0, hi - lo, AF_W, frame);
     if ((lo = a > 120 ? a : 120) < s1 && (hi = b < s1 ? b : s1) > lo)   /* (the left side: y s - 120 + W) */
-        af_fill(0, lo - 120 + AF_W, AF_W, hi - lo, 0);
+        af_fill(0, lo - 120 + AF_W, AF_W, hi - lo, frame);
     if ((lo = a > s1 ? a : s1) < s2 && (hi = b < s2 ? b : s2) > lo)   /* (the bottom: x s - s1 + W) */
-        af_fill(lo - s1 + AF_W, 240 - AF_W, hi - lo, AF_W, 0);
+        af_fill(lo - s1 + AF_W, 240 - AF_W, hi - lo, AF_W, frame);
     if ((lo = a > s2 ? a : s2) < s3 && (hi = b < s3 ? b : s3) > lo)   /* (the right side: y 239 - W - (s - s2)) */
-        af_fill(240 - AF_W, 240 - AF_W - (hi - s2), AF_W, hi - lo, 0);
-    if ((lo = a > s3 ? a : s3) < AF_N && (hi = b < AF_N ? b : AF_N) > lo)   /* (the top's right half: x 239 - (s - s3)) */
-        af_fill(240 - (hi - s3), 0, hi - lo, AF_W, 0);
+        af_fill(240 - AF_W, 240 - AF_W - (hi - s2), AF_W, hi - lo, frame);
+    if ((lo = a > s3 ? a : s3) < AF_N && (hi = b < AF_N ? b : AF_N) > lo)   /* (the top's right half: x 239 - W - (s - s3)) */
+        af_fill(240 - AF_W - (hi - s3), 0, hi - lo, AF_W, frame);
 }
 
 /* this frame's: what the frame is to be (the bands drawn now draw it so), and on the screen what changed of it */
@@ -1293,16 +1524,21 @@ static void anchor_frame(void)
     if (ui.full || af.want_on != af.on || af.want_gone < af.gone) {   /* (come, gone, or whole again: every band again,
                                                                         * the frame in each) */
         ui.full = 1;
-    } else if (af.on && af.want_lvl != af.lvl) {   /* a breath's step: the whole frame (none erased while it breathes) */
+    } else if (af.on && af.want_lvl != af.lvl) {   /* a breath's step: the whole frame (none erased while it breathes),
+                                                    * a MORPH's kept: only the places it has left */
         af.lvl = af.want_lvl;
         af.gone = 0;
-        af_fill(0, 0, 240, AF_W, 1);
-        af_fill(0, 240 - AF_W, 240, AF_W, 1);
-        af_fill(0, AF_W, AF_W, 240 - 2 * AF_W, 1);
-        af_fill(240 - AF_W, AF_W, AF_W, 240 - 2 * AF_W, 1);
+        if (mf.on) {
+            af_paint(0, mf.gone, 1);
+        } else {
+            af_fill(0, 0, 240, AF_W, 1);
+            af_fill(0, 240 - AF_W, 240, AF_W, 1);
+            af_fill(0, AF_W, AF_W, 240 - 2 * AF_W, 1);
+            af_fill(240 - AF_W, AF_W, AF_W, 240 - 2 * AF_W, 1);
+        }
     }
     if (!ui.full && af.on && af.want_gone > af.gone)
-        af_erase(af.gone, af.want_gone);
+        af_paint(af.gone, af.want_gone, 0);
     af.on = af.want_on;
     af.lvl = af.want_lvl;
     af.gone = af.want_gone;
@@ -1312,6 +1548,22 @@ static void anchor_frame(void)
         af_hi = af.lvl > af_hi ? af.lvl : af_hi;
     }
 #endif
+}
+
+/* this frame's, after ANCHOR's: what a MORPH's frame is to be (the bands drawn now draw it so), and on the screen the
+ * places erased since the last, ANCHOR's violet there if it is set (never its way back: that takes the MORPH's place);
+ * come, gone or whole again (another scene): every band again */
+static void morph_frame(void)
+{
+    float k;
+    uint8_t on = (uint8_t)morph_state(&k);
+    uint16_t g = on ? (uint16_t)(k * (float)AF_N) : 0u;
+    if (ui.full || on != mf.on || g < mf.gone)
+        ui.full = 1;
+    else if (on && g > mf.gone)
+        af_paint(mf.gone, g, af.on);
+    mf.on = on;
+    mf.gone = g;
 }
 
 /* a line of progress under the title (a MORPH, PLAY held) */
@@ -1631,7 +1883,7 @@ static void header(void)
             text_cat(t, st.glint ? "GLINT " : st.bass ? "BASS " : "DRONE ");
             text_cat(t, keys_word());
         }
-        xt = fit_text(ML, 8, xr - ML, t[0] ? t : fm.page == PG_SAVE && !sv.load ? "SAVE" : PAGES[fm.page].name,
+        xt = fit_text(ML, 8, xr - ML, t[0] ? t : fm.page == PG_SAVE && !sv.load ? "SAVE" : page_name(fm.page),
                       C_ONBAND, 1, 1);
     }
     page_dots();
@@ -1713,8 +1965,8 @@ static uint16_t tgt_col(uint32_t t)
     if (p >= NPARAM)
         return C_MIST;
     if (p == P_FL_CUT || p == P_FL_RESO || p == P_GX_BLUR || p == P_GX_SINK || p == P_PN_CLOUD ||
-        (p >= P_TP_SAT && p <= P_TP_WOBBLE) || (p >= P_TP_FLUTTER && p <= P_TP_DROPOUT))
-        return C_GLOB;
+        (p >= P_TP_SAT && p <= P_TP_WOBBLE) || (p >= P_TP_FLUTTER && p <= P_TP_DROPOUT) || t % NLFO_TGT >= LFO_T_XM)
+        return C_GLOB;                   /* (the LFOs' own too: GLOBAL's, card #199) */
     if (p == P_GL_LEVEL || p == P_GL_BRIGHT || p == P_GL_PING || p == P_GL_SPACE || p == P_MX_GLINT || p == P_ARP_CHANCE ||
         p == P_SQ_LEN || p == P_GX_SPARK || p == P_PN_GLINT || p == P_GL_ATTACK || p == P_GL_DECAY || p == P_GL_SUSTAIN ||
         p == P_GL_RELEASE)
@@ -1744,7 +1996,7 @@ static const char *cell_name(int p)
 #endif
     if (p == P_TEMPO && ext_bpm())       /* (a MIDI clock leads: its tempo, app.c ext_bpm) */
         return "TEMPO (EXT)";
-    return PD[p].name;
+    return pd_name((uint32_t)p);
 }
 
 static void cell_w(int32_t x, int32_t y, int p, int32_t w);
@@ -1804,6 +2056,29 @@ static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its
         ui_off = 0;
         return;
     }
+    if (p == (int)K_SHAPE) {             /* an ENV page's ATTACK SHAPE (card #122): CURVE, LINE */
+        int line = shape_line();
+        hot = shape_hot();
+        badge_of(x + 7, y + 7, p, -1);
+        text_t(x + BADGE_W, y, &FONT_XS, page_shape(fm.page) == 4 ? "F.ATK SHAPE" : "ATTACK SHAPE", hot ? C_LAMP : C_MIST,
+               1);
+        cv_text(x, y + 15 - oy, &FONT_M, line ? "LINE" : "CURVE", C_FOG);
+        steps(x + 1, y + 41, w, 2u, (uint32_t)line);
+        return;
+    }
+    if (p >= (int)K_LINK && p <= (int)K_LK0 + 3) {   /* TRACKS LINK's (card #212): FOLLOW DRONE, BASS; a track NO LINK,
+                                                       * LINKED */
+        static const char *const LK_NAME[4] = {"DRONE", "BASS", "GLINT", "MIDI"};
+        int t = p - (int)K_LK0, on = p == (int)K_LINK ? lk.follow : (int)(lk.bits >> t & 1u);
+        const char *v = p == (int)K_LINK ? (on ? "BASS" : "DRONE") : on ? "LINKED" : "NO LINK";
+        hot = link_hot((uint32_t)p);
+        badge_of(x + 7, y + 7, p, -1);
+        text_t(x + BADGE_W, y, &FONT_XS, p == (int)K_LINK ? "FOLLOW" : LK_NAME[t], hot ? C_LAMP : C_MIST, 1);
+        cv_text(x, y + 15 - oy, text_w(&FONT_M, v) > w + 4 ? &FONT_B : &FONT_M, v,
+                p == (int)K_LINK ? C_FOG : on ? C_ICE : C_MIST);
+        steps(x + 1, y + 41, w, 2u, (uint32_t)on);
+        return;
+    }
     if (p == (int)K_HEAD) {              /* SCREEN's HEADER: INVERT, DARK */
         const char *v = hdr.dark ? "DARK" : "INVERT";
         hot = hdr.at && plat_ms() - hdr.at < TOUCH_MS;
@@ -1813,6 +2088,18 @@ static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its
         steps(x + 1, y + 41, w, 2u, hdr.dark);
         return;
     }
+#if LD_CH_PAGE
+    if (p == (int)K_LDCH) {              /* MIDI's LEAD CH (card #228: the engine's st.ldch), as the tracks' channels */
+        char t[8];
+        hot = ldch_at && plat_ms() - ldch_at < TOUCH_MS;
+        value_text(P_CH_BASS, st.ldch, t);   /* (a channel's words: OFF, 1 .. 16, OMNI) */
+        badge_of(x + 7, y + 7, p, -1);
+        text_t(x + BADGE_W, y, &FONT_XS, "LEAD CH", hot ? C_LAMP : C_MIST, 1);
+        cv_text(x, y + 15 - oy, text_w(&FONT_M, t) > w + 4 ? &FONT_B : &FONT_M, t, C_FOG);
+        gauge(x, y + 41, w, (float)st.ldch / (float)PD[P_CH_BASS].max, hot ? C_LAMP : C_MIST);
+        return;
+    }
+#endif
     if (p == (int)K_TUNE) {              /* RECORD's TUNE A4, Hz */
         char t[4];
         int32_t e;
@@ -1829,8 +2116,9 @@ static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its
         return;
     }
 #if FRS_MIDI_OUT
-    if ((p >= (int)K_MO_CH && p <= (int)K_MO_PRS) || p == (int)K_CLKOUT) {   /* MIDI OUT's (card #164): CHANNEL a gauge,
-                                                                             * the others their steps; CLOCK OUT */
+    if ((p >= (int)K_MO_CH && p <= (int)K_MO_PRS) || p == (int)K_CLKOUT || p == (int)K_NOUT) {   /* MIDI OUT's (card
+                                                         * #164): CHANNEL a gauge, the others their steps; CLOCK OUT,
+                                                         * NOTES OUT (card #201) */
         char t[12];
         hot = mout.at && mout.at_p == (prm_t)p && plat_ms() - mout.at < TOUCH_MS;
         mout_text((uint32_t)p, t);
@@ -1849,10 +2137,16 @@ static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its
         uint32_t i = (uint32_t)p - K_MD0, max = md_max(i), min = md_min(i);
         hot = msq.at && msq.at_i == i && plat_ms() - msq.at < TOUCH_MS;
         ui_off = (uint8_t)(i == MD_NOTE && md[MD_NOTE] == 0u);   /* (a REST: slate, as GLINT's) */
+        if ((i == MD_KNOTES || i == MD_LNOTES) && (!md_harm_of(i) || md_notes_why(i)))   /* (KEYS' NOTES, MIDI's
+                                                                    * and the LEAD's: HARMONY off, or CHORD not heard
+                                                                    * here, as the other tracks', card #194) */
+            ui_off = 2;
         md_text(i, t);
         badge_of(x + 7, y + 7, p, -1);
-        text_t(x + BADGE_W, y, &FONT_XS, md_name(i), hot ? C_LAMP : C_MIST, 1);
+        text_t(x + BADGE_W, y, &FONT_XS, md_name(i), ui_off == 2 ? (hot ? C_MIST : C_SLATE) : hot ? C_LAMP : C_MIST, 1);
         cv_text(x, y + 15 - oy, text_w(&FONT_M, t) > w + 4 ? &FONT_B : &FONT_M, t, ui_off ? C_SLATE : C_FOG);
+        if (md_notes_why(i))
+            text_t(x + 22, y + 36, &FONT_XS, md_notes_why(i), C_MIST, 1);
         if (max > 16u)
             gauge(x, y + 41, w, (float)(md[i] - min) / (float)(max - min), ui_off ? C_SLATE : hot ? C_LAMP : C_MIST);
         else
@@ -1892,7 +2186,11 @@ static void cell_w(int32_t x, int32_t y, int p, int32_t w)   /* a parameter: its
               ui_off ? C_SLATE : hot ? C_LAMP : C_MIST);
     ui_off = 0;
     if (mod_of((uint32_t)p) != 0.0f && PD[p].max > 16u) {   /* an LFO on it: where it is now, in ice */
-        float u = br_clamp01((vh(p) + mod_of((uint32_t)p)) / (float)PD[p].max);
+        float m = vh(p) + mod_of((uint32_t)p), u;
+        if (f == F_LRATE)                /* (an LFO's RATE, an LFO on it: on its own side, free or the grid's; card #199) */
+            m = st.v[p] < LFO_NFREE ? (m > (float)(LFO_NFREE - 1u) ? (float)(LFO_NFREE - 1u) : m)
+                                    : (m < (float)LFO_NFREE ? (float)LFO_NFREE : m);
+        u = br_clamp01(m / (float)PD[p].max);
         int32_t n = clamp((int32_t)(u * (float)w + 0.5f), 1, w);
 #if PLAT_SMK37                           /* (the SMK-37: 2 px, in its LFO's colour, its pad's hue: lfo_col) */
         cv_rect(x + (n > w - 1 ? w - 2 : n - 1), y + 41 - 3 - oy, 2, 7, lfo_col(p));
@@ -2120,15 +2418,17 @@ static void seq_scope(int bs)            /* (bs: 0 GLINT's, 1 the bass's, 2 MIDI
 
 /* BASS ADSR's and GLINT ADSR's strip: the envelope as one draws it, up to the top over ATTACK, down to SUSTAIN's level
  * over DECAY, held there while the key is (SUSTAIN), down to nothing over RELEASE once let go. Each part as wide as its
- * knob is turned (SUSTAIN's what is left), its time across it, curved as a charge and a discharge are; the part being
- * turned lit. Each note sounding (the bass's one, GLINT's up to four) a glint riding it: how far along from the
- * engine's times, let go from where it was then */
+ * knob is turned (SUSTAIN's what is left), its time across it, curved as a charge and a discharge are (ATTACK SHAPE's
+ * LINE, card #122: ATTACK's straight); the part being turned lit. Each note sounding (the bass's one, GLINT's up to
+ * four) a glint riding it: how far along from the engine's times, let go from where it was then. DRONE SHAPE's, while
+ * its ATTACK SHAPE shows: up over ATTACK, held, down over RELEASE */
 #define ADSR_TOP 42
 #define ADSR_BED 82
 #define ADSR_HOLD 1.5f                   /* seconds held: a note's glint across SUSTAIN's plateau, then waiting there */
 typedef struct {
     float ta, td, tr, sus;               /* the times (s, the engine's: glint.c, bass.c); SUSTAIN's level */
     int32_t x[5];                        /* where each part begins, and the end */
+    int line;                            /* ATTACK SHAPE's LINE: ATTACK straight up */
 } adsr_t;
 
 static float adsr_fall(float u) { return (fm_expf(-3.0f * u) - 0.049787068f) * (1.0f / 0.950212932f); }   /* 1 .. 0 */
@@ -2136,7 +2436,8 @@ static float adsr_fall(float u) { return (fm_expf(-3.0f * u) - 0.049787068f) * (
 static float adsr_level(const adsr_t *A, int part, float u)   /* the level u (0..1) across a part */
 {
     u = br_clamp01(u);
-    return part == 0 ? 1.0f - adsr_fall(u) * adsr_fall(u)   /* (up quickly, easing into the top) */
+    return part == 0 ? (A->line ? u : 1.0f - adsr_fall(u) * adsr_fall(u))   /* (up quickly, easing into the top; LINE:
+                                                                            * straight) */
          : part == 1 ? A->sus + (1.0f - A->sus) * adsr_fall(u)
          : part == 2 ? A->sus : A->sus * adsr_fall(u);
 }
@@ -2197,26 +2498,28 @@ static void adsr_note(const adsr_t *A, int held, int attacking, float t, float t
         adsr_dot(adsr_at(A, 3, toff / A->tr), g * adsr_fall(toff / A->tr), col);
 }
 
-static void adsr_scope(int glint)
+static void adsr_scope(int glint)        /* (glint: 1 GLINT's, 0 BASS's or the LEAD's, 2 the drones') */
 {
     static const char *const PART[4] = {"A", "D", "S", "R"};
 #if FRS_LEAD
     const prm_t *P = PAGES[fm.page].p;
-    uint16_t col = glint ? C_ICE : fm.page == PG_LADSR || fm.page == PG_LFENV ? C_LEAD_TRACK : C_LAMP;   /* (LEAD's:
-                                                                                                       * BASS's times) */
+    uint16_t col = glint == 2 ? C_FOG : glint ? C_ICE : fm.page == PG_LADSR || fm.page == PG_LFENV ? C_LEAD_TRACK
+                 : C_LAMP;           /* (LEAD's: BASS's times) */
 #else
     const uint8_t *P = PAGES[fm.page].p;
-    uint16_t col = glint ? C_ICE : C_LAMP;
+    uint16_t col = glint == 2 ? C_FOG : glint ? C_ICE : C_LAMP;
 #endif
     adsr_t A;
+    int dr = glint == 2;                 /* (DRONE SHAPE: ATTACK, RELEASE, no DECAY: held at the top) */
     int32_t x, py = 0, k, lit = -1, w[4];
-    float a = vh(P[0]) / 127.0f, d = vh(P[1]) / 127.0f, r = vh(P[3]) / 127.0f;
-    A.sus = vh(P[2]) / 127.0f;
-    A.ta = glint ? 0.002f * fm_powf(750.0f, a) : 0.005f * fm_powf(1000.0f, a);
+    float a = vh(P[0]) / 127.0f, d = dr ? 0.0f : vh(P[1]) / 127.0f, r = vh(P[dr ? 1 : 3]) / 127.0f;
+    A.sus = dr ? 1.0f : vh(P[2]) / 127.0f;
+    A.line = shape_line();
+    A.ta = dr ? 0.005f * fm_powf(6000.0f, a) : glint ? 0.002f * fm_powf(750.0f, a) : 0.005f * fm_powf(1000.0f, a);
     A.td = glint ? 0.08f * fm_powf(75.0f, d) : 0.01f * fm_powf(1000.0f, d);
-    A.tr = glint ? 0.02f * fm_powf(300.0f, r) : 0.03f * fm_powf(500.0f, r);
+    A.tr = dr ? 0.05f * fm_powf(1200.0f, r) : glint ? 0.02f * fm_powf(300.0f, r) : 0.03f * fm_powf(500.0f, r);
     w[0] = 10 + (int32_t)(44.0f * a + 0.5f);
-    w[1] = 10 + (int32_t)(44.0f * d + 0.5f);
+    w[1] = dr ? 0 : 10 + (int32_t)(44.0f * d + 0.5f);
     w[3] = 10 + (int32_t)(44.0f * r + 0.5f);
     w[2] = MR - ML - w[0] - w[1] - w[3];
     A.x[0] = ML;
@@ -2225,7 +2528,9 @@ static void adsr_scope(int glint)
     if (touched_now())
         for (k = 0; k < 4; k++)
             if (P[k] == fm.touched)
-                lit = k;
+                lit = !dr ? k : k == 0 ? 0 : k == 1 ? 3 : -1;   /* (the drones': ATTACK, RELEASE) */
+    if (shape_hot())                     /* (ATTACK SHAPE's: ATTACK's part) */
+        lit = 0;
     hline(ML, MR, ADSR_BED, C_STEEL);    /* the bed: silence */
     for (k = 0; k < 4; k++) {            /* each part: its curve, the water under it, its letter */
         for (x = A.x[k]; x < A.x[k + 1] + (k == 3); x++) {
@@ -2242,7 +2547,8 @@ static void adsr_scope(int glint)
             }
             py = y;
         }
-        text_c((A.x[k] + A.x[k + 1]) / 2, ADSR_BED + 4, &FONT_T, PART[k], k == lit ? col : C_SLATE, 0);
+        if (!dr || k == 0 || k == 3)     /* (the drones': A and R alone) */
+            text_c((A.x[k] + A.x[k + 1]) / 2, ADSR_BED + 4, &FONT_T, PART[k], k == lit ? col : C_SLATE, 0);
     }
     for (k = 1; k < 4; k++) {            /* where one part gives way to the next, a tick across the bed */
         bl(A.x[k], ADSR_BED - 1, C_SLATE, 32);
@@ -2250,7 +2556,7 @@ static void adsr_scope(int glint)
     }
     for (x = adsr_y(A.sus) + 3; x < ADSR_BED - 1; x += 2)   /* let go here: dotted down from the plateau's end */
         bl(A.x[3], x, C_SLATE, 20);
-    if (glint) {                         /* each glint sounding (its onset and its DECAY from the strike: DECAY's
+    if (glint == 1) {                    /* each glint sounding (its onset and its DECAY from the strike: DECAY's
                                           * part once ATTACK's time is gone by) */
         glint_view_t v[GLINT_NV];
         uint32_t i;
@@ -2260,6 +2566,7 @@ static void adsr_scope(int glint)
             if (v[i].note >= 0 && v[i].env >= 0.01f)
                 adsr_note(&A, v[i].gate, t < A.ta, t < A.ta ? t : t - A.ta, v[i].toff, col);
         }
+    } else if (dr) {                     /* (the drones': the curve alone) */
 #if FRS_LEAD
     } else if (fm.page == PG_LADSR || fm.page == PG_LFENV) {   /* (LEAD: its curve alone, for now; its filter's the
                                                                * same) */
@@ -2508,12 +2815,298 @@ static void tape_span(const float *p, float sag, uint16_t col, int32_t a)
     }
 }
 
+/* VINYL (LOFI TAPE's MEDIA, card #99): a record from above, lit from the top (a sheen down its grooves), its label
+ * turning at 33 1/3 a minute (TAPE SPEED's times, its wow made five times as plain, as the reels'), warmer and glowing
+ * as SATURATION grows, set off the spindle as WOBBLE grows (the label swaying round it); the arm from the right, its
+ * needle in the groove; dust going round with the record as NOISE grows, bright where the light is */
+#define VN_CX 100                         /* the spindle */
+#define VN_CY 60
+static float vn_rot;                      /* the record's turn, 0 .. 1 */
+
+static void vinyl_scope(void)
+{
+    static uint32_t last;
+    uint32_t now = plat_ms();
+    int still = st.v[P_ANIM] != 0;
+    float dt = (float)(now - last) * 0.001f, sat = vh(P_TP_SAT) / 127.0f, wob = vh(P_TP_WOBBLE) / 127.0f;
+    float nz = vh(P_TP_NOISE) / 127.0f, cs, sn, lx, ly;
+    uint16_t lab = mix565(RGB(120, 48, 40), C_LAMP, (int32_t)(12.0f + 20.0f * sat));
+    int32_t x, y, k, n;
+    last = now;
+    dt = dt > 0.1f ? 0.1f : dt;
+    tp_vs += (frasil_tape_speed() - tp_vs) * (dt > 0.15f ? 1.0f : dt * 6.7f);   /* (smoothed as the reels') */
+    if (!still)                          /* clockwise, as a turntable's */
+        vn_rot += dt * 0.5555556f * fm_exp2f(tape_l2) * (1.0f + 5.0f * (tp_vs - 1.0f));
+    vn_rot -= fm_floorf(vn_rot);
+    cs = fm_sin_turns(vn_rot + 0.25f);
+    sn = fm_sin_turns(vn_rot);
+    lx = (float)VN_CX + 2.5f * wob * cs;  /* the label's centre: the record's, off the spindle */
+    ly = (float)VN_CY + 2.5f * wob * sn;
+    for (y = 0; y <= 31; y++)            /* the record: its rim, its grooves a ring every other pixel, the run-out smooth;
+                                          * the sheen down from the top (a quarter, mirrored) */
+        for (x = 0; x <= 31; x++) {
+            float d2 = (float)(x * x + y * y), d, c;
+            int32_t a, q;
+            if (d2 > 30.5f * 30.5f || d2 < 11.0f * 11.0f)
+                continue;
+            d = fm_sqrtf(d2);
+            c = (float)y / d;
+            c *= c;
+            a = d > 29.5f ? 18 : d < 13.0f ? 6 : ((int32_t)d & 1) ? 12 : 7;
+            a += (int32_t)(14.0f * c * c * c * c);
+            for (q = 0; q < 4; q++) {
+                if ((q & 1 && !x) || (q & 2 && !y))
+                    continue;
+                bl(VN_CX + (q & 1 ? -x : x), VN_CY + (q & 2 ? -y : y), C_MIST, a);
+            }
+        }
+    for (y = -11; y <= 11; y++)          /* the label, a glow round it as SATURATION grows */
+        for (x = -11; x <= 11; x++) {
+            float ex = (float)(VN_CX + x) - lx, ey = (float)(VN_CY + y) - ly, d = fm_sqrtf(ex * ex + ey * ey);
+            if (d < 9.5f)
+                bl(VN_CX + x, VN_CY + y, lab, d > 8.5f ? (int32_t)(32.0f * (9.5f - d)) : 32);
+            else if (d < 11.0f && sat > 0.0f)
+                bl(VN_CX + x, VN_CY + y, C_LAMP, (int32_t)(10.0f * sat * (11.0f - d)));
+        }
+    seg_aa(lx + 3.5f * cs, ly + 3.5f * sn, lx + 8.0f * cs, ly + 8.0f * sn, C_FOG, 22, 0.6f);   /* its print, turning */
+    bl(VN_CX, VN_CY, C_FOG, 32);         /* the spindle */
+    n = (int32_t)(18.0f * nz + 0.5f);
+    for (k = 0; k < n; k++) {            /* the dust, going round with it (on its grooves: 13 .. 27.6 from its centre,
+                                          * inside the rim with the label off the spindle too) */
+        uint32_t h = (uint32_t)k * 2654435761u;
+        float r = 13.0f + 0.47f * (float)(h >> 27), at = vn_rot + (float)(h >> 8 & 1023u) * (1.0f / 1024.0f);
+        float px = lx + r * fm_sin_turns(at + 0.25f), py = ly + r * fm_sin_turns(at), c = (py - (float)VN_CY) / r;
+        bl((int32_t)(px + 0.5f), (int32_t)(py + 0.5f), C_FOG, 8 + (int32_t)(22.0f * c * c * nz));
+    }
+    for (y = -5; y <= 5; y++)            /* the arm: its pivot's ring, the arm, the headshell on the groove */
+        for (x = -5; x <= 5; x++) {
+            float c = 1.0f - fm_fabsf(fm_sqrtf((float)(x * x + y * y)) - 4.0f);
+            if (c > 0.0f)
+                bl(170 + x, 32 + y, C_SLATE, (int32_t)(30.0f * c));
+        }
+    seg_aa(170.0f, 32.0f, 128.0f, 70.0f, C_MIST, 30, 0.7f);
+    seg_aa(128.0f, 70.0f, 121.0f, 75.0f, C_FOG, 32, 1.3f);
+}
+
+/* AM (LOFI TAPE's MEDIA, card #99): a radio's dial across the strip, 530 to 1700 kHz (a few numbers, in tens, as a
+ * dial's), its needle on a station; the lamp behind the glass glowing with the signal as it comes in (dimmer in its
+ * fades, WOBBLE's and DROPOUT's: frasil_tape_signal), warmer and whiter as SATURATION grows; static along the glass as
+ * NOISE grows, brighter in a fade */
+static void am_scope(void)
+{
+    static const uint16_t KHZ[4] = {550, 700, 1000, 1400};
+    static const char *const MARK[4] = {"55", "70", "100", "140"};
+    const float k = 184.0f / fm_log2f(1700.0f / 530.0f), sig = frasil_tape_signal();
+    float sat = vh(P_TP_SAT) / 127.0f, nz = vh(P_TP_NOISE) / 127.0f, g = (0.25f + 0.75f * sig) * (0.6f + 0.4f * sat);
+    int32_t x, y, xn = 28 + (int32_t)(k * fm_log2f(880.0f / 530.0f) + 0.5f), n, i;
+    uint16_t lamp = mix565(C_LAMP, C_FOG, (int32_t)(14.0f * sat * sat));
+    uint32_t h = st.v[P_ANIM] ? 7u : plat_ms() / 40u;
+    for (y = 0; y <= 24; y++)            /* the lamp's glow round the needle (a quarter, mirrored) */
+        for (x = 0; x <= 22; x++) {
+            float ex = (float)x * (1.0f / 22.0f), ey = (float)y * (1.0f / 24.0f), d = ex * ex + ey * ey;
+            int32_t a = d < 1.0f ? (int32_t)(22.0f * g * (1.0f - d) * (1.0f - d)) : 0, q;
+            for (q = 0; q < 4 && a; q++)
+                if (!(q & 1 && !x) && !(q & 2 && !y))
+                    bl(xn + (q & 1 ? -x : x), 62 + (q & 2 ? -y : y), lamp, a);
+        }
+    hline(28, 212, 74, C_SLATE);         /* the scale: a tick each 50 kHz to 1000, then each 100; its numbers */
+    for (i = 550; i <= 1700; i += i < 1000 ? 50 : 100) {
+        int32_t xt = 28 + (int32_t)(k * fm_log2f((float)i / 530.0f) + 0.5f);
+        cv_rect(xt, 71 - oy, 1, 3, C_SLATE);
+    }
+    for (i = 0; i < 4; i++) {
+        int32_t xt = 28 + (int32_t)(k * fm_log2f((float)KHZ[i] / 530.0f) + 0.5f);
+        cv_rect(xt, 68 - oy, 1, 6, C_MIST);
+        text_c(xt, 78, &FONT_XS, MARK[i], C_MIST, 1);
+    }
+    n = (int32_t)(40.0f * nz * nz + (nz > 0.0f ? 2.0f : 0.0f));
+    for (i = 0; i < n; i++) {            /* the static, along the glass (another each frame) */
+        h = h * 1664525u + 1013904223u;
+        bl(28 + (int32_t)(h >> 8 & 0xFFu) * 184 / 256, 64 + (int32_t)(h >> 20 & 7u), C_FOG,
+           (int32_t)((float)(6u + (h >> 26 & 15u)) * (1.5f - 0.5f * sig)));   /* (louder in a fade) */
+    }
+    seg_aa((float)xn, 44.0f, (float)xn, 82.0f, mix565(C_LAMP, C_FOG, (int32_t)(20.0f * sig)), 32, 0.8f);   /* the needle */
+}
+
+/* PHONE (LOFI TAPE's MEDIA, card #218): an old telephone's handset across the strip, side on and lit from the top as
+ * the record (its earpiece left, its mouthpiece right), its coiled cord off the mouthpiece, sagging away to the right
+ * (swaying slowly as WOBBLE grows); the earpiece's face lit with the line and its sound going out under it in rings
+ * (frasil_tape_signal: dimmer as the line drifts, WOBBLE's, gone while DROPOUT cuts it), warmer and glowing as
+ * SATURATION grows, the far rings as loud as the near ones (its compression); TONE, the band's top: the rings closer;
+ * static along the cord as NOISE grows (another each frame), brighter in a cut */
+#define PH_X 92                           /* the handset's middle */
+#define PH_Y 45.0f                        /* its handle's top (the middle of its thickness) */
+#define PH_R 150.0f                       /* the handle's arch, a circle's radius */
+#define PH_E 46                           /* the earpiece's and the mouthpiece's centres, from its middle */
+#define PH_T 50                           /* the cups' tops (y, in the handle) */
+#define PH_F 67                           /* the earpiece's face (y; the mouthpiece's a pixel higher) */
+#define PH_CN 24                          /* the cord's line measured in so many pieces */
+#define PH_CR 3.0f                        /* its coil's radius */
+#define PH_CK 2.0f                        /* how far its loops lean along it (the coil seen a little from above) */
+#define PH_CP 6.0f                        /* a turn of it, along the cord */
+
+/* a line a pixel thick, anti-aliased as Wu's (a pixel's step along its longer axis, shared between the two pixels
+ * across it), its last point left to the next one (a polyline's joints drawn once); alpha a of 32 (screen
+ * coordinates) */
+static void line_aa(float x0, float y0, float x1, float y1, uint16_t c, int32_t a)
+{
+    float dx = x1 - x0, dy = y1 - y0, ax = fm_fabsf(dx), ay = fm_fabsf(dy);
+    int32_t i, m = (int32_t)((ax > ay ? ax : ay) + 0.5f);
+    m = m < 1 ? 1 : m;
+    for (i = 0; i < m; i++) {
+        float t = (float)i / (float)m, x = x0 + t * dx, y = y0 + t * dy, f;
+        if (ay > ax) {                   /* (steep: two pixels side by side each row) */
+            int32_t iy = (int32_t)fm_floorf(y + 0.5f);
+            f = fm_floorf(x);
+            bl((int32_t)f, iy, c, (int32_t)((float)a * (1.0f - (x - f)) + 0.5f));
+            bl((int32_t)f + 1, iy, c, (int32_t)((float)a * (x - f) + 0.5f));
+        } else {
+            int32_t ix = (int32_t)fm_floorf(x + 0.5f);
+            f = fm_floorf(y);
+            bl(ix, (int32_t)f, c, (int32_t)((float)a * (1.0f - (y - f)) + 0.5f));
+            bl(ix, (int32_t)f + 1, c, (int32_t)((float)a * (y - f) + 0.5f));
+        }
+    }
+}
+
+/* the cord's line at u (0 .. 1: a cubic's, p its four points), o its point and its direction there (of length 1) */
+static void ph_cord(const float *p, float u, float *o)
+{
+    float v = 1.0f - u, b0 = v * v * v, b1 = 3.0f * v * v * u, b2 = 3.0f * v * u * u, b3 = u * u * u;
+    float tx = v * v * (p[2] - p[0]) + 2.0f * v * u * (p[4] - p[2]) + u * u * (p[6] - p[4]);
+    float ty = v * v * (p[3] - p[1]) + 2.0f * v * u * (p[5] - p[3]) + u * u * (p[7] - p[5]);
+    float l = 1.0f / (fm_sqrtf(tx * tx + ty * ty) + 1e-6f);
+    o[0] = b0 * p[0] + b1 * p[2] + b2 * p[4] + b3 * p[6];
+    o[1] = b0 * p[1] + b1 * p[3] + b2 * p[5] + b3 * p[7];
+    o[2] = tx * l;
+    o[3] = ty * l;
+}
+
+static void phone_scope(void)
+{
+    const float sig = frasil_tape_signal(), sat = vh(P_TP_SAT) / 127.0f, wob = vh(P_TP_WOBBLE) / 127.0f;
+    const float nz = vh(P_TP_NOISE) / 127.0f, sp = 6.0f - 2.0f * vh(P_TP_TONE) / 127.0f;   /* (the rings' spacing) */
+    const int still = st.v[P_ANIM] != 0;
+    const float t = still ? 6.0f : (float)plat_ms() * 0.001f, sw = wob * fm_sin_turns(t * 0.11f);
+    const float ph = t * 0.9f - fm_floorf(t * 0.9f), ex = (float)(PH_X - PH_E), ey = (float)PH_F + 1.0f;
+    const float cord[8] = {(float)(PH_X + PH_E) + 8.0f, (float)PH_F - 4.0f, (float)(PH_X + PH_E) + 16.0f + 4.0f * sw,
+                           98.0f, 200.0f + 8.0f * sw, 96.0f - 2.0f * sw, 248.0f, 82.0f};
+    uint16_t light = mix565(C_MIST, C_LAMP, (int32_t)(14.0f + 18.0f * sat));
+    uint32_t h = still ? 7u : plat_ms() / 40u;
+    float o[4], len[PH_CN + 1], cs[16], px, py;
+    int32_t x, y, i, n;
+    for (x = PH_X - PH_E - 15; x <= PH_X + PH_E + 15; x++) {   /* the handset: the handle's arch, its ends round, a cup
+                                          * under each (the earpiece's wider), dark, its edge lit, brighter along the
+                                          * top (a column at a time: the arch's height once) */
+        float dx = (float)(x - PH_X), ax = fm_fabsf(dx), e = fm_fabsf(ax - (float)PH_E), yc = 0.0f, hv = 0.0f;
+        float wt = dx < 0.0f ? 6.0f : 5.5f, wf = dx < 0.0f ? 13.5f : 11.0f, yf = (float)(PH_F - (dx < 0.0f ? 0 : 1));
+        const float end = (float)PH_E + 6.0f;
+        int32_t ya = PH_T, yb = e < wf + 1.0f ? (int32_t)yf : 0;
+        if (ax < end) {
+            float s = fm_sqrtf(PH_R * PH_R - dx * dx);
+            yc = PH_Y + PH_R - s;
+            hv = 4.0f * PH_R / s;        /* (as thick across the arch) */
+            ya = (int32_t)(yc - hv) - 1;
+            yb = yb ? yb : (int32_t)(yc + hv) + 1;
+        }
+        for (y = ya; y <= yb; y++) {
+            float fy = (float)y, co = 0.0f, ci = 0.0f, top = 0.0f;
+            if (ax < end) {              /* (its coverage, and a pixel in: the difference, its edge) */
+                float dv = fm_fabsf(fy - yc), r = ax > end - hv ? ax - (end - hv) : 0.0f;
+                r = r > 0.0f ? fm_sqrtf(r * r + dv * dv) : dv;   /* (round at its ends) */
+                co = br_clamp01(hv + 0.5f - r);
+                ci = br_clamp01(hv - 0.5f - r);
+                top = fy < yc ? 1.0f : 0.0f;
+            }
+            if (y >= PH_T) {             /* (the cup, flaring to its face) */
+                float u = (fy - (float)PH_T) / (yf - (float)PH_T), w = wt + (wf - wt) * u * u;
+                float c = br_clamp01(w + 0.5f - e), c2 = y < yb ? br_clamp01(w - 0.5f - e) : 0.0f;
+                co = c > co ? c : co;
+                ci = c2 > ci ? c2 : ci;
+            }
+            bl(x, y, C_MIST, (int32_t)(10.0f * co + (12.0f + 10.0f * top) * (co - ci)));
+        }
+    }
+    for (y = 0; y <= 24; y++)            /* under the earpiece: its sound going out in rings, a glow as it saturates (a
+                                          * half, mirrored) */
+        for (x = 0; x <= 19; x++) {
+            float d = fm_sqrtf((float)(x * x + y * y)), c = (float)y / (d + 1e-6f), wa = br_clamp01((c - 0.5f) * 5.0f);
+            float a = 0.0f, g = d < 14.0f ? 10.0f * sat * sig * (1.0f - d / 14.0f) * (1.0f - d / 14.0f) : 0.0f;
+            int32_t k;
+            for (k = 0; k < 3 && wa > 0.0f; k++) {   /* (each from the face outward, in, then fading: compressed,
+                                                      * only at the last) */
+                float pos = ((float)k + ph) * (1.0f / 3.0f), rc = 1.0f - 1.1f * fm_fabsf(d - 3.0f - 3.0f * sp * pos);
+                if (rc > 0.0f)
+                    a += rc * br_clamp01(pos * 7.0f) * br_clamp01((1.0f - pos) / (0.85f - 0.6f * sat));
+            }
+            a *= 34.0f * sig * wa;
+            bl((int32_t)ex + x, (int32_t)ey + y, C_LAMP, (int32_t)g);
+            bl((int32_t)ex + x, (int32_t)ey + y, light, (int32_t)a);
+            if (x) {
+                bl((int32_t)ex - x, (int32_t)ey + y, C_LAMP, (int32_t)g);
+                bl((int32_t)ex - x, (int32_t)ey + y, light, (int32_t)a);
+            }
+        }
+    seg_aa(ex - 12.5f, ey, ex + 12.5f, ey, light, (int32_t)(6.0f + 26.0f * sig), 0.6f);   /* the earpiece's face, lit */
+    len[0] = 0.0f;                       /* the cord's length along it (its turns spaced evenly by it, whatever its
+                                          * curve's pace) */
+    ph_cord(cord, 0.0f, o);
+    px = o[0];
+    py = o[1];
+    for (i = 1; i <= PH_CN; i++) {
+        ph_cord(cord, (float)i * (1.0f / PH_CN), o);
+        len[i] = len[i - 1] + fm_sqrtf((o[0] - px) * (o[0] - px) + (o[1] - py) * (o[1] - py));
+        px = o[0];
+        py = o[1];
+    }
+    for (i = 0; i < 8; i++) {            /* (a turn of the coil in eight: across the cord, toward the eye) */
+        cs[i] = fm_sin_turns((float)i * 0.125f);
+        cs[i + 8] = fm_sin_turns((float)i * 0.125f + 0.25f);
+    }
+    for (i = 0, n = 0; (float)i * (PH_CP / 8.0f) <= len[PH_CN]; i++) {   /* the coil: a line a pixel thick round and
+                                          * round the cord (its loops), a turn each PH_CP of its length, the near
+                                          * side of each bright, the far side dim; off the strip's edge */
+        float s = (float)i * (PH_CP / 8.0f), x1, y1;
+        while (n < PH_CN - 1 && len[n + 1] < s)
+            n++;
+        ph_cord(cord, ((float)n + (s - len[n]) / (len[n + 1] - len[n] + 1e-6f)) * (1.0f / PH_CN), o);
+        x1 = o[0] - PH_CR * cs[i & 7] * o[3] + PH_CK * cs[(i & 7) + 8] * o[2];
+        y1 = o[1] + PH_CR * cs[i & 7] * o[2] + PH_CK * cs[(i & 7) + 8] * o[3];
+        if (i) {
+            float nr = cs[((i - 1) & 7) + 8] + cs[(i & 7) + 8];   /* (how near: -2 .. 2, the segment's middle) */
+            line_aa(px, py, x1, y1, nr > 0.0f ? C_MIST : C_SLATE, nr > 0.0f ? (int32_t)(20.0f + 4.0f * nr) : 20);
+        }
+        if (x1 > 241.0f && px > 241.0f)
+            break;
+        px = x1;
+        py = y1;
+    }
+    n = (int32_t)(40.0f * nz * nz + (nz > 0.0f ? 2.0f : 0.0f));
+    for (i = 0; i < n; i++) {            /* the static, along the cord (another each frame) */
+        float r;
+        h = h * 1664525u + 1013904223u;
+        ph_cord(cord, (float)(h >> 8 & 1023u) * (0.9f / 1024.0f), o);
+        r = 0.8f * ((float)(h >> 20 & 15u) - 7.5f);
+        bl((int32_t)(o[0] - r * o[3] + 0.5f), (int32_t)(o[1] + r * o[2] + 0.5f), C_FOG,
+           (int32_t)((float)(10u + (h >> 26 & 15u)) * (1.5f - 0.5f * sig)));   /* (louder in a cut) */
+    }
+}
+
 static void tape_scope(void)
 {
     static uint32_t last;
     const float gr = 4.0f, hy = TP_GY + gr, a0 = 10.0f * 10.0f, a1 = 23.0f * 23.0f;
     uint32_t now = plat_ms();
     int on = st.v[P_TP_ON] != 0, still = st.v[P_ANIM] != 0;
+    if (st.v[P_TP_ON] == FR_VINYL || st.v[P_TP_ON] == FR_AM || st.v[P_TP_ON] == FR_PHONE) {   /* (MEDIA's others) */
+        if (st.v[P_TP_ON] == FR_VINYL)
+            vinyl_scope();
+        else if (st.v[P_TP_ON] == FR_AM)
+            am_scope();
+        else
+            phone_scope();
+        return;
+    }
     float dt = (float)(now - last) * 0.001f, sat = vh(P_TP_SAT) / 127.0f, wob = vh(P_TP_WOBBLE) / 127.0f;
     float spd = on ? frasil_tape_speed() : 1.0f, tl[4], tr[4], loose, t = still ? 6.0f : (float)now * 0.001f, pl, pr;
     uint16_t tape = on ? mix565(RGB(120, 72, 40), C_LAMP, (int32_t)(32.0f * sat)) : C_STEEL;
@@ -2600,12 +3193,14 @@ static void tape_scope(void)
 /* LOFI TAPE II: TAPE SPEED landed on a half-tone (params.c tape_semis), the tones it moves the pitch between the reels,
  * over the tape's path: the number (half a tone ".5": "-1.5", "-1", "+3.5", "-6"), TONE under it for one, TONES
  * otherwise; amber, as the head. X1.00 and between half-tones nothing. A MIDI clock leading, the pitch alone moves: as
- * true. Drawn with the strip each frame (the band cleared under it), over the head's glow */
+ * true. Drawn with the strip each frame (the band cleared under it), over the head's glow; on VINYL right of the
+ * record, on AM right of the needle (card #99), on PHONE right of the handset, over its cord (card #218) */
 static void tones_tag(void)
 {
     char w[12];
     int n = tape_semis(pv_shown(P_TP_FLUTTER)), a = n < 0 ? -n : n;   /* (as its cell shows it: ANCHOR's glide back
                                                                        * too) */
+    int32_t xc = st.v[P_TP_ON] == FR_VINYL || st.v[P_TP_ON] == FR_PHONE ? 204 : st.v[P_TP_ON] == FR_AM ? 176 : 120;
     ui.semis = (int8_t)n;
     ui.tonew = (uint8_t)(!n ? 0 : a == 2 ? 1 : 2);
     if (!n)
@@ -2615,8 +3210,8 @@ static void tones_tag(void)
     int_text(a / 2, w + 1);
     if (a & 1)
         text_cat(w, ".5");
-    text_c(120, 40, &FONT_M, w, C_LAMP, 1);
-    text_c(120, 64, &FONT_XS, a == 2 ? "TONE" : "TONES", mix565(C_BG, C_LAMP, 25), 1);
+    text_c(xc, 40, &FONT_M, w, C_LAMP, 1);
+    text_c(xc, 64, &FONT_XS, a == 2 ? "TONE" : "TONES", mix565(C_BG, C_LAMP, 25), 1);
 }
 
 /* ROUTING: the chain as it is. The tracks along the top, the cloud on a lane below them (its share taken, its return
@@ -2656,7 +3251,12 @@ static void routing_scope(void)
             bl(xm + 3 + x, yc - 5 + (x % 3) * 2, C_LAMP, 14);
         }
     rt_block(fpre ? 37 : 143, yt, "FILTER", C_ICE, fon);
-    rt_block(tpre ? (xs + xm) / 2 : 188, yt, "TAPE", C_LAMP, ton);
+    {                                        /* LOFI's block, its MEDIA's name (TAPE, VINYL, AM, PHONE: card #229); after
+                                              * the return, its left edge where TAPE's was (169: PHONE's two pixels from
+                                              * FILTER's and from the speaker) */
+        const char *md = lofi_name(0) + 5;
+        rt_block(tpre ? (xs + xm) / 2 : 169 + (text_tw(&FONT_XS, md, 1) + 10) / 2, yt, md, C_LAMP, ton);
+    }
     {                                        /* the speaker: a box and its cone; crossed out while quiet */
         int32_t sx = MR - 8, on = st.v[P_SPEAKER] != 0;
         uint16_t sc = on ? C_FOG : C_SLATE;
@@ -3126,15 +3726,15 @@ static void no_arp(void)
 }
 
 #if FRS_LEAD
-/* LEAD's (card #144): its ARP and SEQ, NOT AVAILABLE FOR LEAD; its KEYS, one note as played */
-static void no_lead(int keys)
+/* LEAD's (card #144): its ARP and SEQ, NOT AVAILABLE FOR LEAD (its KEYS its own since card #194: keys_scope) */
+static void no_lead(void)
 {
-    text_c(120, 104, &FONT_B, keys ? "ONE NOTE" : "NOT AVAILABLE", C_MIST, 2);
-    text_c(120, 126, &FONT_XS, keys ? "AS PLAYED, LEGATO" : "FOR LEAD", C_SLATE, 2);
+    text_c(120, 104, &FONT_B, "NOT AVAILABLE", C_MIST, 2);
+    text_c(120, 126, &FONT_XS, "FOR LEAD", C_SLATE, 2);
 }
 #endif
 #if FRS_MIDI_OUT
-/* MIDI's (card #164): its ENV, ARP, SEQ and KEYS, NOT AVAILABLE FOR MIDI */
+/* MIDI's (card #164): its ENV, NOT AVAILABLE FOR MIDI */
 static void no_midi(void)
 {
     text_c(120, 104, &FONT_B, "NOT AVAILABLE", C_MIST, 2);
@@ -3174,13 +3774,13 @@ static void mout_scope(void)
     for (k = 0; k < MO_NK; k++) {
         int n = lo + (int)k, black = (0x54Au >> ((uint32_t)(n + 120) % 12u)) & 1u, down = 0;
         x = x0 + (int32_t)k * kw + kw / 2;
-        for (j = 0, kp = 0; j < FRS_NKEYS; j++)   /* (the key at this place down: its pressure) */
-#if PLAT_SMK37
-            if ((own >> j & 1u) && mout.pos[j] == k)
-#else
-            if ((own >> j & 1u) && j == k)
-#endif
-                down = 1, kp = mout.kp[j];
+        for (j = 0, kp = 0; j < FRS_NKEYS; j++) {   /* (a note out at this place: its key's pressure; a chord's
+                                                     * each, card #194) */
+            uint32_t i;
+            for (i = 0; (own >> j & 1u) && i < MAXCHORD; i++)
+                if (mout.note[j][i] == n && mout.kp[j] >= kp)
+                    down = 1, kp = mout.kp[j];
+        }
         if (down) {
             h = 7 + (int32_t)kp * 13 / 127;
             cv_rect(x - (kw > 5 ? 2 : 1), 77 - h - oy, kw > 5 ? 5 : 3, h, C_MIDI_TRACK);
@@ -3342,20 +3942,35 @@ static void stack_tag(void)
 
 /* KEYS' strip: an octave of keys, what a key does now. The scale's notes dotted with HARMONY ON (none: chromatic); with
  * CHORD, the notes of the chord on the root, lit; a solid outline for LATCH, dotted for HOLD (GLINT: LATCH only on ARP,
- * ARP II's, card #143); NOTES or CHORDS for what STACK piles up */
+ * ARP II's, card #143); NOTES or CHORDS for what STACK piles up. MIDI's (card #194): its HARMONY and NOTES, HOLD */
 static void keys_scope(void)
 {
     static const uint8_t WH[7] = {0, 2, 4, 5, 7, 9, 11}, BL[5] = {1, 3, 6, 8, 10};
     uint32_t t = st.v[P_KB], k;
     const uint8_t *v = &st.v[P_KY_DR_HARM + 4u * t];
-    uint16_t bits = v[0] ? SCALE_BITS[st.v[P_SCALE] % NSCALES] : 0xFFFu, c = track_col();
-    int r = st.v[P_ROOT] % 12, chord = v[0] && v[1] && !notes_why((int)(P_KY_DR_NOTES + 4u * t));
+    int why = notes_why((int)(P_KY_DR_NOTES + 4u * t)) != 0;
     int latch = t == 1u ? st.v[P_SQ_TYPE] == SQT_ARP && arp.latch : v[2] != 0;
+    uint16_t bits, c = track_col();
+    int r = st.v[P_ROOT] % 12, chord;
     chord_t ch;
     int root;
     uint32_t lit12 = 0;
     const int32_t x0 = 62, w = 16, y0 = 42, h = 44, x1 = x0 + 7 * w;
     int32_t x, y, i;
+#if FRS_MIDI_OUT
+    uint8_t mv[4];
+    if (mout.sel || st.lead) {           /* (MIDI's, the LEAD's: their HARMONY and NOTES, HOLD) */
+        uint32_t ni = mout.sel ? MD_KNOTES : MD_LNOTES;
+        mv[0] = md[ni - 1u];
+        mv[1] = md[ni];
+        mv[2] = mv[3] = 0;
+        v = mv;
+        why = md_notes_why(ni) != 0;
+        latch = 0;
+    }
+#endif
+    bits = v[0] ? SCALE_BITS[st.v[P_SCALE] % NSCALES] : 0xFFFu;
+    chord = v[0] && v[1] && !why;
     chord_build(60 + r, st.v, &ch, &root);
     for (i = 0; chord && i < (int32_t)ch.k; i++)
         lit12 |= 1u << ((ch.n[i] % 12 + 12) % 12);
@@ -3499,10 +4114,10 @@ static void middle(float t)
             strata(0.5f);
 #if FRS_MIDI_OUT
         uint32_t mk = mout_big() ? mout.at_p : 0u;   /* MIDI's: the track, or B's CHANNEL, C's OCTAVE (card #164) */
-        const char *nm = mk ? mout_name(mk) : PD[p].name;
+        const char *nm = mk ? mout_name(mk) : pd_name((uint32_t)p);
 #else
         const uint32_t mk = 0;
-        const char *nm = PD[p].name;
+        const char *nm = pd_name((uint32_t)p);
 #endif
 #if PLAT_SMK37
         if (hand_key() && !mk) {         /* (KNOB BANK's or the mod wheel's turn: its name in its key, not a badge) */
@@ -3572,12 +4187,14 @@ static void middle(float t)
             arp_scope(2);
         else if (fm.page == PG_MSEQ || fm.page == PG_MSEQ2 || fm.page == PG_MSEQ3)
             seq_scope(2);
-        else if (fm.page == PG_MNOENV || (fm.page == PG_KEYS && mout.sel))
+        else if (fm.page == PG_MNOENV)
             no_midi();
+        else if (fm.page == PG_KEYS && mout.sel)   /* (MIDI's own KEYS, card #194) */
+            keys_scope();
 #endif
 #if FRS_LEAD
-        else if (fm.page == PG_LNOARP || fm.page == PG_LNOSEQ || (fm.page == PG_KEYS && st.lead))
-            no_lead(fm.page == PG_KEYS);
+        else if (fm.page == PG_LNOARP || fm.page == PG_LNOSEQ)
+            no_lead();
         else if (fm.page == PG_LADSR || fm.page == PG_LFENV)
             adsr_scope(0);
 #endif
@@ -3587,6 +4204,9 @@ static void middle(float t)
             no_arp();
         else if (fm.page == PG_BASS3 || fm.page == PG_GLINT3)
             adsr_scope(fm.page == PG_GLINT3);
+        else if (fm.page == PG_FORME && shape_shown())   /* (DRONE SHAPE, its ATTACK SHAPE shown: the drones' envelope
+                                                          * in place of the river, card #122) */
+            adsr_scope(2);
         else if (fm.page == PG_EQ || fm.page == PG_EQ2)
             eq_scope();
         else if (fm.page == PG_FILTER)
@@ -3613,7 +4233,8 @@ static void middle(float t)
         } else if (fm.page == PG_SCENES) {
             scenes_list();
         } else {
-            cell(ML, 100, page_knob(fm.page, 0u));
+            cell(ML, 100, shape_shown() ? (int)K_SHAPE : page_knob(fm.page, 0u));   /* (OCT- held on an
+                                          * ENV page: K1 its ATTACK SHAPE) */
             cell(130, 100, page_knob(fm.page, 1u));
         }
     }
@@ -3707,6 +4328,9 @@ static void footer(void)
     } else {
         cell(ML, 180, page_knob(fm.page, 2u));
         cell(130, 180, page_knob(fm.page, 3u));
+        if (page_shape(fm.page) >= 0)    /* (an ENV page's ATTACK SHAPE, OCT- held: told under the cells as CLOUD III's
+                                             * PAN is, card #122) */
+            text_c(120, 224, &FONT_XS, "SHAPE: HOLD " CN_OCTDN " AND K1", mix565(C_BG, C_MIST, 25), 1);
 #if FRS_LEAD
         if (!st.lead && (PAGES[fm.page].button == B_SEQ || (PAGES[fm.page].button == B_ARP && fm.page != PG_NOARP)))
 #else
@@ -3995,16 +4619,19 @@ typedef struct {
 #define HELP_ADD {H_GEST, 0, "ADD A NOTE", CN_SEL "+KEY", "OVER WHAT IS HELD"}
 #define HELP_TRACK {H_KEY, CN_BADGE_SELECT, "TRACK", CN_KBANK, CN_OCTDN " +: THE KEYS ALONE"}   /* (KNOB BANK, K6) */
 #define HELP_ALGO {H_KEY, CN_BADGE_ALGO, "FILTER", CN_MODW, CN_GLO " +: MASTER FILTER"}   /* (the mod wheel, K7) */
+#define HELP_SEL {H_BTN, B_SEL, "HARMONY", CN_SEL, "HOLD + KEY: ONE NOTE / + K: LFO AMOUNT"}   /* (NOTES: FADER BANK) */
 #else
 #define HELP_SWELL {H_GEST, 0, "SWELL IT", "PRESS IN", "HOLD THE KEY, PRESS HARDER"}
 #define HELP_ADD {H_GEST, 0, "ADD A NOTE", CN_SEL " + KEY", "OVER WHAT IS HELD"}
 #define HELP_TRACK {H_ENC, CN_BADGE_SELECT, "TRACK", CN_SELECT, CN_OCTDN " +: THE KEYS ALONE"}
 #define HELP_ALGO {H_ENC, CN_BADGE_ALGO, "FILTER", CN_ALGO, CN_GLO " +: MASTER FILTER"}
+#define HELP_SEL {H_BTN, B_SEL, "HARMONY", CN_SEL, "HOLD: NOTES / HOLD + K: LFO AMOUNT"}   /* (held alone: NOTES, card
+                                                                                    * #194; + KEY: ADD A NOTE's) */
 #endif
 static const char *const HELP_TITLE[HELP_PAGES] = {"BUTTONS", "BUTTONS", "BUTTONS", "ENCODERS", "KEYS"};
 static const help_t HELP[HELP_PAGES][4] = {
     {{H_BTN, B_FX, "GENERATIVE FX", CN_FX, "AGAIN: CLOUD, PUMP / HOLD: FREEZE"},
-     {H_BTN, B_SEL, "HARMONY", CN_SEL, "HOLD + KEY: ONE NOTE / + K: LFO AMOUNT"},
+     HELP_SEL,
      {H_BTN, B_ENV, "ENVELOPE", CN_ENV, "HOLD: SWELL"}, {H_BTN, B_LFO, "LFO 1, 2, 3", CN_LFO, "AGAIN: NEXT PAGE / HOLD + K: ROUTE"}},
     {{H_BTN, B_EDIT, "SOUND PAGES", CN_EDIT, "HOLD + KEY: JUMP / " CN_OCTDN " +: COMPARE"},
      {H_BTN, B_GLO, "GLOBAL", CN_GLO, "AGAIN: MIDI / HOLD + CC: LEARN"},
@@ -4344,10 +4971,11 @@ static void round_box(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
 }
 
 /* an LFO's TARGET: each section a rounded box, column by column, from its name to its last */
-#if FRS_LEAD                             /* (each section's colour, TGT_HEAD's; LEAD's three its rose) */
-#define TGT_HC {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB, C_GLOB, C_LEAD_TRACK, C_LEAD_TRACK, C_LEAD_TRACK}
+#if FRS_LEAD                             /* (each section's colour, TGT_HEAD's; LEAD's three its rose; the LFOs' GLOBAL's) */
+#define TGT_HC {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB, C_GLOB, C_LEAD_TRACK, C_LEAD_TRACK, C_LEAD_TRACK, \
+                C_GLOB}
 #else
-#define TGT_HC {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB, C_GLOB}
+#define TGT_HC {C_FOG, C_FOG, C_FOG, C_FOG, C_ICE, C_ICE, C_LAMP, C_GLOB, C_GLOB, C_GLOB}
 #endif
 static void tgt_boxes(uint32_t first)
 {
@@ -4423,7 +5051,7 @@ static void grid_screen(void)
                 continue;
             if (sl < TH_NONE) {          /* a section's name, in its colour */
                 static const uint16_t HC[] = TGT_HC;
-                text_t(cx + 6, cy + 2, &FONT_XS, TGT_HEAD[-sl - 2], HC[-sl - 2], 2);
+                text_t(cx + 6, cy + 2, &FONT_XS, tgt_head((uint32_t)(-sl - 2)), HC[-sl - 2], 2);
                 continue;
             }
             on = tg ? at_t == ng.v : first + i == ng.v;
@@ -4922,17 +5550,20 @@ static void ui_frame(void)
         ui.full = 1;
     }
     anchor_frame();                      /* (ANCHOR's frame: what changed of it now, ui.full if it came or went) */
+    morph_frame();                       /* (a MORPH's frame round the edge: the same) */
     /* the header: the page, the freeze, the keys' mode, the octave, a message, the harmony, the load */
     s1 = sig_add(s1, fm.page | (uint32_t)st.v[P_FREEZE] << 8 | (uint32_t)st.glint << 9 | (uint32_t)(now < say.msg_until) << 10 |
                          (uint32_t)arp.latch << 11 | (uint32_t)(st.v[P_SQ_TYPE] != 0) << 12 | (uint32_t)st.bass << 13 |
                          (uint32_t)st.v[P_KEYS] << 14 | (uint32_t)st.v[P_SQ_TYPE] << 15 | (uint32_t)st.v[P_SQ_REC] << 17 |
                          (uint32_t)st.dirty << 19 | (uint32_t)st.compare << 20 | (uint32_t)cpu_over() << 21 |
                          (uint32_t)(mo.on && !mo.anc) << 22 | (uint32_t)fm.scene << 23);
-    s1 = sig_add(s1, hdr.dark);          /* (HEADER: INVERT, DARK) */
+    s1 = sig_add(s1, hdr.dark | (uint32_t)st.v[P_TP_ON] << 8);   /* (HEADER: INVERT, DARK; MEDIA: LOFI's title, card
+                                                                 * #229) */
 #if FRS_MIDI_OUT
     s1 = sig_add(s1, mout.sel | (uint32_t)md[MD_REC] << 1);   /* (MIDI's word and violet; its take's word) */
     s3 = sig_add(s3, mout.ret | (uint32_t)mout.clk << 7 | (uint32_t)(msq.at && now - msq.at < TOUCH_MS) << 8 |
-                         (uint32_t)msq.at_i << 9);   /* (RETURN, CLOCK OUT; MIDI's ARP and SEQ: card #169) */
+                         (uint32_t)msq.at_i << 9 | (uint32_t)nout.on << 16);   /* (RETURN, CLOCK OUT; MIDI's ARP and
+                                                                              * SEQ: card #169; NOTES OUT, #201) */
     for (i = 0; i < NMD; i++)
         s3 = sig_add(s3, md[i]);
     if (PAGES[fm.page].track == T_MIDI) {   /* (their strips: the steps, the playhead, the arpeggio) */
@@ -4975,7 +5606,8 @@ static void ui_frame(void)
                          | (uint32_t)(up_cur[3] + 1) << 24
 #endif
                      );
-    s3 = sig_add(s3, touched_now() ? fm.touched : 255u);
+    s3 = sig_add(s3, (touched_now() ? fm.touched : 255u) | (uint32_t)st.v[P_TP_ON] << 16);   /* (MEDIA: ROUTING's
+                                          * LOFI, its name) */
     for (i = 0; i < 4u; i++) {           /* (and where an LFO has them) */
         prm_t p = page_knob(fm.page, i);
         s3 = sig_add(s3, p);
@@ -4983,6 +5615,8 @@ static void ui_frame(void)
                          : p < NPARAM ? st.v[p]
                          : p == K_IDLE ? saver.min | (uint32_t)(saver.min_at && now - saver.min_at < TOUCH_MS) << 8
                          : p == K_HEAD ? hdr.dark | (uint32_t)(hdr.at && now - hdr.at < TOUCH_MS) << 8
+                         : p >= K_LINK && p <= K_LK0 + 3u ? (uint32_t)(lk.bits | lk.follow << 4) |
+                                                                (uint32_t)(link_hot(p)) << 8
                          : p == K_TUNE ? a4.hz | (uint32_t)(a4.at && now - a4.at < TOUCH_MS) << 9 : 0u);
         s3 = sig_add(s3, p < NPARAM ? (uint32_t)(int32_t)(mod_of(p) * 2.0f) : 0u);
         if (tgt_slot(p) < 12u)           /* (a TARGET's AMOUNT, lit while SEL + K turns it) */
@@ -5003,6 +5637,12 @@ static void ui_frame(void)
 #if FRS_LEAD
     if (fm.page == PG_NUAGE3)            /* (CLOUD III's K4, OCT- held: the cloud's PAN) */
         s3 = sig_add(s3, st.v[P_PN_CLOUD] | (uint32_t)cloud_pan_shown() << 8);
+#endif
+    if (page_shape(fm.page) >= 0)        /* (an ENV page's K1, OCT- held: its ATTACK SHAPE; the strip's ATTACK with it) */
+        s3 = sig_add(s3, (uint32_t)shape_line() | (uint32_t)shape_shown() << 1 | (uint32_t)shape_hot() << 2);
+#if LD_CH_PAGE
+    if (fm.page == PG_GLOBAL2)           /* (MIDI's LEAD CH, card #228) */
+        s3 = sig_add(s3, st.ldch | (uint32_t)(ldch_at && now - ldch_at < TOUCH_MS) << 5);
 #endif
     if (ui.full || s1 != ui.sig1) {
         ui.sig1 = s1;

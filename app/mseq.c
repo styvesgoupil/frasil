@@ -18,14 +18,17 @@
 
 enum { MD_TYPE, MD_MODE, MD_RATE, MD_RANGE, MD_CHANCE, MD_LATCH, MD_LEN, MD_GATE, MD_TRANS,   /* a scene keeps these */
        MD_STEP, MD_NOTE, MD_NLEN, MD_ACC, MD_UNDO, MD_REC,                                  /* (of the moment) */
-       MD_AGATE, MD_AVEL, MD_SWING, NMD };   /* the arpeggio's own, kept too (card #172: md_own, OBJ_MSEQ's spare bytes) */
+       MD_AGATE, MD_AVEL, MD_SWING,     /* the arpeggio's own, kept too (card #172: md_own, OBJ_MSEQ's spare bytes) */
+       MD_KHARM, MD_KNOTES,             /* KEYS on MIDI (card #194): HARMONY, NOTES, the device's (OBJ_MSEQ's head) */
+       MD_LHARM, MD_LNOTES, NMD };      /* ... and on the LEAD (its chords: POLY's), kept with them (no setting of the
+                                         * engine's: the settings' list as it was) */
 #define MD_KEPT 9u
 #define MD_OWN 3u                        /* (MD_AGATE .. MD_SWING) */
 #define K_MD(i) (K_MD0 + (i))
 /* each one's GLINT setting: its name, its range, its default, its words (value_text); the arpeggio's own, none (md_own) */
 static const prm_t MD_AS[NMD] = {P_SQ_TYPE, P_ARP_MODE, P_ARP_RATE, P_ARP_RANGE, P_ARP_CHANCE, P_GA_LATCH, P_SQ_LEN,
                                  P_SQ_GATE, P_SQ_TRANS, P_SQ_STEP, P_SQ_NOTE, P_SQ_NLEN, P_SQ_ACC, P_SQ_UNDO, P_SQ_REC,
-                                 NPARAM, NPARAM, NPARAM};
+                                 NPARAM, NPARAM, NPARAM, P_KY_GL_HARM, P_KY_GL_NOTES, P_KY_GL_HARM, P_KY_GL_NOTES};
 /* the arpeggio's own (card #172): GATE 5 .. 100 % of its step (LEGATO past it: held till the next is out), VELOCITY AS
  * PLAYED (0: the key's, through MIDI OUT's VELOCITY) or 1 .. 127 as it goes out, SWING OFF (0) or 51 .. 75 % (a pair of
  * steps' first's share) */
@@ -34,7 +37,7 @@ static const struct {
     const char *name;
     uint8_t min, max, def;
 } MD_OWN_AS[MD_OWN] = {{"GATE", 5, MD_LEGATO, 50}, {"VELOCITY", 0, 127, 0}, {"SWING", 0, 25, 0}};
-static int md_own(uint32_t i) { return i >= MD_AGATE && i < NMD; }
+static int md_own(uint32_t i) { return i >= MD_AGATE && i < MD_AGATE + MD_OWN; }
 static uint32_t md_max(uint32_t i) { return md_own(i) ? MD_OWN_AS[i - MD_AGATE].max : PD[MD_AS[i]].max; }
 static uint32_t md_min(uint32_t i) { return md_own(i) ? MD_OWN_AS[i - MD_AGATE].min : 0u; }
 static uint32_t md_def(uint32_t i) { return md_own(i) ? MD_OWN_AS[i - MD_AGATE].def : PD[MD_AS[i]].def; }
@@ -42,8 +45,20 @@ static const char *md_name(uint32_t i)
 {
     return md_own(i) ? MD_OWN_AS[i - MD_AGATE].name : i == MD_NLEN ? "LENGTH" : PD[MD_AS[i]].name;
 }
+_Static_assert(K_MD0 + NMD == K_MDN, "each of MIDI's knobs a knob number (pages.c K_MDN)");
 static uint8_t md[NMD];
 static uint8_t mseq[SC_SEQ];
+/* KEYS' NOTES on CHORD where the keys play one note all the same: MIDI's on its SEQ (one note a step), the LEAD's on
+ * MONO (one voice): why; else 0 */
+static const char *md_notes_why(uint32_t i)
+{
+#if FRS_LEAD
+    if (i == MD_LNOTES)
+        return md[MD_LNOTES] && !st.v[P_LD_MODE] ? "(POLY ONLY)" : 0;
+#endif
+    return i == MD_KNOTES && md[MD_KNOTES] && md[MD_TYPE] == SQT_SEQ ? "(NOT ON SEQ)" : 0;
+}
+static int md_harm_of(uint32_t i) { return i == MD_LNOTES ? md[MD_LHARM] : md[MD_KHARM]; }   /* (NOTES' HARMONY) */
 enum { K_MIDI = 33 };                    /* (a key's kind: MIDI's arpeggio's, as K_LEAD is the LEAD's) */
 static struct {
     uint8_t run;                         /* playing */
@@ -86,7 +101,7 @@ static void md_defaults(void)            /* NEW SHARD's, a scene without its own
     uint32_t i;
     for (i = 0; i < MD_KEPT; i++)
         md[i] = (uint8_t)md_def(i);
-    for (i = MD_AGATE; i < NMD; i++)
+    for (i = MD_AGATE; i < MD_AGATE + MD_OWN; i++)   /* (KEYS the device's: as they are) */
         md[i] = (uint8_t)md_def(i);
     md[MD_TYPE] = 0;
     memset(mseq, SQ_REST, sizeof mseq);
@@ -181,7 +196,7 @@ static void mout_arp_on(int note, float v)
         return;
     if (ma.due >= 0)                     /* (one still waiting: out first) */
         ma_out(now);
-    ma.due = (int16_t)note;
+    ma.due = (int16_t)lk_note(LK_MIDI, note);   /* (TRACKS LINK on MIDI, card #212: out where it moves it) */
     ma.due_vel = (uint8_t)(md[MD_AVEL] ? md[MD_AVEL] : mout_curve((uint32_t)(v * 127.0f + 0.5f)));
     ma.due_leg = md[MD_AGATE] >= MD_LEGATO;
     ma.due_at = now + (late > into ? (uint32_t)((late - into) * ms + 0.5f) : 0u);
@@ -201,7 +216,7 @@ static void md_off(void)                 /* the sequence's note let go */
 }
 static void md_on(int note, uint32_t vel)
 {
-    note = note < 0 ? 0 : note > 127 ? 127 : note;
+    note = lk_note(LK_MIDI, note < 0 ? 0 : note > 127 ? 127 : note);   /* (TRACKS LINK on MIDI: card #212) */
     if (!mout_room(MO_ROOM_NOTE))
         return;
     vel = mout_curve(vel);
@@ -310,15 +325,40 @@ static void md_run(void)
 }
 
 /* ----------------------------------------------------------- keys --- */
-/* a key down on MIDI: 1 its arpeggio's (nothing out now: its steps), 0 played through (KEYS; SEQ: RECORD OFF, or
- * written into the sequence, STEP or LIVE, as it sounds) */
-static int md_key_down(uint32_t k, int note, uint32_t vel)
+/* what a key on MIDI sends, as GLINT's keys (KEYS on MIDI, card #194: engine/core.c key_notes): HARMONY OFF, the note
+ * as played; SINGLE NOTE (or SEL held, or MIDI on its SEQ: its steps one note each), the scale's note at or below it;
+ * CHORD, HARMONY's chord on it (ROOT, SCALE, CHORD, VOICING: the drones'), its root first */
+static void md_key_notes(int note, int single, chord_t *c)
 {
+    touch_t t;
+    int root;
+    t.harm = md[MD_KHARM];
+    t.chord = md[MD_KNOTES];
+    t.latch = t.stack = 0;
+    key_notes(1u, t, note, single || md[MD_TYPE] == SQT_SEQ, c, &root);
+}
+#if FRS_LEAD
+/* ... and the LEAD's (card #194): its chords on POLY alone (MONO, one voice: the scale's note) */
+static void md_lead_notes(int note, int single, chord_t *c)
+{
+    touch_t t;
+    int root;
+    t.harm = md[MD_LHARM];
+    t.chord = md[MD_LNOTES];
+    t.latch = t.stack = 0;
+    key_notes(1u, t, note, single || !st.v[P_LD_MODE], c, &root);
+}
+#endif
+/* a key down on MIDI, c its notes (md_key_notes): 1 its arpeggio's (each note into it,
+ * nothing out now: its steps), 0 played through (KEYS; SEQ: RECORD OFF, or its one note written into the sequence,
+ * STEP or LIVE, as it sounds) */
+static int md_key_down(uint32_t k, const chord_t *c, uint32_t vel)
+{
+    int note = c->n[0];
     uint8_t b = (uint8_t)((note < 1 ? 1 : note > 126 ? 126 : note) | (vel >= 100u ? SQ_ACC : 0u));
     if (md[MD_TYPE] == SQT_ARP) {
         key[k].kind = K_MIDI;
-        key[k].chord.k = 1;
-        key[k].chord.n[0] = (int8_t)(note < 0 ? 0 : note > 127 ? 127 : note);
+        key[k].chord = *c;
         arp_key(&marp, k, K_MIDI, 0, vel);
         return 1;
     }
@@ -351,21 +391,33 @@ static int md_key_down(uint32_t k, int note, uint32_t vel)
     st.dirty = 1;
     return 0;
 }
-static void md_key_up(uint32_t k, int arp_note)   /* (arp_note: its arpeggio's, else -1) */
+static int md_held(uint32_t but, int n)  /* a key down on MIDI's arpeggio, but this one, has note n */
 {
-    if (arp_note >= 0 && !marp.latch)
-        arp_remove(&marp, arp_note);
+    uint32_t k, j;
+    for (k = 0; k < FRS_NKEYS; k++)
+        if (k != but && key[k].kind == K_MIDI)
+            for (j = 0; j < key[k].chord.k; j++)
+                if (key[k].chord.n[j] == n)
+                    return 1;
+    return 0;
+}
+static void md_key_up(uint32_t k, int arp)   /* (arp: it went into the arpeggio, its notes key[k].chord's) */
+{
+    uint32_t j;
+    if (arp && !marp.latch)
+        for (j = 0; j < key[k].chord.k; j++)
+            if (!md_held(k, key[k].chord.n[j]))   /* (another key still on it: it stays) */
+                arp_remove(&marp, key[k].chord.n[j]);
+    if (arp)
+        key[k].kind = K_NONE;
     if (msq.tq >= 0 && msq.tk == k)
         md_take_end();
 }
-static void md_keep_held(void)           /* LATCH off: the arpeggio keeps the keys still down */
+static void md_keep_held(void)           /* LATCH off: the arpeggio keeps the keys still down (each note of theirs) */
 {
-    uint32_t i = 0, k;
+    uint32_t i = 0;
     while (i < marp.n) {
-        int down = 0;
-        for (k = 0; k < FRS_NKEYS; k++)
-            down |= key[k].kind == K_MIDI && key[k].chord.n[0] == marp.held[i];
-        if (down)
+        if (md_held(FRS_NKEYS, marp.held[i]))
             i++;
         else
             arp_remove(&marp, marp.held[i]);
@@ -440,9 +492,17 @@ static void md_turn(uint32_t i, int32_t d, int32_t accel_d)
             if (!marp.latch)
                 md_keep_held();
         }
+        if ((i == MD_KNOTES || i == MD_LNOTES) && d > 0 && !md[i - 1u])   /* (to CHORD with HARMONY OFF: HARMONY on
+                                                                          * too, as KEYS' K2) */
+            md[i - 1u] = 1;
     }
-    if (i != MD_STEP && i != MD_UNDO)
+    if (i >= MD_KHARM) {                 /* (KEYS, MIDI's and the LEAD's: the device's, kept with the settings,
+                                          * md_dev_save) */
+        if (!fm.prefs_due)
+            fm.prefs_due = 1;
+    } else if (i != MD_STEP && i != MD_UNDO) {
         st.dirty = 1;
+    }
     md_view();
     msq.at = plat_ms() | 1u;
     msq.at_i = (uint8_t)i;
@@ -502,7 +562,10 @@ static int md_clear(void)                /* OCT- and REC on its SEQ pages: 1 cle
 
 /* ------------------------------------------------------ a scene's --- */
 /* OBJ_MSEQ: its magic, the device's RETURN (bit 7 set: 0 .. 100; none, 100 %: the settings' record has no byte left),
- * three bytes spare, then each slot's entry: its scene record's sum (rec_sum of OBJ_SCENES' record, as stored with it),
+ * the device's KEYS on MIDI and on the LEAD (card #194: bit 7 set, MIDI's HARMONY bit 0, NOTES bit 1, the LEAD's bits 2,
+ * 3; none, 3.3.1's 0: OFF, SINGLE NOTE, as they played before), the device's LEAD CH (card #228: bit 7 set, 1 .. 17;
+ * 0, as 3.4 and every FRASIL before it leave the byte, OFF, LD_CH_DEF, and so written when it is: the object byte for
+ * byte as theirs; an earlier FRASIL reads nothing of it and writes it back as it found it), a byte spare, then each slot's entry: its scene record's sum (rec_sum of OBJ_SCENES' record, as stored with it),
  * its MD_KEPT settings, the arpeggio's own (card #172: each one up, 0 none: 3.3.1's padding, their defaults), its SC_SEQ
  * steps. An entry whose sum is not the slot's record's (the scene stored since by another FRASIL, the River, a
  * restore): none, MIDI's defaults */
@@ -517,6 +580,21 @@ static int md_read(uint8_t *b)
     return plat_store_load(OBJ_MSEQ, b, MDQ_BYTES) == (int)MDQ_BYTES && rd32(b) == MDQ_MAGIC;
 }
 static uint8_t md_ret_saved = 0xFFu;      /* (RETURN as OBJ_MSEQ has it: md_dev_save writes it only when it changed) */
+static uint8_t md_keys_saved = 0xFFu;     /* (... and KEYS) */
+static uint8_t md_keys_byte(void)
+{
+    return (uint8_t)(0x80u | (md[MD_KHARM] & 1u) | (md[MD_KNOTES] & 1u) << 1 | (md[MD_LHARM] & 1u) << 2 |
+                     (md[MD_LNOTES] & 1u) << 3);
+}
+static uint8_t md_ldch_saved = 0xFFu;     /* (... and LEAD CH) */
+static uint8_t md_ldch_byte(void)
+{
+#if FRS_LEAD
+    return (uint8_t)(st.ldch == LD_CH_DEF ? 0u : 0x80u | st.ldch);
+#else
+    return 0;
+#endif
+}
 static void md_fresh(uint8_t *b)         /* none yet: every slot's none, RETURN 100 % */
 {
     memset(b, 0, MDQ_BYTES);
@@ -525,22 +603,40 @@ static void md_fresh(uint8_t *b)         /* none yet: every slot's none, RETURN 
     b[2] = (uint8_t)(MDQ_MAGIC >> 16);
     b[3] = (uint8_t)(MDQ_MAGIC >> 24);
 }
-static void md_dev_load(void)            /* RETURN, at power-on and after a restore */
+static void md_dev_load(void)            /* RETURN, KEYS and LEAD CH, at power-on and after a restore */
 {
     uint8_t b[MDQ_BYTES];
-    mout.ret = md_read(b) && b[4] & 0x80u && (b[4] & 127u) <= 100u ? b[4] & 127u : 100u;
+    int ok = md_read(b);
+    mout.ret = ok && b[4] & 0x80u && (b[4] & 127u) <= 100u ? b[4] & 127u : 100u;
+    md[MD_KHARM] = (uint8_t)(ok && b[5] & 0x80u ? b[5] & 1u : 0u);
+    md[MD_KNOTES] = (uint8_t)(ok && b[5] & 0x80u ? b[5] >> 1 & 1u : 0u);
+    md[MD_LHARM] = (uint8_t)(ok && b[5] & 0x80u ? b[5] >> 2 & 1u : 0u);
+    md[MD_LNOTES] = (uint8_t)(ok && b[5] & 0x80u ? b[5] >> 3 & 1u : 0u);
+#if FRS_LEAD
+    ld_midi_set(ok && b[6] & 0x80u && (b[6] & 127u) <= 17u ? b[6] & 127u : LD_CH_DEF,   /* (LEAD CH, card #228; none:
+                                          * OFF) and its chords, the LEAD's KEYS' */
+                (uint32_t)(md[MD_LHARM] && md[MD_LNOTES]));
+#endif
     md_ret_saved = mout.ret;
+    md_keys_saved = md_keys_byte();
+    md_ldch_saved = md_ldch_byte();
 }
-static void md_dev_save(void)            /* RETURN kept (with the settings, once nothing sounds): only if it changed */
+static void md_dev_save(void)            /* RETURN, KEYS and LEAD CH kept (with the settings, once nothing sounds): only if
+                                          * they changed */
 {
     uint8_t b[MDQ_BYTES];
-    if (mout.ret == md_ret_saved)
+    if (mout.ret == md_ret_saved && md_keys_byte() == md_keys_saved && md_ldch_byte() == md_ldch_saved)
         return;
     if (!md_read(b))
         md_fresh(b);
     b[4] = (uint8_t)(0x80u | mout.ret);
-    if (plat_store_save(OBJ_MSEQ, b, MDQ_BYTES) == 0)
+    b[5] = md_keys_byte();
+    b[6] = md_ldch_byte();
+    if (plat_store_save(OBJ_MSEQ, b, MDQ_BYTES) == 0) {
         md_ret_saved = mout.ret;
+        md_keys_saved = b[5];
+        md_ldch_saved = b[6];
+    }
 }
 static void md_load(uint32_t s)          /* slot s's (none, NEW SHARD, a factory scene: the defaults) */
 {
@@ -576,6 +672,8 @@ static int md_save(uint32_t s)           /* MIDI's now into slot s's entry: 0 wr
     if (!md_read(b))                     /* (none yet: every other slot's none) */
         md_fresh(b);
     b[4] = (uint8_t)(0x80u | mout.ret);
+    b[5] = md_keys_byte();
+    b[6] = md_ldch_byte();
     memset(e, 0, MDQ_ENTRY);
     for (i = 0; i < 4u; i++)
         e[i] = (uint8_t)(sum >> (8u * i));
@@ -584,8 +682,11 @@ static int md_save(uint32_t s)           /* MIDI's now into slot s's entry: 0 wr
         e[4u + MD_KEPT + i] = (uint8_t)(md[MD_AGATE + i] + 1u);
     memcpy(e + 16u, mseq, SC_SEQ);
     r = plat_store_save(OBJ_MSEQ, b, MDQ_BYTES);
-    if (r == 0)
+    if (r == 0) {
         md_ret_saved = mout.ret;
+        md_keys_saved = b[5];
+        md_ldch_saved = b[6];
+    }
     return r;
 }
 
@@ -629,6 +730,58 @@ static void md_clock(void)
         n++;
     }
     mck.g = g;
+}
+
+/* ------------------------------------------------- MIDI's transport --- */
+/* MIDI's track with the others (card #204, TRANSPORT FOLLOW: core.c eng_transport): Start, its sequence from its top
+ * (card #169); Stop, stopped, its arpeggio waiting; Continue, its sequence where the song is (core.c seqs_at's way: had
+ * it played from the Start), as a Song Position that put the grid elsewhere (jumped) puts it playing; the arpeggio the
+ * Stop held on again with Start or Continue. A jump: the clock out and the arpeggio from the grid as it is now (no burst
+ * of clocks, its pattern from the top) */
+static uint8_t md_xp_arp;                /* (its arpeggio set waiting by the Stop) */
+static void md_at(uint32_t c)            /* at the song's place c (its step under way silent till the next, but on its
+                                          * start) */
+{
+    uint32_t k = ARP_TICKS[md[MD_RATE] % 10u];
+    md_take_end();
+    md_off();
+    msq.run = 1;
+    msq.wait = 0;
+    msq.skip = -1;
+    msq.g = grid.tick;
+    msq.pos = (int8_t)(c / k % md_len());
+    msq.t = (float)(c % k);
+    msq.abs = 0.0f;
+    if (c % k == 0u)
+        md_step(msq.pos);
+}
+static void md_xport(uint32_t s, int jumped)
+{
+    uint32_t k = ARP_TICKS[md[MD_RATE] % 10u], g = (uint32_t)grid.tick;
+    if (st.v[P_CLOCK] || st.v[P_TRANSPORT])
+        return;
+    if (jumped) {
+        mck.g = grid.tick;
+        marp.step_n = (int32_t)(g / k) - (g % k == 0u);
+        marp.idx = -1;
+    }
+    if (s == 0xFCu) {
+        md_stop();
+        if (md[MD_TYPE] == SQT_ARP && !marp.paused) {
+            arp_wait(&marp, 1);
+            md_xp_arp = 1;
+        }
+        return;
+    }
+    if (md[MD_TYPE] == SQT_SEQ && s == 0xFAu)
+        md_begin(2);
+    else if (md[MD_TYPE] == SQT_SEQ && (s == 0xFBu ? jumped || !msq.run : jumped && msq.run))
+        md_at(grid_song());
+    if (s != 0xF2u && md_xp_arp) {
+        if (marp.paused)
+            arp_wait(&marp, 0);
+        md_xp_arp = 0;
+    }
 }
 
 /* every pass, after the engine's (the grid moved): the arpeggio (its steps, then its notes out on their time), the

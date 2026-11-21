@@ -5,6 +5,18 @@
  * loop's pass), so that the same MIDI at the same milliseconds renders the same samples. The sound, the DSP's units,
  * compiled beside it. */
 #include "frasil_engine.h"
+#if FRS_MIDI_OUT                         /* NOTES OUT (card #201: mout.c no_*, as the FM-1's app.c nout_*): the brain's own
+                                          * notes told as it strikes them, by who struck them (SPARKLE's two places) */
+enum { GEN_ARP, GEN_SEQ, GEN_SPK, GEN_SPK2, GEN_BASS, NGEN };
+static void no_note(uint32_t at, int note, float v);
+static void no_cut(uint32_t tracks);
+static void no_pulse(float ms);
+static void no_move(void);
+#define GEN_NOTE(at, note, v) no_note((uint32_t)(at), note, v)
+#define GEN_CUT(tracks) no_cut(tracks)
+#define GEN_PULSE(ms) no_pulse(ms)
+#define GEN_MOVE() no_move()             /* (TRACKS LINK's bass retuned, card #212) */
+#endif
 #include "core.c"
 #include "dsp.h"                         /* (BR_FS_MAX, BR_FS_CONST) */
 
@@ -53,6 +65,18 @@ static void eng_setting(int p, int32_t x)   /* (SPK/JACK, ANIMATIONS: the FM-1's
     (void)p;
     (void)x;
 }
+
+#if FRS_MIDI_OUT                         /* MIDI OUT, the fifth track (card #192: mout.c, included last) */
+static void mo_pass(void);
+static void mo_all_stop(void);
+static void mo_play_all(int on);
+static void mo_init(void);
+static void mo_skipped(void);
+static void mo_skip_begin(void);
+static void mo_skip_end(void);
+static uint8_t mo_skip;                  /* (frs_skip_to under way: nothing out but what lets go) */
+static uint32_t mo_jumps;                /* (core.c's grid_jumps as MIDI OUT last followed them) */
+#endif
 
 /* ----------------------------------------------------------- the tracks --- */
 /* a track stopped by frs_track_play, a moment: the drones' latched chords let go and kept (by root; lat[] keeps their
@@ -550,6 +574,19 @@ static double due_ms, block_ms;          /* the next block's time; a block's len
 static uint64_t out_frames;              /* the frames rendered out so far */
 static int32_t blk[2u * FRS_BLOCK];
 static uint32_t blk_at = FRS_BLOCK;      /* the frames of blk read out */
+static float cin[2][FRS_BLOCK];          /* an outside input into the cloud (frs_render_in), gathered as blk goes out:
+                                          * the next block's; zeros where none came */
+static int cin_has;                      /* some gathered (none: the block rendered as frs_render's) */
+
+static void blk_drop(void)               /* the block out dropped, the next rendered at the next frame; the input
+                                          * gathered for it with it */
+{
+    blk_at = FRS_BLOCK;
+    if (cin_has) {
+        memset(cin, 0, sizeof cin);
+        cin_has = 0;
+    }
+}
 static float out_gain = 1.0f;
 static uint8_t swell_held, open_now;
 static scene_t taken_sc;                 /* the scene given last (taken, played, stored): RESTORE's notes */
@@ -559,19 +596,40 @@ static struct {                          /* the host's tempo and transport (frs_
     uint8_t on, playing, was;            /* a tempo given; playing; playing at the last tick */
     int64_t clocks;                      /* the MIDI clocks sent for it since it began */
 } host;
+static uint8_t host_song;                /* frs_host_song: its start or locate at its place, its stop a Stop */
 
 static void snap_write(void), snap_none(void);   /* (frs_snapshot's, below) */
 static void fe_count_hush(void), play_all(void);   /* (COUNT-IN's, by frs_play_all, frs_record_layer) */
 
+/* the host starting or locating between its song's clocks c and c + 1: MIDI's Start; SONG POSITION (frs_host_song,
+ * card #219), MIDI's Song Position there then Continue (card #204's eng_transport), the grid past clock c as a Start's
+ * is once the clock at 0 is in */
+static void host_start(int64_t c)
+{
+    if (!host_song || c < 0 || c >= 0xFFFFFFFFll) {   /* (a count-in, a start on its beat 0 (the first millisecond's,
+                                                        * just before it), past 2^32 clocks: Start) */
+        eng_midi(0xFAu << 8);
+        return;
+    }
+    if (st.v[P_TRANSPORT])               /* (TEMPO ONLY: no transport, a Start neither, as eng_midi's) */
+        return;
+    xp.at = (uint32_t)c + 1u;
+    xp.cued = 1;
+    eng_transport(0xFBu, 0);
+}
+
 /* the host's clocks due at this millisecond, as MIDI's: Start as it begins, or as it locates (more than two clocks
- * either way: no burst of clocks to catch up, each a period of nothing to the tempo the clocks make); then a clock each
- * 24th of a beat. The clocks' period and the last one's time from the host's beat, in place of what the clocks make of
- * them: its tempo at once, and between clocks the grid where the host is */
+ * either way: no burst of clocks to catch up, each a period of nothing to the tempo the clocks make; host_start); then
+ * a clock each 24th of a beat. The clocks' period and the last one's time from the host's beat, in place of what the
+ * clocks make of them: its tempo at once, and between clocks the grid where the host is. SONG POSITION: its stop a
+ * Stop */
 static void host_clock(void)
 {
     double b, ms;
     int64_t c;
     if (!host.on || !host.playing || st.v[P_CLOCK]) {   /* (CLOCK INTERNAL: TEMPO's grid, a host's as a clock's) */
+        if (host.was && host_song && !st.v[P_CLOCK])   /* (SONG POSITION: its stop a Stop) */
+            eng_midi(0xFCu << 8);
         host.was = 0;
         return;
     }
@@ -581,7 +639,7 @@ static void host_clock(void)
     if ((double)c > b)
         c--;
     if (!host.was || c < host.clocks - 2 || c > host.clocks + 2) {
-        eng_midi(0xFAu << 8);
+        host_start(c);
         host.clocks = c;
     }
     for (; host.clocks < c; host.clocks++)
@@ -628,6 +686,14 @@ static void eng_tick(void)
     tr_hold();                           /* (a Start, the host's: a stopped track stays so) */
     eng_moves();
     seq_origins();
+#if FRS_MIDI_OUT
+    if (mo_jumps != grid_jumps) {        /* (the grid put elsewhere by MIDI's Continue or Song Position, card #204: its
+                                          * clock and sequence from there, no burst catching up) */
+        mo_jumps = grid_jumps;
+        mo_skipped();
+    }
+    mo_pass();                           /* (MIDI OUT's arpeggio, sequence and clock, on the grid as it is now) */
+#endif
     eng_swell(swell_held);
     if (st.engine_dirty)
         engine_push();
@@ -658,7 +724,12 @@ static void next_block(int32_t *lr)
         eng_tick();
         now64++;
     }
+    frasil_cloud_in(cin_has ? cin[0] : 0, cin_has ? cin[1] : 0);
     frasil_render(lr, FRS_BLOCK, out_gain);
+    if (cin_has) {
+        memset(cin, 0, sizeof cin);
+        cin_has = 0;
+    }
     out_levels(lr);
     due_ms += block_ms;
     snap_write();
@@ -667,14 +738,20 @@ static void next_block(int32_t *lr)
 /* the brain alone to the millisecond ms, nothing rendered: frs_skip_to's */
 void frs_skip_to(uint64_t ms)
 {
+#if FRS_MIDI_OUT
+    mo_skip_begin();
+#endif
     while (now64 < ms) {
         eng_tick();
         now64++;
         frasil_skip(1u);
     }
+#if FRS_MIDI_OUT
+    mo_skip_end();                       /* (CLOCK OUT's transport as it is here, told) */
+#endif
     frasil_skip_done();
     due_ms = (double)now64;
-    blk_at = FRS_BLOCK;
+    blk_drop();
     out_frames = (uint64_t)((double)now64 * (double)FRASIL_FS / 1000.0);
 }
 
@@ -693,14 +770,18 @@ int frs_init(float fs)
 #endif
     tick_fn = 0;
     now64 = 0;                           /* (as the FM-1 boots: at 0, its first millisecond 1) */
+#if FRS_MIDI_OUT
+    mo_init();
+#endif
     due_ms = 0.0;
     block_ms = (double)FRS_BLOCK * 1000.0 / (double)fs;
     out_frames = 0;
-    blk_at = FRS_BLOCK;
+    blk_drop();
     mq_r = mq_w = 0;
     swell_held = trying = 0;
     count_stop();
     memset(&host, 0, sizeof host);
+    host_song = 0;
     out_pk[0] = out_pk[1] = out_ms[0] = out_ms[1] = 0.0f;
     tr_reset();
     memset(fingers, 0, sizeof fingers);
@@ -765,6 +846,9 @@ uint32_t frs_ms_after(uint32_t frames)
 
 void frs_panic(void)
 {
+#if FRS_MIDI_OUT
+    mo_all_stop();                       /* (every note MIDI OUT sent: ended, before its keys are forgotten) */
+#endif
     count_stop();
     tr_reset();
     fingers_forget();                    /* HOLD's: nothing held */
@@ -772,6 +856,9 @@ void frs_panic(void)
     audition_stop();                     /* every note let go (the drones, MIDI's, the bass, the glints), the arpeggio
                                           * and the sequences stopped */
     memset(key, 0, sizeof key);          /* (keys down: theirs no more) */
+#if FRS_LEAD
+    ldm_forget();                        /* (the LEAD's MIDI notes too, card #228: no key of theirs to forget) */
+#endif
     st.sustain = 0;
 #if BR_FS_CONST
     frasil_panic();
@@ -782,6 +869,9 @@ void frs_panic(void)
 
 void frs_cut(void)
 {
+#if FRS_MIDI_OUT
+    mo_all_stop();
+#endif
     count_stop();
     eng_holds_release();                 /* (the fingers' notes let go first: RESTORE never has them) */
     fingers_forget();
@@ -816,6 +906,9 @@ void frs_cut_stop(void)
     static arp_t a, b;
     uint8_t rv = rst_valid;
     uint32_t t;
+#if FRS_MIDI_OUT
+    mo_all_stop();
+#endif
     count_stop();
     eng_holds_release();
     fingers_forget();
@@ -849,17 +942,33 @@ void frs_render_i24(int32_t *lr, uint32_t n)
 
 void frs_render(float *left, float *right, uint32_t n)
 {
+    frs_render_in(0, 0, left, right, n);
+}
+
+void frs_render_in(const float *in_l, const float *in_r, float *left, float *right, uint32_t n)
+{
     uint32_t i;
     for (i = 0; i < n; i++) {
         if (blk_at == FRS_BLOCK) {
             next_block(blk);
             blk_at = 0;
         }
+        if (in_l && in_r) {              /* (the next block's, a frame for a frame out: FRS_BLOCK frames late; read
+                                          * first: a host's buffer may be both its input and its output) */
+            cin[0][blk_at] = in_l[i];
+            cin[1][blk_at] = in_r[i];
+            cin_has = 1;
+        }
         left[i] = (float)blk[2u * blk_at] * (1.0f / 8388608.0f);
         right[i] = (float)blk[2u * blk_at + 1u] * (1.0f / 8388608.0f);
         blk_at++;
     }
     out_frames += n;
+}
+
+void frs_cloud_clear(void)
+{
+    frasil_cloud_clear();
 }
 
 /* -------------------------------------------------------------- settings --- */
@@ -922,12 +1031,22 @@ void frs_param_text(uint32_t p, uint32_t x, char *out)
         value_text((int)p, (uint8_t)(x > PD[p].max ? PD[p].max : x), out);
 }
 
-/* the engine's state beside a scene (core.c state_save: "FRst", its version, then pairs; STATE_METRO the metronome) */
+/* the engine's state beside a scene (core.c state_save: "FRst", its version, then pairs; STATE_MORPH MORPH's mark,
+ * STATE_METRO the metronome, STATE_ASHAPE ATTACK SHAPE's LINEs, STATE_LDCH LEAD CH, STATE_LINK TRACKS LINK's tracks,
+ * STATE_LKREF its note followed, STATE_LKBASE's each track's baseline) */
 uint32_t frs_state_save(uint8_t *out) { return state_save(out); }
-_Static_assert(5u + 2u * 20u <= FRS_STATE_BYTES, "the state fits FRS_STATE_BYTES (its 19 settings and the metronome)");
+_Static_assert(5u + 2u * 29u <= FRS_STATE_BYTES, "the state fits FRS_STATE_BYTES (its 20 settings, TRANSPORT's with "
+                                                 "them, MORPH's mark, the metronome, ATTACK SHAPE's, LEAD CH's and "
+                                                 "TRACKS LINK's pairs, its three baselines at most)");
+
+/* TRACKS LINK (card #212: core.c link_set) */
+_Static_assert(FRS_LINK_DRONE == LK_DRONE && FRS_LINK_BASS == LK_BASS && FRS_LINK_GLINT == LK_GLINT &&
+               FRS_LINK_MIDI == LK_MIDI && FRS_LINK_FOLLOW_BASS == 16u, "frasil_engine.h's TRACKS LINK is core.c's");
+void frs_link_set(uint32_t follow, uint32_t tracks) { link_set(follow, tracks); }
+uint32_t frs_link_get(void) { return lk.bits | (uint32_t)lk.follow << 4; }
 
 uint32_t frs_lfo_targets(void) { return NLFO_TGT - 1u; }
-int frs_lfo_target(uint32_t t) { return t >= 1u && t < NLFO_TGT ? (int)LFO_TGT[t] : -1; }
+int frs_lfo_target(uint32_t t) { return t >= 1u && t < NLFO_TGT && LFO_TGT[t] < NPARAM ? (int)LFO_TGT[t] : -1; }
 
 uint32_t frs_tracks_bits(uint32_t tracks)
 {
@@ -937,16 +1056,70 @@ uint32_t frs_tracks_bits(uint32_t tracks)
     return TRK[tracks % 7u];
 }
 
+static int state_is(const uint8_t *in, uint32_t n)   /* "FRst", a version this engine reads */
+{
+    return n >= 5u && in[0] == 'F' && in[1] == 'R' && in[2] == 's' && in[3] == 't' && in[4] >= 1u && in[4] <= STATE_V;
+}
+static int state_lk(uint32_t p)          /* (a pair of TRACKS LINK's) */
+{
+    return p == STATE_LINK || p == STATE_LKREF || (p >= STATE_LKBASE && p < STATE_LKBASE + LK_N);
+}
+/* TRACKS LINK's pairs of a state (card #212: its tracks, the note followed, each track's baseline) into the engine: a
+ * state without the first, none linked, the one followed as it was; without the note, from what that one holds; without
+ * a baseline, none (the next note followed). whole: the state's alone (frs_state_link); else told along (frs_state_load:
+ * a track moved here already and without one, FOLLOW turned, keeps its offset as the engine that told it: core.c
+ * link_set_at) */
+static void state_link(const uint8_t *in, uint32_t n, int whole)
+{
+    uint32_t i, link = 0;
+    int ref = -1;
+    int8_t base[LK_N] = {-1, -1, -1, -1};
+    for (i = 5; i + 1u < n; i += 2u) {
+        uint32_t p = in[i], x = in[i + 1u];
+        if (p == STATE_LINK)
+            link = x;
+        else if (p == STATE_LKREF)
+            ref = x < 128u ? (int)x : -1;
+        else if (p >= STATE_LKBASE && p < STATE_LKBASE + LK_N)
+            base[p - STATE_LKBASE] = (int8_t)(x < 128u ? (int)x : -1);
+    }
+    link_set_at(link & LK_ALL ? link >> 4 & 1u : lk.follow, link & LK_ALL, ref, base, whole);
+}
+int frs_state_link(const uint8_t *in, uint32_t n)
+{
+    if (!state_is(in, n))
+        return -1;
+    state_link(in, n, 1);
+    return 0;
+}
+
 int frs_state_load(const uint8_t *in, uint32_t n)
 {
-    uint32_t i;
+    uint32_t i, ash = 0, ldm = LD_CH_DEF;
     keymode_gone = latch_gone = 0;
-    if (n < 5u || in[0] != 'F' || in[1] != 'R' || in[2] != 's' || in[3] != 't' || in[4] < 1u || in[4] > STATE_V)
+    if (!state_is(in, n))
         return -1;
     for (i = 5; i + 1u < n; i += 2u) {
         uint32_t p = in[i], x = in[i + 1u];
+        if (p == STATE_ASHAPE) {         /* (ATTACK SHAPE's LINEs, card #122: below) */
+            ash = x & ASH_ALL;
+            continue;
+        }
+#if FRS_LEAD
+        if (p == STATE_LDCH) {           /* (LEAD CH and its chords, card #228: below) */
+            ldm = x;
+            continue;
+        }
+#endif
+        if (state_lk(p))                 /* (TRACKS LINK's, card #212: below) */
+            continue;
         if (p == STATE_METRO) {
             st.metro = (uint8_t)(x != 0u);
+            continue;
+        }
+        if (p == STATE_MORPH) {          /* (a scene's MORPH as card #202 makes it; a state without it leaves it as it is:
+                                          * a stream's, fst_fresh's frs_morph_331 before it) */
+            morph_331 = (uint8_t)(x == 0u);
             continue;
         }
         if (in[4] == 1u && p >= 130u)    /* (2.0's: KEY MODE 130, the MIDI channels, LOAD: 2.5's 23 higher) */
@@ -957,6 +1130,20 @@ int frs_state_load(const uint8_t *in, uint32_t n)
             param_set((int)p, (int32_t)x);   /* (clamped; KEY MODE turned lets the notes go, as the FM-1's does; a
                                               * state before 3.0's: KEY MODE read in as the drones' and the bass's LATCH) */
     }
+    if (st.ashape != ash) {              /* (ATTACK SHAPE's: a state without the pair, an engine's before or every one
+                                          * CURVE, each CURVE) */
+        st.ashape = (uint8_t)ash;
+        st.engine_dirty = 1;
+    }
+#if FRS_LEAD
+    ld_midi_set(ldm & (LDCH_CHORD - 1u), ldm & LDCH_CHORD);   /* (LEAD CH's: a state without the pair, OFF, no
+                                          * chord) */
+#else
+    (void)ldm;
+#endif
+    state_link(in, n, 0);                /* (TRACKS LINK's: a state without the pair, an engine's before or none
+                                          * linked, none, the one followed as it was; without its note, from what that
+                                          * one holds; without a baseline, none) */
     tr_keys();
     tr_sync();
     return 0;
@@ -1103,7 +1290,7 @@ int frs_live_load(const uint8_t *in, uint32_t n, const uint8_t *scene)
      * FM-1's: from this one) */
     now64 = ms;
     due_ms = (double)ms + (alone_frac > 0.0 && alone_frac < 2.0 * block_ms ? alone_frac : 0.0);
-    blk_at = FRS_BLOCK;
+    blk_drop();
     return 0;
 }
 
@@ -1126,6 +1313,23 @@ void frs_key_pressure(uint32_t k, uint32_t p)
 {
     if (k < FRS_NKEYS && key[k].kind != K_NONE)
         key_pressure(k, (uint8_t)(p > 127u ? 127u : p));
+}
+
+/* the notes a key makes on the LEAD or MIDI (card #194: the FM-1's app/mseq.c md_key_notes, md_lead_notes) */
+_Static_assert(FRS_CHORD_MAX == MAXCHORD, "frs_key_notes' notes, a chord's at most");
+uint32_t frs_key_notes(int note, uint32_t harm, uint32_t chord, uint8_t *out)
+{
+    chord_t c;
+    touch_t t;
+    uint32_t i;
+    int root;
+    t.harm = (uint8_t)(harm != 0u);
+    t.chord = (uint8_t)(chord != 0u);
+    t.latch = t.stack = 0;
+    key_notes(1u, t, note, 0, &c, &root);
+    for (i = 0; i < c.k; i++)
+        out[i] = (uint8_t)c.n[i];
+    return c.k;
 }
 
 /* HARMONY's CHORD for one call as `chord` says (FRS_CHORD_HARMONY: as it is; SINGLE: VOICING CLOSE too, as a single
@@ -1233,7 +1437,7 @@ static void glint_rec(uint32_t n, int down)
     bit_put(hold_rec[0], (int)n, 0);
     bit_put(hold_k, b, 0);
     if (sq.sounding != b && !ring_has(b))   /* (the step's own note sounds on) */
-        frasil_glint_off(b);
+        gl_off(b);
 }
 
 static int rec_finger(int p)            /* the bass's held note p (as played) went into the take at its down */
@@ -1330,10 +1534,10 @@ void frs_hold(uint32_t track, uint32_t note, int down, int chord)
     if (track == 1u && (hold_g[n] >= 0 || (down && b >= 1 && tr.stop[1] && st.v[P_SQ_TYPE] == SQT_ARP))) {
         if (down && hold_g[n] < 0) {     /* (GLINT's arpeggio stopped: the glint itself while down, the arpeggio
                                           * waiting on) */
-            frasil_glint_on(b, 100.0f / 127.0f);
+            gl_on(b, 100.0f / 127.0f);
             hold_g[n] = (int8_t)b;
         } else if (!down) {
-            frasil_glint_off(hold_g[n]); /* (the glint struck, whatever OCTAVE is now) */
+            gl_off(hold_g[n]);           /* (the glint struck, whatever OCTAVE is now) */
             hold_g[n] = -1;
         }
         return;
@@ -1433,11 +1637,42 @@ static void fe_count_hush(void)          /* (a sequence or an arpeggio begun mea
 void frs_count_in(int on) { st.v[P_COUNT_IN] = (uint8_t)(on != 0); }
 void frs_overdub(int on) { overdub = (uint8_t)(on != 0); }
 void frs_step_stays(int on) { step_stays = (uint8_t)(on != 0); }
+void frs_tape_302(int on) { tape_302 = (uint8_t)(on != 0); }
+void frs_morph_331(int on) { morph_331 = (uint8_t)(on != 0); }
+
+/* ATTACK SHAPE (card #122: core.c's st.ashape, the state's pair) */
+_Static_assert(FRS_ASH_DRONE == ASH_DRONE && FRS_ASH_GLINT == ASH_GLINT && FRS_ASH_BASS == ASH_BASS &&
+                   FRS_ASH_LEAD == ASH_LEAD && FRS_ASH_LFILT == ASH_LFILT,
+               "ATTACK SHAPE's bits: core.c's");
+void frs_ashape_set(uint32_t bits)
+{
+    uint32_t k;
+    for (k = 0; k < 5u; k++)
+        ashape_set(k, (int)(bits >> k & 1u));
+}
+uint32_t frs_ashape_get(void) { return st.ashape; }
+
+/* LEAD CH (card #228: core.c's st.ldch and st.ldchord, the state's pair) */
+#if FRS_LEAD
+_Static_assert(FRS_LDCH_CHORD == LDCH_CHORD && FRS_LDCH_DEF == LD_CH_DEF, "LEAD CH's: core.c's");
+void frs_lead_midi_set(uint32_t ch, uint32_t chord) { ld_midi_set(ch, chord); }
+uint32_t frs_lead_midi_get(void) { return st.ldch | (st.ldchord ? LDCH_CHORD : 0u); }
+#else
+void frs_lead_midi_set(uint32_t ch, uint32_t chord)
+{
+    (void)ch;
+    (void)chord;
+}
+uint32_t frs_lead_midi_get(void) { return FRS_LDCH_DEF; }
+#endif
 void frs_record_metronome(int on) { st.metro = (uint8_t)(on != 0); }
 
 void frs_play_all(int on)
 {
     uint32_t t;
+#if FRS_MIDI_OUT
+    mo_play_all(on);                     /* (MIDI OUT's sequence from its top with the others, stopped with them) */
+#endif
     if (!on) {
         count_stop();
         for (t = 0; t < 3u; t++)
@@ -1522,6 +1757,7 @@ void frs_host_tempo(double bpm, double beat, int playing)
     host.frame = out_frames;
     host.playing = (uint8_t)(playing != 0);
 }
+void frs_host_song(int on) { host_song = (uint8_t)(on != 0); }
 
 /* the transport keeps something to play again: a stopped track's chords or bass note, GLINT's arpeggio or sequence
  * stopped, the bass's sequence stopped */
@@ -1611,6 +1847,9 @@ void frs_compare(int on)
 
 void frs_release_all(void)
 {
+#if FRS_MIDI_OUT
+    mo_all_stop();
+#endif
     count_stop();
     eng_holds_release();                 /* (the fingers' notes let go first: RESTORE never has them) */
     fingers_forget();
@@ -1659,6 +1898,12 @@ void frs_scene_go(const uint8_t *scene)
         fingers_forget();
     }
     eng_scene_go(&sc);
+}
+
+float frs_morph_progress(void)           /* (core.c's morph_state: the FM-1's frame round its screen, card #225) */
+{
+    float k;
+    return morph_state(&k) ? k : -1.0f;
 }
 
 void frs_scene_stop(void)
@@ -1854,6 +2099,8 @@ void frs_view(frs_view_t *v)
     v->dseq_run = dq.run;
     v->dq_nsnd = dq.nsnd;
     memcpy(v->dq_snd, dq.snd, sizeof v->dq_snd);
+    v->morph = frs_morph_progress();
+    v->ashape = st.ashape;
 #if FRS_LEAD
     {                                    /* the LEAD's voices (card #152: PERFORM's FRAME's lead_view) */
         lead_view_t l;
@@ -1889,6 +2136,7 @@ void frs_live_fx(float *out)
         out[34u + i] = fm_sqrtf(out_ms[i]);
     }
     out[36] = frasil_pump_duck();
+    out[37] = (float)frasil_tape_medium();   /* (LOFI TAPE's MEDIA sounding: card #99) */
 }
 
 /* |1 + mix (H - 1)| in dB at w (radians a sample), H's numerator and denominator in z^-1 (b0 b1 b2, 1 a1 a2) */
@@ -2042,3 +2290,7 @@ void frs_callbacks(void (*say)(void *user, const char *a, const char *b), void (
     program_cb = program;
     cb_user = user;
 }
+
+#if FRS_MIDI_OUT
+#include "mout.c"                        /* MIDI OUT, the fifth track (card #192) */
+#endif

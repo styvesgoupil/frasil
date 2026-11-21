@@ -288,7 +288,7 @@ static void wave(int model, float *s, uint32_t d)
 
 void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
 {
-    float kg, ka, kd, kr, sus, drv, norm, mix, k, trim, kp, kf, mgs, kpe, c1, c2;
+    float kg, ka, la, kd, kr, sus, drv, norm, mix, k, trim, kp, kf, mgs, kpe, c1, c2;
     const float ch_t = (float)CH * BR_INV_FS * br_tk;   /* a chunk's time (TAPE SPEED's) */
     uint32_t c, i;
     if (b.note < 0)
@@ -299,6 +299,8 @@ void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
         kg = tg < 0.002f ? 1.0f : 1.0f - fm_expf(-ch_t * 3.0f / tg);
     }
     ka = 1.0f - fm_expf(-ch_t * 3.0f / (0.005f * fm_powf(1000.0f, p->attack)));
+    la = p->line ? ch_t / (0.005f * fm_powf(1000.0f, p->attack)) : 0.0f;   /* (ATTACK SHAPE's LINE, card #122: the
+                                          * gain's step a chunk, at the top at ATTACK's time) */
     kr = 1.0f - fm_expf(-ch_t * 3.0f / (0.03f * fm_powf(500.0f, p->release)));
     kd = 1.0f - fm_expf(-ch_t * 3.0f / (0.01f * fm_powf(1000.0f, p->decay)));
     sus = p->sustain >= 1.0f ? 1.0f : fm_sqrtf(p->sustain);   /* (the gain is the envelope's square: SUSTAIN a level) */
@@ -351,6 +353,17 @@ void bass_render(float *l, float *r, uint32_t n, const bass_params_t *p)
         b.ts += ch_t;
         if (!b.gate) {
             b.env += (0.0f - b.env) * kr;
+        } else if (!b.dec && la > 0.0f) {   /* LINE: the gain (env's square) straight up to the top, then DECAY (PULSE's
+                                             * strike coming in as the curve's) */
+#if PULSE_RISE
+            float g = b.env * b.env + (b.rise ? la * (float)b.rise * (1.0f / (float)PULSE_RISE) : la);
+#else
+            float g = b.env * b.env + la;
+#endif
+            b.env = g >= 1.0f ? 1.0f : fm_sqrtf(g);
+            b.dec = g >= 1.0f;
+            if (b.dec)
+                b.ts = 0.0f;
         } else if (!b.dec) {
 #if PULSE_RISE
             b.env += (1.0f - b.env) * (b.rise ? ka * (float)b.rise * (1.0f / (float)PULSE_RISE) : ka);

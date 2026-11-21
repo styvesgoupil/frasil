@@ -405,7 +405,8 @@ turn K3 1
 wait 30
 expect latch 1
 gopage 37
-# TEMPO: GLOBAL's K1; MIDI, GLO's second page: each track's channel, the drones 1, GLINT 2, BASS 3; K4 nothing
+# TEMPO: GLOBAL's K1; MIDI, GLO's second page: each track's channel, the drones 1, GLINT 2, BASS 3, the LEAD OFF
+# (K4, LEAD CH: card #228; a setup sending on a channel as before it), the others' untouched by it
 turn K1 2
 wait 30
 expect p156 62
@@ -415,9 +416,16 @@ expect page 38
 expect p155 1
 expect p158 2
 expect p159 3
+expect knob4 304
+expect ldch 0
 turn K4 3
 wait 30
+expect ldch 3
 expect p155 1
+expect p159 3
+turn K4 -3
+wait 30
+expect ldch 0
 # COMPRESSOR, GLO's fourth (MIDI II between: card #169): the compressor off by default; RATIO 4:1, THRESHOLD -30 dB
 # over a chord: it reduces
 tap GLO
@@ -1136,8 +1144,89 @@ turn K4 10
 wait 30
 expect p152 50
 expect p76 100
+# ENV's pages, OCT- held: K1 their ATTACK SHAPE (card #122: the engine's, a bit each, no setting), right LINE, left
+# CURVE, as many detents as one likes; the ATTACK as it was, the octave as it was (OCT- a hand); its cell K1's while
+# OCT- is down (engine/tests/shape: not the scene's). GLINT ADSR, BASS ADSR, DRONE SHAPE, LEAD ADSR, LEAD FILTER: each
+# its own (GLINT 2, BASS 4, the drones 1, the LEAD 8, its filter 16); OCT+ with it (ANCHOR's hands) none
+gopage 11
+wait 30
+expect knob1 49
+expect p49 10
+expect ashape 0
+press OCT-
+turn K1 3
+wait 30
+expect ashape 2
+expect p49 10
+release OCT-
+wait 30
+expect octave -1
+turn K1 2
+wait 30
+expect p49 12
+expect ashape 2
+turn K1 -2
+press OCT-
+turn K1 -1
+release OCT-
+wait 30
+expect ashape 0
+expect p49 10
+gopage 19
+wait 30
+expect knob1 60
+press OCT-
+turn K1 1
+release OCT-
+gopage 20
+wait 30
+expect knob1 12
+press OCT-
+turn K1 1
+release OCT-
+gopage 66
+wait 30
+expect knob1 251
+press OCT-
+turn K1 1
+release OCT-
+gopage 70
+wait 30
+expect knob1 264
+press OCT-
+turn K1 1
+release OCT-
+wait 30
+expect ashape 29
+expect octave -1
+press OCT-
+turn K1 -1
+release OCT-
+gopage 66
+press OCT-
+turn K1 -1
+release OCT-
+gopage 20
+press OCT-
+turn K1 -1
+release OCT-
+gopage 19
+press OCT-
+press OCT+
+turn K1 -1
+release OCT+
+release OCT-
+wait 30
+expect ashape 4
+press OCT-
+turn K1 -1
+release OCT-
+wait 30
+expect ashape 0
+expect octave -1
 gopage 42
 wait 30
+tap HOME
 tap HOME
 tap HOME
 wait 30
@@ -1204,12 +1293,240 @@ midi 80 3C 00
 midi B2 4A 7F
 wait 30
 expect p31 <127
-# channel 4: nothing listens
+# channel 4: nothing listens (LEAD CH OFF at first, card #228: a setup sending on 4 as before it)
 midi 93 3C 64
 wait 50
 expect held 0
 expect bassnote -1
+expect ldmidi 0
+expect leadheld 0
 midi 83 3C 00
+# LEAD CH 4 (GLO › MIDI's K4): channel 4 the LEAD alone (its note as it came, its OCTAVE on it), the others
+# untouched; channel 5: nothing listens
+gopage 38
+wait 30
+turn K4 4
+wait 30
+expect ldch 4
+gopage 0
+wait 30
+midi 93 3C 64
+wait 50
+expect held 0
+expect bassnote -1
+expect ldmidi 1
+expect leadnote 72
+midi 83 3C 00
+wait 50
+expect ldmidi 0
+expect leadheld 0
+midi 94 3C 64
+wait 50
+expect held 0
+expect bassnote -1
+expect ldmidi 0
+expect leadheld 0
+midi 84 3C 00
+# LEAD CH (card #228): MONO, the last note on top, back to the one still held (legato both ways); its velocity
+# as it came; channel pressure and a key's (poly) the LEAD's PRESSURE; the pitch wheel and the mod wheel the LEAD's
+# (the SMK-37's wheels' way); struck again without its off: one note, one off lets it go
+midi 93 3C 50
+wait 50
+expect leadnote 72
+expect leadvel 80
+expect leadgate 1
+midi 93 40 7F
+wait 50
+expect leadnote 76
+expect leadvel 127
+midi D3 50 00
+wait 50
+expect leadprs 63
+midi A3 40 7F
+wait 50
+expect leadprs 100
+midi 83 40 00
+wait 50
+expect leadnote 72
+expect leadgate 1
+expect leadglides 2
+midi E3 00 60
+wait 50
+expect leadbend 100
+midi E3 00 40
+wait 50
+expect leadbend 0
+midi B3 01 7F
+wait 50
+expect leadmod 127
+midi B3 01 00
+wait 50
+expect leadmod 0
+midi 93 3C 64
+wait 50
+expect ldmidi 1
+midi 83 3C 00
+wait 50
+expect ldmidi 0
+expect leadgate 0
+# CC 123 on LEAD CH: its notes off (MONO's two held); on another, not; CC 120 on any: every one
+midi 93 3C 64
+midi 93 40 64
+wait 50
+expect ldmidi 2
+midi B0 7B 00
+wait 50
+expect ldmidi 2
+expect leadgate 1
+midi B3 7B 00
+wait 50
+expect ldmidi 0
+expect leadgate 0
+midi 83 3C 00
+midi 83 40 00
+midi 93 3C 64
+wait 50
+midi B5 78 00
+wait 50
+expect ldmidi 0
+expect leadgate 0
+midi 83 3C 00
+# LEAD CH turned with a note held: let go (its off then on the old channel: nothing); OFF: nothing heard; OMNI: every
+# channel, the tracks' too; back to 4
+gopage 38
+wait 30
+midi 93 3C 64
+wait 50
+expect leadgate 1
+turn K4 1
+wait 50
+expect ldch 5
+expect ldmidi 0
+expect leadgate 0
+midi 83 3C 00
+midi 94 3E 64
+wait 50
+expect leadnote 74
+midi 84 3E 00
+wait 50
+turn K4 -10
+wait 30
+expect ldch 0
+midi 93 3C 64
+midi 94 3C 64
+wait 50
+expect ldmidi 0
+expect leadgate 0
+midi 83 3C 00
+midi 84 3C 00
+turn K4 30
+wait 30
+expect ldch 17
+midi 90 3C 64
+wait 50
+expect held 1
+expect ldmidi 1
+midi 80 3C 00
+midi 9F 3E 64
+wait 50
+expect leadnote 74
+midi 8F 3E 00
+wait 50
+expect ldmidi 0
+turn K4 -13
+wait 30
+expect ldch 4
+gopage 0
+wait 30
+# MODE turned with a note held (MONO to POLY, POLY to MONO): every voice let go, the notes still held; their offs
+# leave none hanging, MONO's top let go back to the one still held
+midi 93 3C 64
+wait 50
+setp 261 1
+wait 50
+expect leadgate 0
+expect ldmidi 1
+midi 83 3C 00
+wait 50
+expect ldmidi 0
+expect leadheld 0
+midi 93 3C 64
+midi 93 40 64
+wait 50
+expect leadheld 2
+setp 261 0
+wait 50
+expect leadheld 0
+midi 83 40 00
+wait 50
+expect leadnote 72
+expect leadheld 1
+midi 83 3C 00
+wait 50
+expect leadheld 0
+expect ldmidi 0
+# POLY: each note a voice; the LEAD's KEYS on CHORD (KEYS, the LEAD selected: HARMONY, NOTES CHORD; md20, md21):
+# HARMONY's chord on each MIDI note (C MAJOR, TRIAD, CLOSE: C#4 falls to C4, C E G), each let go with it; MONO: the
+# note as it came (the chord POLY's alone, as the keys')
+setp 261 1
+wait 30
+midi 93 3C 64
+midi 93 43 64
+wait 50
+expect leadheld 2
+midi 83 3C 00
+wait 50
+expect leadheld 1
+midi 83 43 00
+wait 50
+expect leadheld 0
+setp 33 0
+setp 34 1
+setp 35 2
+setp 36 0
+setp 166 3
+wait 30
+gopage 58
+wait 30
+turn K2 1
+wait 50
+expect md20 1
+expect md21 1
+expect ldchord 1
+midi 93 3D 64
+wait 50
+expect ldmidi 3
+expect leadheld 3
+midi 83 3D 00
+wait 50
+expect ldmidi 0
+expect leadheld 0
+setp 261 0
+wait 30
+midi 93 3D 64
+wait 50
+expect ldmidi 1
+expect leadnote 73
+midi 83 3D 00
+wait 50
+expect leadheld 0
+turn K1 -1
+turn K2 -1
+wait 50
+expect md20 0
+expect md21 0
+expect ldchord 0
+setp 166 0
+setp 33 2
+setp 34 0
+setp 35 0
+gopage 38
+wait 30
+turn K4 -10
+wait 30
+expect ldch 0
+gopage 0
+wait 30
 # scenes: save the sound into slot 8 (an empty one: the factory scenes kept), change it, load slot 8 back
 wait 80
 gopage 43
@@ -4184,7 +4501,11 @@ wait 30
 expect page 51
 turn SELECT 1
 wait 30
+expect page 80
+turn SELECT 1
+wait 30
 expect page 0
+turn SELECT -1
 turn SELECT -1
 turn SELECT -1
 release HOME
@@ -4470,6 +4791,7 @@ tap HOME
 wait 30
 expect page 42
 expect p166 1
+tap HOME
 tap HOME
 tap HOME
 wait 30
@@ -6542,12 +6864,15 @@ setp 217 0
 setp 224 0
 wait 600
 expect metro 1
-# CLOCK (MIDI's K4): AUTO, a MIDI clock coming in leads the grid; INTERNAL, TEMPO's always (clocks and Start coming in
-# not taken); kept with the settings, back on AUTO
+# CLOCK (MIDI II's K4; MIDI's till card #228): AUTO, a MIDI clock coming in leads the grid; INTERNAL, TEMPO's always
+# (clocks and Start coming in not taken); kept with the settings, back on AUTO
 tap HOME
 tap GLO
 tap GLO
+tap GLO
 wait 30
+expect page 78
+expect knob4 182
 expect p182 0
 clock 24
 expect extclock 1
@@ -6569,6 +6894,7 @@ expect p182 1
 clock 24
 expect extclock 0
 tap HOME
+tap GLO
 tap GLO
 tap GLO
 wait 30

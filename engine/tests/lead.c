@@ -155,8 +155,25 @@ static void api(void)
         for (i = 0; i < 22u; i++)
             k &= frs_lfo_target(62u + i) == (int)T[i];
         frs_param_text(P_LD_PRESET, 9, w);
-        check(k && frs_lfo_targets() == 83u && frs_lfo_target(84) == -1 && !strcmp(w, "HONEY"),
-              "its settings FRS_P_SCENE's, LFO TARGET 62 .. 83 its 22, their words (PRESET 9 HONEY)");
+        check(k && frs_lfo_targets() == 89u && frs_lfo_target(84) == P_L1_RATE && frs_lfo_target(90) == -1 &&
+                  !strcmp(w, "HONEY"),
+              "its settings FRS_P_SCENE's, LFO TARGET 62 .. 83 its 22 (84 .. 89 the LFOs'), their words (PRESET 9 HONEY)");
+    }
+    {                                    /* a scene's TARGETs: the LEAD's and the LFOs' kept here, past them none (card #199) */
+        scene_t s;
+        uint8_t was[4];
+        frs_scene_new((uint8_t *)&s);
+        memcpy(was, &s.v[P_L1_T1], 4);
+        s.v[P_L1_T1] = 62u;
+        s.v[P_L1_T2] = 83u;
+        s.v[P_L1_T3] = 84u;
+        s.v[P_L1_T4] = 90u;
+        frs_scene_take((const uint8_t *)&s);
+        check(frs_param_get(P_L1_T1) == 62u && frs_param_get(P_L1_T2) == 83u && frs_param_get(P_L1_T3) == 84u &&
+                  !frs_param_get(P_L1_T4),
+              "a scene's TARGETs 62, 83 (the LEAD's), 84 (LFO 1's RATE) kept; 90 none");
+        memcpy(&s.v[P_L1_T1], was, 4);
+        frs_scene_take((const uint8_t *)&s);
     }
     {                                    /* what sounds (frs_view); PANIC and CUT silence it */
         frs_view_t v;
@@ -234,6 +251,48 @@ static void ops(void)
     check(!fst_op(&lv, FST_PARAM16, pre, 4, 0) && frs_param_get(P_LD_PRESET) == 9u && frs_param_get(P_LD_CUT) == 48u,
           "FST_PARAM16 on PRESET (260): the preset's sound (HONEY's FILTER)");
     check(!fst_op(&lv, FST_PARAM, lo, 2, 0) && frs_param_get(P_LD_GLIDE) == 99u, "FST_PARAM on GLIDE (247)");
+    {   /* POLY, chords' notes on keys of their own (card #194): one note on two keys, a voice kept till the last let go;
+         * nine keys down (eight kept, the first dropped), all let go: the first key free again, not refused */
+        static const uint8_t poly[4] = {P_LD_MODE & 0xFF, P_LD_MODE >> 8, 1, 0}, mono[4] = {P_LD_MODE & 0xFF,
+                                                                                            P_LD_MODE >> 8, 0, 0};
+        uint8_t d[4] = {1, 60, 3, 90}, u[2] = {0, 0};
+        uint32_t i, r;
+        fst_op(&lv, FST_PARAM16, poly, 4, 0);
+        fst_op(&lv, FST_KEY_LEAD, d, 4, 0);
+        d[0] = 27;
+        fst_op(&lv, FST_KEY_LEAD, d, 4, 0);
+        blocks(4);
+        check(view().held == 1u, "POLY: a note on two keys, one voice");
+        u[0] = 1;
+        fst_op(&lv, FST_KEY_UP, u, 2, 0);
+        blocks(4);
+        check(view().held == 1u, "POLY: one key let go, the note held by the other");
+        u[0] = 27;
+        fst_op(&lv, FST_KEY_UP, u, 2, 0);
+        blocks(4);
+        check(view().held == 0u, "POLY: the last let go, its voice let go");
+        r = lv.refused;
+        for (i = 0; i < 9u; i++) {
+            d[0] = (uint8_t)i;
+            d[1] = (uint8_t)(48u + 2u * i);
+            fst_op(&lv, FST_KEY_LEAD, d, 4, 0);
+        }
+        for (i = 0; i < 9u; i++) {
+            u[0] = (uint8_t)i;
+            fst_op(&lv, FST_KEY_UP, u, 2, 0);
+        }
+        blocks(4);
+        check(view().held == 0u, "nine keys down and let go: none held");
+        d[0] = 0;
+        d[1] = 60;
+        check(!fst_op(&lv, FST_KEY_LEAD, d, 4, 0) && lv.refused == r, "the key dropped past eight: free again");
+        blocks(4);
+        check(view().held == 1u, "the key dropped past eight: its note again");
+        u[0] = 0;
+        fst_op(&lv, FST_KEY_UP, u, 2, 0);
+        fst_op(&lv, FST_PARAM16, mono, 4, 0);
+        blocks(4);
+    }
 }
 
 /* ------------------------------------------------------------------ a take, on air and live */

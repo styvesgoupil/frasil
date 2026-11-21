@@ -35,11 +35,12 @@ enum { PG_SON, PG_DRONE, PG_CHOEUR, PG_CHOEUR2, PG_CHOEUR3, PG_PARTIELS, PG_PART
        PG_MIDI2,                         /* (NPAGES_RIVER: the schema's) */
        PG_MARP3,                         /* MIDI ARP III (card #172): VELOCITY, after MIDI ARP II */
 #endif
+       PG_LINK,                          /* HOME's TRACKS LINK (card #212), after CLOUD SEND: the FM-1's own, as MIDI's */
        NPAGES };
 #if FRS_MIDI_OUT
 #define NPAGES_RIVER PG_MOUT             /* the pages the schema tells (app.c schema_write): MIDI's are the FM-1's alone */
 #else
-#define NPAGES_RIVER NPAGES
+#define NPAGES_RIVER PG_LINK
 #endif
 #define T_ANY (3u + FRS_LEAD)            /* (LEAD the fourth track, 3, with FRS_LEAD) */
 #define K_ARP (NPARAM + 1u)              /* K1 of ARP and SEQ: ON, OFF, over the track's PLAYS (app.c ways_turn) */
@@ -60,8 +61,26 @@ enum { PG_SON, PG_DRONE, PG_CHOEUR, PG_CHOEUR2, PG_CHOEUR3, PG_PARTIELS, PG_PART
 #define K_MO_RET (NPARAM + 10u)          /* C on MIDI: RETURN, the computer's audio back over USB (card #169: mout.ret) */
 #define K_CLKOUT (NPARAM + 11u)          /* GLO › MIDI II's K1, CLOCK OUT (card #169: mout.clk) */
 #define K_MD0 (NPARAM + 12u)             /* MIDI's ARP and SEQ, each a GLINT setting's (app/mseq.c md: K_MD0 + MD_*); the */
-#define K_MDN (K_MD0 + 18u)              /* arpeggio's own last, 15 .. 17 (card #172); (past the last) */
+#define K_MDN (K_MD0 + 22u)              /* arpeggio's own 15 .. 17 (card #172), KEYS' 18, 19, the LEAD's KEYS 20, 21 (card
+                                          * #194); (past the last) */
+#define K_NOUT K_MDN                     /* GLO › MIDI II's K3, NOTES OUT (card #201: app.c nout, the device's as CLOCK OUT) */
 #endif
+#if FRS_MIDI_OUT                         /* an ENV page's K1, OCT- held: its ATTACK SHAPE, CURVE or LINE (card #122: the
+                                          * engine's st.ashape, page_shape; no setting, none in the schema) */
+#define K_SHAPE (K_MDN + 1u)
+#else
+#define K_SHAPE (NPARAM + 6u)
+#endif
+#define LD_CH_PAGE (FRS_LEAD && FRS_MIDI_OUT)   /* GLO › MIDI's K4, LEAD CH (card #228: the engine's st.ldch, the device's
+                                          * in OBJ_MSEQ's head, app/mseq.c md_dev_*; no setting, none in the schema);
+                                          * CLOCK on MIDI II's K4 for it */
+#if LD_CH_PAGE
+#define K_LDCH (K_SHAPE + 1u)
+#endif
+#define K_LINK (K_SHAPE + 2u)            /* TRACKS LINK's K1, FOLLOW: DRONE or BASS (card #212: the engine's lk, the device's
+                                          * as TUNE A4, settings_t.keys; no setting, none in the schema), past LEAD CH's */
+#define K_LK0 (K_LINK + 1u)              /* and each track's NO LINK, LINKED: K_LK0 + 0 DRONE, 1 BASS, 2 GLINT, 3 MIDI (the
+                                          * engine's LK_* bit), K2 .. K4 the three not followed (app.c page_knob) */
 #if FRS_LEAD
 typedef uint16_t prm_t;                  /* a setting's number on a page, the one turned last: past 255 with LEAD's (card #144) */
 #else
@@ -134,7 +153,11 @@ static const page_t PAGES[NPAGES] = {
     [PG_PUMP] = {"PUMP", B_FX, T_ANY, {P_PUMP_RATE, P_PUMP_DRONE, P_PUMP_BASS, P_PUMP_GLINT}},
     [PG_PUMP2] = {"PUMP II", B_FX, T_ANY, {P_PUMP_REL, P_PUMP_ATT, P_PUMP_OFF, NPARAM}},
     [PG_GLOBAL] = {"GLOBAL", B_GLO, T_ANY, {P_TEMPO, P_COUPEBAS, P_ACCORD, P_ARP_SNAP}},   /* (ARP SNAP: the device's) */
+#if LD_CH_PAGE                           /* the four tracks' channels (card #228: LEAD CH), CLOCK on MIDI II */
+    [PG_GLOBAL2] = {"MIDI", B_GLO, T_ANY, {P_CANAL, P_CH_GLINT, P_CH_BASS, K_LDCH}},
+#else
     [PG_GLOBAL2] = {"MIDI", B_GLO, T_ANY, {P_CANAL, P_CH_GLINT, P_CH_BASS, P_CLOCK}},
+#endif
     [PG_MASTER] = {"MASTERING", B_GLO, T_ANY, {P_MS_THRESH, P_MS_RATIO, P_MS_RELEASE, P_MS_GAIN}},
     [PG_EQ] = {"MASTER EQ", B_GLO, T_ANY, {P_EQ_PRESET, P_EQ_LOW, P_EQ_MID, P_EQ_HIGH}},   /* before the compressor */
     [PG_EQ2] = {"MASTER EQ II", B_GLO, T_ANY, {P_EQ_LOWF, P_EQ_MIDF, P_EQ_Q, P_EQ_HIGHF}},
@@ -153,6 +176,7 @@ static const page_t PAGES[NPAGES] = {
     [PG_SCENES] = {"SCENES", B_SAVE, T_ANY, {NPARAM, P_MORPH, P_LOAD, NPARAM}},   /* (K1: the slot, app.c) */
     [PG_SAVE] = {"SCENES", B_SAVE, T_ANY, {NPARAM, NPARAM, NPARAM, NPARAM}},      /* (K1: LOAD | SAVE, app.c) */
     [PG_SAVEAS] = {"SAVE", B_SAVE, T_ANY, {NPARAM, NPARAM, NPARAM, NPARAM}},      /* (K1 WHAT, K2 INTO, app.c) */
+    [PG_LINK] = {"TRACKS LINK", B_HOME, T_ANY, {K_LINK, NPARAM, NPARAM, NPARAM}},   /* (K2 .. K4: app.c page_knob) */
 #if FRS_LEAD
     [PG_LEAD] = {"LEAD I", B_EDIT, 3, {P_LD_PRESET, P_LD_WAVE, P_LD_CUT, P_LD_RESO}},
     [PG_LEAD2] = {"LEAD II", B_EDIT, 3, {P_LD_GLIDE, P_LD_FENV, P_LD_VIB, P_LD_OCTAVE}},
@@ -175,14 +199,31 @@ static const page_t PAGES[NPAGES] = {
                                                                                         * LENGTH, ACCENT */
     [PG_MSEQ3] = {"MIDI SEQ III", B_SEQ, T_MIDI, {K_MD0 + 4u, K_MD0 + 8u, K_MD0 + 13u, NPARAM}},   /* CHANCE,
                                                                                         * TRANSPOSE, UNDO TAKE */
-    [PG_MIDI2] = {"MIDI II", B_GLO, T_ANY, {K_CLKOUT, NPARAM, NPARAM, NPARAM}},
+#if LD_CH_PAGE
+    [PG_MIDI2] = {"MIDI II", B_GLO, T_ANY, {K_CLKOUT, P_TRANSPORT, K_NOUT, P_CLOCK}},   /* (TRANSPORT: the engine's,
+                                                                                        * card #204; NOTES OUT, #201;
+                                                                                        * CLOCK MIDI's K4 till #228) */
+#else
+    [PG_MIDI2] = {"MIDI II", B_GLO, T_ANY, {K_CLKOUT, P_TRANSPORT, K_NOUT, NPARAM}},
+#endif
 #endif
 };
-#if FRS_MIDI_OUT
-_Static_assert(K_MDN <= (prm_t)-1, "the pages' own knobs, past the settings, fit a page's bytes");
-#else
-_Static_assert(K_TUNE <= (prm_t)-1, "the pages' own knobs, past the settings, fit a page's bytes");
-#endif
+_Static_assert(K_LK0 + 3u <= (prm_t)-1, "the pages' own knobs, past the settings, fit a page's bytes");
+/* LOFI TAPE's two as its MEDIA has them (card #229): VINYL, AM or PHONE their own name, LOFI VINYL, LOFI AM II; TAPE
+ * or OFF, LOFI TAPE's. The title, the reader, the LFO TARGETs' section; +5 the medium alone (ROUTING's block, its K2).
+ * The schema keeps PAGES' names */
+static const char *const LOFI_NAME[8] = {"LOFI TAPE", "LOFI VINYL", "LOFI AM", "LOFI PHONE",
+                                         "LOFI TAPE II", "LOFI VINYL II", "LOFI AM II", "LOFI PHONE II"};
+static const char *lofi_name(uint32_t two)
+{
+    uint32_t m = st.v[P_TP_ON];
+    return LOFI_NAME[(m > FR_TAPE && m <= FR_PHONE ? m - FR_TAPE : 0u) + (two ? 4u : 0u)];
+}
+static const char *page_name(uint32_t pg)
+{
+    return pg == PG_TAPE || pg == PG_TAPE2 ? lofi_name(pg == PG_TAPE2) : PAGES[pg].name;
+}
+static const char *pd_name(uint32_t p) { return p == P_TP_PRE ? lofi_name(0) + 5 : PD[p].name; }   /* (ROUTING's LOFI) */
 #if FRS_LEAD
 #define LD_(...) , __VA_ARGS__              /* (LEAD's pages in the lists below) */
 #else
@@ -195,7 +236,7 @@ _Static_assert(K_TUNE <= (prm_t)-1, "the pages' own knobs, past the settings, fi
 #endif
 /* the order a button's taps go through its pages, and SELECT with the button held */
 static const uint8_t PAGE_ORDER[NPAGES] = {
-    PG_SON, PG_KEYS, PG_MIXER, PG_CSEND,
+    PG_SON, PG_KEYS, PG_MIXER, PG_CSEND, PG_LINK,
     PG_DRONE, PG_MOUVEMENT, PG_CHOEUR, PG_CHOEUR2, PG_CHOEUR3, PG_PARTIELS, PG_PARTIELS2, PG_SOUFFLE, PG_SOUFFLE2,
     PG_GLINT, PG_GLINT2, PG_GDELAY, PG_BASS, PG_BASS2, PG_BDRIVE LD_(PG_LEAD, PG_LEAD2, PG_LEAD3, PG_LDELAY) MD_(PG_MOUT),
     PG_FORME, PG_GLINT3, PG_BASS3 LD_(PG_LADSR, PG_LFENV) MD_(PG_MNOENV),
@@ -208,6 +249,18 @@ static const uint8_t PAGE_ORDER[NPAGES] = {
     PG_GLOBAL, PG_GLOBAL2 MD_(PG_MIDI2), PG_MASTER, PG_EQ, PG_EQ2, PG_ROUTING, PG_SCREEN, PG_RECORD,
     PG_SAVE, PG_SAVEAS, PG_SCENES,
 };
+/* an ENV page's ATTACK SHAPE (card #122): OCT- held, its K1 (K_SHAPE) turns it in place of the ATTACK there: the
+ * engine's st.ashape bit (0 the drones' .. 4 the LEAD's filter's), -1 none */
+static int page_shape(uint32_t pg)
+{
+#if FRS_LEAD
+    if (pg == PG_LADSR || pg == PG_LFENV)
+        return pg == PG_LADSR ? 3 : 4;
+#endif
+    return pg == PG_FORME ? 0 : pg == PG_GLINT3 ? 1 : pg == PG_BASS3 ? 2 : -1;
+}
+static uint32_t shape_at;                /* K_SHAPE turned last (plat_ms, 0: not yet), on page shape_pg */
+static uint8_t shape_pg;
 /* SELECT turned on a track's page: the same place on the new track's (first if hidden); a column a track, MIDI's the
  * last (NTRK_COL: app.c track_page) */
 #define NTRK_COL (3u + FRS_LEAD + FRS_MIDI_OUT)

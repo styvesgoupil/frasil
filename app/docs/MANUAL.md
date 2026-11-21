@@ -107,7 +107,7 @@ drones keep sounding while you play GLINT.
 its SPACE.
 
 **LEAD** is a track over everything: a warm voice for melodies. Its keys sound only while you hold them: one note at a
-time, gliding (MONO), or chords (POLY). It has no arpeggio and no sequence (section 8).
+time, gliding (MONO), or chords (POLY, with KEYS' NOTES on CHORD). It has no arpeggio and no sequence (section 8).
 
 **MIDI**, one step past the LEAD, plays nothing here: its keys go out over USB to an instrument on your computer, while
 the four tracks play on (MIDI OUT, section 12).
@@ -133,6 +133,9 @@ FRASIL's screen is a river at night. Pitch is height above the waterline. Each v
   crystals into a lattice and stills the water.
 - **The bass** is a slow swell in lamp light, the bass's colour, across the whole river at its note's height, the
   water darker under it; pressing into it brightens it. Its note is written on the right.
+- **The LEAD** is a light in its rose at its note's height, as bright as it sounds, gliding with GLIDE. What it sang
+  drifts downstream and fades: the melody stays a moment. In POLY each voice is a light of its own. While the keys play
+  the LEAD, its newest note is written beside it.
 - **SINK** darkens the river from the top as it is turned, deep water closing over it. **BLUR** thickens the haze
   off the water, the reverb's, as SPACE toward 90 % would.
 
@@ -206,8 +209,9 @@ of a second), so a quick turn through the drones doesn't play each of them.
   seconds after the last turn, or at once on any button, which then does its own job.
 
 An LFO's TARGET opens on six screens, two sections a screen, each in a box: DRONE and CHOIR; PARTIALS and BREATH;
-GLINT and GLINT II; BASS and GLOBAL; LOFI TAPE and LEAD; LEAD ENV and LEAD DELAY. The names are in their track's
-colour, GLOBAL's and LOFI TAPE's in green, the LEAD's in rose. OCT+ and OCT− turn the screens.
+GLINT and GLINT II; BASS and GLOBAL; LOFI TAPE and LEAD; LEAD ENV and LEAD DELAY (LOFI TAPE's section named after its
+MEDIA: LOFI VINYL, LOFI AM, LOFI PHONE). The names are in their track's colour, GLOBAL's and LOFI's in green, the
+LEAD's in rose. OCT+ and OCT− turn the screens.
 
 ![The name grid: PRESET, the drones down two columns, EMBER framed in ice; SEL SELECT in the header; dashes at the foot for its two screens](img/screen-grid.png "PRESETS turned")
 
@@ -227,7 +231,8 @@ WELCOME TO LEARN MODE stays on the screen until you press a button or a key, or 
 nothing else.
 
 **HOME's pages.** Tap HOME for the play page, then again: KEYS (how the keys play the selected track, section 5),
-MIXER, CLOUD SEND, the logo screen, and back to the play page.
+MIXER, CLOUD SEND, TRACKS LINK (tracks that follow the drone or the bass, section 5), the logo screen, and back to the
+play page.
 
 **The mixer.** A fader for each track, DRONE, BASS, GLINT and LEAD, each in its colour, with the track's meter beside
 it, live. K1–K4 move them. 100 is the level as it is (a mark on the fader), up to 127. The faders are the tracks'
@@ -255,14 +260,14 @@ buttons leave it open, so you can play from it. HOME again goes back to the play
 
 ![MIXER while the computer's audio comes back: a fifth fader, RETURN, violet; each knob's badge at its fader's foot](img/screen-mixer-return.png "HOME, three times, the computer playing through")
 
-![The logo screen](img/screen-logo.png "HOME, five times")
+![The logo screen](img/screen-logo.png "HOME, six times")
 
 **Help.** Hold HOME: the help screen opens and stays, on the page with the button of the page you were on. Turn
 SELECT for its five pages: the buttons in the panel's order (three pages), the encoders, the keys. Each line gives a
 control's job, then the control, and under it, in amber, what it does again, held, or with something else. Tap HOME
 to close it and go back where you were.
 
-![Help, its first page: GENERATIVE FX on FX (again: CLOUD, PUMP; hold: FREEZE), HARMONY on SEL (hold and a key: one note; hold and a K: LFO amount), ENVELOPE on ENV (hold: SWELL), LFO 1, 2, 3 on LFO (again: next page; hold and a K: route)](img/screen-help-1.png "Hold HOME")
+![Help, its first page: GENERATIVE FX on FX (again: CLOUD, PUMP; hold: FREEZE), HARMONY on SEL (hold: NOTES; hold and a K: LFO amount), ENVELOPE on ENV (hold: SWELL), LFO 1, 2, 3 on LFO (again: next page; hold and a K: route)](img/screen-help-1.png "Hold HOME")
 
 **Screen reader.** FRASIL tells a screen reader on the computer what its screen shows. Plug the FM-1 in over USB,
 open [fm1-reader](https://charlesvestal.github.io/fm1-reader/) (Charles Vestal's, for the FM-1's firmwares) in Chrome
@@ -286,6 +291,7 @@ The DRONE selected (SELECT all the way left):
 | **Hold ENV** | SWELL: after 0.4 s, every drone voice swells together (1.5 s up, 1.5 s down once let go); ENV is lit while it lasts. Whatever track is selected |
 | **SWELL** (FX, GENERATIVE FX's K1) | held where you leave it: every voice swells as far as it is turned (with ENV's and CC 11's, the most of them). A scene keeps it |
 | **Hold SEL, tap a key** | a single note over what is lit, even when CHORD makes chords, whatever KEYS' STACK says (on the bass it takes the note's place: it has one voice) |
+| **Hold SEL alone, let go** | flips NOTES, SINGLE NOTE or CHORD (section 5). FM-1 only |
 
 With KEYS' LATCH OFF (HOME, KEYS, K3), notes sound only while their key is held (section 5).
 
@@ -307,7 +313,7 @@ On any track:
 | **Hold PLAY again** | with nothing playing: RESTORE, the scene again (RESTORED): what the last RELEASE ALL let go, else the scene's own notes as saved (at power-on, say): its latched drones, the arpeggios' notes, the bass; and every sequence that is on, from its first step; the beat begins there |
 | **Tap PLAY** | with nothing playing at all: the scene, its DRONE, GLINT and BASS, as held (RESTORE). Else the transport: every sequence that is on stops, or they all start together from their first steps, at once, the beat beginning there; an arpeggio waits, or goes on from the top. A stop leaves the beat going. With no sequence or arpeggio on, it only says HOLD PLAY · RELEASE ALL |
 | **Tap PLAY twice** | quick, while anything plays: RELEASE ALL, as held (the first tap stops the sequences, the second lets everything else go); hold PLAY then for RESTORE. On SCENES each tap loads |
-| **Hold OCT−, press PLAY** | CUT: every sound gone at once, the cloud's tail, GLINT's echoes and the tape's loop too (RELEASE ALL lets them ring out): a 6 ms fade, then silence (CUT · ALL SOUND). The sequences stop, as RELEASE ALL stops them, and the beat begins there; the octave doesn't move. PLAY then, tapped or held: RESTORE |
+| **Hold OCT−, press PLAY** | CUT: every sound gone at once, the cloud's tail, GLINT's echoes and the tape's loop too (RELEASE ALL lets them ring out): a 6 ms fade, then silence (CUT · ALL SOUND). The sequences stop, as RELEASE ALL stops them, and the beat begins there; the octave doesn't move. On VINYL, the turntable stops instead: the record slows to a stop in three quarters of a second, then silence (section 10). PLAY then, tapped or held: RESTORE |
 | **REC** | records into the selected track's sequence, from any page: its SEQ II opens, LIVE; again STEP, again OFF (section 6, Recording) |
 | **Hold SEQ** | the selected track's STACK on or off (KEYS, section 5), from any page |
 | **Hold OCT−, press REC** | on the track's SEQ pages: CLEAR, its sequence emptied (UNDO TAKE brings it back) |
@@ -353,13 +359,13 @@ key map closed. HOME is the exception: once its help is up, SELECT turns the hel
 
 | Button | Tap | Hold | Held, with |
 | --- | --- | --- | --- |
-| **FX** | GENERATIVE FX; again: CLOUD, CLOUD II, CLOUD III, MASTER FILTER, LOFI TAPE, LOFI TAPE II (only while TAPE is on), PUMP, PUMP II | FREEZE on or off | SELECT turned: its pages |
-| **SEL** | HARMONY | | a key: a single note · K1–K4 turned: the LFO AMOUNT of that setting (section 10) · SELECT: its page |
+| **FX** | GENERATIVE FX; again: CLOUD, CLOUD II, CLOUD III, MASTER FILTER, LOFI TAPE, LOFI TAPE II (only while MEDIA is on), PUMP, PUMP II | FREEZE on or off | SELECT turned: its pages |
+| **SEL** | HARMONY | | held alone, then let go: NOTES, SINGLE NOTE or CHORD (FM-1 only) · a key: a single note · K1–K4 turned: the LFO AMOUNT of that setting (section 10) · SELECT: its page |
 | **ENV** | the track's envelope: DRONE SHAPE, GLINT ADSR, BASS ADSR, or LEAD ADSR and LEAD FILTER | SWELL of the drone, while held | SELECT: its page |
 | **LFO** | LFO 1; again: its targets, LFO 2, its targets, LFO 3, its targets | | K1–K4 turned: that setting onto an LFO (section 10) · SELECT: its pages |
 | **EDIT** | the track's sound: DRONE TONE, DRONE MOTION and the drone's layers (9 pages), GLINT I, II, DELAY, BASS I, II, TONE, or LEAD I, II, III, DELAY | the key map: F♯, G♯, A♯ jump to the track's groups | with OCT− held, COMPARE: the scene as saved (section 11) · SELECT: its pages |
-| **GLO** | GLOBAL; again: MIDI, MASTERING, MASTER EQ, MASTER EQ II, ROUTING, SCREEN, RECORD | | a CC from a controller: MIDI learn (section 12) · SELECT: its pages |
-| **HOME** | the play page; again: KEYS, MIXER, CLOUD SEND, the logo | help, on the page with this page's button | SELECT: its pages |
+| **GLO** | GLOBAL; again: MIDI, MIDI II, MASTERING, MASTER EQ, MASTER EQ II, ROUTING, SCREEN, RECORD | | a CC from a controller: MIDI learn (section 12) · SELECT: its pages |
+| **HOME** | the play page; again: KEYS, MIXER, CLOUD SEND, TRACKS LINK, the logo | help, on the page with this page's button | SELECT: its pages |
 | **SAVE** | LOAD or SAVE: the scenes, or storing a scene or a preset (section 11) | | a white key: that scene · REC: STORE the current scene |
 | **ARP** | the track's arpeggio: its ON/OFF first, its pages while ON. On the DRONE: NOT AVAILABLE FOR DRONE; on the LEAD: NOT AVAILABLE FOR LEAD | the track's arpeggio LATCH (on: ARP ON too); nothing on the DRONE or the LEAD | SELECT: its pages |
 | **SEQ** | the track's sequence: its ON/OFF first, its pages while ON. On the LEAD: NOT AVAILABLE FOR LEAD | the track's STACK, on or off; nothing on the LEAD | SELECT: its pages |
@@ -403,7 +409,7 @@ the scale's own notes. In D MINOR with SEVENTH, D plays Dm7, E plays Em7♭5 and
 - **NOTES:** SINGLE NOTE, one note a key; CHORD, the chord CHORD builds on it. CHORD needs HARMONY ON: with HARMONY OFF
   it stays in slate, and turning NOTES to CHORD turns HARMONY ON too. CHORD can always be chosen; where the keys still
   play one note, it is in slate and says why under it: on GLINT with SEQUENCE ON, (NOT ON SEQ); on the bass, which plays one
-  note at a time, (ARP ONLY), its chords heard only through its arpeggio. The drone's turns, its sequence on or off.
+  note at a time, (ARP ONLY), its chords heard only through its arpeggio; on the LEAD in MONO, (POLY ONLY). The drone's turns, its sequence on or off.
 - **LATCH:** ON, a tap holds the note until you tap it again; OFF, it sounds while the key is down. Turned OFF, it lets
   that track's latched notes go at once, under a finger too, so it changes only on a second detent the same way within
   2 seconds (LATCH, TURN AGAIN smaller beside it). GLINT has none: its keys sound while down, and a key lets go what
@@ -420,6 +426,8 @@ beside it, and under the word NOTES or CHORDS while STACK is ON.
 
 ![KEYS on GLINT: HARMONY OFF, CHORD in slate, no LATCH; the strip without the scale's dots, its outline dotted, HOLD beside it](img/screen-keys-glint-hold.png "HOME, twice, on GLINT")
 
+![KEYS on MIDI: HARMONY ON, NOTES CHORD, CHORD · MIDI in the header; the strip with HOLD and a chord's three notes lit in violet](img/screen-keys-midi.png "HOME, twice, on MIDI")
+
 At first, and on NEW SHARD:
 
 | Track | HARMONY | NOTES | LATCH | STACK | Plays |
@@ -427,14 +435,43 @@ At first, and on NEW SHARD:
 | DRONE | ON | CHORD | ON | OFF | SEQUENCE OFF |
 | GLINT | ON | SINGLE NOTE | none | OFF | ARP ON |
 | BASS | ON | SINGLE NOTE | ON | OFF | SEQUENCE OFF |
+| MIDI | OFF | SINGLE NOTE | none | none | SEQUENCE OFF |
+| LEAD | OFF | SINGLE NOTE | none | none | no ARP, no SEQ |
 
 KEYS are the FM-1's, not a scene's: kept with the settings through power-off, and a scene you load leaves them as
-they are. Only NEW SHARD puts them back to these. ARP and SEQUENCE are the scene's. MIDI takes only HARMONY and NOTES,
-on the drones' channel (section 12). LATCH takes over from the KEY MODE of earlier FRASILs: its LATCH or HOLD becomes
+they are. Only NEW SHARD puts them back to these. ARP and SEQUENCE are the scene's. MIDI and the LEAD have only HARMONY and NOTES.
+Notes coming in over MIDI on the drones' channel take only the drone's HARMONY and NOTES (section 12). LATCH takes over from the KEY MODE of earlier FRASILs: its LATCH or HOLD becomes
 the drone's and the bass's LATCH.
 
-The LEAD follows neither HARMONY nor KEYS: each of its keys plays its own note, only while held. KEYS, the LEAD
-selected, says ONE NOTE (section 8).
+The LEAD has HARMONY and NOTES too, its keys sounding only while held (section 8).
+
+**Hold SEL alone, then let go:** NOTES of the selected track flips, SINGLE NOTE to CHORD or back (to CHORD turns
+HARMONY ON too), and the header says NOTES CHORD or NOTES SINGLE NOTE. It works on the DRONE, GLINT, BASS, MIDI and the
+LEAD, on the FM-1 only (the SMK-37's FADER BANK flips NOTES there). It counts only if SEL was held alone: SEL with a key
+is still one note, SEL with a K turned is still LFO AMOUNT, and then nothing flips. A short tap of SEL opens HARMONY, as
+before. It does nothing in SAVE's flow or on SCENES.
+
+**TRACKS LINK** (HOME, fifth page): tracks that follow the drone or the bass. **FOLLOW** (K1) is the track they
+follow, DRONE or BASS. K2 to K4 are the three others, DRONE or BASS, then GLINT and MIDI, each NO LINK or **LINKED**.
+Turning a track LINKED moves nothing: the followed track's note at that moment is its starting point (after
+power-on, the first note the followed track plays). From then on, the track moves by as many steps of SCALE as the
+followed note moves from there, so it stays in the key, as TRANSPOSE does. In C MINOR, BASS followed, the bass on C
+when DRONE is LINKED: the bass to F, three steps up, and a C chord on the drones sounds F A♭ C. Each track LINKED has
+its own starting point: linking or unlinking one moves no other. The drone's note is its chord's root (a single note,
+its sequence step's lowest).
+
+What moves: the drones' chord (struck again where it goes), the bass (gliding there, as GLIDE says), GLINT's notes
+(its keys, its arpeggio, its sequence) and the MIDI track's; NOTES OUT sends GLINT's and the bass's as they sound.
+The LEAD never moves. GLINT's and MIDI's notes already sounding end where they are; the next ones move. The followed
+track's notes let go, the others stay where they went. A take records the notes as played. A track turned back to NO
+LINK plays as played.
+
+Turning FOLLOW moves nothing and keeps each LINKED: their starting point becomes the newly followed track's note,
+and the track now followed is not moved while it leads. TRACKS LINK is the FM-1's, as KEYS are: kept through
+power-off, in no scene, and SAVE doesn't light. Loading a scene or NEW SHARD sets new starting points: the scene's
+first followed note. Scenes, the River's shards and older streams play as before.
+
+![TRACKS LINK: FOLLOW DRONE, BASS LINKED, GLINT LINKED, MIDI NO LINK; the drones and the bass in the river above](img/screen-link.png "HOME, five times")
 
 ---
 
@@ -460,7 +497,7 @@ times a second, coming in as the note settles, up to 50 cents at 100. OFF at 0, 
 | EDIT | GLINT I | PRESET | LEVEL | BRIGHT (FM index) | RATIO (×0.5 to ×13.6) |
 | EDIT | GLINT II | OCTAVE (+0 to +3: every glint) | PING (strike or ring) | VIBRATO (OFF, the wiggle's depth) | AUTO VIB |
 | EDIT | GLINT DELAY | TIME (1/32 to 1/2, triplet and dotted; always ping-pong) | FEEDBACK | MIX | SPACE (GLINT's reverb send) |
-| ENV | GLINT ADSR | ATTACK (2 ms to 1.5 s) | DECAY (80 ms to 6 s) | SUSTAIN (0 to 100 %, the level held) | RELEASE (20 ms to 6 s) |
+| ENV | GLINT ADSR | ATTACK (2 ms to 1.5 s; with OCT− held, its SHAPE: CURVE or LINE) | DECAY (80 ms to 6 s) | SUSTAIN (0 to 100 %, the level held) | RELEASE (20 ms to 6 s) |
 | ARP | GLINT ARP | ARP (OFF, ON) | MODE (UP, DOWN, UPDOWN, RANDOM, DRIFT) | RATE (1/1 to 1/32, triplets) | RANGE (1 to 3 octaves) |
 | ARP | GLINT ARP II (ARP ON) | CHANCE | LATCH (OFF, ON) | | |
 | SEQ | GLINT SEQ | SEQUENCE (OFF, ON) | SEQ LENGTH (1 to 32 steps) | RATE (the arpeggiator's) | GATE (a note's length) |
@@ -494,6 +531,12 @@ On GLINT ADSR the river gives way to the envelope: ATTACK up to the top, DECAY d
 plateau, RELEASE down to nothing, each part as wide as its knob is turned (the plateau takes what is left), its time
 across it, A D S R under it. The part whose knob you turn is lit. Each glint sounding, up to four, is a little ice-blue
 glint riding the curve: it waits at the end of the plateau while its key is held, then goes down RELEASE once let go.
+
+**ATTACK SHAPE.** An ATTACK rises in a curve: quickly at first, easing into the top. Hold **OCT−** and turn K1 on an
+ENV page (DRONE SHAPE, GLINT ADSR, BASS ADSR, LEAD ADSR, LEAD FILTER): right, LINE, a straight rise at an even pace,
+as a classic synth's; left, CURVE again. K1 shows ATTACK SHAPE while OCT− is held, and the drawing's ATTACK turns
+straight; the drone's page draws its envelope too (ATTACK, held, RELEASE). The page's foot says it: SHAPE: HOLD OCT−
+AND K1. Each envelope has its own. Not in the scenes: back on CURVE at every power-on.
 
 ![GLINT ADSR: WARM LEAD's envelope, a glint just struck at its top, two let go on its RELEASE](img/screen-glint-adsr.png "SELECT on GLINT, then ENV")
 
@@ -631,7 +674,7 @@ else. It stays when you select another track.
 | EDIT | BASS I | MODEL (SINE, TRIANGLE, SQUARE, SAW, REESE, SUB, ORGAN, FM) | LEVEL | FILTER (40 Hz to 5 kHz) | RESONANCE (Q 0.5 to 6) |
 | EDIT | BASS II | OCTAVE (−2, −1, 0: every note the bass plays) | GLIDE (OFF to 2 s) | PULSE (OFF, 1/8 BEAT to 4 BEATS) | SPACE (the bass's reverb send) |
 | EDIT | BASS TONE | DRIVE (clean to soft-clipped) | WEIGHT | PUNCH | BITE |
-| ENV | BASS ADSR | ATTACK (5 ms to 5 s) | DECAY (10 ms to 10 s) | SUSTAIN (0 to 100 %) | RELEASE (30 ms to 15 s) |
+| ENV | BASS ADSR | ATTACK (5 ms to 5 s; with OCT− held, its SHAPE) | DECAY (10 ms to 10 s) | SUSTAIN (0 to 100 %) | RELEASE (30 ms to 15 s) |
 | ARP | BASS ARP | ARP (OFF, ON) | MODE (UP, DOWN, UPDOWN, RANDOM, DRIFT) | RATE (the sequence's) | RANGE (1 to 3 octaves) |
 | ARP | BASS ARP II (ARP ON) | CHANCE | LATCH (OFF, ON) | | |
 | SEQ | BASS SEQ | SEQUENCE (OFF, ON) | SEQ LENGTH (1 to 32 steps) | RATE (1/16 to 16 BARS) | GATE |
@@ -750,8 +793,17 @@ own delay. Its SPACE sends it into the cloud.
 | **Tap harder** | louder, and the filter opens more |
 | **Hold a key and press** | louder and brighter while you press |
 
-Each key plays its own note, as played: the LEAD doesn't follow HARMONY and plays no chords of its own. KEYS (HOME,
-second page) has no settings for it: it says ONE NOTE. The LEAD has no arpeggio and no sequence: **ARP** and **SEQ**
+KEYS (HOME, second page) gives the LEAD two settings: K1 HARMONY, K2 NOTES; K3 and K4 stay empty. HARMONY OFF and
+NOTES SINGLE NOTE, the default: each key plays its own note, as played. HARMONY ON: the key's note follows the scale
+(ROOT, SCALE). NOTES CHORD: each key plays the chord CHORD builds on it (CHORD and VOICING of HARMONY). NOTES to CHORD
+with HARMONY OFF turns HARMONY ON too. Chords play only in POLY (LEAD III, K1 MODE): in MONO the keys still play one
+note, and CHORD shows in slate with (POLY ONLY) under it. While the LEAD plays chords, the header says CHORD · LEAD.
+Hold SEL and tap a key: one note, whatever NOTES says. Its KEYS are kept with the FM-1's settings, not a scene's; NEW
+SHARD puts them back to OFF and SINGLE NOTE. Perform LIVE and streams get every note of a chord.
+
+![KEYS on the LEAD: HARMONY ON, NOTES CHORD, CHORD · LEAD in the header](img/screen-keys-lead.png "HOME, twice, on LEAD")
+
+The LEAD has no arpeggio and no sequence: **ARP** and **SEQ**
 open a page that says NOT AVAILABLE FOR LEAD, and **REC** says NOT FOR LEAD. Holding ARP or SEQ does nothing.
 
 **MONO and POLY.** MODE (LEAD III, K1) sets how notes play together.
@@ -772,8 +824,8 @@ Changing MODE stops the notes that are playing.
 | EDIT | LEAD II | GLIDE (OFF to 2 s) | FILTER ENV (how far the filter's envelope opens it, up to 5 octaves) | VIBRATO (OFF, its depth) | OCTAVE (−2 to +2: every note the LEAD plays) |
 | EDIT | LEAD III | MODE (MONO, POLY) | DETUNE (the second oscillator, up to 25 cents higher) | BREATH (OFF, noise before the filter) | DRIVE (clean to soft-clipped) |
 | EDIT | LEAD DELAY | TIME (1/32 to 1/2, triplet and dotted; always ping-pong) | FEEDBACK | MIX | SPACE (the LEAD's reverb send) |
-| ENV | LEAD ADSR | ATTACK (5 ms to 5 s) | DECAY (10 ms to 10 s) | SUSTAIN (0 to 100 %) | RELEASE (30 ms to 15 s) |
-| ENV | LEAD FILTER | F.ATTACK | F.DECAY | F.SUSTAIN | F.RELEASE (the filter's envelope, with LEAD ADSR's times) |
+| ENV | LEAD ADSR | ATTACK (5 ms to 5 s; with OCT− held, its SHAPE) | DECAY (10 ms to 10 s) | SUSTAIN (0 to 100 %) | RELEASE (30 ms to 15 s) |
+| ENV | LEAD FILTER | F.ATTACK (with OCT− held, its SHAPE) | F.DECAY | F.SUSTAIN | F.RELEASE (the filter's envelope, with LEAD ADSR's times) |
 | ARP, SEQ | LEAD ARP, LEAD SEQ | NOT AVAILABLE FOR LEAD | | | |
 
 With the LEAD selected, ALGORITHM (C) turns FILTER and PRESETS (B) its PRESET, on any page. EDIT held: F♯ LEAD I, G♯
@@ -815,15 +867,15 @@ every LEAD setting but its level. Your own LEAD presets come after the factory o
 (section 11).
 
 **The mix.** The LEAD's level is the MIXER's K4 (HOME's third page): 100 as it is, up to 127. The LEAD has no pan. It
-plays over everything: PUMP and MASTER FILTER leave it alone, and so does the tape's sound; TAPE SPEED still moves its
+plays over everything: PUMP and MASTER FILTER leave it alone, and so does LOFI's sound; SPEED still moves its
 pitch, as it moves every voice's. SINK, MASTER EQ and MASTERING act on it.
 
 **Scenes.** Each scene keeps its LEAD: its sound and its level. A scene stored before the LEAD, a factory scene and
 NEW SHARD bring the LEAD's default sound.
 
 **LFOs and MIDI.** The LEAD's settings are LFO targets, all but PRESET, MODE and OCTAVE, in rose, in three boxes:
-LEAD, LEAD ENV and LEAD DELAY (section 10). The LEAD has no MIDI channel, and MIDI learn doesn't take its settings
-(section 12).
+LEAD, LEAD ENV and LEAD DELAY (section 10). MIDI notes play it on LEAD CH, OFF at first, and MIDI learn doesn't take
+its settings (section 12).
 
 ---
 
@@ -880,9 +932,9 @@ Each scene keeps its drone sequence.
 Press a page's button again for its next page. A button opens its page when you let it go, because holding it may do
 something else (section 4, the buttons). The dots under the page's name say where you are among them.
 
-- **Whatever the track:** FX ×8, SEL ×1, LFO ×6 (the three LFOs and their targets), GLO ×8 (GLOBAL, MIDI,
-  MASTERING, MASTER EQ, MASTER EQ II, ROUTING, SCREEN, RECORD), HOME ×5 (SOUND, KEYS, MIXER, CLOUD SEND, the logo),
-  SAVE (section 11).
+- **Whatever the track:** FX ×8 (×9 while MEDIA is on), SEL ×1, LFO ×6 (the three LFOs and their targets), GLO ×9
+  (GLOBAL, MIDI, MIDI II, MASTERING, MASTER EQ, MASTER EQ II, ROUTING, SCREEN, RECORD), HOME ×6 (SOUND, KEYS, MIXER,
+  CLOUD SEND, TRACKS LINK, the logo), SAVE (section 11).
 - **The selected track's:** EDIT (the DRONE ×9, GLINT ×3, BASS ×3, the LEAD ×4), ENV ×1 (the LEAD ×2), ARP (×1 while
   OFF, ×2 while ON; the DRONE and the LEAD none), SEQ (×1 while OFF, ×3 while ON; the LEAD none).
 
@@ -892,6 +944,7 @@ something else (section 4, the buttons). The dots under the page's name say wher
 | HOME | KEYS | HARMONY (OFF, ON) | NOTES (SINGLE NOTE, CHORD) | LATCH (OFF, ON: two detents) | STACK (OFF, ON) |
 | HOME | MIXER | DRONE | BASS | GLINT | LEAD (each 0 to 127, 100 as it is; with OCT− held, K1–K3 the PAN: L50 to C to R50; the LEAD has none; while the computer's audio comes back, a fifth: RETURN, on ALGORITHM) |
 | HOME | CLOUD SEND | DRONE | GLINT | BASS | LEAD |
+| HOME | TRACKS LINK | FOLLOW (DRONE, BASS) | BASS, or DRONE while BASS is followed (NO LINK, LINKED) | GLINT (NO LINK, LINKED) | MIDI (NO LINK, LINKED) |
 | EDIT (DRONE) | DRONE TONE | PRESET (CUSTOM, the 36, yours) | TIMBRE (all three layers' brightness) | SPACE (the reverb's share) | BODY (100 %: as set; down: thinner) |
 | EDIT (DRONE) | DRONE MOTION | MOTION (the drift's depth) | RATE (20 s to 0.5 s) | TIDE (a swell of the timbre) | PERIOD (5 min to 10 s) |
 | EDIT (DRONE) | CHOIR | CHOIR (level) | DETUNE (0 to 40 cents) | FILTER (follows the note) | WARMTH |
@@ -904,7 +957,7 @@ something else (section 4, the buttons). The dots under the page's name say wher
 | EDIT (GLINT) | GLINT I, II, DELAY | section 6 | | | |
 | EDIT (BASS) | BASS I, II, TONE | section 7 | | | |
 | EDIT (LEAD) | LEAD I, II, III, DELAY | section 8 | | | |
-| ENV (DRONE) | DRONE SHAPE | ATTACK (5 ms to 30 s) | RELEASE (50 ms to 60 s) | PRESSURE (its effect) | VELOCITY |
+| ENV (DRONE) | DRONE SHAPE | ATTACK (5 ms to 30 s; with OCT− held, its SHAPE: CURVE or LINE) | RELEASE (50 ms to 60 s) | PRESSURE (its effect) | VELOCITY |
 | ENV (GLINT, BASS) | GLINT ADSR, BASS ADSR | ATTACK | DECAY | SUSTAIN | RELEASE |
 | ENV (LEAD) | LEAD ADSR, LEAD FILTER | section 8 | | | |
 | EDIT (MIDI) | MIDI OUT | section 12 | | | |
@@ -919,16 +972,17 @@ something else (section 4, the buttons). The dots under the page's name say wher
 | FX | CLOUD II | DIFFUSION | MODULATION | PRE-DELAY (0 to 200 ms) | WIDTH (the tail's stereo width) |
 | FX | CLOUD III | SHIMMER | INTERVAL (+12, +7, +5, +19, −12) | BRIGHT (the shimmer's brightness, 700 Hz to 8 kHz) | LEVEL (the cloud's, 0 to 127, 100 as it is; with OCT− held, its PAN) |
 | FX | MASTER FILTER | TYPE (OFF, LOW PASS, HIGH PASS) | CUTOFF (20 Hz to 20 kHz) | RESONANCE | TRACKS (ALL, DRONE, GLINT, BASS, or two of them) |
-| FX | LOFI TAPE | TAPE (OFF, ON) | SATURATION | WOBBLE (wow, flutter, hiccups) | TRACKS (as MASTER FILTER's) |
-| FX | LOFI TAPE II | TAPE SPEED (×0.25 to ×2.00) | TONE (dark to bright) | NOISE (hiss) | DROPOUT |
+| FX | LOFI TAPE | MEDIA (OFF, TAPE, VINYL, AM, PHONE) | SATURATION | WOBBLE (wow, flutter, hiccups; a record's wow; a radio's fading; a line's level drifting) | TRACKS (as MASTER FILTER's) |
+| FX | LOFI TAPE II | SPEED (×0.25 to ×2.00) | TONE (dark to bright) | NOISE (hiss; crackle; static; line hiss) | DROPOUT |
 | FX | PUMP | RATE (OFF, 4 BARS, 2 BARS, 1 BAR, 1/2, 1/4, 1/8) | DRONE (its depth) | BASS | GLINT |
 | FX | PUMP II | RELEASE (10 to 100 % of the period) | ATTACK (1 to 300 ms) | OFFSET (0 to 100 % of the period) | |
 | GLO | GLOBAL | TEMPO (30 to 240 BPM) | LOW CUT (20 to 500 Hz) | TUNE (±50 cents) | ARP SNAP (OFF, 1/16, 1/8, 1/4, 1/2, 1 BAR) |
-| GLO | MIDI | DRONE CH | GLINT CH | BASS CH (each OFF, 1 to 16, OMNI) | CLOCK (AUTO, INTERNAL) |
+| GLO | MIDI | DRONE CH | GLINT CH | BASS CH | LEAD CH (each OFF, 1 to 16, OMNI; LEAD CH OFF at first) |
+| GLO | MIDI II | CLOCK OUT (OFF, ON) | TRANSPORT (FOLLOW, TEMPO ONLY) | NOTES OUT (OFF, ON) | CLOCK (AUTO, INTERNAL) |
 | GLO | MASTERING | THRESHOLD (−40 to 0 dB) | RATIO (OFF, 1.5:1 to 20:1) | RELEASE (30 ms to 1.5 s) | GAIN (0 to +18 dB) |
 | GLO | MASTER EQ | PRESET (OFF, CUSTOM, then the seven) | LOW | MID | HIGH (each −12 to +12 dB) |
 | GLO | MASTER EQ II | LOW FREQ (a shelf, 30 to 600 Hz) | MID FREQ (a bell, 80 Hz to 12 kHz) | Q (the bell's width, 0.4 to 8) | HIGH FREQ (a shelf, 1.5 to 16 kHz) |
-| GLO | ROUTING | FILTER (POST CLOUD, PRE CLOUD) | TAPE (POST CLOUD, PRE CLOUD) | CLOUD PUMP (ON, OFF) | SPK/JACK (ON, OFF) |
+| GLO | ROUTING | FILTER (POST CLOUD, PRE CLOUD) | TAPE, VINYL, AM or PHONE, as MEDIA (POST CLOUD, PRE CLOUD) | CLOUD PUMP (ON, OFF) | SPK/JACK (ON, OFF) |
 | GLO | SCREEN | ANIMATIONS (NORMAL, LOW) | SCREENSAVER (ON, OFF) | IDLE TIME (1 to 60 MIN) | HEADER (INVERT, DARK) |
 | GLO | RECORD | METRONOME (OFF, REC, ALWAYS) | COUNT-IN (OFF, 1 BAR) | TUNE A4 (415 to 466 HZ) | |
 | SAVE | SCENES | the slot, 1 to 16, or NEW SHARD above | MORPH (CUT, 1 S to 2:00) | LOAD (SND+NOTES, SND ONLY) | |
@@ -978,7 +1032,8 @@ echoes, BASS, or two of them; never the LEAD). An LFO can move CUTOFF and RESO. 
 (C): CUTOFF; with TYPE OFF, the filter turns on, LOW PASS. The page draws the filter's response: the resonance's peak,
 what passes as water under the curve, CUTOFF's badge at the corner.
 
-**LOFI TAPE** (FX, sixth page) puts the tracks you choose on tape: TAPE (OFF, ON), SATURATION (the tape's; the output
+**LOFI TAPE** (FX, sixth page) puts the tracks you choose on tape, on a record, on the radio or on a phone line: MEDIA (OFF, TAPE,
+VINYL, AM, PHONE), SATURATION (the tape's; the output
 stays about as loud as what goes in, so it changes the colour and the density, not the volume, and duller as it grows,
 from 16 kHz down to 6 kHz), WOBBLE (wow, up to about 3 % at 100 with a slow drift under it, and flutter; now and then,
 more often as it grows, the tape drags: slower for a tenth of a second to well over a second, up to 8 % at 100, its
@@ -987,7 +1042,45 @@ anticlockwise as the tape runs, the right one filling as the left empties, with 
 them, a drag nearly stops them. The tape runs round two rollers and over the head; WOBBLE loosens and sways it,
 SATURATION warms it and lights a glow round the head.
 
-**LOFI TAPE II** (FX, right after LOFI TAPE) is the tape's other four settings: TAPE SPEED (the whole sound slowed
+**VINYL** plays the tracks from a record on a turntable: no hiss, the lows under about 150 Hz in mono, as a record is
+cut, the highs a little softer (from 10 kHz, lower as SATURATION grows). SATURATION is a gentler warmth than the tape's.
+WOBBLE sets the record off its centre: a slow wow once a turn, 33⅓ turns a minute, subtle at first, about 1 % at 100,
+never a drag; past half, a warp too, a hiccup at the same place each turn. NOISE is its surface as the stylus picks it
+up: a soft hush, ticks of dust (in clusters now and then), fewer and larger pops, now and then a scratch, a few marks
+that tick again at their place each turn, a little rumble under them. DROPOUT is a worn patch now and then: the level
+and the highs dip for a tenth of a second to half a second, noisier there. TONE softens or opens the highs, the
+surface's too. SPEED plays the record slower or faster, its wow and its marks at that pace. When music first
+reaches the record (PLAY, or VINYL chosen while something plays), the needle drops: a thump, a bounce, the lead-in's
+crackle. CUT stops the turntable: the brake's knock, the record slowing to a stop in three quarters of a second, its
+pitch falling with it, then the needle lifts; PLAY during the stop starts at once. MIDI Stop, RELEASE ALL, a scene
+loaded and MORPH leave it turning. At NOISE 0 the record makes no sound of its own (no needle, no knock, no surface);
+CUT still slows it to a stop. The page shows the record turning, its label warmer as SATURATION grows and swaying off
+the spindle as WOBBLE grows, the arm on the groove, dust going round on the record as NOISE grows.
+
+**AM** plays them from an AM radio: one speaker (mono), the band from about 200 Hz to 4 kHz, held level by a soft
+compressor and a little distortion. SATURATION is more of both. WOBBLE is the signal fading slowly, its level and its
+top sinking together over a few seconds. NOISE is static in the band, now and then a crackle, louder as the signal
+fades. DROPOUT: now and then the station fades away for half a second to two and a half. TONE moves the band's top,
+from about 800 Hz to 9 kHz (4 kHz in the middle). SPEED still moves the pitch and the pace, as on the tape. The
+page shows a radio's dial, its needle on a station, the lamp behind it dimming as the signal fades, static on the
+glass as NOISE grows.
+
+**PHONE** plays them through an old handset on a landline: one side (mono), the lows cut hard (from about 400 Hz), the
+mids pushed (around 1.4 kHz), the highs muffled (from about 2.4 kHz). SATURATION is the line's compression and the
+earpiece's drive, harder than AM's and a little lopsided, like an old carbon microphone. WOBBLE is the line's level
+drifting slowly, never as deep as AM's fades; the band stays as it is. NOISE is the line's hiss, with a faint mains
+hum under it. DROPOUT: now and then the line cuts for a moment, from a twelfth of a second to over half a
+second; its hiss and hum stay on. TONE moves the band's top, from 1 kHz to 4.5 kHz (2.4 kHz at its default). SPEED
+still moves the pitch and the pace, as on the tape.
+
+On every medium, NOISE at 0 makes no sound of its own: silence in, silence out. A new MEDIA comes in through a short
+fade (the old one out, the new one in, no click). An FM-1 with an earlier FRASIL plays a scene on VINYL, AM or PHONE as TAPE,
+its settings as they are.
+
+The page is named after its MEDIA: LOFI TAPE (OFF or TAPE), LOFI VINYL, LOFI AM, LOFI PHONE; LOFI TAPE II the same
+(LOFI VINYL II...).
+
+**LOFI TAPE II** (FX, right after LOFI TAPE) is the tape's other four settings: SPEED (the whole sound slowed
 down or sped up, as a tape played slower or faster: ×0.25 to ×2.00, ×1.00 in the middle; ×0.50 is an octave lower and
 half as fast, ×2.00 an octave higher and twice as fast, ×0.25 two octaves lower and four times slower. It moves every
 voice's pitch, the grid's tempo (the arpeggios, the sequences, DRONE SEQ), the LFOs' rates, the envelopes' times and
@@ -999,15 +1092,22 @@ NOISE (the tape's hiss, up from nothing: it has no low end, and TONE dulls it to
 often as it grows, up to about twice a second, the level dips for a tenth of a second or so, as a bad patch of tape
 does; a deep one nearly silences it). A new scene starts at ×1.00, TONE +10, NOISE 0 and DROPOUT 0. A scene made
 before this page comes in at ×1.00, TONE 0, NOISE 0 and DROPOUT 0, so it sounds as it did, its flutter at 5 Hz.
-The page is there only while TAPE is ON: when it is OFF, FX goes past it (the page is skipped, not greyed), and SELECT
-turned with FX held does the same. The cassette's reels are on this page too. The four are LFO targets: TAPE SPEED,
-TAPE TONE, TAPE NOISE and DROPOUT (an LFO on TAPE SPEED glides it as the knob does, a tape slowing and speeding up).
+The page is there only while MEDIA is on (TAPE, VINYL, AM or PHONE): when it is OFF, FX goes past it (the page is skipped,
+not greyed), and SELECT turned with FX held does the same. The cassette's reels (the record, the dial) are on this page
+too. The four are LFO targets: SPEED,
+LOFI TONE, LOFI NOISE and DROPOUT (an LFO on SPEED glides it as the knob does, a tape slowing and speeding up).
 
-When MASTER FILTER's TYPE or LOFI TAPE's TAPE is OFF, the page's other settings are grey; they still turn.
+When MASTER FILTER's TYPE or LOFI TAPE's MEDIA is OFF, the page's other settings are grey; they still turn.
 
 ![MASTER FILTER: a low pass on the drones and GLINT, its resonance's peak](img/screen-filter.png "FX, five times")
 
 ![LOFI TAPE: the cassette's reels](img/screen-tape.png "FX, six times")
+
+![LOFI VINYL: the record and its arm](img/screen-vinyl.png "FX, six times, MEDIA VINYL")
+
+![LOFI AM: the radio's dial](img/screen-am.png "FX, six times, MEDIA AM")
+
+![LOFI PHONE: a handset and its cord](img/screen-phone.png "FX, six times, MEDIA PHONE")
 
 **PUMP** (FX, seventh page) ducks the tracks on the beat, as a sidechain from a kick would, without a kick: at RATE, on
 the arpeggiator's grid (MIDI clock, else TEMPO), each track dips and comes back up. DRONE, BASS and GLINT set how deep
@@ -1040,14 +1140,15 @@ its return, and quiets the FM-1's own output.
 - **FILTER** (POST CLOUD, PRE CLOUD): PRE CLOUD, each track the filter is on goes through it before the cloud takes its
   share, so the cloud is fed filtered and its return is left as it is. POST CLOUD (as before): after the cloud; on
   DRONE the cloud's return is filtered with it.
-- **TAPE** (POST CLOUD, PRE CLOUD): PRE CLOUD, the tape is on the tracks themselves only; the cloud is fed and comes
-  back clean, untaped. POST CLOUD (as before): after the cloud; on DRONE the cloud's return is taped with it.
+- **TAPE** (VINYL, AM or PHONE, as LOFI TAPE's MEDIA; POST CLOUD, PRE CLOUD): PRE CLOUD, the tape is on the tracks
+  themselves only; the cloud is fed and comes back clean, untaped. POST CLOUD (as before): after the cloud; on DRONE
+  the cloud's return is taped with it.
 - **CLOUD PUMP** (ON, OFF): ON (as before), PUMP ducks the cloud's return with the drone. OFF, the return is not ducked.
 - **SPK/JACK** (ON, OFF): OFF quiets the FM-1's own output, the speaker and the headphone jack (one output serves both),
   while the USB audio goes on (section 12). A setting of the FM-1, kept through power-off, not in the scenes.
 
-The strip draws the chain: the tracks, the cloud on a lane below (its share down, its return up), FILTER and TAPE before
-or after it, slate when off; a small saw on the return for CLOUD PUMP; a speaker at the end, crossed out when SPK/JACK
+The strip draws the chain: the tracks, the cloud on a lane below (its share down, its return up), FILTER and TAPE (its
+MEDIA's name) before or after it, slate when off; a small saw on the return for CLOUD PUMP; a speaker at the end, crossed out when SPK/JACK
 is OFF.
 
 **SCREEN** (GLO, eighth page): ANIMATIONS, NORMAL or LOW, kept through power-off. LOW, what only decorates stands
@@ -1059,7 +1160,7 @@ that touch changes nothing. HEADER, INVERT or DARK (INVERT at first), kept throu
 in the selected track's colour, its words and marks dark; DARK, the band dark, its words and marks in the track's colour,
 no line under it.
 
-A scene keeps MASTER FILTER, LOFI TAPE (LOFI TAPE II's four too) and MASTER EQ, as it keeps MASTERING, and ROUTING's
+A scene keeps MASTER FILTER, LOFI TAPE (its MEDIA, LOFI TAPE II's four too) and MASTER EQ, as it keeps MASTERING, and ROUTING's
 FILTER, TAPE and CLOUD PUMP; one made by an earlier FRASIL comes in with the three off, and one made before LOFI TAPE II
 with its four in the middle, at nothing, as it sounded.
 
@@ -1101,23 +1202,24 @@ its targets.
   of their turn.
 - **DEPTH:** 0 is off. Up, it reaches the whole range of each target.
 - **POLARITY:** BIPOLAR moves a setting both ways around where you set it, UP only above, DOWN only below.
-- **TARGET 1–4:** each OFF or one of 83 settings, as the screen writes them: TIMBRE, SPACE, MOTION, WARMTH, CHOIR,
+- **TARGET 1–4:** each OFF or one of 89 settings, as the screen writes them: TIMBRE, SPACE, MOTION, WARMTH, CHOIR,
   PARTIALS, BREATH; CHOIR's CH DETUNE, CH FILTER, CH SHAPE, CH RESO, CH SOFT; PARTIALS' PA TILT, PA ODD, PA STRETCH, PA
   EVOLVE, PA BEAT, PA FORMANT, PA PEAK; BREATH's BR RESO, BR COLOR, BR GRAIN, BR TONE, BR AIR, BR SPREAD; GLINT's GL
   LEVEL, GL BRIGHT, GL PING, GL SPACE, GL CHANCE (the arpeggiator's and the sequencer's CHANCE), SEQ LEN (its SEQ
   LENGTH), GL ATTACK, GL DECAY, GL SUSTAIN, GL RELEASE; the bass's BS FILTER, BS RESO, BS DRIVE (they glide, so a FILTER
   swept by an LFO is a smooth wobble), BS ATTACK, BS DECAY, BS SUSTAIN, BS RELEASE; DRONE LVL, GLINT LVL and BASS LVL
   (the MIXER's), BODY, SPARKLE, BLUR, SINK, MS CUTOFF and MS RESO (MASTER FILTER's), DRONE PAN, BASS PAN and GLINT PAN
-  (the MIXER's pans: chosen here, the MIXER's knobs being the levels), CLOUD PAN (CLOUD III's), TAPE SAT and WOBBLE
-  (LOFI TAPE's SATURATION and WOBBLE), TAPE SPEED, TAPE TONE, TAPE NOISE and DROPOUT (LOFI TAPE II's four; the tape's
-  six sound once TAPE is on); the LEAD's LD FILTER, LD RESO, LD WAVE (short of WHISTLE), LD DETUNE, LD BREATH, LD DRIVE,
+  (the MIXER's pans: chosen here, the MIXER's knobs being the levels), CLOUD PAN (CLOUD III's), LOFI SAT and WOBBLE
+  (LOFI TAPE's SATURATION and WOBBLE), SPEED, LOFI TONE, LOFI NOISE and DROPOUT (LOFI TAPE II's four; LOFI's
+  six sound once MEDIA is on); the LEAD's LD FILTER, LD RESO, LD WAVE (short of WHISTLE), LD DETUNE, LD BREATH, LD DRIVE,
   LD GLIDE, LD VIBRATO, LEAD LVL (the MIXER's K4), LD FLT ENV, LD ATTACK, LD DECAY, LD SUSTAIN, LD RELEASE, LD F.ATK, LD
-  F.DEC, LD F.SUS, LD F.REL, LD TIME, LD FEEDBK, LD MIX and LD SPACE (all its settings but PRESET, MODE and OCTAVE).
-  Each is written in its track's colour: GLINT's ice blue (the GL ones, GLINT LVL, SEQ LEN, SPARKLE, GLINT PAN), BASS's
-  orange (the BS ones, BASS LVL, BASS PAN), the LEAD's rose (the LD ones, LEAD LVL), the drone's white, the whole mix's
-  green (MS CUTOFF, MS RESO, BLUR, SINK, CLOUD PAN, the tape's six). TARGET's list opens in the name grid, on six
-  screens by section, two a screen (section 3): you hear a target as you stop on it, SEL keeps it, FX goes back to the
-  one before.
+  F.DEC, LD F.SUS, LD F.REL, LD TIME, LD FEEDBK, LD MIX and LD SPACE (all its settings but PRESET, MODE and OCTAVE);
+  the LFOs' own LFO1 RATE, LFO1 DEPTH, LFO2 RATE, LFO2 DEPTH, LFO3 RATE and LFO3 DEPTH (one LFO on another, or on
+  itself: below). Each is written in its track's colour: GLINT's ice blue (the GL ones, GLINT LVL, SEQ LEN, SPARKLE,
+  GLINT PAN), BASS's orange (the BS ones, BASS LVL, BASS PAN), the LEAD's rose (the LD ones, LEAD LVL), the drone's
+  white, the whole mix's green (MS CUTOFF, MS RESO, BLUR, SINK, CLOUD PAN, LOFI's six, the LFOs' six). TARGET's
+  list opens in the name grid, on seven screens by section, two a screen (section 3): you hear a target as you stop on
+  it, SEL keeps it, FX goes back to the one before.
 
 An LFO runs freely and without end while it is on, with DEPTH up and a target set; a key does not start or restart
 it. Its four targets move together, each by its AMOUNT (below), and LFOs on one setting add up. The setting keeps the
@@ -1140,6 +1242,11 @@ its middle, filling to the left down to ×0.00, to the right up to ×5.00. On an
 TARGET's. A setting on no LFO: NO LFO; an empty TARGET: NO TARGET. On the TARGETS pages, a target whose AMOUNT is not
 ×1.00 has a small gauge under its name, lamp while SEL turns it. A scene keeps the AMOUNTs; one made by an earlier
 FRASIL comes in with every AMOUNT at ×1.00, as it sounded.
+
+**One LFO on another.** LFO1 RATE to LFO3 DEPTH put an LFO on another's RATE or DEPTH, or on its own. On RATE it
+moves the pace in octaves, smoothly, the wave going on where it was (on the grid it leaves the beat while it moves,
+from 16 BARS to 1/16 at the most). On DEPTH it widens and narrows the swing; an LFO at DEPTH 0 still runs while another
+LFO opens it. Each LFO follows the others a moment later, so two on each other never run away.
 
 ![LFO 1: a sine, its shape drawn, a glint where it is](img/screen-lfo.png "LFO")
 
@@ -1216,7 +1323,9 @@ Over a time, the settings that glide go from where they are to the scene's; the 
 SCALE, CHORD, RATIO, TYPE, ARP and SEQUENCE, the TARGETs, INTERVAL, the rates, TIME, SEQ LENGTH, TRANSPOSE, TUNE)
 switch at once. A setting you turn during the morph leaves it: your hand wins (a preset, all it sets). On the play page
 and SCENES, the header shows an arrow, the scene's name and a line for how far it has come; on the other pages, only
-the line, under the page's name. A new load starts from the values as they are.
+the line, under the page's name. On every page, a green frame round the screen erases itself from the top's middle,
+counter-clockwise, as ANCHOR's does on its way back: whole as the morph starts, gone when it ends. With an ANCHOR set,
+the anchor's violet frame breathes where the green has gone. A new load starts from the values as they are.
 
 **LOAD** (SCENES' K3) is what a load brings. SND+NOTES: the sound, its TEMPO and its notes: everything is let go, then
 the scene's notes play (its drones, the bass, the arpeggios and the three sequences), if it has any. Its sequences
@@ -1293,11 +1402,12 @@ OUT.frasil` writes a copy that does (`--3.0.1` for 3.0.1).
 
 ## 12. MIDI
 
-FRASIL takes MIDI over USB and the TRS input. The DRONE, GLINT and BASS each have their own channel, whatever the keys
-play: the drones on 1, GLINT on 2, BASS on 3 by default. The LEAD has none: MIDI notes don't play it. Press GLO twice
-for the MIDI page: DRONE CH, GLINT CH and BASS CH, each OFF, 1 to 16 or OMNI. Its K4, **CLOCK**: AUTO, a MIDI clock
-coming in leads the grid (below); INTERNAL, TEMPO's always, the clocks and Start that come in not taken (a device
-sending a clock you don't want). Kept through power-off, not in the scenes. **SPK/JACK** (GLO, ROUTING's K4) OFF quiets
+FRASIL takes MIDI over USB and the TRS input. The DRONE, GLINT, BASS and LEAD each have their own channel, whatever
+the keys play: the drones on 1, GLINT on 2, BASS on 3 by default, the LEAD OFF (MIDI notes don't play it until you give
+it a channel). Press GLO twice for the MIDI page: DRONE CH, GLINT CH, BASS CH and LEAD CH, each OFF, 1 to 16 or OMNI.
+**CLOCK** (GLO three times, MIDI II's K4): AUTO, a MIDI clock coming in leads the grid (below); INTERNAL, TEMPO's
+always, the clocks and the transport that come in not taken (a device sending a clock you don't want). Kept through
+power-off, not in the scenes. **SPK/JACK** (GLO, ROUTING's K4) OFF quiets
 the FM-1's own output, the speaker and the headphone jack (one output serves both), while the USB audio goes on as ever:
 for recording into a computer or a phone without the room hearing it. It is kept through power-off.
 
@@ -1309,6 +1419,8 @@ for recording into a computer or a phone without the room hearing it. It is kept
 - **BASS's notes** play as they come too, the bass's OCTAVE on them, one at a time: the last one sounds, and letting
   it go brings back the one still held under it. While the bass's arpeggiator or sequence is on, they go into it, as
   the keys would.
+- **The LEAD's notes** play as they come, its OCTAVE on them, MONO or POLY as its MODE says. On POLY, with the LEAD's
+  NOTES on CHORD (KEYS), each plays a chord. The pitch wheel (two semitones) and CC 1 (its VIBRATO) move it; no sustain.
 
 Notes sound only while held. Polyphonic aftertouch swells a note; channel pressure, the whole track. The CCs below
 come in on the drones' channel (sustain too); 123 releases the notes of the track whose channel it comes on, 120 (All
@@ -1330,39 +1442,57 @@ no slot, has none).
 
 **MIDI learn:** turn a setting, hold GLO, and move a knob on your controller (a CC on the drones' channel): from then on
 that CC turns that setting (CC 21 · SINK). FRASIL learns 8 at most, the oldest replaced, and keeps them with the
-settings. The LEAD's settings are not learned: the header says MIDI LEARN, NOT ON LEAD. A learned CC comes before the
-table's (SWELL's 11 and FREEZE's 80 too), but for 64, 120 and 123, which keep their jobs.
+settings. The LEAD's settings are not learned: the header says MIDI LEARN, NOT ON LEAD; nor is TRANSPORT. A learned CC
+comes before the table's (SWELL's 11 and FREEZE's 80 too), but for 64, 120 and 123, which keep their jobs.
 
-MIDI clock drives the arpeggiators, the three sequences and GLINT's delay (with CLOCK on AUTO, the MIDI page's K4: on
-INTERNAL it is not taken, nor Start). Start resets the grid, and starts the sequences from their first steps. With no
-clock coming in, PLAY does the same when it starts the transport, or is held (section 4); while one comes in, PLAY
-leaves its beats as they are. The clock's tempo is followed smoothly: GLINT's delay holds steady, and a change of tempo
-settles within a bar or two.
+MIDI clock drives the arpeggiators, the three sequences and GLINT's delay (with CLOCK on AUTO, MIDI II's K4: on
+INTERNAL it is not taken, nor the transport). Start resets the grid, and starts the sequences from their first steps.
+With no clock coming in, PLAY does the same when it starts the transport, or is held (section 4); while one comes in,
+PLAY leaves its beats as they are. The clock's tempo is followed smoothly: GLINT's delay holds steady, and a change of
+tempo settles within a bar or two.
+
+The DAW's transport is followed too (GLO, MIDI II's K2, **TRANSPORT**: FOLLOW). Stop stops the three sequences and
+MIDI's, and the arpeggiators wait; the drones, and what the keys hold or latch, sound on. Continue goes on from where
+Stop left them, not from the top. Song Position (the DAW started mid-song, or looping) puts each sequence on the step
+it would be on had it played from the start: a step under way stays silent until the next. TEMPO ONLY: the clock leads
+the tempo, Start, Stop, Continue and Song Position are not taken. Kept through power-off. Over USB; the TRS input
+takes no Song Position.
 
 A PERFORM page (section 13) or a Learn page (section 3) talks with the FM-1 in SysEx over USB. Without one, the FM-1 sends none of it.
 
 **MIDI OUT.** Turn SELECT one step past the LEAD, to **MIDI**: the header turns violet, and the keys send MIDI notes
 over USB to your computer. They play nothing on the FM-1, and what already plays goes on: latch a drone, select MIDI,
 and play an instrument in your DAW over it. A note goes out as hard as you tap; pressing into a held key sends its
-pressure (aftertouch). Each key plays its own note, HARMONY doesn't touch it; ENV and KEYS say NOT AVAILABLE FOR MIDI.
-A note always ends on the channel and the octave it started on, whatever you change while you hold it.
+pressure (aftertouch). With HARMONY OFF, each key sends its own note; KEYS has a HARMONY and NOTES of its own for chords (below). ENV says
+NOT AVAILABLE FOR MIDI. A note always ends on the channel and the octave it started on, whatever you change while you hold it.
 
 ![The play page with MIDI selected: the header violet, MIDI at its right; the drones in the river; TRACK MIDI, CHANNEL 1 and RETURN 100 % at the bottom](img/screen-midi.png "SELECT one step past LEAD")
 
 | Button | Page | K1 | K2 | K3 | K4 |
 | --- | --- | --- | --- | --- | --- |
 | EDIT | MIDI OUT | CHANNEL (1 to 16) | OCTAVE (−3 to +2) | VELOCITY (SOFT, NORMAL, HARD, FIXED: 100) | PRESSURE (OFF, CHANNEL, POLY) |
+| HOME | KEYS | HARMONY (OFF, ON) | NOTES (SINGLE NOTE, CHORD) | | |
 | ENV | MIDI ENV | NOT AVAILABLE FOR MIDI | | | |
 | ARP | MIDI ARP, MIDI ARP II, MIDI ARP III | ARP (OFF, ON) · CHANCE · VELOCITY (AS PLAYED, 1 to 127) | MODE · LATCH | RATE · GATE (5 to 100 %, LEGATO) | RANGE · SWING (OFF, 51 to 75 %) |
 | SEQ | MIDI SEQ, SEQ II, SEQ III | SEQUENCE (OFF, ON) · STEP · CHANCE | SEQ LENGTH · NOTE · TRANSPOSE | RATE · LENGTH · UNDO TAKE | GATE · ACCENT |
-| GLO | MIDI II | CLOCK OUT (OFF, ON) | | | |
+| GLO | MIDI II | CLOCK OUT (OFF, ON) | TRANSPORT (FOLLOW, TEMPO ONLY) | NOTES OUT (OFF, ON) | CLOCK (AUTO, INTERNAL) |
 
 PRESETS (B) turns its CHANNEL from any page, ALGORITHM (C) its RETURN (below). MIDI has its own octave: OCT− and OCT+
 move it while MIDI is selected (at 0 the keys play F3 to G5), and the drones' octave comes back when you leave it.
 VELOCITY: NORMAL sends how hard you tap, SOFT more for a light touch, HARD less, FIXED always 100. PRESSURE: CHANNEL
 sends the hardest key's as channel aftertouch, POLY each key's own (polyphonic aftertouch), OFF none.
 
-The strip shows the keys as the computer gets them, those held rising as you press, their range under them, the last
+KEYS, on MIDI, is HOME's second page: K1 HARMONY, K2 NOTES; K3 and K4 stay empty, the keys sounding only while held
+(the strip says HOLD). HARMONY OFF, the default: each key sends its own note, as played. HARMONY ON: the key sends the
+scale's note at or below it. NOTES CHORD: the chord CHORD builds on that note (HARMONY's ROOT, SCALE, CHORD, VOICING),
+all its notes sent on MIDI's CHANNEL at the key's velocity, each ended when you let go. NOTES to CHORD with HARMONY OFF
+turns HARMONY ON too. Hold SEL and tap a key: one note, whatever NOTES says. With MIDI's SEQUENCE ON, a key is one
+note: CHORD shows in slate with (NOT ON SEQ) under it. With MIDI's ARP ON, a chord's notes go into its arpeggio. While
+MIDI plays chords, the header says CHORD · MIDI. HARMONY and NOTES are kept like the other tracks' KEYS (section 5).
+
+![KEYS on MIDI: HARMONY ON, NOTES CHORD, CHORD · MIDI in the header; the strip with HOLD and a chord's three notes lit in violet](img/screen-keys-midi.png "HOME, twice, on MIDI")
+
+The strip shows the notes sent to the computer (a chord's notes each), those held rising as you press, their range under them, the last
 note sent and its velocity, and USB: violet while a computer listens, grey when none does.
 
 ![MIDI OUT: CHANNEL 1, OCTAVE 0, VELOCITY NORMAL, PRESSURE CHANNEL; above, the keys F3 to G5 as lines, three held as violet bars, the last note G4 at velocity 64, USB in a violet box](img/screen-midi-out.png "MIDI selected, EDIT")
@@ -1397,13 +1527,21 @@ While it comes back, MIXER shows it as a fifth fader, ALGORITHM turning it there
 ![RETURN 72 %, large, as ALGORITHM turns it on MIDI; C RETURN 72 % at the bottom too](img/screen-midi-return.png "MIDI selected, ALGORITHM")
 
 **CLOCK OUT** (GLO, MIDI II): MIDI clock out at 24 a beat, TEMPO's (or the clock FRASIL follows), Start and Stop with
-PLAY's sequences. OFF at first.
+PLAY's sequences (a DAW's Continue goes out as Start). OFF at first. **TRANSPORT** (K2) is the MIDI clock's that comes
+in (section 12).
 
-![MIDI II: CLOCK OUT ON](img/screen-midi-clock.png "GLO, three times")
+**NOTES OUT** (GLO, MIDI II, K3): the notes FRASIL plays by itself go out too, for your DAW to record. GLINT's
+arpeggio and sequence on channel 14, SPARKLE's glints on 15, the bass's arpeggio and sequence on 16 (PULSE's strikes
+too), each as it sounds: its octave, its velocity, its length. FRASIL's sound doesn't change. Your keys, the drones and
+the LEAD stay out of it (your DAW has what it sends). STOP, RELEASE ALL, CUT, a scene loaded and NOTES OUT turned OFF
+end every note it sent. OFF at first. In Ableton Live, a MIDI track with MIDI From on FRASIL FM-1, channel 14, records
+GLINT's notes. FRASIL's tracks listen on channels 1 to 3 at first: these notes, sent back, play nothing.
 
-CHANNEL, OCTAVE, VELOCITY, PRESSURE, RETURN and CLOCK OUT are kept with the settings; MIDI's arpeggio and sequence with
-each scene stored. At power-on the DRONE is selected. MIDI is in no shard, and PERFORM's LIVE doesn't hear it: your DAW
-records it.
+![MIDI II: CLOCK OUT ON, TRANSPORT FOLLOW, NOTES OUT OFF, CLOCK AUTO](img/screen-midi-clock.png "GLO, three times")
+
+CHANNEL, OCTAVE, VELOCITY, PRESSURE, RETURN, CLOCK OUT, TRANSPORT and NOTES OUT are kept with the settings; MIDI's
+arpeggio and sequence with each scene stored. At power-on the DRONE is selected. MIDI is in no shard, and PERFORM's LIVE
+doesn't hear it: your DAW records it.
 
 ---
 
@@ -1416,7 +1554,7 @@ screen.
 The river fills the screen, very large, drawn from what the FM-1 plays. Under it: **LIVE**, what your hand does as
 it does it (a page opened, a knob turned and its value, a scene loaded, the keys played, a button), then gone, leaving
 room for the next; the **LFOs**, each its shape, a glint where it is and what it moves, in its track's colour; and
-the effects drawn rather than their numbers: **CLOUD**, **TAPE** (the cassette) and **FILTER** (its curve), dim while
+the effects drawn rather than their numbers: **CLOUD**, **LOFI** (its MEDIA: the cassette, the record, the dial, the handset) and **FILTER** (its curve), dim while
 off, lit a moment while you turn one of their settings.
 
 **The first screen:**
@@ -1499,6 +1637,9 @@ says the keys' track over the other's page, a white band titled BASS ADSR.
 **Everything went silent:** PLAY held, or tapped twice quick, lets everything go; OCT− held and PLAY (CUT) silences
 it at once. Hold PLAY again, or tap it, before you play anything else: RESTORE brings back what it let go. A single
 tap while something plays does not let the drones go: it starts and stops the sequences and the arpeggios.
+
+**The bass, GLINT, MIDI or the drones play other notes than the keys:** TRACKS LINK moves them with the drone or the
+bass (HOME, fifth page, section 5). Turn the track to NO LINK.
 
 **LATCH doesn't change:** turned OFF it lets that track's notes go, so it takes a second detent the same way within 2
 seconds (LATCH, TURN AGAIN smaller beside it).

@@ -251,8 +251,9 @@ void nuage_init(void)
 
 static float nb_sh[SUB];                 /* the shimmer's output after each sample (the next one's input: below) */
 
-#if !BR_FS_CONST                         /* (frasil_silence's: not on the FM-1) */
-void nuage_hush(void)                    /* the tail gone at once: the lines and their states empty, the settings kept */
+/* the tail gone at once: the lines and their states empty, the settings kept (frasil_silence's; VINYL's stop's, card
+ * #224: on the FM-1 too, nuage_clear leaving the lines' poles, a ghost of the tail) */
+void nuage_hush(void)
 {
     uint32_t j;
     for (j = 0; j < MEM_ALL; j++)
@@ -266,7 +267,6 @@ void nuage_hush(void)                    /* the tail gone at once: the lines and
     nu.hpl = nu.hpr = 0.0f;
     nu.sh_hp = nu.sh_lp = nu.sh_lp2 = nu.sh_out = 0.0f;
 }
-#endif
 
 /* Perform LIVE's (frasil_lv): the lines' sways where they are in their turns (some 7 to 16 s each: heard), the
  * shimmer's phase; the room's own sound is each engine's */

@@ -14,6 +14,7 @@ lights, screen or store. The FM-1's firmware is built on it (`app/`, its shell),
 | `dsp/` | the sound, compiled apart at -O2: `frasil.c` (the voices, the mix, MASTER FILTER, MASTER EQ, LOFI TAPE, ROUTING, the pans, MASTERING, CUT), `glint.c` (GLINT and its delay), `bass.c` (BASS), `nuage.c` (CLOUD, the reverb), `lead.c` (the LEAD and its delay: with `-DFRS_LEAD=1`, the app's builds and STREAM's); `fastmath.h` |
 | `frasil_stream.h`, `.c` | SHARD STREAM: a performance as a recipe. The file (`.frstream`), the journal, the replay, and `fst_air`: a stream played by the engine's own milliseconds, joined at any place (`frs_tick_hook`, `frs_skip_to`), and `fst_live`: a performance heard live, each op applied by itself as it comes (`fst_op`, fst_apply's own code, a scene by its bytes: Perform LIVE's listener). The API alone, no platform: the same reader for the iPad and the radio |
 | `live.c` | part of `core.c`: the running state Perform LIVE tells (`frs_live_save`, `frs_live_load`; the FM-1's STATE), field by field, and the DSP's (`dsp/brlive.h`: each unit's `*_lv`); its LEAD's part apart ("FRld", card #152) |
+| `mout.c` | part of `frasil_engine.c` with `-DFRS_MIDI_OUT=1` (the iPad's, card #192): MIDI OUT, a fifth track whose notes go out over MIDI (`frs_mout_*`): its keys (their HARMONY and NOTES: a chord out, card #194), its arpeggio (the engine's arpeggiator, `marp`), its sequence, CLOCK OUT, NOTES OUT (card #201: the brain's own GLINT, SPARKLE and BASS notes out on 14 .. 16, core.c's `GEN_` hooks), every message stamped with the engine's millisecond for the shell to send. The FM-1's own is its app's (`app/app.c` mout_*, nout_*, `app/mseq.c`) |
 | `tests/` | the engine alone against the FM-1's simulator (`run.sh`; `anchor.c`: ANCHOR through the API and a stream; `live.c`: ops given one by one, a replay's every sample; `snap.c`: an engine opened on a snap goes on as the first; `lead.c`: the LEAD in a shard, a stream and LIVE) |
 
 ## Alone
@@ -26,7 +27,9 @@ cc -O2 -ffp-contract=off -Iengine -Iengine/dsp -c engine/frasil_engine.c engine/
 `-ffp-contract=off`: no fused multiply-add, the FM-1's samples bit for bit. `-DFRASIL_FS_CONST` builds it as the
 FM-1's DSP is built: at 44.1 kHz alone. With the LEAD (the app's builds, STREAM's `stream.wasm` since card #152):
 `-DFRS_LEAD=1` and `engine/dsp/lead.c` too (NPARAM 268, the LEAD's settings 243 .. 267). Without it (the iPad's copy,
-ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
+ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing. With MIDI OUT (the iPad's, card
+#192): `-DFRS_MIDI_OUT=1` (`mout.c`, included by `frasil_engine.c`); without it nothing of it is built, every render as
+before.
 
 `engine/tests/run.sh` (after `./build.sh --host`) runs these checks:
 - **fastmath.h:** the copy is fm1-base's, its guard aside.
@@ -50,10 +53,17 @@ ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
   changes, CUT, an engine opened again: a skip's messages to the DSP and the brain's state at T are a render's, at any
   buffer. Controls that must differ, or the test proves nothing.
 - **Old streams** (`tests/old_streams.c`): `tests/old-streams/`'s takes of "FRSz" (3.0, before ARP SNAP),
-  `tests/old-streams-3.0.2/`'s of "FRS{" (3.0.2-b5's, SWELL turned through scenes and an ANCHOR among them) and
-  `tests/old-streams-3.2/`'s of "FRS}" (3.2's, card #152's base, their LEAD MOSS), each as its engine played it, bit
+  `tests/old-streams-3.0.2/`'s of "FRS{" (3.0.2-b5's, SWELL turned through scenes and an ANCHOR among them),
+  `tests/old-streams-tape/`'s of "FRS{" (the iPad's 3.0.2-b5 of 2026-11-05, TAPE SPEED dragged under the arpeggios and
+  keys: its byte as that engine read it, `frs_tape_302`, card #160),
+  `tests/old-streams-3.2/`'s of "FRS}" (3.2's, card #152's base, their LEAD MOSS) and `tests/old-streams-3.3/`'s timed
+  MORPHs (3.3.1's, card #202's base: its MORPH, `frs_morph_331`), each as its engine played it, bit
   for bit, from the top and joined half-way (built without the LEAD: a LEAD build's GLINT and MIXER levels glide
   across a block, card #144, so it plays them close, not bit for bit; on air each plays on its own engine).
+- **A scene's MORPH** (`tests/morph.c`, card #202): NORTH RIVER to LONG NIGHT and back over 2:00, each drone voice's
+  level: the notes let go and the ones played over the MORPH (3.3.1's, the control: in about a second, a few); the
+  ATTACK and RELEASE heard; a MORPH of a second, CUT, LOAD SND ONLY, a drone's sequence as before; MASTERING, CLOUD and
+  MASTER EQ gliding (EQ OFF to a scene's from flat); MORPH's mark in the state.
 - **Heard live** (`tests/live.c`): a captured start, then each op by itself (`fst_op`, its scenes and its state by
   their bytes) between the blocks its milliseconds fall on: every sample, setting and note the replay of the same take's
   file has; ops not known ignored, ops too short refused, both counted and harmless; quiet (no metronome) as on air.
@@ -72,6 +82,40 @@ ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
   stream with MOSS; the running state's LEAD part (four keys on it across a snap: a listener opened on both parts the
   artist's brain and voices every 100 ms, one on the first part alone none stuck, its own state at its place left);
   an FM-1's STATE with a key on the LEAD read without the LEAD (the first part) and with it (both).
+- **LOFI TAPE's MEDIA** (`tests/media.c`, card #99; also under ASan and UBSan): TAPE as it was before VINYL and AM,
+  bit for bit (renders hashed on the engine before them: every setting of LOFI TAPE and LOFI TAPE II moved, its TRACKS
+  and ROUTING, off and on again, at 44.1 and 48 kHz); MEDIA's words, a value past AM taken as AM; VINYL and AM on a
+  factory scene, their gentlest and their hardest, every sample finite, under full scale, within 6 dB of the dry
+  scene; AM one side, its static in its band; VINYL as wide as the tape; silent in,
+  silent out at NOISE 0 (SATURATION, WOBBLE and DROPOUT at the top); DROPOUT's dips; a medium changed while a drone
+  plays, through its fade, no click; the effects' view of the one sounding (`frs_live_fx`'s 37). An engine before them
+  takes VINYL and AM as TAPE (a setting past its range: its range's last). VINYL's record player (card #224): OFF, TAPE
+  and AM bit for bit as before it (history/dev 49bcaa81), their CUT and the iPad's STOP too; VINYL silent on silence
+  till music reaches the record (the needle up), the needle's drop then (none on a join), its noise once the needle is
+  down (ticks and pops over a hush, none at NOISE 0), its marks ticking again each turn, its lows one side; CUT: the
+  record slowing to a stop (its pitch down, no click, silent within 0.75 s), the needle up after it, PLAY again and a
+  note played in the stop as quick as PLAY after the tape's CUT; at 48 and 96 kHz too.
+  PHONE after AM (card #218): AM bit for bit as before it (VINYL's own since card #224); PHONE one side, an old
+  handset's (its lows gone, under 100 Hz a tenth of the dry scene's and less; its mids twice the dry scene's share;
+  its highs duller than AM's), its hiss in its band, a mains hum under it (60 Hz's harmonics), silent in, silent out
+  at NOISE 0, its line cut now and then on DROPOUT, through the fades with the others. Takes made with it (`media make
+  DIR`: PHONE, the same on AM, on TAPE) heard on two engines from git (`tests/media_old.c`): history/dev 49bcaa8's,
+  with VINYL and AM, hears PHONE as AM bit for bit; 70c3ad0's, before the media, as TAPE.
+- **MIDI OUT** (`tests/mout.c`, card #192, built as the iPad builds it: `FRS_MIDI_OUT`, the LEAD; also under ASan and
+  UBSan): its keys, arpeggio, sequence and CLOCK OUT, what goes out and when, nothing sounding. Card #219's: its KEYS
+  (HARMONY's chord out on a key, a note two keys have on once and off with the last, POLY's pressure each note's, its
+  ARP the chord's notes, its SEQ one); CLOCK OUT's transport after a skip that went past a Stop, a Start or both (the
+  first two FAIL before it); NOTES OUT (RESILIENCE, SPARKLE up: GLINT's, SPARKLE's and the bass's own notes on 14, 15
+  and 16, none twice, none let go that was not out, the sound bit for bit with it or without, none on MIDI OUT's strip,
+  none struck in a skip of 8 s, every one let go at RELEASE ALL, off and a panic); the LEAD's chord on POLY from
+  `frs_key_notes`, a key each.
+- **What the iPad needs of the FM-1's 3.4** (`tests/api.c`, card #219): ATTACK SHAPE set and read (`frs_ashape_*`),
+  in the state, in the view and the snapshot, heard (the drones' LINE not their CURVE, CURVE bit for bit as before);
+  MORPH's progress (`frs_morph_progress`, the view's `morph`): 0.5 half way through a MORPH of 1 S, none after, a
+  Program Change's scene's seen, ANCHOR's way back not one; `frs_key_notes` against the drones' own chord on every
+  note from 36 to 95; SONG POSITION (`frs_host_song`): a host starting at beat 6 has each sequence at beat 7 where a
+  host from beat 0 has it (without it, from their tops: the control), a start at beat 0 and TEMPO ONLY bit for bit as
+  without it, the host's stop a Stop and its play again at its place.
 
 - **The rate:** 44.1 kHz to 96 kHz (`frs_init`). What holds time is sized at the rate (the reverb's lines, GLINT's
   delay, LOFI TAPE's loop), and each step made for 44.1 kHz is made over for it (the filters' and the EQ's
@@ -84,7 +128,11 @@ ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
     host's buffer, so a clock keeps its time whatever the buffer.
   - **A host's tempo and transport** (`frs_host_tempo`) run the grid as a MIDI clock and Start would, its tempo
     exactly, from 13 to 999 BPM. A locate is a Start again, with no burst of clocks. The grid's top is where the host
-    starts or locates, not on its bars: FRASIL has no song position.
+    starts or locates, not on its bars (MIDI's transport has a song position: `frs_midi`'s Song Position, Stop and
+    Continue, TRANSPORT on FOLLOW, card #204). With `frs_host_song(1)` (card #219, the shell's choice, off at the
+    start) the host's has one too: its start or locate puts the grid and each sequence where they would be had they
+    played from its beat 0 (Song Position then Continue, core.c `grid_at`, `seqs_at`), its stop is a Stop; a start
+    before its beat 0, a Start as before.
   - **Latency:** what a message plays sounds from the first block after its millisecond: 0 to 256 frames after its
     frame, 5.8 ms at most at 44.1 kHz.
 - **Built with `-DFRASIL_FS_CONST`** (the bench's: the DSP as the FM-1 compiles it), the engine runs at 44.1 kHz
@@ -162,7 +210,33 @@ ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
     the moment, a step's, an action (turned to 2, it acts and comes back: not a plug-in's automation), or none (the
     FM-1's alone: SPK/JACK, ANIMATIONS).
   - **The engine's state beside a scene** (KEY MODE, the MIDI channels, LOAD, CLOCK, the metronome):
-    `frs_state_save` and `frs_state_load`.
+    `frs_state_save` and `frs_state_load`. With them ATTACK SHAPE (card #122: no setting, NPARAM as it was), each
+    envelope's LINE or CURVE (the drones', GLINT's, BASS's, the LEAD's, its filter's): the pair 253 and a bit each,
+    after the metronome's; an engine before it leaves the pair (253 a LEAD setting there, a scene's, or past its
+    NPARAM), every recording of this one read there, its shapes CURVE (`tests/shape_old.c`, `tests/line-streams/`).
+    TRACKS LINK too (card #212: no setting either; `frs_link_set`, `frs_link_get`): the pair 252 after ATTACK SHAPE's
+    while a track is moved, its tracks LINKED (`FRS_LINK_*`) and 16 the bass followed, then 251 and the note followed
+    once one is, then 246 .. 249 and each track's baseline once it has one (the drone's, the bass's, GLINT's, MIDI's;
+    three at most): an engine opened on the scene and the state moves the tracks as this one (a stream's start takes
+    the link again after its scene, `frs_state_link`); a state without them, none linked, the note from what the one
+    followed holds, each baseline none. 246 .. 252 are LEAD scene settings to an engine before them (`frs_state_load`
+    reads a state's settings alone), past NPARAM without the LEAD.
+  - **TRACKS LINK** (card #212, the FM-1's HOME › TRACKS LINK): `frs_link_set(follow, tracks)`, the drone (0) or the
+    bass (1) followed and the tracks LINKED (`FRS_LINK_DRONE`, `_BASS`, `_GLINT`, `_MIDI`; the one followed's kept
+    but never moving it, so that FOLLOW turned leaves each as it was). Its note struck last (the drone's chord's root,
+    its sequence step's lowest, a scene's lowest latched root; the bass's note as played) is the note followed. Each
+    track linked has its own baseline, the note followed as it was LINKED (Styves, admin #1929: nothing moves then;
+    nothing followed yet, the next one): it sounds its notes the degrees of SCALE from its baseline to the note
+    followed (from -n/2 to n/2 of the scale's n) along the scale (core.c `lk_note`, `lk_steps`, TRANSPOSE's
+    `scale_shift`), the drones' held struck again there (more than the voices' queue takes at once: let go together,
+    `frasil_ev_room`), the bass's retuned (NOTES OUT's with it: `GEN_MOVE`), GLINT's and MIDI OUT's next notes; what
+    they play, record and show, as played. Linking or letting one go never moves another; ROOT or SCALE turned, the
+    baselines kept, their degrees counted again. The other followed: each track moved keeps its offset, nothing moves
+    (its baseline the note that puts what that one holds now there, `lk_virtual`; holding nothing, the offset kept
+    till its first note: `lk.keep`, in no state), one moved only now from that note; a state told along
+    (`frs_state_load`, the FM-1's LIVE) turns it so too, `frs_state_link` takes the state's alone. A scene taken (LOAD
+    SND+NOTES, NEW SCENE, the River's): every baseline none, no offset kept, the scene's first note followed theirs.
+    The followed track's own notes struck first in a millisecond (`eng_steps`). Off at the start.
   - **The running state** (Perform LIVE, card #131): `frs_live_save`, `frs_live_load`, `frs_live_ms`, what a start
     (a scene, the state, the moves) does not hold, so that an engine opened on the same start goes on as this one does:
     the brain whole, bit for bit, the sound's drift, envelopes and phases at half precision, not the buffers.
@@ -176,7 +250,9 @@ ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
     on TEMPO.
   - **LFO TARGET's choices** (`frs_lfo_targets`, `frs_lfo_target`): the setting each choice moves. 2.5's 46: the 40
     before, then MASTER FILTER's CUTOFF and RESONANCE and the four pans; 2.6's 47th, SOFT (new ones at the end: a
-    saved TARGET keeps its setting).
+    saved TARGET keeps its setting); 62 .. 83 the LEAD's (-1 on an engine without it: a scene's taken as OFF); 84 ..
+    89 the LFOs' own RATE and DEPTH (card #199: one LFO on another's pace, in octaves, or depth, a moment later; on
+    its own too; one at DEPTH 0 runs while another opens it).
   - **TRACKS** (MASTER FILTER's and LOFI TAPE's): `FRS_TRACKS_*` are its values (ALL, DRONE, GLINT, BASS, then the
     pairs), `frs_tracks_bits` the tracks each is on (`FRS_TRK_*`; DRONE has its cloud's return with it, unless
     ROUTING puts the effect before the cloud).
@@ -203,7 +279,11 @@ ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
   each one's LEAD taken with it where a scene starts or changes (SCN0, FST_SCENE, FST_SCENE_NOW, FST_OPEN; not STORE's
   nor ANCHOR's); or an older layout's ("FRS}" as it is, "FRS{", "FRSz" made over as they are played, SWELL as it is
   then: their engines left it through a scene and an ANCHOR's way back), their LEAD MOSS from the start: an old stream
-  plays as it did. The file itself is not changed (its CRC stays). An "FRS|" stream is refused (its AMOUNTs in percent
+  plays as it did. An "FRS{" stream's TAPE SPEED reads as 3.0.2 read its byte (`frs_tape_302`, set by `fst_fresh` from
+  `fst_start`'s `tape302` at every opening: log2's own, X0.79 at 53 where 3.1 reads X0.89; card #160: read as 3.1's,
+  its grid ran on past the hands that played over it). A stream whose state has no MORPH's mark (3.3.1's and before)
+  plays its scenes' MORPHs as they did (`frs_morph_331`, set by `fst_fresh` before a state: card #202).
+  The file itself is not changed (its CRC stays). An "FRS|" stream is refused (its AMOUNTs in percent
   in its scenes, its state and its moves; only 3.0.2-b5's test builds made any). A journal's scenes are shards too
   (FSTJ_SCENE: 644; a journal of 619, "FRS}"'s, still finished as "FRS}"). HEAD's nparam: the engine's that made it
   (268 with the LEAD): an engine without the LEAD refuses a recording made with it (FST_LAYOUT), not a shard alone on
@@ -216,6 +296,14 @@ ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
 - **ANCHOR's way back and a scene's MORPH:** SWELL glides back on ANCHOR's MORPH (as BASS TONE, the bass's SPACE,
   AUTO VIB), the AMOUNTs switch at its half with the TARGETs; on a scene's MORPH, SWELL is the scene's at once, as
   BASS TONE is.
+- **A scene's MORPH with LOAD SND+NOTES** (`frs_scene_go`, card #202): the notes it lets go and the ones it plays go
+  out and come in over its length: the drones' ATTACK and RELEASE are heard at least as long as it at its start (past
+  their 30 s and 60 s if it needs: up to 2:00), back to the scene's own at its end (until 3.3.1 they were the scene
+  left's: NORTH RIVER's RELEASE let its notes go in about a second, a 2:00 MORPH or not). Not on a drone's sequence
+  (its steps on their own), nor with LOAD SND ONLY (nothing let go). The 8 voices busy, a note played takes one let go
+  at its level (Later). MASTERING's THRESHOLD and GAIN, CLOUD's level and MASTER EQ's seven glide as the rest (until
+  3.3.1: the scene's at once); MASTER EQ OFF is heard flat, a scene's EQ comes in from there. A stream of 3.3.1's plays
+  its MORPHs as they did (`frs_morph_331`, MORPH's mark: below).
 - **2.5's effects as they sound** (`frs_live_fx`, `FRS_LIVE_FX` floats, its layout in the header): LOFI TAPE's mix,
   speed, wow, drift and flutter phases and drag; MASTER FILTER's type, cutoff, Q and tracks now; MASTER EQ's three
   biquads now; MASTERING's gain reduction; the output's peak and RMS, left and right. `frs_fx_response` draws the
@@ -223,6 +311,11 @@ ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
   DSP's render; on the FM-1's build (`FRASIL_FS_CONST`) the effects' part is 0, the output's levels alone.
 - **CUT** (`frs_cut`, the FM-1's OCT- held and PLAY): RELEASE ALL, then the next block faded out and the one after
   it emptied: the echoes, the cloud's lines and the tape's loop (its tail: below, Later).
+- **An outside input into CLOUD** (`frs_render_in`, FrasilVibe's IN, card #210): `frs_render` with the host's input
+  frames, left and right, added to what the tracks send the cloud, before its diffusion: FREEZE holds it, SHIMMER takes
+  it up. A block late (the engine renders 256 frames ahead); its level is the host's. No input, `frs_render`'s samples
+  bit for bit. `frs_cloud_clear`: the cloud emptied, its return faded out over the next block, FREEZE kept. Neither is
+  the FM-1's (no input there; its DSP compiles without them).
 - **PLAY** (`frs_play`, 2.5's, a tap):
   - **Nothing playing at all:** the scene given last's three tracks (what RELEASE ALL or CUT let go, else its own
     notes and sequences from their first steps).
@@ -233,7 +326,10 @@ ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
     tapped; a second tap within `FRS_PLAY_TWICE_MS` (350 ms) of one is `frs_release`: RELEASE ALL, never RESTORE.
     PLAY held is `frs_release_all` (RELEASE ALL, or RESTORE with nothing playing).
 - **The state's version** (`frs_state_save`): 3, 2.6's numbers. A 2.5 engine's (2) is read with its settings past
-  its NSOUND (153) made one higher, a 2.0 engine's (1) with those past its NSOUND (130) 24 higher.
+  its NSOUND (153) made one higher, a 2.0 engine's (1) with those past its NSOUND (130) 24 higher. MORPH's mark (card
+  #202): the pair 254, 1 before the metronome's, a scene's MORPH as this engine makes it (none while `frs_morph_331`);
+  an engine before ignores it (254: no setting a state holds), `fst_fresh` opens a state without it on 3.3.1's MORPH,
+  `frs_state_load` alone (a device's own state) leaves it as it is.
 - **What sounds now** (`frs_live`, `FRS_LIVE` floats, engine/core.c `eng_live`'s layout): 2.6 added the 53rd, LOFI
   TAPE's drag under way (how much slower, 0..1, 1 for 8 %; the River's `web_live` and the FM-1's PERFORM frame have
   it too).
@@ -248,13 +344,8 @@ ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
   in fm1-base, then copied here again.
 - **An instance struct:** the engine's state gathered in one struct, so that one process can have several engines.
   Until then, one engine a process.
-- **The grid on the host's bars:**
-  - **What it would take:** a Start under a host's tempo putting the grid at the host's beat (24 x the beat), so
-    that the patterns sit on the DAW's bars.
-  - **Why not yet:** that is a song position in the brain (core.c), and the FM-1's path. With the grid moved
-    alone, GLINT's sequence would still begin on the Start's step, and the bass's sequence would strike every step
-    up to there at once.
-  - **For now:** the grid's top is where the host starts or locates.
+- **The grid on the host's bars:** `frs_host_song` (card #219) has it, the shell's to turn on; off, the grid's top is
+  where the host starts or locates. A count-in (a start before the host's beat 0) still starts the grid there.
 
 - **The grid's wrap and GLINT's steps** (in core.c, the FM-1's too): GLINT's step number wraps with the grid, every
   9600 clocks (100 bars). A sequence whose loop doesn't divide them (12 eighths: 144 clocks) jumps there, and two
@@ -267,6 +358,9 @@ ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
   makes it silent; it changes the FM-1's CUT, so it goes into the firmware first. With it, the notes given during
   CUT's two blocks: the second block's panic empties the sound's queue, so a chord latched then (the brain has it)
   does not sound. The fix there: the voices, the bass and the glints cleared without the queue dropped.
+- **A MORPH's notes with every voice busy** (in dsp/, the FM-1's too; card #202): a note a scene plays takes the
+  quietest voice let go, from its level, its pitch the new note's at once (NORTH RIVER's eight voices to LONG NIGHT:
+  one of them; and back the same). A crossfade of its own per voice would bring it in over the MORPH as the others.
 - **Short steps in blocks or chunks** (in dsp/): MASTER FILTER's settling (4 chunks) and CUT's fade (a block) are
   counted in samples, so at 96 kHz they take half the time (1.3 ms, 2.7 ms). Harmless; `br_n` would make them the
   same time.
@@ -276,8 +370,9 @@ ENERGY's tool), NPARAM 243 and no LEAD: `frs_lead_*` give MOSS and take nothing.
 ## On the FM-1
 
 `app/app.c` defines `FRASIL_SHELL` and the engine's hooks (its clock, its header's words, GLINT SEQ's pages, MIDI
-learn, a Program Change's slot), then includes `core.c`. The shell may reach into the engine's state (the screen draws
-it all); the engine never reaches into the shell.
+learn, a Program Change's slot; `GEN_NOTE`, `GEN_CUT`, `GEN_PULSE`: the notes the brain plays by itself, for NOTES OUT,
+card #201, nothing in the engine's own builds), then includes `core.c`. The shell may reach into the engine's state
+(the screen draws it all); the engine never reaches into the shell.
 
 ## Licence
 

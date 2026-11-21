@@ -10,7 +10,7 @@ wait 5000
 said_none
 # a reader new: everything on the screen, at once (WHERE): the page, the scene, the hands, the settings; then the rest
 listen
-said SOUND (1/5), NEW SHARD. TRACK DRONE, PRESET CUSTOM, TIMBRE 50. CHOIR
+said SOUND (1/6), NEW SHARD. TRACK DRONE, PRESET CUSTOM, TIMBRE 50. CHOIR
 # ... its other parts a frame each (several at once could fill the USB queue): the modes, then what plays
 where
 wait 100
@@ -94,7 +94,7 @@ wait 400
 said LFO 1 TARGETS (2/6)
 spin K3 1
 wait 400
-said TARGET 3, DRONE: TIMBRE, 1 OF 83. SEL: SELECT. FX: CANCEL.
+said TARGET 3, DRONE: TIMBRE, 1 OF 89. SEL: SELECT. FX: CANCEL.
 tap FX
 wait 400
 # the help: HOME held; its page, then each line from its control
@@ -171,14 +171,102 @@ tap HOME
 wait 30
 tap HOME
 wait 400
-said CLOUD SEND (4/5). DRONE SEND
+said CLOUD SEND (4/6). DRONE SEND
 turn SELECT 1
 wait 300
 said TRACK
 unsaid SEND
+# TRACKS LINK (card #212): its title, FOLLOW, the three tracks not followed, each NO LINK or LINKED
+tap HOME
+wait 400
+said TRACKS LINK (5/6). FOLLOW DRONE, BASS NO LINK, GLINT NO LINK, MIDI NO LINK
+turn K2 1
+wait 300
+said BASS LINKED
+turn K1 1
+wait 300
+said FOLLOW BASS
+turn K2 1
+wait 300
+said DRONE LINKED
+turn K2 -1
+wait 300
+said DRONE NO LINK
+turn K1 -1
+wait 300
+said FOLLOW DRONE
+turn K2 -1
+wait 300
+said BASS NO LINK
+expect link 0
 # the logo (HOME on the last of its pages)
 tap HOME
 wait 400
 said FRASIL
 where
 said DRONE TEXTURES FROZEN IN MOTION
+# LOFI TAPE's two pages as its MEDIA has them (card #229): OFF or TAPE, LOFI TAPE; VINYL, AM, PHONE their own (LOFI
+# VINYL, LOFI AM II); SPEED on every one, never TAPE SPEED. ROUTING's K2 the medium too (LOFI in the schema); the LFO
+# TARGETs LOFI SAT, SPEED, LOFI TONE, LOFI NOISE, their section the medium's
+gopage 34
+wait 400
+said LOFI TAPE (6/8). MEDIA OFF
+turn K1 2
+wait 300
+said MEDIA VINYL
+tap FX
+wait 400
+said LOFI VINYL II (7/9). SPEED 1.00 TIMES
+unsaid TAPE
+gopage 34
+wait 400
+said LOFI VINYL (6/9). MEDIA VINYL
+turn K1 1
+wait 300
+said MEDIA AM
+tap FX
+wait 400
+said LOFI AM II (7/9)
+unsaid TAPE
+gopage 46
+wait 400
+said ROUTING (7/9). FILTER POST CLOUD, AM POST CLOUD
+spin K2 1
+wait 300
+said AM PRE CLOUD
+setp 142 4
+spin K2 -1
+wait 300
+said PHONE POST CLOUD
+unsaid LOFI
+setp 142 1
+spin K2 1
+wait 300
+said TAPE PRE CLOUD
+spin K2 -1
+wait 300
+setp 142 3
+setp 98 57
+gopage 23
+wait 400
+said LFO 1 TARGETS
+spin K1 -1
+wait 400
+said TARGET 1, LOFI AM: LOFI SAT
+tap FX
+wait 400
+setp 98 57
+spin K1 1
+wait 400
+said TARGET 1, LOFI AM: SPEED
+spin K1 1
+wait 400
+said LOFI TONE
+spin K1 1
+wait 400
+said LOFI NOISE
+tap FX
+wait 400
+setp 142 0
+setp 98 0
+expect p142 0

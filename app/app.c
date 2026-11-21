@@ -12,11 +12,8 @@
  * the encoders, the keys' scan and lights), MIDI learn, the contract with the platform. Part of the unity build
  * (device/unity.c, host/plat_host.c), after the platform: gfx.c and announce.c are in scope. */
 #define FRASIL_SHELL                     /* (the engine in the FM-1's unity build: the platform's libc and clamp) */
-#if PLAT_SMK37
-#define FRS_NKEYS 32                     /* the SMK-37: the FM-1's 27, then 27..31 for its ten outer keys (keys_outer) */
-#else
-#define FRS_NKEYS NKEYS
-#endif
+#define FRS_NKEYS 32                     /* the panel's 27, then 27..31: the SMK-37's ten outer keys (keys_outer), the
+                                          * LEAD's chords' notes past the first (card #194: lead_keys_down) */
 #if defined PLAT_HOST && !defined PLAT_WEB
 static uint8_t test_arp_log;             /* (arplog 1: each arpeggio's step and each set it takes, printed) */
 #define ARP_TRACE(a, what, note)                                                                                       \
@@ -25,6 +22,18 @@ static uint8_t test_arp_log;             /* (arplog 1: each arpeggio's step and 
             printf("  arp %s %6u ms  grid %7.2f  %s %d\n", (a) == &arp ? "GLINT" : "BASS ", (unsigned)eng_ms(),       \
                    (double)(grid.wraps * 9600u + grid.tick), what, note);                                              \
     } while (0)
+#endif
+#if FRS_MIDI_OUT                         /* NOTES OUT (card #201: app.c nout_*, after MIDI OUT): the engine's own notes told
+                                          * here as it strikes them, by who struck them (SPARKLE's two places) */
+enum { GEN_ARP, GEN_SEQ, GEN_SPK, GEN_SPK2, GEN_BASS, NGEN };
+static void nout_note(uint32_t at, int note, float v);
+static void nout_cut(uint32_t tracks);
+static void nout_pulse(float ms);
+static void nout_move(void);
+#define GEN_NOTE(at, note, v) nout_note((uint32_t)(at), note, v)
+#define GEN_CUT(tracks) nout_cut(tracks)
+#define GEN_PULSE(ms) nout_pulse(ms)
+#define GEN_MOVE() nout_move()
 #endif
 #include "controls.h"                   /* (the panel's controls as the screens name them: the FM-1's, the SMK-37's) */
 #include "core.c"                       /* (FRASIL's engine: every setting, the scenes, the brain; its hooks below) */
@@ -61,6 +70,9 @@ static void lv_rec(uint32_t layer);
 static void lv_watch(int swell);
 static void lv_pump(void);
 static void lv_lead(uint32_t how);
+static void lv_shape(void);
+static void lv_ldch(void);
+static void lv_link(void);
 static void lv_wheels(uint32_t mod, int32_t bend);
 #ifndef PLAT_WEB
 static void lv_param_set(int p, int32_t x);
@@ -497,12 +509,10 @@ static struct {
     uint32_t own;                        /* bit k: key k went down on MIDI (its up MIDI's, whatever is selected then) */
     uint8_t ch, vel, prs;                /* CHANNEL 0 .. 15, VELOCITY, PRESSURE */
     int8_t oct, oct_fr;                  /* its OCTAVE while another track has the panel's; FRASIL's while it has it */
-    int8_t note[FRS_NKEYS];              /* each key's note out (-1: none, or not MIDI's) */
+    int8_t note[FRS_NKEYS][MAXCHORD];    /* each key's notes out, its root first (-1: none, or not MIDI's; a chord's,
+                                          * KEYS on MIDI, card #194) */
     uint8_t kch[FRS_NKEYS];              /* ... on that channel */
     uint8_t kp[FRS_NKEYS], kp_sent[FRS_NKEYS];   /* its pressure now, and as POLY sent it */
-#if PLAT_SMK37
-    uint8_t pos[FRS_NKEYS];              /* the SMK-37: its place among the 37 (0: C3; MIDI OUT's strip) */
-#endif
     uint8_t cp_sent;                     /* CHANNEL's sent last */
     uint8_t last, last_vel;              /* the last note out, its velocity (MIDI OUT's strip) */
     uint8_t mod, pedal;                  /* the SMK-37's mod wheel and pedal as sent */
@@ -517,12 +527,24 @@ static struct {
     uint16_t ret_q12;                    /* ... as the platform has it now, gliding there (mout_ret_run) */
     uint32_t ret_ms;
 } mout = {.vel = MO_VEL_NORMAL, .prs = MO_PRS_CHANNEL, .ret = 100, .ret_q12 = 4096};
+/* NOTES OUT (card #201, nout_* below): each place's note as the engine struck it and as it went out */
+static struct {
+    uint8_t on;                          /* GLO › MIDI II's K3 (HEADER's byte, bit 6) */
+    int16_t at[NGEN];                    /* each place's note as the engine has it, -1: none */
+    int8_t out[NGEN];                    /* ... as it went out (as it sounds), -1: none out */
+    uint8_t bass_vel;                    /* the bass's out at (PULSE's strike again the same) */
+    int8_t again;                        /* PULSE's: the bass's note out again once its gap ends, -1: none */
+    uint32_t again_ms;
+    uint32_t sent;                       /* (the tests) */
+} nout;
 
 static void mout_init(void)
 {
-    uint32_t k;
-    for (k = 0; k < FRS_NKEYS; k++)
-        mout.note[k] = mout.anote[k] = -1;
+    memset(mout.note, -1, sizeof mout.note);
+    memset(mout.anote, -1, sizeof mout.anote);
+    memset(nout.at, -1, sizeof nout.at);
+    memset(nout.out, -1, sizeof nout.out);
+    nout.again = -1;
 }
 static void mout_put(uint32_t status, uint32_t d1, uint32_t d2)   /* a channel message, CIN its status' high nibble */
 {
@@ -592,42 +614,67 @@ static void rin_run(void)
         rin.lvl = 0.0f;
 }
 #define MIX_RET() (rin.on != 0)          /* (MIXER's fifth, RETURN) */
-/* a key down on MIDI: its note out (none outside 0 .. 127, or no room); MIDI's arpeggio's (a note into it, none out
- * now), or into its sequence as well (md_key_down); the engine's key nothing (its key_up then nothing either) */
-static void mout_key_down(uint32_t k, int note, uint32_t vel)
+/* another key than this one has note n out on channel ch (a chord's, or two keys on one note of the scale: one note
+ * on, its note off with the last of them, card #194) */
+static int mout_has(uint32_t but, int n, uint32_t ch)
 {
+    uint32_t k, i;
+    for (k = 0; k < FRS_NKEYS; k++)
+        if (k != but && mout.kch[k] == ch)
+            for (i = 0; i < MAXCHORD; i++)
+                if (mout.note[k][i] == n)
+                    return 1;
+    return 0;
+}
+/* a key down on MIDI: its notes out (KEYS on MIDI, card #194: the note as played, the scale's, or HARMONY's chord;
+ * none outside 0 .. 127; a note no room for, and those after it, not); MIDI's arpeggio's (its notes into it, none out
+ * now), or into its sequence as well (md_key_down); the engine's key nothing (its key_up then nothing either). single:
+ * one note whatever NOTES says (SEL held) */
+static void mout_key_down(uint32_t k, int note, uint32_t vel, int single)
+{
+    chord_t c;
+    uint32_t i, j = 0;
     key_begin(k);
     key[k].kind = K_NONE;
     mout.own |= 1u << k;
-    mout.note[k] = mout.anote[k] = -1;
+    memset(mout.note[k], -1, sizeof mout.note[k]);
+    mout.anote[k] = -1;
     if (note < 0 || note > 127)
         return;
-    if (md_key_down(k, note, vel)) {
-        mout.anote[k] = (int8_t)note;
+    md_key_notes(note, single, &c);
+    if (md_key_down(k, &c, vel)) {
+        mout.anote[k] = c.n[0];
         return;
     }
-    if (!mout_room(MO_ROOM_NOTE))
-        return;
     vel = mout_curve(vel);
-    mout_put(0x90u | mout.ch, (uint32_t)note, vel);
-    mout.note[k] = (int8_t)note;
     mout.kch[k] = mout.ch;
+    for (i = 0; i < c.k; i++) {
+        int n = lk_note(LK_MIDI, c.n[i]);   /* (TRACKS LINK on MIDI, card #212: out where it moves it, its off there) */
+        if (!mout_has(k, n, mout.ch)) {  /* (out already by another key: on, not again) */
+            if (!mout_room(MO_ROOM_NOTE + c.k - 1u - i))   /* (room kept for the chord's own offs too) */
+                break;
+            mout_put(0x90u | mout.ch, (uint32_t)n, vel);
+        }
+        mout.note[k][j++] = (int8_t)n;
+    }
+    if (!j)
+        return;
     mout.kp[k] = mout.kp_sent[k] = 0;
-    mout.last = (uint8_t)note;
+    mout.last = (uint8_t)mout.note[k][0];
     mout.last_vel = (uint8_t)vel;
 }
 static uint32_t mout_held(void)          /* keys down that went out (bit k) */
 {
     uint32_t k, b = 0;
     for (k = 0; k < FRS_NKEYS; k++)
-        b |= (uint32_t)(mout.note[k] >= 0) << k;
+        b |= (uint32_t)(mout.note[k][0] >= 0) << k;
     return b;
 }
 static void mout_channel_prs(void)       /* CHANNEL: the hardest key's, on a change of two or more, or to 0 */
 {
     uint32_t k, top = 0;
     for (k = 0; k < FRS_NKEYS; k++)
-        if (mout.note[k] >= 0 && mout.kp[k] > top)
+        if (mout.note[k][0] >= 0 && mout.kp[k] > top)
             top = mout.kp[k];
     if (top + 2u > mout.cp_sent && top < mout.cp_sent + 2u && (top || !mout.cp_sent))
         return;
@@ -639,15 +686,20 @@ static void mout_channel_prs(void)       /* CHANNEL: the hardest key's, on a cha
 /* a key up: 1 if it was MIDI's (its note off out), 0 the engine's */
 static int mout_key_up(uint32_t k)
 {
+    uint32_t i;
     if (!(mout.own >> k & 1u))
         return 0;
     mout.own &= ~(1u << k);
-    md_key_up(k, mout.anote[k]);
+    md_key_up(k, mout.anote[k] >= 0);
     mout.anote[k] = -1;
-    if (mout.note[k] < 0)                /* (none went out: no room, or past 0 .. 127) */
+    if (mout.note[k][0] < 0)             /* (none went out: no room, or past 0 .. 127) */
         return 1;
-    mout_put(0x80u | mout.kch[k], (uint32_t)mout.note[k], 0);
-    mout.note[k] = -1;
+    for (i = 0; i < MAXCHORD; i++) {     /* (each its off, but one another key still has out) */
+        int n = mout.note[k][i];
+        mout.note[k][i] = -1;
+        if (n >= 0 && !mout_has(k, n, mout.kch[k]))
+            mout_put(0x80u | mout.kch[k], (uint32_t)n, 0);
+    }
     mout.kp[k] = 0;
     if (mout.prs == MO_PRS_CHANNEL)
         mout_channel_prs();
@@ -656,19 +708,153 @@ static int mout_key_up(uint32_t k)
 /* a held key's pressure, 0 .. 127: 1 if it was MIDI's (out as PRESSURE says), 0 the engine's */
 static int mout_pressure(uint32_t k, uint8_t p)
 {
+    uint32_t i;
     if (!(mout.own >> k & 1u))
         return 0;
-    if (mout.note[k] < 0)
+    if (mout.note[k][0] < 0)
         return 1;
     mout.kp[k] = p;
     if (mout.prs == MO_PRS_CHANNEL) {
         mout_channel_prs();
     } else if (mout.prs == MO_PRS_POLY && (p > mout.kp_sent[k] + 1u || p + 1u < mout.kp_sent[k] ||
                                             (!p && mout.kp_sent[k])) && (!p || mout_room(MO_ROOM_PRS))) {
-        mout_put(0xA0u | mout.kch[k], (uint32_t)mout.note[k], p);
+        for (i = 0; i < MAXCHORD && mout.note[k][i] >= 0; i++)   /* (a chord: each of its notes) */
+            mout_put(0xA0u | mout.kch[k], (uint32_t)mout.note[k][i], p);
         mout.kp_sent[k] = p;
     }
     return 1;
+}
+/* NOTES OUT (card #201: GLO › MIDI II's K3, the device's, OFF at first): the notes FRASIL plays by itself out over USB
+ * (the SMK-37's MIDI OUT jack too) as the engine strikes them, its sound as it was. GLINT's arpeggio and sequence on
+ * channel 14, SPARKLE's glints on 15, the bass's arpeggio and sequence on 16 (MIDI's CHANNEL 1 at first; no track's MIDI
+ * in on them at first either, DRONE 1, GLINT 2, BASS 3: a computer echoing them back plays nothing), each note as it
+ * sounds (GLINT's OCTAVE on it, the bass's), at its strike's velocity. Each let go as the engine lets its own go
+ * (nout_run: the note no longer the one its place sounds), at once at RELEASE ALL, CUT, a scene's load (GEN_CUT), an
+ * update, OFF; PULSE's let go for its gap and out again. A note on only with room in USB's ring past NOUT_ROOM (MIDI's
+ * keys keep theirs), its note off always; a note of a channel out once (struck again, by any place: let go first). The
+ * keys', the drones', the LEAD's, MIDI in's: none (the player's, the computer has them) */
+#define NOUT_ROOM 8u
+static const uint8_t NOUT_CH[NGEN] = {13, 13, 14, 14, 15};   /* (each place's channel, less one: 14, 15, 16) */
+#define NOUT_TRK(i) ((uint32_t)NOUT_CH[i] - 13u)   /* (its track: 0 GLINT, 1 SPARKLE, 2 the bass; GEN_CUT's bits) */
+#ifdef PLAT_HOST
+static struct {
+    uint32_t open[3][4];                 /* (the tests: each track's notes out, by the bytes sent) */
+    uint32_t on[3], off[3], twice, stray;   /* ... its note ons and offs; an on over its own note, an off of none */
+    uint8_t note[3], vel[3];             /* ... its last on's */
+    uint32_t on_ms[3][128], len[3];      /* ... when each went out; the last let go's length, ms */
+    uint32_t asked;                      /* (noutnew: the messages sent when last asked) */
+    uint32_t again;                      /* PULSE's strikes out again */
+} nout_t;
+#endif
+static void nout_put(uint32_t s, uint32_t n, uint32_t v)
+{
+    mout_put(s, n, v);
+    nout.sent++;
+#ifdef PLAT_HOST
+    {
+        uint32_t t = (s & 15u) - 13u, *w = &nout_t.open[t][n >> 5], b = 1u << (n & 31u);
+        if ((s & 0xF0u) == 0x90u) {
+            nout_t.twice += (*w & b) != 0u;
+            *w |= b;
+            nout_t.on[t]++;
+            nout_t.note[t] = (uint8_t)n;
+            nout_t.vel[t] = (uint8_t)v;
+            nout_t.on_ms[t][n] = plat_ms();
+        } else {
+            nout_t.stray += (*w & b) == 0u;
+            *w &= ~b;
+            nout_t.off[t]++;
+            nout_t.len[t] = plat_ms() - nout_t.on_ms[t][n];
+        }
+    }
+#endif
+}
+static void nout_off(uint32_t i)
+{
+    nout_put(0x80u | NOUT_CH[i], (uint32_t)nout.out[i], 0);
+    nout.out[i] = -1;
+}
+/* GEN_NOTE: place `at` struck `note` (as the engine has it) at velocity v (0 .. 1, an accent more) */
+static void nout_note(uint32_t at, int note, float v)
+{
+    uint32_t i, vel = (uint32_t)(v * 127.0f + 0.5f);
+    int n;
+    if (!nout.on || at >= NGEN)
+        return;
+    n = at == GEN_BASS ? bass_sounding(lk_note(LK_BASS, note))   /* (TRACKS LINK's as they sound: not SPARKLE's) */
+        : (at == GEN_SPK || at == GEN_SPK2 ? note : lk_note(LK_GLINT, note)) + 12 * (int)st.v[P_GL_OCTAVE];
+    nout.at[at] = (int16_t)note;
+    if (at == GEN_BASS)
+        nout.again = -1;
+    for (i = 0; i < NGEN; i++)           /* (its own last, and this note of its channel another place's: let go first) */
+        if (nout.out[i] >= 0 && (i == at || (NOUT_CH[i] == NOUT_CH[at] && nout.out[i] == n)))
+            nout_off(i);
+    if (n < 0 || n > 127 || !mout_room(NOUT_ROOM))
+        return;
+    vel = vel < 1u ? 1u : vel > 127u ? 127u : vel;
+    nout_put(0x90u | NOUT_CH[at], (uint32_t)n, vel);
+    nout.out[at] = (int8_t)n;
+    if (at == GEN_BASS)
+        nout.bass_vel = (uint8_t)vel;
+}
+static void nout_cut(uint32_t tracks)    /* GEN_CUT: those tracks' notes let go now (1 GLINT, 2 SPARKLE, 4 the bass) */
+{
+    uint32_t i;
+    for (i = 0; i < NGEN; i++)
+        if (nout.out[i] >= 0 && (tracks >> NOUT_TRK(i) & 1u))
+            nout_off(i);
+    if (tracks & 4u)
+        nout.again = -1;
+}
+static void nout_pulse(float ms)         /* GEN_PULSE: the bass's note let go for PULSE's gap, then out again (nout_run) */
+{
+    if (!nout.on || nout.out[GEN_BASS] < 0)
+        return;
+    nout.again = nout.out[GEN_BASS];
+    nout_off(GEN_BASS);
+    nout.again_ms = plat_ms() + (uint32_t)(ms + 0.5f);
+}
+static void nout_move(void)              /* GEN_MOVE: the bass's note retuned by TRACKS LINK (card #212): its note out let
+                                          * go and out again where it sounds now; in PULSE's gap, out again there */
+{
+    int n;
+    if (!nout.on || nout.at[GEN_BASS] < 0)
+        return;
+    n = bass_sounding(lk_note(LK_BASS, nout.at[GEN_BASS]));
+    if (nout.again >= 0)
+        nout.again = (int8_t)n;
+    if (nout.out[GEN_BASS] < 0 || nout.out[GEN_BASS] == n || !mout_room(NOUT_ROOM))
+        return;
+    nout_off(GEN_BASS);
+    nout_put(0x90u | NOUT_CH[GEN_BASS], (uint32_t)n, nout.bass_vel);
+    nout.out[GEN_BASS] = (int8_t)n;
+}
+/* each pass, after the engine's: a place's note out let go once the engine's own is gone (let go, or another struck
+ * there by hand: a key on the bass), PULSE's out again after its gap while it is still the bass's */
+static void nout_run(void)
+{
+    int16_t has[NGEN];
+    uint32_t i;
+    if (!nout.on)
+        return;
+    has[GEN_ARP] = arp.sounding;
+    has[GEN_SEQ] = sq.sounding;
+    has[GEN_SPK] = spk.note[0];
+    has[GEN_SPK2] = spk.note[1];
+    has[GEN_BASS] = (int16_t)(bass_note >= 0 && (barp.sounding == bass_note || bq.sounding == bass_note) ? bass_note : -1);
+    for (i = 0; i < NGEN; i++)
+        if (nout.out[i] >= 0 && has[i] != nout.at[i])
+            nout_off(i);
+    if (nout.again >= 0 && (int32_t)(plat_ms() - nout.again_ms) >= 0) {
+        if (has[GEN_BASS] == nout.at[GEN_BASS] && nout.out[GEN_BASS] < 0 && mout_room(NOUT_ROOM)) {
+            nout_put(0x90u | NOUT_CH[GEN_BASS], (uint32_t)nout.again, nout.bass_vel);
+            nout.out[GEN_BASS] = nout.again;
+#ifdef PLAT_HOST
+            nout_t.again++;
+#endif
+        }
+        nout.again = -1;
+    }
 }
 static void mout_all_off(void)           /* every note out let go (an update coming), the wheels back */
 {
@@ -676,6 +862,7 @@ static void mout_all_off(void)           /* every note out let go (an update com
     for (k = 0; k < FRS_NKEYS; k++)
         (void)mout_key_up(k);
     md_all_stop();
+    nout_cut(7u);
     if (mout.bend) {
         mout_put(0xE0u | mout.ch, 0, 64);
         mout.bend = 0;
@@ -708,10 +895,11 @@ static void mout_smk(int m, int b)
 #endif
 static void mout_prs_zero(void)          /* the pressures out back to 0 (PRESSURE or CHANNEL changing) */
 {
-    uint32_t k;
+    uint32_t k, i;
     for (k = 0; k < FRS_NKEYS; k++)
-        if (mout.note[k] >= 0 && mout.kp_sent[k]) {
-            mout_put(0xA0u | mout.kch[k], (uint32_t)mout.note[k], 0);
+        if (mout.note[k][0] >= 0 && mout.kp_sent[k]) {
+            for (i = 0; i < MAXCHORD && mout.note[k][i] >= 0; i++)
+                mout_put(0xA0u | mout.kch[k], (uint32_t)mout.note[k][i], 0);
             mout.kp_sent[k] = 0;
         }
     if (mout.cp_sent) {
@@ -740,12 +928,44 @@ static void mout_turn(uint32_t p, int32_t d)
         mout.ret = (uint8_t)clamp((int32_t)mout.ret + d, 0, 100);
     } else if (p == K_CLKOUT) {          /* (GLO › MIDI II) */
         mout.clk = d > 0;
+    } else if (p == K_NOUT) {            /* (GLO › MIDI II's K3, card #201: OFF, what it sent let go) */
+        nout.on = d > 0;
+        if (!nout.on)
+            nout_cut(7u);
     }
     mout.at = plat_ms() | 1u;
     mout.at_p = (prm_t)p;
     if (!fm.prefs_due)
         fm.prefs_due = 1;
 }
+#if LD_CH_PAGE
+/* GLO › MIDI's K4, LEAD CH (card #228: the engine's st.ldch, ld_midi_set; the device's, in OBJ_MSEQ's head, md_dev_save):
+ * OFF, 1 .. 16, OMNI as the tracks' channels turn; told on LIVE (lv_ldch); kept once nothing sounds, as MIDI OUT's */
+static uint32_t ldch_at;                 /* (turned last: its cell's lamp a moment) */
+static void ldch_turn(int32_t d)
+{
+    uint32_t c = (uint32_t)clamp((int32_t)st.ldch + d, 0, 17);
+    ldch_at = plat_ms() | 1u;
+    if (c == st.ldch)
+        return;
+    ld_midi_set(c, st.ldchord);
+    lv_ldch();
+    if (!fm.prefs_due)
+        fm.prefs_due = 1;
+}
+/* the LEAD's KEYS on CHORD (card #194: md[], POLY's) as the engine has them for its MIDI notes (st.ldchord), each pass
+ * before MIDI comes in; a change told on LIVE while LEAD CH is not OFF (OFF: nothing comes, nothing told, a take as
+ * before it; LEAD CH turned tells the chord with it) */
+static void ldch_chord_sync(void)
+{
+    uint32_t c = md[MD_LHARM] && md[MD_LNOTES];
+    if (c == (st.ldchord != 0))
+        return;
+    ld_midi_set(st.ldch, c);
+    if (st.ldch != LD_CH_DEF)
+        lv_ldch();
+}
+#endif
 /* MIDI selected, or let go: the panel's octave its own, FRASIL's kept meanwhile */
 static void mout_select(int on)
 {
@@ -772,27 +992,34 @@ static void oct_frasil_set(int8_t o)
 }
 /* the settings' bytes: settings_t.mout CHANNEL in bits 0 .. 3, PRESSURE 4 .. 5 (0 CHANNEL, 1 POLY, 2 OFF), VELOCITY
  * 6 .. 7 (0 NORMAL, 1 HARD, 2 FIXED, 3 SOFT); HEADER's byte, past its bit 0, OCTAVE in bits 1 .. 3 (two's complement),
- * CLOCK OUT in bit 4 (card #169). 0 each, as an earlier record's padding and HEADER read: channel 1, CHANNEL, NORMAL,
- * octave 0, CLOCK OUT off. RETURN (card #169) in OBJ_MSEQ's head (app/mseq.c md_dev_save: no byte left here) */
+ * CLOCK OUT in bit 4 (card #169), TRANSPORT TEMPO ONLY in bit 5 (card #204: HEAD_BYTE), NOTES OUT in bit 6 (card
+ * #201). 0 each, as an earlier record's padding and HEADER read: channel 1, CHANNEL, NORMAL, octave 0, CLOCK OUT off,
+ * FOLLOW, NOTES OUT off (an earlier FRASIL reads past bit 4 nothing). RETURN (card #169) in OBJ_MSEQ's head
+ * (app/mseq.c md_dev_save: no byte left here) */
 static uint8_t mout_byte(void)
 {
     return (uint8_t)(mout.ch | (uint32_t)(mout.prs + 2u) % 3u << 4 | (uint32_t)(mout.vel + 3u) % 4u << 6);
 }
 static uint8_t mout_oct_bits(void)
 {
-    return (uint8_t)(((uint32_t)(mout.sel ? fm.octave : mout.oct) & 7u) << 1 | (uint32_t)mout.clk << 4);
+    return (uint8_t)(((uint32_t)(mout.sel ? fm.octave : mout.oct) & 7u) << 1 | (uint32_t)mout.clk << 4 |
+                     (uint32_t)nout.on << 6);
 }
 static void mout_unbyte(uint8_t b, uint8_t head)
 {
     int32_t o = (int32_t)(head >> 1 & 7u);
     mout.clk = (uint8_t)(head >> 4 & 1u);
+    nout.on = (uint8_t)(head >> 6 & 1u);
+    if (!nout.on)                        /* (a restore's settings: what it sent let go) */
+        nout_cut(7u);
     mout.ch = b & 15u;
     mout.prs = (uint8_t)(((b >> 4 & 3u) + 1u) % 3u);
     mout.vel = (uint8_t)(((b >> 6 & 3u) + 1u) % 4u);
     o = o > 3 ? o - 8 : o;
     mout.oct = (int8_t)clamp(o, -3, 2);
 }
-#define HEAD_BYTE() ((uint8_t)(hdr.dark | mout_oct_bits()))   /* settings_t.head: DARK, MIDI's OCTAVE, CLOCK OUT */
+#define HEAD_BYTE() ((uint8_t)(hdr.dark | mout_oct_bits() | (uint32_t)st.v[P_TRANSPORT] << 5))   /* settings_t.head: DARK,
+                                          * MIDI's OCTAVE, CLOCK OUT, TRANSPORT, NOTES OUT */
 #define MOUT_SEL() (mout.sel != 0)
 #define MD_REC_ON() (md[MD_REC] != 0)   /* (MIDI's sequence recording, card #169) */
 #define MD_SAVE(s) md_save(s)
@@ -809,7 +1036,7 @@ static int32_t mout_sel_at(void) { return (int32_t)st.v[P_KB]; }
 #define TRK_COL(t) (t)
 static int8_t oct_frasil(void) { return fm.octave; }
 static void oct_frasil_set(int8_t o) { fm.octave = o; }
-#define HEAD_BYTE() ((uint8_t)hdr.dark)
+#define HEAD_BYTE() ((uint8_t)(hdr.dark | (uint32_t)st.v[P_TRANSPORT] << 5))
 #endif
 static uint32_t leds_now, midleds_now, glowleds_now, keyleds_now, keymid_now;   /* the lights last set (the tests) */
 static volatile uint8_t oct_soft;        /* OCT- and OCT+ in their blink now (app_tick lights them) */
@@ -937,6 +1164,36 @@ static struct {
     uint16_t hz;
     uint32_t at;                         /* last turned (its cell lamp a moment) */
 } a4 = {.hz = 440u};
+
+/* HOME's TRACKS LINK (card #212: the engine's lk, link_set; no setting in the schema): FOLLOW, each track NO LINK or
+ * LINKED, the device's as TUNE A4 is: settings_t.keys past KEY MODE's bit (KEYS_BYTE) */
+static struct {
+    prm_t p;                             /* the cell turned last (K_LINK .. K_LK0 + 3), */
+    uint32_t at;                         /* when (its lamp a moment) */
+} lkh;
+/* settings_t.keys: KEY MODE in bit 0 as ever, TRACKS LINK's tracks LINKED in 1 .. 4 (LK_*), the bass followed in 5 (none
+ * LINKED: the byte as before it, FOLLOW back on the drone). No FRSS reader before it reads the byte (3.3.1's KEY MODE is
+ * KEYS', set.ky; set.keys only from an earlier layout's record, settings_over): the bits past 0 its own */
+#define KEYS_BYTE() ((uint8_t)(st.v[P_KEYS] | (uint32_t)(lk.bits ? lk.bits | lk.follow << 4 : 0u) << 1))
+static void link_turn(uint32_t p, int right)   /* a TRACKS LINK cell turned: FOLLOW right BASS, left DRONE (each track
+                                                * LINKED as it was); a track right LINKED, left NO LINK (kept as HEADER
+                                                * is). Told on LIVE while a track is or was moved: FOLLOW alone, nothing */
+{
+    uint32_t f = lk.follow, b = lk.bits, was = lk.on, k = KEYS_BYTE();
+    if (p == K_LINK)
+        f = right != 0;
+    else
+        b = right ? b | 1u << (p - K_LK0) : b & ~(1u << (p - K_LK0));
+    lkh.p = (prm_t)p;
+    lkh.at = plat_ms() | 1u;
+    if (f == lk.follow && b == lk.bits)
+        return;
+    link_set(f, b);
+    if (was || lk.on)
+        lv_link();
+    if (KEYS_BYTE() != k && !fm.prefs_due)
+        fm.prefs_due = 1;
+}
 
 static void a4_take(uint32_t hz)
 {
@@ -1220,9 +1477,23 @@ static const prm_t LIVE_K[3][4] = {{P_DQ_LEN, P_DQ_RATE, P_DQ_UNDO, P_KY_DR_STAC
 
 static prm_t page_knob(uint32_t p, uint32_t i)
 {
-#if FRS_LEAD
-    if (p == PG_KEYS && st.lead)         /* (LEAD: one note as played, no KEYS of its own) */
+    if (p == PG_LINK) {                  /* TRACKS LINK (card #212): FOLLOW, then the tracks not followed, DRONE BASS GLINT
+                                          * MIDI in that order (MIDI's with MIDI OUT) */
+        uint32_t t;
+        if (!i)
+            return (prm_t)K_LINK;
+        for (t = 0; t < 3u + FRS_MIDI_OUT; t++)
+            if (t != lk.follow && --i == 0u)
+                return (prm_t)(K_LK0 + t);
         return NPARAM;
+    }
+#if FRS_MIDI_OUT
+    if (p == PG_KEYS && mout.sel)        /* (MIDI's, card #194: HARMONY, NOTES; its keys sound while down) */
+        return i == 0u ? K_MD(MD_KHARM) : i == 1u ? K_MD(MD_KNOTES) : (prm_t)NPARAM;
+#endif
+#if FRS_LEAD
+    if (p == PG_KEYS && st.lead)         /* (the LEAD's, card #194: HARMONY, NOTES, its chords on POLY; nothing latches) */
+        return i == 0u ? K_MD(MD_LHARM) : i == 1u ? K_MD(MD_LNOTES) : (prm_t)NPARAM;
 #endif
     if (p == PG_KEYS)                    /* (GLINT's LATCH none: its keys sound while down, card #143) */
         return st.v[P_KB] == 1u && i == 2u ? (prm_t)NPARAM : (prm_t)(P_KY_DR_HARM + 4u * st.v[P_KB] + i);
@@ -1809,6 +2080,10 @@ static void scene_go(uint32_t s)
         for (p = P_KY_DR_HARM; p <= P_KY_BS_STACK; p++)   /* (each that moved, as frs_keys_defaults sets them) */
             if (was[p - P_KY_DR_HARM] != st.v[p])
                 lv_set(p, st.v[p]);
+#if FRS_MIDI_OUT
+        md[MD_KHARM] = md[MD_KNOTES] = md[MD_LHARM] = md[MD_LNOTES] = 0;   /* (MIDI's and the LEAD's too, card
+                                                                            * #194: HARMONY OFF, SINGLE NOTE) */
+#endif
         if (set.magic == SET_MAGIC)
             prefs_later();
     }
@@ -1827,7 +2102,7 @@ static void settings_keys(void)          /* KEYS, METRONOME, COUNT-IN into the r
     uint32_t i;
     for (i = 0; i < sizeof set.ky; i++)
         set.ky[i] = st.v[P_KY_DR_HARM + i];
-    set.keys = st.v[P_KEYS];
+    set.keys = KEYS_BYTE();              /* (KEY MODE, TRACKS LINK) */
     set.metro_off = !st.metro;
     set.metro = st.v[P_METRO];
     set.metro_on = fm.metro_on;
@@ -1842,7 +2117,7 @@ static int store_all(void)
     for (i = 0; i < NSOUND; i++)
         set.v[i] = kept_v(i);
     set.octave = oct_frasil();           /* (FRASIL's, MIDI's or not: MIDI's in HEADER's byte) */
-    set.keys = st.v[P_KEYS];
+    set.keys = KEYS_BYTE();              /* (KEY MODE, TRACKS LINK) */
     set.channel = st.v[P_CANAL];
     set.ch_glint = st.v[P_CH_GLINT];
     set.ch_bass = st.v[P_CH_BASS];
@@ -2046,6 +2321,9 @@ static void prefs_save(void)
     fm.prefs_due = 0;
     if (set.magic != SET_MAGIC) {
         store_all();
+#if FRS_MIDI_OUT
+        md_dev_save();                   /* (RETURN, MIDI's KEYS: not in store_all's records) */
+#endif
         return;
     }
     settings_keys();
@@ -2733,7 +3011,7 @@ static int settings_over(void)           /* (settings_old's, the bass's sequence
 static void state_load(void)
 {
     uint32_t i;
-    int keys_kept;
+    int keys_kept, frss;
 #if FRS_MIDI_OUT
     mout_select(0);                      /* (a restore on MIDI: the tracks from DRONE, FRASIL's octave the record's) */
 #endif
@@ -2822,7 +3100,7 @@ static void state_load(void)
 #if FRS_LEAD
     up_cur[3] = -1;
 #endif
-    keys_kept = plat_store_load(OBJ_SETTINGS, &set, sizeof set) == (int)sizeof set && set.magic == SET_MAGIC;
+    keys_kept = frss = plat_store_load(OBJ_SETTINGS, &set, sizeof set) == (int)sizeof set && set.magic == SET_MAGIC;
     if (!keys_kept) {
         memset(&set, 0, sizeof set);     /* (nothing learned, the defaults, whatever was read) */
         store_old |= (uint8_t)(settings_over() << 1);
@@ -2854,6 +3132,9 @@ static void state_load(void)
             param_set(P_KEYS, set.keys ? 1 : 0);
             param_set(P_METRO, !set.metro_off);
         }
+        if (frss)                        /* TRACKS LINK as it was left (card #212: KEYS_BYTE's bits past KEY MODE; an
+                                          * earlier record's, none: off, eng_power_on's) */
+            link_set(set.keys >> 5 & 1u, set.keys >> 1 & LK_ALL);
         param_set(P_ARP_SNAP, set.arp_snap ? set.arp_snap - 1 : PD[P_ARP_SNAP].def);   /* (0: never set, its default) */
         st.v[P_MORPH] = 0;               /* (CUT at every start, whatever it was left on) */
         st.v[P_LOAD] = set.load ? 1 : 0;
@@ -2861,6 +3142,7 @@ static void state_load(void)
         st.v[P_ANIM] = set.anim ? 1 : 0;
         saver_unbyte(set.saver_off);     /* SCREENSAVER, IDLE TIME (an earlier record, or one before it: ON, ten) */
         st.v[P_CLOCK] = set.clock == 1u;
+        st.v[P_TRANSPORT] = (uint8_t)(set.head >> 5 & 1u);   /* (HEADER's byte, card #204: an earlier record's FOLLOW) */
         st.v[P_CANAL] = set.channel > 17u ? PD[P_CANAL].def : set.channel;
         st.v[P_CH_GLINT] = set.ch_glint > 17u ? PD[P_CH_GLINT].def : set.ch_glint;
         st.v[P_CH_BASS] = set.ch_bass > 17u ? PD[P_CH_BASS].def : set.ch_bass;
@@ -2946,6 +3228,11 @@ static void cc_learn(uint32_t cc)
         return;
     }
 #endif
+    if (fm.touched == P_TRANSPORT) {     /* (card #204: SCENES' UNDO's number, where a CC an earlier FRASIL learned turns
+                                          * nothing: eng_cc) */
+        app_say("MIDI LEARN", "NOT ON TRANSPORT");
+        return;
+    }
     for (i = 0; i < NLEARN; i++)
         if (set.learn_cc[i] == cc || (at == NLEARN && !set.learn_cc[i]))
             at = i;
@@ -2962,22 +3249,36 @@ static void cc_learn(uint32_t cc)
     t[0] = 0;
     text_cat(t, "CC ");
     int_text((int32_t)cc, t + 3);
-    app_say(t, PD[fm.touched].name);
+    app_say(t, pd_name(fm.touched));
 }
+
+#ifndef PLAT_HOST
+/* every USB MIDI event packet as it came (felucca-bsp#15's FELUCCA_MIDI_IN_RAW: usb_poll, in TIMER5's interrupt), before
+ * the BSP's handling: a Song Position (CIN 3, F2), which its ring drops, put into that ring in its place among the others
+ * (card #204: plat_midi_in gives it as USB's, after what came before it; ep1_take left room for the packet's 16) */
+void app_midi_raw(uint32_t pkt)
+{
+    if ((pkt & 15u) == 3u && (pkt >> 8 & 0xFFu) == 0xF2u)
+        midi_enqueue(pkt & ~0xF0u, 1u);
+}
+#endif
 
 static void midi_in(void)
 {
     uint32_t pkt;
     int port;
     while (plat_midi_in(&pkt, &port)) {
+#if FRS_MIDI_OUT
+        uint32_t s = pkt >> 8 & 0xFFu, jumps = grid_jumps;
+#endif
         lv_cc_took = 0;
         eng_midi(pkt);
         lv_midi(pkt);
-#if FRS_MIDI_OUT                         /* (MIDI's sequence: Start from its top, CLOCK AUTO; All Sound Off, any channel,
-                                          * its notes let go and it stops, as the others do: card #169) */
-        if ((pkt >> 8 & 0xFFu) == 0xFAu && !st.v[P_CLOCK] && md[MD_TYPE] == SQT_SEQ)
-            md_begin(2);
-        if ((pkt >> 8 & 0xF0u) == 0xB0u && (pkt >> 16 & 0x7Fu) == 120u)
+#if FRS_MIDI_OUT                         /* (MIDI's track: with the transport, as the others (cards #169, #204); All Sound
+                                          * Off, any channel, its notes let go and it stops, as the others do) */
+        if (s == 0xFAu || s == 0xFBu || s == 0xFCu || s == 0xF2u)
+            md_xport(s, grid_jumps != jumps);
+        if ((s & 0xF0u) == 0xB0u && (pkt >> 16 & 0x7Fu) == 120u)
             md_all_stop();
 #endif
     }
@@ -3003,7 +3304,9 @@ static int eng_cc(uint32_t cc, uint32_t v)
     }
     for (i = 0; i < NLEARN; i++)         /* a learned one first */
         if (cc && set.learn_cc[i] == cc && set.learn_p[i] < NPARAM) {
-            param_set(set.learn_p[i], ((int32_t)v * PD[set.learn_p[i]].max + 63) / 127);
+            if (set.learn_p[i] != P_TRANSPORT)   /* (TRANSPORT's number: SCENES' UNDO's, a CC learned on it before 2.x
+                                                  * took it away turning nothing still, card #204) */
+                param_set(set.learn_p[i], ((int32_t)v * PD[set.learn_p[i]].max + 63) / 127);
             learned = 1;
         }
     lv_cc_took = (uint8_t)learned;
@@ -3014,15 +3317,15 @@ static void eng_program(uint32_t n)      /* Program Change: a slot */
     if (n < NSCENES)
         scene_go(n);
 }
-static void eng_setting(int p, int32_t x)   /* SPK/JACK: the output at once; it, ANIMATIONS, SCREENSAVER and CLOCK kept
-                                             * (SPK/JACK now, whatever plays: the room's quiet comes first; the others
-                                             * once nothing sounds, as the metronome is) */
+static void eng_setting(int p, int32_t x)   /* SPK/JACK: the output at once; it, ANIMATIONS, SCREENSAVER, CLOCK and
+                                             * TRANSPORT kept (SPK/JACK now, whatever plays: the room's quiet comes first;
+                                             * the others once nothing sounds, as the metronome is) */
 {
     if (p == P_SPEAKER)
         plat_speaker(x && !spk_page);
     if (p == P_SPEAKER)
         fm.prefs_due = 2;
-    if ((p == P_ANIM || p == P_CLOCK || p == P_SAVER) && !fm.prefs_due)
+    if ((p == P_ANIM || p == P_CLOCK || p == P_SAVER || p == P_TRANSPORT) && !fm.prefs_due)
         fm.prefs_due = 1;
 }
 
@@ -3192,7 +3495,7 @@ static void lfo_route(uint32_t p, int32_t d)
  * LFO n alone: on, into its first free TARGET (off the others), DEPTH at 0 up to a quarter, its AMOUNT x1.00; back,
  * off it */
 static uint8_t lfo_pad_held;
-static uint8_t pad_amt_held;             /* the top row's last pad (base's 7) held: the knobs LFO AMOUNTs, as SEL held */
+static uint8_t pad_amt_held;             /* the bottom row's last pad (base's 15) held: the knobs LFO AMOUNTs, as SEL held */
 static void lfo_pad_route(uint32_t p, uint32_t n, int32_t d)
 {
     uint32_t t, i, k, at = 4, on = 0, b = LFO_BASE[n - 1u];
@@ -3333,18 +3636,21 @@ static uint8_t test_no_grid;             /* (basic.txt's older parts: these sett
 /* a sequence's STEP, and its SEQ LENGTH: STEP goes no further than the last step */
 static int step_len_p(int p) { return p == P_SQ_STEP ? P_SQ_LEN : p == P_BQ_STEP ? P_BQ_STEPS : p == P_DQ_STEP ? P_DQ_LEN : -1; }
 static int len_step_p(int p) { return p == P_SQ_LEN ? P_SQ_STEP : p == P_BQ_STEPS ? P_BQ_STEP : p == P_DQ_LEN ? P_DQ_STEP : -1; }
-/* an LFO's TARGET in the grid: five pages, in sections, what each moves together; a scene keeps LFO_TGT's numbers, this is
+/* an LFO's TARGET in the grid: its pages, in sections, what each moves together; a scene keeps LFO_TGT's numbers, this is
  * the order they are shown in. A slot: a number of LFO_TGT, TH_NONE, or a section's name (TH(n), TGT_HEAD) */
-#define NG_TPAGES (5u + FRS_LEAD)       /* (LEAD's on a sixth, the SMK-37's: card #144) */
+#define NG_TPAGES (5u + 2u * FRS_LEAD)  /* (LEAD's on a sixth, card #144; the LFOs' own on a seventh, card #199: beside
+                                          * LOFI TAPE without the LEAD) */
 #define TH_NONE (-1)
 #define TH(n) (-2 - (n))
 #if FRS_LEAD
-static const char *const TGT_HEAD[12] = {"DRONE", "CHOIR", "PARTIALS", "BREATH", "GLINT", "GLINT II", "BASS", "GLOBAL",
-                                         "LOFI TAPE", "LEAD", "LEAD ENV", "LEAD DELAY"};
+static const char *const TGT_HEAD[13] = {"DRONE", "CHOIR", "PARTIALS", "BREATH", "GLINT", "GLINT II", "BASS", "GLOBAL",
+                                         "LOFI TAPE", "LEAD", "LEAD ENV", "LEAD DELAY", "LFO"};
 #else
-static const char *const TGT_HEAD[9] = {"DRONE", "CHOIR", "PARTIALS", "BREATH", "GLINT", "GLINT II", "BASS", "GLOBAL",
-                                        "LOFI TAPE"};
+static const char *const TGT_HEAD[10] = {"DRONE", "CHOIR", "PARTIALS", "BREATH", "GLINT", "GLINT II", "BASS", "GLOBAL",
+                                         "LOFI TAPE", "LFO"};
 #endif
+static const char *tgt_head(uint32_t n) { return n == 8u ? lofi_name(0) : TGT_HEAD[n]; }   /* (LOFI TAPE's: its MEDIA's,
+                                          * card #229) */
 static const int8_t TGT_SLOTS[NG_TPAGES * NG_PER] = {
     0, TH(0), 1, 2, 3, 35, 4, 29, 43, TH_NONE,                                   /* OFF; TIMBRE .. WARMTH, level, pan */
     TH_NONE, TH(1), 5, 8, 9, 10, 11, 47, TH_NONE, TH_NONE,
@@ -3360,8 +3666,11 @@ static const int8_t TGT_SLOTS[NG_TPAGES * NG_PER] = {
     TH(10), 69, 71, 72, 73, 74, 80, 81, 82, 83,                                  /* FILTER ENV, the ADSR, the
                                                                                   * filter's (admin #619) */
     TH(11), 75, 76, 77, 78, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE,         /* its delay, SPACE */
-#else
+    TH(12), 84, 85, 86, 87, 88, 89, TH_NONE, TH_NONE, TH_NONE,                   /* the LFOs' RATE and DEPTH (card
+                                                                                  * #199) */
     TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE, TH_NONE,
+#else
+    TH(9), 84, 85, 86, 87, 88, 89, TH_NONE, TH_NONE, TH_NONE,
 #endif
 };
 static uint32_t tgt_at(uint32_t i)       /* the number at place i in the list */
@@ -3870,7 +4179,8 @@ static void encoders(void)
                 continue;
             }
 #if FRS_MIDI_OUT
-            if (p >= (int32_t)K_MO_CH && p <= (int32_t)K_CLKOUT) {   /* MIDI OUT's (card #164), RETURN, CLOCK OUT */
+            if ((p >= (int32_t)K_MO_CH && p <= (int32_t)K_CLKOUT) || p == (int32_t)K_NOUT) {   /* MIDI OUT's (card
+                                                                         * #164), RETURN, CLOCK OUT, NOTES OUT */
                 mout_turn((uint32_t)p, p == (int32_t)K_MO_RET ? accel(e, d) : d);
                 continue;
             }
@@ -3879,6 +4189,16 @@ static void encoders(void)
                 continue;
             }
 #endif
+#if LD_CH_PAGE
+            if (p == (int32_t)K_LDCH) {      /* LEAD CH (card #228), a detent a step as the tracks' channels (quicker, more) */
+                ldch_turn(accel(e, d));
+                continue;
+            }
+#endif
+            if (p >= (int32_t)K_LINK && p <= (int32_t)K_LK0 + 3) {   /* TRACKS LINK's (card #212) */
+                link_turn((uint32_t)p, d > 0);
+                continue;
+            }
             if (p == (int32_t)K_TUNE) {      /* TUNE A4: a hertz a detent (quicker, more), stopping at 432 and 440 */
                 a4_take((uint32_t)a4_catch(a4.hz, clamp((int32_t)a4.hz + accel(e, d), (int32_t)A4_LO, (int32_t)A4_HI)));
                 a4.at = plat_ms() | 1u;
@@ -3914,6 +4234,21 @@ static void encoders(void)
             fm.touched = (prm_t)p;
             fm.touched_enc = (uint8_t)e;
             fm.touched_at = plat_ms();
+            continue;
+        }
+        if (e == EN_K1 && page_shape(fm.page) >= 0 && b_held(B_OCTDN) && !b_held(B_OCTUP)) {   /* an ENV page, OCT-
+                                          * held: K1 its ATTACK SHAPE (K_SHAPE), right LINE, left CURVE (card #122;
+                                          * Styves's gesture: OCT- and ATTACK; OCT- a hand, its step undone) */
+            if (!(fm.hold_done >> B_OCTDN & 1u)) {
+                fm.octave = pv.oct;
+                b_used(B_OCTDN);
+            }
+            if ((st.ashape >> page_shape(fm.page) & 1u) != (uint32_t)(d > 0)) {
+                ashape_set((uint32_t)page_shape(fm.page), d > 0);
+                lv_shape();
+            }
+            shape_at = plat_ms() | 1u;
+            shape_pg = (uint8_t)fm.page;
             continue;
         }
         if (grid_asks() && p != (int32_t)ng.p)
@@ -4115,10 +4450,46 @@ static uint32_t help_for(uint32_t b)     /* the help's page with button b on it 
 static uint8_t hand_by;
 static uint32_t hand_at;
 #endif
+/* the selected track's KEYS NOTES, SINGLE NOTE or CHORD (to CHORD with HARMONY off: HARMONY on, as KEYS' K2 does), the
+ * header saying it: the SMK-37's FADER BANK, SEL held alone and let go (card #194); MIDI's and the LEAD's their own */
+static void notes_flip(void)
+{
+    uint32_t t = st.v[P_KB], np = P_KY_DR_NOTES + 4u * t;
+    int on;
+    fm.logo = 0;                         /* (the header, where it is said) */
+#if FRS_MIDI_OUT && FRS_LEAD
+    if (mout.sel || st.lead) {           /* (MIDI's, the LEAD's: md's) */
+        uint32_t i = mout.sel ? MD_KNOTES : MD_LNOTES;
+        md_turn(i, md[i] ? -1 : 1, 0);
+        app_say("NOTES", md[i] ? "CHORD" : "SINGLE NOTE");
+        return;
+    }
+#endif
+    if (!st.v[np] && !st.v[P_KY_DR_HARM + 4u * t])
+        param_set((int)(P_KY_DR_HARM + 4u * t), 1);
+    on = !st.v[np];
+    param_set((int)np, on);
+    prefs_later();
+    app_say("NOTES", on ? "CHORD" : "SINGLE NOTE");
+}
+/* SEL held alone (HOLD_MS, nothing else with it) and let go: NOTES (notes_flip), not its pages; in SAVE's flow, its
+ * steps as ever. The FM-1's: the SMK-37's NOTES are FADER BANK's, its SCALE as it was */
+static uint8_t sel_mixed;                /* (another button down while SEL was: buttons()'s) */
+static int sel_flips(void)
+{
+#if PLAT_SMK37
+    (void)sel_mixed;
+    return 0;
+#else
+    return plat_ms() - fm.hold_at[B_SEL] >= HOLD_MS && !sel_mixed && fm.page != PG_SAVE && fm.page != PG_SAVEAS &&
+           fm.page != PG_SCENES && !fm.help;
+#endif
+}
 static void tap(uint32_t k)              /* a button let go before its hold, alone */
 {
     switch (k) {
-    case B_HOME:                         /* its page; the help closes; SOUND, KEYS, MIXER, CLOUD SEND, the logo, the river */
+    case B_HOME:                         /* its page; the help closes; SOUND, KEYS, MIXER, CLOUD SEND, TRACKS LINK, the logo,
+                                          * the river */
         if (fm.help)
             fm.help = 0;
         else if (fm.page == PG_SON && fm.logo) {
@@ -4131,6 +4502,8 @@ static void tap(uint32_t k)              /* a button let go before its hold, alo
         } else if (fm.page == PG_MIXER) {   /* (the LEAD's level MIXER's K4: no MIXER II, admin #744) */
             fm.page = PG_CSEND;
         } else if (fm.page == PG_CSEND) {
+            fm.page = PG_LINK;
+        } else if (fm.page == PG_LINK) {
             fm.page = PG_SON;
             fm.logo = 1;
             fm.logo_until = 0;
@@ -4205,23 +4578,10 @@ static void tap(uint32_t k)              /* a button let go before its hold, alo
         }
         break;
     }
-    case B_FBANK: {                      /* the SMK-37's FADER BANK: the selected track's KEYS NOTES, SINGLE NOTE or CHORD
-                                          * (to CHORD with HARMONY off: HARMONY on, as KEYS' K2 does); held: its LATCH
-                                          * (holds) (Styves, 2026-11-09) */
-        uint32_t t = st.v[P_KB], np = P_KY_DR_NOTES + 4u * t;
-#if FRS_LEAD
-        if (st.lead) {                   /* (LEAD: one note at a time, always) */
-            app_say(MOUT_SEL() ? "MIDI" : "LEAD", MOUT_SEL() ? "AS PLAYED" : "ONE NOTE");
-            break;
-        }
-#endif
-        if (!st.v[np] && !st.v[P_KY_DR_HARM + 4u * t])
-            param_set((int)(P_KY_DR_HARM + 4u * t), 1);
-        param_set((int)np, !st.v[np]);
-        prefs_later();
-        app_say("NOTES", st.v[np] ? "CHORD" : "SINGLE NOTE");
+    case B_FBANK:                        /* the SMK-37's FADER BANK: the selected track's KEYS NOTES (notes_flip); held:
+                                          * its LATCH (holds) (Styves, 2026-11-09) */
+        notes_flip();
         break;
-    }
 #endif
     default:                             /* its pages */
         fm.logo = 0;
@@ -4423,17 +4783,17 @@ static uint32_t pad_answers(void)        /* bit 0 pad 2 answers, bit 1 pad 1 doe
     uint32_t m = pad_mode();
     return m == PA_NONE ? 0u : m == PA_OK ? 1u : 3u;
 }
-/* the SMK-37's LFO pads (Styves, 2026-11-09): LFO 1, 2, 3 on the bottom row's last three (base's pads 13, 14, 15; 12
- * dark), each its hue, blue, cyan, pink (violet kept for a fourth); its light the LFO's SHAPE as it moves now, a floor
+/* the SMK-37's LFO pads (Styves, 2026-11-09; moved to the top row's last three, card #198: base's pads 5, 6, 7;
+ * 2 .. 4 free), each its hue, blue, cyan, pink (violet kept for a fourth); its light the LFO's SHAPE as it moves now, a floor
  * of it at the bottom (which is which, still), at the top half the LED's full as pads 1 and 2; dark while the LFO is off
  * (DEPTH 0 or no TARGET: FRAME's bit, lfo[].on). Some 30 times a second: each a WS2812 frame between two LCD transfers
  * (base's smk_pads_flush, the main loop's, ~0.5 ms; the render the audio's, apart). A tap, its LFO's first page; held
  * HOLD_MS, as LFO held: a knob turned puts the setting under it onto that LFO (lfo_pad_route), its release no page. The
- * top row's last (base's 7) held, at once, as SEL held: a knob turned, its setting's LFO AMOUNT (lfo_amount; on none,
+ * bottom row's last (base's 15, card #198) held, at once, as SEL held: a knob turned, its setting's LFO AMOUNT (lfo_amount; on none,
  * NO LFO); a tap nothing; its light a dim white while an LFO is on, brighter held, dark with none on. While a choice
  * waits, a hit nothing: their light stays */
-#define PAD_LFO0 13u
-#define PAD_AMT 7u
+#define PAD_LFO0 5u
+#define PAD_AMT 15u
 #define PAD_WHITE 0x202020u              /* (a quarter of 0x80) */
 #define PAD_WHITE_HELD 0x404040u
 static const uint32_t PAD_HUE[4] = {0x0028FFu, 0x00C8FFu, 0xFF2896u, 0x9600FFu};   /* blue, cyan, pink, (violet) */
@@ -4504,9 +4864,9 @@ static void pad_lfo(uint32_t hit, int choice)
 static const uint32_t PAD_TRK[NPAD_TRK] = {PAD_RGB(112, 90, 128), PAD_RGB(1, 20, 128), PAD_RGB(128, 42, 15),
                                            PAD_RGB(128, 16, 30)
 #if FRS_MIDI_OUT
-                                           , PAD_RGB(57, 26, 128)
+                                           , PAD_RGB(64, 0, 128)
 #endif
-};                                       /* fog, azure, lamp, rose, violet */
+};                                       /* fog, azure, lamp, rose, violet (card #198: no green, the LED's white gone) */
 static void pad_tracks(uint32_t hit, int choice)
 {
     static const char *const NAME[5] = {"DRONE", "GLINT", "BASS", "LEAD", "MIDI"};
@@ -4593,6 +4953,10 @@ static void buttons(uint32_t btn)
 {
     uint32_t down = btn & ~btn_prev, up = btn_prev & ~btn, k, now = plat_ms();
     anchor_keys(btn);
+    if (down >> B_SEL & 1u)              /* (SEL alone, sel_flips: no other button with it, before or after) */
+        sel_mixed = (btn & ~(1u << B_SEL)) != 0u;
+    else if ((btn >> B_SEL & 1u) && down)
+        sel_mixed = 1;
     if (grid_asks()) {                   /* SEL takes, FX leaves, the rest wait; OCT+, OCT- its pages */
         for (k = 0; k < NB; k++)
             if ((down >> k & 1u) && k != B_OCTDN && k != B_OCTUP)
@@ -4610,8 +4974,12 @@ static void buttons(uint32_t btn)
         grid_close();
     for (k = 0; k < NB; k++)
         if ((up >> k & 1u) && !(fm.hold_done >> k & 1u) &&
-            !(k == B_PLAY && now - fm.hold_at[B_PLAY] >= PLAY_SHOW_MS))   /* (PLAY let go while counting: nothing) */
-            tap(k);
+            !(k == B_PLAY && now - fm.hold_at[B_PLAY] >= PLAY_SHOW_MS)) {   /* (PLAY let go while counting: nothing) */
+            if (k == B_SEL && sel_flips())   /* (SEL held alone: NOTES, card #194) */
+                notes_flip();
+            else
+                tap(k);
+        }
     if ((up >> B_OCTDN & 1u) && ng.on && ng.pick) {   /* OCT- let go, a preset picked under it: taken now */
         ng.due = 1;
         grid_close();
@@ -4873,6 +5241,60 @@ static void edit_jump(uint32_t i)
     fm.page = g[0];
 }
 
+#if FRS_LEAD && FRS_MIDI_OUT
+/* the LEAD's chords (card #194, its KEYS: POLY's, md_lead_notes): a key's first note on the key itself, each other on a
+ * number of its own past the panel's 27 (27 .. 31; the SMK-37's outer keys' when none of theirs holds it), so the
+ * engine, LIVE and a stream's listener each take a note as a key of its own (FST_KEY_LEAD: a listener can't build the
+ * chord), each pressed and let go with its key; none free, the chord without the rest. HARMONY OFF: the note as played,
+ * on the key alone, as ever */
+#define LVK_N (FRS_NKEYS - NKEYS)
+static uint8_t lvk_by[LVK_N];            /* each such number's key + 1 (0: free) */
+static uint32_t outer_ids;               /* (the SMK-37's outer keys' numbers down: keys_outer's) */
+static void lead_keys_down(uint32_t k, int note, uint32_t vel, int single)
+{
+    chord_t c;
+    uint32_t i, j = 0;
+    md_lead_notes(note, single, &c);
+    eng_key_down(k, c.n[0], vel, single);
+    lv_key(k, c.n[0], vel, single);
+    for (i = 1; i < c.k; i++) {
+        while (j < LVK_N && (lvk_by[j] || (outer_ids >> (NKEYS + j) & 1u)))
+            j++;
+        if (j >= LVK_N)
+            break;
+        lvk_by[j] = (uint8_t)(k + 1u);
+        eng_key_down(NKEYS + j, c.n[i], vel, 1);
+        lv_key(NKEYS + j, c.n[i], vel, 1);
+    }
+}
+static void lead_keys_up(uint32_t k)     /* key k let go: its chord's other notes with it */
+{
+    uint32_t j;
+    for (j = 0; j < LVK_N; j++)
+        if (lvk_by[j] == k + 1u) {
+            lvk_by[j] = 0;
+            key_up(NKEYS + j);
+            lv_key_up(NKEYS + j);
+        }
+}
+static void lead_keys_pressure(uint32_t k, uint8_t p)   /* ... pressed in, its chord's other notes as it */
+{
+    uint32_t j;
+    for (j = 0; j < LVK_N; j++)
+        if (lvk_by[j] == k + 1u) {
+            lv_pressure(NKEYS + j, p);
+            key_pressure(NKEYS + j, p);
+        }
+}
+static uint32_t lead_ids(void)           /* (the numbers its chords hold: keys_outer's not) */
+{
+    uint32_t j, b = 0;
+    for (j = 0; j < LVK_N; j++)
+        b |= (uint32_t)(lvk_by[j] != 0) << (NKEYS + j);
+    return b;
+}
+#endif
+
 static void key_down(uint32_t k, uint32_t vel)
 {
     if (fm.logo_until)                   /* playing ends the power-on logo */
@@ -4900,10 +5322,13 @@ static void key_down(uint32_t k, uint32_t vel)
         b_used(B_SEL);
 #if FRS_MIDI_OUT
     if (mout.sel) {                      /* MIDI: out to the computer, nothing here (nothing to LIVE either) */
-        mout_key_down(k, 53 + (int)k + 12 * fm.octave, vel);
-#if PLAT_SMK37
-        mout.pos[k] = (uint8_t)(k + 5u);   /* (the middle 27 from its sixth, F3) */
+        mout_key_down(k, 53 + (int)k + 12 * fm.octave, vel, b_held(B_SEL));   /* (SEL held: a single note) */
+        return;
+    }
 #endif
+#if FRS_LEAD && FRS_MIDI_OUT
+    if (st.lead) {                       /* (the LEAD: its KEYS, card #194) */
+        lead_keys_down(k, 53 + (int)k + 12 * fm.octave, vel, b_held(B_SEL));
         return;
     }
 #endif
@@ -4922,6 +5347,9 @@ static void key_let_go(uint32_t k)
 #endif
     key_up(k);
     lv_key_up(k);
+#if FRS_LEAD && FRS_MIDI_OUT
+    lead_keys_up(k);                     /* (the LEAD's chord's other notes, whatever is selected now) */
+#endif
 }
 
 #if PLAT_SMK37
@@ -4954,11 +5382,17 @@ static void keys_outer(void)
             for (j = 0; j < NKEYS37; j++)
                 if (id_of[j] >= 0)
                     used |= 1u << (uint32_t)id_of[j];
+#if FRS_LEAD && FRS_MIDI_OUT
+            used |= lead_ids();          /* (a LEAD chord's notes on them: card #194) */
+#endif
             for (id = NKEYS; id < FRS_NKEYS && (used >> id & 1u); id++)
                 ;
             if (id >= FRS_NKEYS)
                 continue;                /* (five down already) */
             id_of[k] = (int8_t)id;
+#if FRS_LEAD && FRS_MIDI_OUT
+            outer_ids |= 1u << id;
+#endif
             if (fm.logo_until)
                 fm.logo = 0;
             if (b_held(B_SEL))
@@ -4967,8 +5401,13 @@ static void keys_outer(void)
             vel = (uint32_t)plat_key_vel((int)k);
 #if FRS_MIDI_OUT
             if (mout.sel) {
-                mout_key_down(id, note, vel);
-                mout.pos[id] = (uint8_t)k;
+                mout_key_down(id, note, vel, b_held(B_SEL));
+                continue;
+            }
+#endif
+#if FRS_LEAD && FRS_MIDI_OUT
+            if (st.lead) {
+                lead_keys_down(id, note, vel, b_held(B_SEL));
                 continue;
             }
 #endif
@@ -4976,6 +5415,9 @@ static void keys_outer(void)
             lv_key(id, note, vel, b_held(B_SEL));
         } else if (id_of[k] >= 0) {
             key_let_go((uint32_t)id_of[k]);
+#if FRS_LEAD && FRS_MIDI_OUT
+            outer_ids &= ~(1u << (uint32_t)id_of[k]);
+#endif
             id_of[k] = -1;
         }
     }
@@ -5008,6 +5450,9 @@ static void keys_scan(void)
 #endif
             lv_pressure(k, p);           /* (before: it reads what the key had) */
             key_pressure(k, p);
+#if FRS_LEAD && FRS_MIDI_OUT
+            lead_keys_pressure(k, p);
+#endif
         }
     }
     keys_prev = keys;
@@ -5128,6 +5573,9 @@ static void input(void)
     smk_wheels();
 #endif
     eng_steps();                         /* (the engine's millisecond, around the MIDI) */
+#if LD_CH_PAGE
+    ldch_chord_sync();                   /* (the LEAD's KEYS on CHORD: its MIDI notes' chords, card #228) */
+#endif
     midi_in();
 #if FRS_MIDI_OUT
     if (mout.sel && st.v[P_KB] != PD[P_KB].max)   /* (the track changed elsewhere, a take begun: MIDI let go, FRASIL's
@@ -5142,6 +5590,9 @@ static void input(void)
     }
 #endif
     eng_moves();
+#if FRS_MIDI_OUT
+    nout_run();                          /* (NOTES OUT's let go as the engine let its own go: card #201) */
+#endif
     grid_tick();
     if (rec_any() && !test_rec_anywhere && PAGES[fm.page].button != B_SEQ && PAGES[fm.page].button != B_ARP) {   /* a take lives on the SEQ and ARP
                                                                                             * pages: leaving them ends it */
@@ -5738,6 +6189,46 @@ static void lv_param_set(int p, int32_t x)
     (param_set)(p, x);
 }
 
+/* ATTACK SHAPE's LINEs (card #122: no setting, the engine's st.ashape) as they turn: FST_STATE, the state's pair alone
+ * (an engine before it leaves the pair; its STATE has it too, frs_state_save's). LEAD CH's (card #228: the engine's
+ * st.ldch, st.ldchord; core.c ldch_pair) with it while not OFF, and as it turns: a state without one of them sets it
+ * as at first (frs_state_load), so each goes with the other. TRACKS LINK's (card #212: the engine's lk) with them while
+ * a track is moved, or `link` (turned: lv_link), its note followed once one is, each track moved's baseline once it
+ * has one: a state without a pair turns that one off (frs_state_load; a baseline none) */
+static void lv_state_pairs(int link)
+{
+    uint8_t b[21] = {8, FST_STATE, 'F', 'R', 's', 't', STATE_V, STATE_ASHAPE, 0};
+    uint32_t i;
+    b[8] = st.ashape;
+#if FRS_LEAD
+    if (ldch_pair()) {
+        b[b[0] + 1u] = STATE_LDCH;
+        b[b[0] + 2u] = (uint8_t)ldch_pair();
+        b[0] += 2;
+    }
+#endif
+    if (link || lk.on) {
+        b[b[0] + 1u] = STATE_LINK;
+        b[b[0] + 2u] = (uint8_t)(lk.bits | lk.follow << 4);
+        b[0] += 2;
+        if (lk.on && lk.ref >= 0) {
+            b[b[0] + 1u] = STATE_LKREF;
+            b[b[0] + 2u] = (uint8_t)lk.ref;
+            b[0] += 2;
+        }
+        for (i = 0; i < LK_N; i++)       /* (three at most: never the one followed's) */
+            if ((lk.on >> i & 1u) && lk.base[i] >= 0) {
+                b[b[0] + 1u] = (uint8_t)(STATE_LKBASE + i);
+                b[b[0] + 2u] = (uint8_t)lk.base[i];
+                b[0] += 2;
+            }
+    }
+    lv_put(b, b[0] + 1u, 0);
+}
+static void lv_shape(void) { lv_state_pairs(0); }
+static void lv_ldch(void) { lv_state_pairs(0); }
+static void lv_link(void) { lv_state_pairs(1); }
+
 /* the LEAD's settings whole (card #152, FST_LEAD: how 1 a scene's LEAD taken, its own object's, ldp_load; 0 the LEAD as
  * it is, where a setting was put in place without param_set: a preset of the player's, FX back, their PRESET alone) */
 static void lv_lead(uint32_t how)
@@ -5797,19 +6288,26 @@ static void lv_pressure(uint32_t k, uint8_t p)   /* before key_pressure: told wh
         lv_ev(LV_KEY_PRESSURE, k, p, 0, 0, LV_KEEP);
 }
 
-/* MIDI in, as eng_midi took it (the clock and Start, the channels' messages on FRASIL's channels, All Sound Off on
- * any); MIDI learn's CC not (its setting told instead: lv_cc_took) */
+/* MIDI in, as eng_midi took it (the clock and the transport, the channels' messages on FRASIL's channels, All Sound Off
+ * on any); MIDI learn's CC not (its setting told instead: lv_cc_took) */
 static void lv_midi(uint32_t pkt)
 {
     uint32_t s = pkt >> 8 & 0xFFu, ch = (s & 15u) + 1u, d1 = pkt >> 16 & 0x7Fu, d2 = pkt >> 24 & 0x7Fu;
     if (!lv_on || lv_cc_took)
         return;
-    if (s == 0xF8u || s == 0xFAu) {
+    if (s == 0xF8u) {
         if (st.v[P_CLOCK])               /* (CLOCK INTERNAL: not taken) */
+            return;
+    } else if (s == 0xFAu || s == 0xFBu || s == 0xFCu || s == 0xF2u) {
+        if (st.v[P_CLOCK] || st.v[P_TRANSPORT])   /* (CLOCK INTERNAL, TRANSPORT TEMPO ONLY: not taken; card #204) */
             return;
     } else if (s < 0x80u || s >= 0xF0u ||
                (!((s & 0xF0u) == 0xB0u && d1 == 120u) && !on_ch(P_CANAL, ch) && !on_ch(P_CH_GLINT, ch) &&
-                !on_ch(P_CH_BASS, ch))) {
+                !on_ch(P_CH_BASS, ch)
+#if FRS_LEAD
+                && !ld_on_ch(ch)                 /* (LEAD CH's too: card #228) */
+#endif
+                )) {
         return;
     }
     lv_ev(FST_MIDI, s, d1, d2, 0, 0);    /* (taken at once: 0 ms ahead) */
@@ -6313,6 +6811,9 @@ static void lv_rec(uint32_t layer) {}
 static void lv_watch(int swell) {}
 static void lv_pump(void) {}
 static void lv_lead(uint32_t how) {}
+static void lv_shape(void) {}
+static void lv_ldch(void) {}
+static void lv_link(void) {}
 static void lv_wheels(uint32_t mod, int32_t bend) {}
 static uint32_t welcome_buttons(uint32_t btn) { return btn; }   /* (no Learn here: no welcome) */
 static uint32_t welcome_keys(uint32_t keys) { return keys; }
@@ -6554,6 +7055,23 @@ int app_expect(const char *what, int *got)
 #if FRS_LEAD
     else if (!strcmp(what, "lead"))          /* the keys play LEAD (card #144) */
         *got = st.lead;
+    else if (!strcmp(what, "ldch"))          /* LEAD CH (card #228): 0 OFF, 1 .. 16, 17 OMNI */
+        *got = st.ldch;
+    else if (!strcmp(what, "ldchord"))       /* ... its MIDI notes HARMONY's chords (the LEAD's KEYS on CHORD) */
+        *got = st.ldchord;
+    else if (!strcmp(what, "ldmidi")) {      /* the LEAD's notes MIDI holds (a chord's each), ldheld: every one (keys') */
+        uint32_t i;
+        *got = 0;
+        for (i = 0; i < ldk.n; i++)
+            *got += ldm_of(i, -1);
+    } else if (!strcmp(what, "ldheld"))
+        *got = ldk.n;
+#if FRS_MIDI_OUT
+    else if (!strcmp(what, "mdqhead6")) {    /* OBJ_MSEQ's head byte 6 as the store has it (LEAD CH's), -1 none */
+        static uint8_t b[MDQ_BYTES];
+        *got = md_read(b) ? b[6] : -1;
+    }
+#endif
     else if (!strcmp(what, "gridon"))        /* a list's browser up (a preset's, a TARGET's) */
         *got = ng.on;
 #if PLAT_SMK37
@@ -6572,7 +7090,9 @@ int app_expect(const char *what, int *got)
                                               * far from the knob's (an LFO's), x 1000; leadechol, leadechor: each side's
                                               * echo at its loudest, the last render, x 1000; leaddelayms: TIME as the
                                               * beat has it; leadmod: the mod wheel as it came, 0..127; leadfenv: FILTER
-                                              * ENV's own envelope x 100 */
+                                              * ENV's own envelope x 100; leadbend: the pitch wheel, semitones x 100;
+                                              * leadprs: the newest voice's pressure x 100, leadvel its velocity,
+                                              * 0..127 */
         lead_view_t l;
         frasil_lead_view(&l);
         *got = !strcmp(what, "leadcutmod") ? (int)(fm_fabsf(l.cut - (float)st.v[P_LD_CUT] / 127.0f) * 1000.0f + 0.5f)
@@ -6580,6 +7100,9 @@ int app_expect(const char *what, int *got)
              : !strcmp(what, "leadechor") ? (int)(l.echor * 1000.0f + 0.5f)
              : !strcmp(what, "leaddelayms") ? (int)(ld_delay_s * 1000.0f + 0.5f)
              : !strcmp(what, "leadmod") ? (int)(l.mod * 127.0f + 0.5f)
+             : !strcmp(what, "leadbend") ? (int)(l.bend * 100.0f + (l.bend < 0.0f ? -0.5f : 0.5f))
+             : !strcmp(what, "leadprs") ? (int)(l.prs * 100.0f + 0.5f)
+             : !strcmp(what, "leadvel") ? (int)(l.vel * 127.0f + 0.5f)
              : !strcmp(what, "leadfenv") ? (int)(l.fenv * 100.0f + 0.5f)
              : !strcmp(what, "leadnote") ? l.note : !strcmp(what, "leadgate") ? l.gate
              : !strcmp(what, "leadlvl") ? (int)(l.level * 100.0f + 0.5f) : !strcmp(what, "leadons") ? (int)l.ons
@@ -6806,6 +7329,9 @@ int app_expect(const char *what, int *got)
         *got = (int)pv_shown(atoi(what + 5));
     else if (!strcmp(what, "framegone")) /* ANCHOR's frame: its places erased (of AF_N), as the screen has it */
         *got = af.on ? af.gone : -1;
+    else if (!strcmp(what, "morphgone")) /* a MORPH's frame round the edge: its places erased (of AF_N), as the screen
+                                          * has it; -1 none */
+        *got = mf.on ? mf.gone : -1;
 #if defined PLAT_HOST && !defined PLAT_WEB
     else if (!strcmp(what, "framelo") || !strcmp(what, "framehi")) {   /* its breath: its dimmest and brightest (of 32)
                                                                         * since asked */
@@ -6836,6 +7362,14 @@ int app_expect(const char *what, int *got)
                 uint32_t c = swap16(fb[y * 240 + x]), r = c >> 11, g = c >> 5 & 63u, b = c & 31u;
                 n += af_place(x, y) >= 0 && 2u * b > g + 6u && 2u * r > g;
             }
+        *got = n;
+    }
+    else if (!strcmp(what, "morphpx")) { /* a MORPH's frame: its pixels on the screen, the frame's places in its green
+                                          * (of 3776, as framepx) */
+        int32_t x, y, n = 0;
+        for (y = 0; y < 240; y++)
+            for (x = 0; x < 240; x++)
+                n += af_place(x, y) >= 0 && swap16(fb[y * 240 + x]) == C_MORPH;
         *got = n;
     }
     else if (!strcmp(what, "pf_lost"))   /* PERFORM's LIVE: the ops dropped (its queue full), the bytes queued, on */
@@ -6962,6 +7496,35 @@ int app_expect(const char *what, int *got)
         *got = (int)mck.sent;
     else if (!strcmp(what, "mdopen"))    /* MIDI's notes out not ended: the arpeggio's, the sequence's, the keys' */
         *got = (ma.note[0] >= 0) + (ma.note[1] >= 0) + (msq.sounding >= 0) + (int)__builtin_popcount(mout_held());
+    else if (!strcmp(what, "nout"))      /* NOTES OUT (card #201); noutsent: its messages, noutnew: since last asked; by
+                                          * its bytes, noutopen: the notes out not let go, noutonT / noutoffT: track T's
+                                          * note ons and offs (0 GLINT, 1 SPARKLE, 2 BASS), noutnoteT / noutvelT: its last
+                                          * on's, noutlenT: the last let go's length (ms), nouttwice: an on over a note
+                                          * out, noutstray: an off of none */
+        *got = nout.on;
+    else if (!strcmp(what, "noutsent"))
+        *got = (int)nout.sent;
+    else if (!strcmp(what, "noutnew")) {
+        *got = (int)(nout.sent - nout_t.asked);
+        nout_t.asked = nout.sent;
+    } else if (!strncmp(what, "noutopen", 8)) {   /* (noutopenT: track T's alone) */
+        uint32_t t, w;
+        for (*got = 0, t = 0; t < 3u; t++)
+            for (w = 0; w < 4u; w++)
+                if (!what[8] || (uint32_t)(what[8] - '0') == t)
+                    *got += (int)__builtin_popcount(nout_t.open[t][w]);
+    } else if (!strcmp(what, "noutagain")) {   /* PULSE's strikes out again since last asked (as "pulses") */
+        *got = (int)nout_t.again;
+        nout_t.again = 0;
+    } else if (!strncmp(what, "nouton", 6) || !strncmp(what, "noutoff", 7) || !strncmp(what, "noutnote", 8) ||
+               !strncmp(what, "noutvel", 7) || !strncmp(what, "noutlen", 7)) {
+        uint32_t t = (uint32_t)(what[strlen_(what) - 1u] - '0') % 3u;
+        *got = what[4] == 'n' ? (int)nout_t.note[t] : what[4] == 'v' ? (int)nout_t.vel[t]
+             : what[4] == 'l' ? (int)nout_t.len[t] : what[5] == 'n' ? (int)nout_t.on[t] : (int)nout_t.off[t];
+    } else if (!strcmp(what, "nouttwice"))
+        *got = (int)nout_t.twice;
+    else if (!strcmp(what, "noutstray"))
+        *got = (int)nout_t.stray;
 #endif
     else if (!strcmp(what, "a4"))        /* GLO > RECORD's TUNE A4, Hz; a4byte: the settings' record's (less 440) */
         *got = a4.hz;
@@ -7064,6 +7627,15 @@ int app_expect(const char *what, int *got)
         uint32_t i = (uint32_t)(what[7] - '0') % NLFO;
         *got = (int)(lfo[i].peak * 100.0f + 0.5f);
         lfo[i].peak = 0.0f;
+    } else if (!strncmp(what, "lfopace", 7)) {   /* lfopaceN: its pace now, the LFOs on its RATE with it (card #199):
+                                          * free, in mHz; on the grid, its turns a quarter note x 1000 */
+        uint32_t i = (uint32_t)(what[7] - '0') % NLFO, r = st.v[LFO_BASE[i] + 1u];
+        float x = mod[LFO_BASE[i] + 1u];
+        *got = (int)(1000.0f * (r < LFO_NFREE ? lfo_pace(r, x, 1.0f, 0.0f) : lfo_pace(r, x, 0.0f, 24.0f)) + 0.5f);
+    } else if (!strncmp(what, "lfodepth", 8)) {   /* lfodepthN: its DEPTH now, the LFOs on it with it, 0 .. 127 */
+        uint32_t i = (uint32_t)(what[8] - '0') % NLFO;
+        float d = (float)st.v[LFO_BASE[i] + 2u] + mod[LFO_BASE[i] + 2u];
+        *got = d <= 0.0f ? 0 : d >= 127.0f ? 127 : (int)(d + 0.5f);
     }
     else if (!strcmp(what, "helppage"))
         *got = fm.help_page;
@@ -7164,6 +7736,22 @@ int app_expect(const char *what, int *got)
         *got = st.v[P_FREEZE];
     else if (!strcmp(what, "dirty"))
         *got = st.dirty;
+    else if (!strcmp(what, "ashape"))    /* ATTACK SHAPE's LINEs (card #122): a bit each, the drones' 1 .. the LEAD's filter's 16 */
+        *got = st.ashape;
+    else if (!strcmp(what, "link"))      /* TRACKS LINK (card #212): its tracks LINKED (DRONE 1, BASS 2, GLINT 4, MIDI 8),
+                                          * 16 the bass followed */
+        *got = lk.bits | lk.follow << 4;
+    else if (!strcmp(what, "linkon"))    /* those moved (the one followed's LINKED kept, not moving it) */
+        *got = lk.on;
+    else if (!strcmp(what, "linkd"))     /* the first moved's offset (DRONE BASS GLINT MIDI), steps along the scale
+                                          * (+ 100; none moved: 100) */
+        *got = lk.d[lk_ix(lk.on)] + 100;
+    else if (!strncmp(what, "linkd", 5) && what[5] >= '0' && what[5] < '0' + (int)LK_N && !what[6])
+        *got = lk.d[what[5] - '0'] + 100;   /* linkd0 .. linkd3: each track's (DRONE BASS GLINT MIDI), + 100 */
+    else if (!strncmp(what, "linkb", 5) && what[5] >= '0' && what[5] < '0' + (int)LK_N && !what[6])
+        *got = lk.base[what[5] - '0'];   /* linkb0 .. linkb3: each one's baseline, -1 none */
+    else if (!strcmp(what, "keysbyte"))  /* settings_t.keys as the next store writes it (KEY MODE, TRACKS LINK) */
+        *got = KEYS_BYTE();
     else if (!strcmp(what, "scene"))
         *got = fm.scene;
     else if (!strcmp(what, "shed"))
@@ -7177,6 +7765,8 @@ int app_expect(const char *what, int *got)
         *got = bit_get(lit, atoi(what + 3));
     else if (!strncmp(what, "on", 2))        /* onN: note N sounding (held by a chord) */
         *got = held_by[atoi(what + 2) & 127];
+    else if (!strncmp(what, "snd", 3))       /* sndN: the drones' note N out (TRACKS LINK's where it moved them) */
+        *got = dr_snd[atoi(what + 3) & 127];
     else if (!strncmp(what, "p", 1) && what[1] >= '0' && what[1] <= '9')   /* pN: parameter N's value */
         *got = st.v[atoi(what + 1) % NPARAM];
     else
@@ -7522,6 +8112,7 @@ static int schema_write(const char *path)
     ID(P_GX_SINK), ID(P_GD_TIME), ID(P_L1_SHAPE), ID(P_L2_SHAPE), ID(P_L3_SHAPE), ID(P_MX_DRONE), ID(P_MX_BASS);
     ID(P_MX_GLINT), ID(P_MX_CLOUD), ID(PG_ARP), ID(PG_SEQ), ID(PG_SEQ2), ID(PG_SEQ3), ID(PG_SCENES), ID(SQT_ARP);
     ID(SQT_SEQ), ID(OCT_DEF), ID(P_BQ_ON), ID(P_BQ_STEPS), ID(P_BQ_TRANS), ID(P_BQ_LEN), ID(PG_BSEQ), ID(PG_BSEQ2), ID(P_SPEAKER), ID(P_ANIM), ID(P_CLOCK);
+    ID(P_TRANSPORT);                     /* (card #204) */
     ID(P_BS_ATTACK), ID(P_BS_DECAY), ID(P_BS_SUSTAIN), ID(P_BS_RELEASE), ID(P_BS_PULSE), ID(P_GL_ATTACK);
     ID(P_GL_DECAY), ID(P_GL_SUSTAIN), ID(P_GL_RELEASE), ID(P_SQ_STEP), ID(P_SQ_NOTE), ID(P_SQ_ACC), ID(P_SQ_CLEAR);
     ID(P_BQ_STEP), ID(P_BQ_NOTE), ID(P_BQ_CLEAR), ID(P_BQ_REC), ID(P_BQ_NLEN), ID(P_EQ_PRESET), ID(P_EQ_LOW), ID(P_EQ_HIGHF), ID(P_FL_TYPE);
@@ -7931,7 +8522,8 @@ static void pfc_want(void)
 }
 
 /* the start, as STATE says it: each part in place, its layout whole (scene, state, moves, tracks, the running state,
- * the LEAD's part, nothing after), the state frs_state_save's ("FRst" 3, each FRS_P_STATE setting, the metronome last),
+ * the LEAD's part, nothing after), the state frs_state_save's ("FRst" 3, each FRS_P_STATE setting, MORPH's mark 1: the
+ * FM-1's MORPH card #202's, the metronome last),
  * the moves each FRS_P_MOMENT's, the running state's head as a listener reads it ("FRlv", its version 1, the sound's
  * part in it, the scene's length, LIVE_NPARAM (the settings before the LEAD's), the millisecond plat_ms() + 1 at the
  * ask, the body's length; LV_LIVE at most), the LEAD's ("FRld", its version 1, the sound's part in it, LEAD_BYTES,
@@ -7968,7 +8560,18 @@ static void pfc_state(void)
         nm += param_kind(i) == PK_MOMENT;
     }
     bad |= n != pfc.want_n || memcmp(o, pfc.want, n) ? 1u : 0u;
-    bad |= memcmp(o + 3u + sn, "FRst\3", 5) || sb != 5u + 2u * ns + 2u || o[1u + sn + sb] != STATE_METRO ? 2u : 0u;
+    {                                    /* (after the metronome's pair: ATTACK SHAPE's, LEAD CH's, while not as at first:
+                                          * LEAD CH not OFF) */
+        uint32_t x = st.ashape ? 2u : 0u;
+#if FRS_LEAD
+        if (ldch_pair()) {
+            x += 2u;
+            bad |= o[1u + sn + sb] != STATE_LDCH || o[2u + sn + sb] != ldch_pair() ? 2u : 0u;
+        }
+#endif
+        bad |= memcmp(o + 3u + sn, "FRst\3", 5) || sb != 5u + 2u * ns + 4u + x || o[sn + sb - 1u - x] != STATE_MORPH ||
+               o[sn + sb - x] != 1u || o[1u + sn + sb - x] != STATE_METRO ? 2u : 0u;
+    }
     for (i = 0; i < ns; i++)
         bad |= param_kind(o[8u + sn + 2u * i]) != PK_STATE ? 2u : 0u;
     for (i = 0; i < mn; i++)
@@ -8403,8 +9006,8 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         return 1;
     }
 #ifndef PLAT_WEB
-    if (!strcmp(cmd, "framecost")) {     /* framecost: ANCHOR's frame, what it sent the screen alone since the last (its
-                                          * bands' parts aside: drawn with them) */
+    if (!strcmp(cmd, "framecost")) {     /* framecost: ANCHOR's frame and a MORPH's, what they sent the screen alone
+                                          * since the last (their bands' parts aside: drawn with them) */
         printf("  framecost: %u pixels in %u fills\n", (unsigned)af_px, (unsigned)af_fills);
         af_px = af_fills = 0;
         return 1;

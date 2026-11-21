@@ -4,8 +4,8 @@
  * that an engine opened on it goes on as the one it was taken from. Part of core.c (its end: every one of the brain's
  * statics in sight); frasil_engine.c's frs_live_save and frs_live_load call it, so does the FM-1's STATE (app.c).
  *   The brain whole: the notes held and latched and by what, the keys down, the arpeggiators (their notes, their step,
- *   their draws), the three sequences (where they are, their takes), the grid and its clock, the LFOs (where in their
- *   turns), SPARKLE's next glint, the metronome, COUNT-IN, MORPH and ANCHOR under way, SWELL, LOFI TAPE II's speed,
+ *   their draws), the three sequences (where they are, their takes), the grid, its clock and MIDI's transport, the LFOs
+ *   (where in their turns), SPARKLE's next glint, the metronome, COUNT-IN, MORPH and ANCHOR under way, SWELL, LOFI TAPE II's speed,
  *   PULSE, RESTORE's notes, UNDO's sequences, the sound as saved (COMPARE), TUNE A4. The sound's (frasil_lv: dsp/), at
  *   half precision: the generators, the tide, each voice's drift, envelope, pressure and phases, the bass, the cloud's
  *   sways, PUMP's and the tape's phases, the notes queued for the next block. Not the buffers: the cloud's room, GLINT's
@@ -22,7 +22,8 @@
  *   settings before the LEAD's) reads it as it always did: 16 of a head ("FRld", LIVE_LEAD_V, its parts (LIVE_F_DSP),
  *   LEAD_BYTES, P_LD_WAVE (its settings' first), the first's millisecond, its bytes after the head), the LEAD's
  *   settings as they are (LEAD_BYTES, not in runs: a page reads them there), then its body in runs: the keys play it,
- *   the keys on it (ldk), its delay's time on the beat, the LEAD as saved (XORed with its settings), the LFOs on it,
+ *   the keys on it (ldk: MIDI's notes on LEAD CH among them, card #228; LEAD CH itself in the start's state), its
+ *   delay's time on the beat, the LEAD as saved (XORed with its settings), the LFOs on it,
  *   then the sound's (lead_lv: dsp/lead.c, read with frasil_lv between the same two blocks). Parts after the first: one
  *   another engine's or of another name, left (the LEAD as this engine has it); none (an older FM-1's, a page that
  *   kept the first alone), the keys on the LEAD let go: none of the first's holds one. */
@@ -413,6 +414,11 @@ static void rs_brain(rs_io *s)
     V32(grid.clk_n);
     V32(grid.clk_beat);
     V32(grid.clk_far);
+    V8(xp.stop);                         /* (MIDI's transport, card #204: stopped by MIDI's Stop, a Song Position, the
+                                          * arpeggios it held, the song's place) */
+    V8(xp.cued);
+    V8(xp.arps);
+    V32(xp.at);
     VF(tape_l2);
     VF(tape_sent);
     VF(tape_tk);
@@ -530,7 +536,9 @@ static void rs_brain(rs_io *s)
     VFS(mo.d);
     VB(mo.name);
     VFS(morph_off);
-    VFS(mod);                            /* (not mod_tp, LOFI TAPE II's four: lfo_run's next writes them, within 10 ms) */
+    VFS(mod);                            /* (not mod_tp, LOFI TAPE II's four: lfo_run's next writes them, within 10 ms;
+                                          * mod's LFO RATEs and DEPTHs, what the LFOs put on the LFOs, eased, its next
+                                          * reads: card #199) */
     V32(morph_at);
     V8(anc.on);
     V8(anc.due);
@@ -579,6 +587,53 @@ static void rs_brain(rs_io *s)
     V32(swell_at);
     V8(rec_counts);
     V8(keys_edited);
+    /* TRACKS LINK (card #212): its tracks LINKED (those moved made from them), the one followed, its note, each track's
+     * baseline, offset and offset kept (FOLLOW turned, none held), what they were made of; the bass's note as it went
+     * out; the drones' notes held, where each sounds and at what velocity (the counts made from them); GLINT's struck
+     * and where */
+    V8(lk.bits);
+    V8(lk.follow);
+    V8(lk.ref);
+    VB(lk.base);
+    VB(lk.d);
+    VB(lk.keep);
+    V8(lk.dlast);
+    VB(lk.at);
+    V8(lk.bs);
+    V8(lk.bvel);
+    for (i = 0; i < 128u; i++)
+        if (held_by[i]) {
+            V8(dr_d[i]);
+            V8(dr_vel[i]);
+        } else if (!s->c.save) {
+            dr_d[i] = 0;
+            dr_vel[i] = 0;
+        }
+    if (!s->c.save) {
+        memset(dr_snd, 0, sizeof dr_snd);
+        for (i = 0; i < 128u; i++)
+            if (held_by[i]) {
+                int n = (int)i + dr_d[i];
+                if (n < 0 || n > 127)
+                    s->bad = 1;
+                else
+                    dr_snd[n]++;
+            }
+        lk.bits &= LK_ALL;
+        lk.follow &= 1u;
+        lk.on = (uint8_t)(lk.bits & ~(lk.follow ? (uint32_t)LK_BASS : (uint32_t)LK_DRONE));
+        for (i = 0; i < LK_N; i++)
+            if (!(lk.on >> i & 1u) || lk.base[i] < -1) {
+                lk.base[i] = -1;
+                lk.keep[i] = 0;
+            }
+    }
+    VU32S(gl_lit);
+    for (i = 0; i < 128u; i++)
+        if (bit_get(gl_lit, (int)i))
+            V8(gl_d[i]);
+        else if (!s->c.save)
+            gl_d[i] = 0;
 }
 
 static void rs_init(rs_io *s, int save)
@@ -630,7 +685,7 @@ static void rs_lead(rs_io *s)
             V8(ldk.k[i]);
             V8(ldk.vel[i]);
             V8(ldk.note[i]);
-            if (ldk.k[i] >= FRS_NKEYS)
+            if (ldk.k[i] >= FRS_NKEYS && ldk.k[i] < LDK_MIDI)   /* (a key's, or a MIDI note's on LEAD CH: card #228) */
                 s->bad = 1;
         } else if (!s->c.save) {
             ldk.k[i] = ldk.vel[i] = 0;

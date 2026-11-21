@@ -14,10 +14,11 @@ enum { F_PCT, F_ATT, F_REL, F_DECAY, F_PREDELAY, F_HZ, F_TAU, F_PERIOD, F_INTERV
        F_LTGT, F_SQLEN, F_SQNOTE, F_SQREC, F_SQCLEAR, F_SQTRANS, F_DPRESET, F_SQTYPE, F_KB, F_MORPH, F_LOAD, F_UNDO, F_NEWTAKE,
        F_BQNOTE, F_BQLEN, F_BDEC, F_BPULSE, F_GREL, F_EQPRESET, F_EQDB, F_EQLOWF, F_EQMIDF, F_EQQ, F_EQHIGHF, F_FLTYPE,
        F_FLCUT, F_FLTRACKS, F_PREPOST, F_PAN, F_ANIM, F_CLOCK, F_BQNLEN, F_DQNOTES, F_KNOTES, F_METRO, F_COUNTIN, F_ARPSNAP, F_TSPEED,
-       F_AMT 
+       F_AMT, F_XPORT
 #if FRS_LEAD
        , F_LWAVE, F_LCUT, F_LOCT, F_LPRESET, F_LMODE   /* LEAD's (card #144) */
 #endif
+       , F_MEDIA                         /* LOFI TAPE's MEDIA (card #99) */
 };
 
 typedef struct {
@@ -25,8 +26,10 @@ typedef struct {
     uint8_t max, def, fmt;
 } pdesc_t;
 
-#define NLFO_TGT (62u + 22u * FRS_LEAD)  /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below; LEAD's 22
-                                          * after the rest on the SMK-37's, card #144) */
+#define NLFO_TGT 90u                     /* an LFO TARGET's choices: OFF and the settings (LFO_TGT, below; LEAD's 22
+                                          * after the rest, card #144, none on an engine without it; the LFOs' own RATE
+                                          * and DEPTH last, card #199) */
+#define LFO_T_XM 84u                     /* (LFO 1's RATE, the first of the LFOs' six: LFO_TGT) */
 #define NDRONE 33u                       /* the settings a drone preset sets (DRONE_P, below) */
 #define NDPRESET 36u
 #define NPULSE 7u                        /* PULSE's choices: OFF, then its divisions (PULSE_TICKS, below) */
@@ -178,7 +181,8 @@ static const pdesc_t PD[NPARAM] = {
     [P_KB] = {"TRACK", 2 + FRS_LEAD, 0, F_KB},                    /* what they play */
     [P_MORPH] = {"MORPH", 8, 0, F_MORPH},              /* CUT, 1 S .. 2:00: the sound glides to the scene's */
     [P_LOAD] = {"LOAD", 1, 0, F_LOAD},                 /* SND+NOTES: the sound and its notes; SND ONLY: what plays goes on */
-    [P_SC_GONE] = {"-", 0, 0, F_UNDO},                 /* (nothing to turn: a CC learned on UNDO turns nothing) */
+    [P_TRANSPORT] = {"TRANSPORT", 1, 0, F_XPORT},      /* TEMPO ONLY: MIDI's Start, Stop, Continue, Song Position
+                                                        * ignored (card #204) */
     [P_SQ_NEW] = {"NEW TAKE", 2, 0, F_NEWTAKE},
     [P_SQ_UNDO] = {"UNDO TAKE", 2, 0, F_UNDO},
     [P_BQ_STEP] = {"STEP", 31, 0, F_SQLEN},
@@ -237,9 +241,10 @@ static const pdesc_t PD[NPARAM] = {
     [P_SQ_NLEN] = {"LENGTH", 32, 0, F_BQNLEN},         /* the note on STEP's: 1 .. 32 steps (0: no note there, -) */
     [P_SPEAKER] = {"SPK/JACK", 1, 1, F_ONOFF},        /* OFF: the speaker and headphones quiet, USB audio as ever */
     [P_ANIM] = {"ANIMATIONS", 1, 0, F_ANIM},           /* LOW: the river, the tape, the logo still (for the sound) */
-    [P_TP_FLUTTER] = {"TAPE SPEED", 127, 64, F_TSPEED},   /* LOFI TAPE II: X0.25 .. X2.00, X1.00 at 64, X0.01 a detent
+    [P_TP_FLUTTER] = {"SPEED", 127, 64, F_TSPEED},        /* LOFI TAPE II: X0.25 .. X2.00, X1.00 at 64, X0.01 a detent
                                                          * from X0.48 to X1.58 (tape_oct; FLUTTER RATE's byte until
-                                                         * it: the flutter now 5 HZ) */
+                                                         * it: the flutter now 5 HZ). TAPE SPEED till card #229: SPEED
+                                                         * on every MEDIA */
     [P_TP_TONE] = {"TONE", 127, 74, F_SIGNED},         /* the tape's pole times 0.25 .. 4, as it was in the middle; +10 its
                                                         * default */
     [P_TP_NOISE] = {"NOISE", 127, 0, F_PCT},           /* the hiss */
@@ -302,13 +307,17 @@ static const pdesc_t PD[NPARAM] = {
     [P_FL_CUT] = {"CUTOFF", 127, 127, F_FLCUT},        /* 20 HZ .. 20 KHZ */
     [P_FL_RESO] = {"RESONANCE", 127, 0, F_PCT},
     [P_FL_TRACKS] = {"TRACKS", 6, 0, F_FLTRACKS},      /* ALL, DRONE (its CLOUD with it), GLINT, BASS, and the pairs */
-    [P_TP_ON] = {"TAPE", 1, 0, F_ONOFF},
+    [P_TP_ON] = {"MEDIA", 4, 0, F_MEDIA},   /* LOFI TAPE's: OFF, TAPE (ON's 1 until card #99), VINYL, AM, PHONE (card
+                                          * #218; frasil.c's MEDIA); an engine before them takes VINYL and AM as TAPE,
+                                          * one with them PHONE as AM (past its range, its last: core.c sound_val,
+                                          * param_set) */
     [P_TP_SAT] = {"SATURATION", 127, 50, F_PCT},
     [P_TP_WOBBLE] = {"WOBBLE", 127, 40, F_PCT},         /* the speed's wow and flutter, and now and then a hiccup */
     [P_TP_TRACKS] = {"TRACKS", 6, 0, F_FLTRACKS},
     [P_FL_PRE] = {"FILTER", 1, 0, F_PREPOST},          /* POST: after the cloud (DRONE's return in it); PRE: before it,
                                                         * the cloud fed filtered */
-    [P_TP_PRE] = {"TAPE", 1, 0, F_PREPOST},
+    [P_TP_PRE] = {"LOFI", 1, 0, F_PREPOST},            /* (TAPE till card #229; the FM-1's ROUTING says the MEDIA:
+                                                        * app/pages.c pd_name) */
     [P_PUMP_CLOUD] = {"CLOUD PUMP", 1, 1, F_ONOFF},   /* ON: the cloud's return ducked with the drone */
     [P_PN_DRONE] = {"DRONE PAN", 100, 50, F_PAN},     /* L50 .. C .. R50, a balance */
     [P_PN_BASS] = {"BASS PAN", 100, 50, F_PAN},
@@ -685,9 +694,18 @@ static const uint8_t LFO_TGT[NLFO_TGT] = {
                                     P_LD_FENV, P_LD_VIB, P_LD_ATTACK, P_LD_DECAY, P_LD_SUSTAIN, P_LD_RELEASE, P_LD_DTIME,
                                     P_LD_DFB, P_LD_DMIX, P_LD_SPACE, P_MX_LEAD, P_LD_FATTACK, P_LD_FDECAY,
                                     P_LD_FSUSTAIN, P_LD_FRELEASE
+#else                                    /* (theirs none here: a scene's taken as OFF, core.c sound_val; the numbers
+                                          * after them the same on every engine) */
+                                    , NPARAM, NPARAM, NPARAM, NPARAM, NPARAM, NPARAM, NPARAM, NPARAM, NPARAM, NPARAM,
+                                    NPARAM, NPARAM, NPARAM, NPARAM, NPARAM, NPARAM, NPARAM, NPARAM, NPARAM, NPARAM,
+                                    NPARAM, NPARAM
 #endif
+                                    /* the LFOs' own (card #199): one LFO on another's pace or depth, or its own
+                                     * (core.c lfo_run, a moment later) */
+                                    , P_L1_RATE, P_L1_DEPTH, P_L2_RATE, P_L2_DEPTH, P_L3_RATE, P_L3_DEPTH
 };   /* (GLINT's CHANCE, its SEQ LENGTH, SPARKLE: app.c's, arp_chance, seq_len, sparkle_run; LOFI TAPE II's four past
       * NSOUND: mod_tp) */
+_Static_assert(LFO_T_XM + 6u == NLFO_TGT, "the LFOs' six TARGETs last");
 static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MOTION", "WARMTH", "CHOIR", "PARTIALS",
                                              "BREATH", "CH DETUNE", "CH FILTER", "CH SHAPE", "CH RESO", "PA TILT", "PA ODD",
                                              "PA STRETCH", "PA EVOLVE", "PA BEAT", "PA FORMANT", "PA PEAK", "BR RESO", "BR COLOR",
@@ -697,16 +715,18 @@ static const char *const LFO_TGT_NAME[NLFO_TGT] = {"OFF", "TIMBRE", "SPACE", "MO
                                              "SPARKLE", "BLUR", "SINK", "MS CUTOFF", "MS RESO", "DRONE PAN", "BASS PAN",
                                              "GLINT PAN", "CLOUD PAN", "CH SOFT", "GL ATTACK", "GL DECAY", "GL SUSTAIN",
                                              "GL RELEASE", "BS ATTACK", "BS DECAY", "BS SUSTAIN",
-                                             "BS RELEASE", "TAPE SAT", "WOBBLE", "TAPE SPEED", "TAPE TONE",
-                                             "TAPE NOISE", "DROPOUT"
-#if FRS_LEAD
+                                             "BS RELEASE", "LOFI SAT", "WOBBLE", "SPEED", "LOFI TONE",
+                                             "LOFI NOISE", "DROPOUT"
                                              , "LD FILTER", "LD RESO", "LD WAVE", "LD DETUNE", "LD BREATH", "LD DRIVE",
                                              "LD GLIDE", "LD FLT ENV", "LD VIBRATO", "LD ATTACK", "LD DECAY", "LD SUSTAIN",
                                              "LD RELEASE", "LD TIME", "LD FEEDBK", "LD MIX", "LD SPACE", "LEAD LVL",
                                              "LD F.ATK", "LD F.DEC", "LD F.SUS", "LD F.REL"
-#endif
-};   /* (new ones at the end: a saved TARGET keeps its setting) */
-static float lfo_hz(uint32_t r) { return 0.005f * fm_powf(2000.0f, (float)r / (float)(LFO_NFREE - 1u)); }
+                                             , "LFO1 RATE", "LFO1 DEPTH", "LFO2 RATE", "LFO2 DEPTH", "LFO3 RATE",
+                                             "LFO3 DEPTH"
+};   /* (new ones at the end: a saved TARGET keeps its setting; LOFI TAPE's own no TAPE in them, whatever its MEDIA:
+      * TAPE SAT, TAPE SPEED, TAPE TONE, TAPE NOISE till card #229) */
+static float lfo_hz(float r) { return 0.005f * fm_powf(2000.0f, r / (float)(LFO_NFREE - 1u)); }   /* (r: a free
+                                          * RATE, an LFO on it between its steps: core.c lfo_run) */
 /* GLINT's OCTAVE, in semitones: every glint is played without it, the engine puts it on (a key's, a MIDI note's, the
  * arpeggio's, the sequence's; those sounding too, at once: glint.c), and NOTE shows the steps so (app.c sets it) */
 static int32_t seq_shift;
@@ -721,6 +741,10 @@ static uint8_t dq_view_n, dq_view_note;
  * PUNCH, BITE, the bass's SPACE, AUTO VIB: ANCHOR's alone glides them; SWELL's heard by core.c eng_swell) */
 #define NMORPH (P_GL_VIB_AUTO + 1)
 static float morph_off[NMORPH];
+/* a MORPH as the engines before card #202 made it (frs_morph_331: a stream of theirs, its state without MORPH's mark,
+ * core.c STATE_MORPH): the notes a scene swaps on the ATTACK and RELEASE heard then, MASTERING's THRESHOLD and GAIN,
+ * CLOUD's level and MASTER EQ's seven at the scene's at once (their glide unheard). Off at the start, frs_init's */
+static uint8_t morph_331;
 /* what the LFOs add to each setting now, in its own steps (app.c, lfo_run); params_to_engine takes them */
 static float mod[NSOUND];
 /* the same for LOFI TAPE II's four, past NSOUND (TAPE SPEED, TONE, NOISE, DROPOUT): beside mod, not in it, so mod keeps
@@ -932,9 +956,13 @@ static const char *const FL_TRACKS_NAME[7] = {"ALL", "DRONE", "GLINT", "BASS", "
  * readers, the iPad's engine; its text, F_TSPEED): X1.00 at 64 exactly (so that a tape from before plays as it did),
  * X0.01 a detent from X0.48 (12) to X1.58 (122): X0.50 (14) an octave down, X1.50 (114) a fifth up; past them a
  * half-tone a detent (X0.47 .. X0.25 at 0, two octaves down; X1.59 .. X2.00 at 127, one up). Until 3.1 the byte was
- * log2's own, a 32nd of an octave a detent under X1.00 (X0.79, X0.77: two hundredths) and a 63rd over */
+ * log2's own, a 32nd of an octave a detent under X1.00 (X0.79, X0.77: two hundredths) and a 63rd over: tape_302 reads it
+ * so (frs_tape_302, a stream of 3.0.2's layout: card #160) */
+static uint8_t tape_302;
 static float tape_oct(uint32_t x)
 {
+    if (tape_302)                        /* (3.0.2's own sum, as its engine made it: its takes' grid on its very steps) */
+        return x <= 64u ? ((float)x - 64.0f) * (1.0f / 32.0f) : ((float)(x > 127u ? 127u : x) - 64.0f) * (1.0f / 63.0f);
     return x == 64u ? 0.0f
          : x < 12u  ? ((float)x - 24.0f) * (1.0f / 12.0f)
          : x > 122u ? ((float)(x > 127u ? 127u : x) - 115.0f) * (1.0f / 12.0f)
@@ -981,6 +1009,21 @@ static float u7(const uint8_t *v, int p)  /* a setting, 0..1, with what the LFOs
     return x < 0.0f ? 0.0f : x > 1.0f ? 1.0f : x;
 }
 
+/* a setting where a MORPH's way has it heard, of those taken as they are, no LFO on them: MASTERING's THRESHOLD and
+ * GAIN, CLOUD's level, MASTER EQ's seven (until card #202, at the scene's at once: morph_331) */
+static float morph_heard(const uint8_t *v, int p) { return morph_331 ? (float)v[p] : (float)v[p] + morph_off[p]; }
+
+/* the drones' ATTACK and RELEASE: u7's, past 1 as far as a scene's MORPH takes them (core.c eng_scene_go: the notes it
+ * swaps go out and come in over its length, card #202; at 1, 30 s and 60 s, a MORPH up to 2:00) */
+static float u7_env(const uint8_t *v, int p)
+{
+    float top = ((float)v[p] + morph_off[p]) / (float)PD[p].max, x;
+    if (top <= 1.0f)
+        return u7(v, p);
+    x = ((float)v[p] + (mod[p] + morph_off[p])) / (float)PD[p].max;
+    return x < 0.0f ? 0.0f : x > top ? top : x;
+}
+
 static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
 {
     b->choir = u7(v, P_CHOEUR);
@@ -995,8 +1038,8 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
     b->resonance = u7(v, P_RESONANCE);
     b->color = u7(v, P_COULEUR);
     b->spread = u7(v, P_ECART);
-    b->attack = u7(v, P_ATTAQUE);
-    b->release = u7(v, P_RELACHE);
+    b->attack = u7_env(v, P_ATTAQUE);
+    b->release = u7_env(v, P_RELACHE);
     b->pressure = u7(v, P_PRESSION);
     b->velocity = u7(v, P_VELOCITE);
     b->motion = u7(v, P_MOUVEMENT);
@@ -1040,14 +1083,14 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
     b->pump_rel = 0.1f + 0.9f * u7(v, P_PUMP_REL);
     b->pump_att = 0.001f * fm_powf(300.0f, u7(v, P_PUMP_ATT));
     b->pump_off = u7(v, P_PUMP_OFF);
-    b->comp_thr = (float)v[P_MS_THRESH] - 40.0f;
+    b->comp_thr = morph_heard(v, P_MS_THRESH) - 40.0f;
     b->comp_ratio = COMP_RATIO[v[P_MS_RATIO] % 8u];
     b->comp_rel = 0.03f * fm_powf(50.0f, u7(v, P_MS_RELEASE));
-    b->comp_gain = v[P_MS_RATIO] ? fm_exp2f((float)v[P_MS_GAIN] * 0.166096405f) : 1.0f;   /* (RATIO OFF: no GAIN) */
+    b->comp_gain = v[P_MS_RATIO] ? fm_exp2f(morph_heard(v, P_MS_GAIN) * 0.166096405f) : 1.0f;   /* (RATIO OFF: no GAIN) */
     b->mx_drone = u7(v, P_MX_DRONE) * 1.27f;
     b->mx_bass = u7(v, P_MX_BASS) * 1.27f;
     b->mx_glint = u7(v, P_MX_GLINT) * 1.27f;
-    b->mx_cloud = (float)v[P_MX_CLOUD] * 0.01f;
+    b->mx_cloud = morph_heard(v, P_MX_CLOUD) * 0.01f;
     {                                    /* the layers' second pages */
         static const float CH_IV[4] = {1.0f, 0.5f, 1.4983071f, 2.0f}, BR_IV[5] = {0.5f, 1.0f, 2.0f, 2.9966142f, 4.0f};
         float tn = u7(v, P_BR_TONE) * 127.0f;
@@ -1069,20 +1112,21 @@ static void params_to_engine(const uint8_t *v, int freeze, frasil_params_t *b)
     {                                    /* MASTER EQ, MASTER FILTER, LOFI TAPE (TRACKS: ALL, DRONE, GLINT, BASS, the
                                           * pairs: the engine's bits) */
         static const uint8_t TRK[7] = {7, 1, 2, 4, 3, 5, 6};
+        float lo = morph_heard(v, P_EQ_LOW), mid = morph_heard(v, P_EQ_MID), hi = morph_heard(v, P_EQ_HIGH);
         b->eq_on = v[P_EQ_PRESET] != 0 &&    /* (its bands flat: nothing to do, nothing spent) */
-                   (v[P_EQ_LOW] != 24u || v[P_EQ_MID] != 24u || v[P_EQ_HIGH] != 24u);
-        b->eq_low = 0.5f * ((float)v[P_EQ_LOW] - 24.0f);
-        b->eq_mid = 0.5f * ((float)v[P_EQ_MID] - 24.0f);
-        b->eq_high = 0.5f * ((float)v[P_EQ_HIGH] - 24.0f);
-        b->eq_lowf = EQ_LOWF((float)v[P_EQ_LOWF] / 127.0f);
-        b->eq_midf = EQ_MIDF((float)v[P_EQ_MIDF] / 127.0f);
-        b->eq_q = EQ_Q((float)v[P_EQ_Q] / 127.0f);
-        b->eq_highf = EQ_HIGHF((float)v[P_EQ_HIGHF] / 127.0f);
+                   (lo != 24.0f || mid != 24.0f || hi != 24.0f);
+        b->eq_low = 0.5f * (lo - 24.0f);
+        b->eq_mid = 0.5f * (mid - 24.0f);
+        b->eq_high = 0.5f * (hi - 24.0f);
+        b->eq_lowf = EQ_LOWF(morph_heard(v, P_EQ_LOWF) / 127.0f);
+        b->eq_midf = EQ_MIDF(morph_heard(v, P_EQ_MIDF) / 127.0f);
+        b->eq_q = EQ_Q(morph_heard(v, P_EQ_Q) / 127.0f);
+        b->eq_highf = EQ_HIGHF(morph_heard(v, P_EQ_HIGHF) / 127.0f);
         b->fl_type = v[P_FL_TYPE] % 3u;
         b->fl_cut = FL_CUT(u7(v, P_FL_CUT));
         b->fl_q = FL_Q(u7(v, P_FL_RESO));
         b->fl_tracks = TRK[v[P_FL_TRACKS] % 7u];
-        b->tp_on = v[P_TP_ON] != 0;
+        b->tp_on = v[P_TP_ON] > 4u ? 4 : v[P_TP_ON];   /* (MEDIA: 0 off, FR_TAPE, FR_VINYL, FR_AM, FR_PHONE) */
         b->tp_sat = u7(v, P_TP_SAT);
         b->tp_wobble = u7(v, P_TP_WOBBLE);
         b->tp_flutter = 5.0f;            /* (fixed since TAPE SPEED took its byte; 7.3 HZ before) */
@@ -1379,6 +1423,9 @@ static void value_text(int p, uint8_t x, char *b)
     case F_CLOCK:
         text_cat(b, x ? "INTERNAL" : "AUTO");
         break;
+    case F_XPORT:
+        text_cat(b, x ? "TEMPO ONLY" : "FOLLOW");
+        break;
     case F_MORPH: {
         static const char *const MO[9] = {"CUT", "1 S", "2 S", "4 S", "8 S", "15 S", "30 S", "60 S", "2:00"};
         text_cat(b, MO[x % 9u]);
@@ -1486,6 +1533,9 @@ static void value_text(int p, uint8_t x, char *b)
     case F_ONOFF:
         text_cat(b, x ? "ON" : "OFF");
         break;
+    case F_MEDIA:
+        text_cat(b, x == 0u ? "OFF" : x == 1u ? "TAPE" : x == 2u ? "VINYL" : x == 3u ? "AM" : "PHONE");
+        break;
     case F_PCTOFF:
         if (!x)
             text_cat(b, "OFF");
@@ -1566,7 +1616,7 @@ static void value_text(int p, uint8_t x, char *b)
         if (x >= LFO_NFREE) {
             text_cat(b, LFO_SYNC_NAME[(x - LFO_NFREE) % 12u]);
         } else {
-            float hz = lfo_hz(x);
+            float hz = lfo_hz((float)x);
             if (hz >= 1.0f) {
                 int32_t d = (int32_t)(hz * 10.0f + 0.5f);
                 char *e;

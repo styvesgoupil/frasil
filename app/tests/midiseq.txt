@@ -370,3 +370,158 @@ expect md15 50
 expect md16 0
 expect md17 0
 expect moutret 72
+# LEAD CH (card #228): 3.3.1's OBJ_MSEQ (byte 6 0, as every FRASIL before left it, 3.4 too): OFF. Kept with the
+# device's settings, OBJ_MSEQ's head byte 6 (bit 7 and the channel): 9 across a power cut, a backup and its restore;
+# OFF again: 0, the object byte for byte as before; ldch9-3.4.frasil: the backup put back on 3.4 (c5398e68's
+# simulator), RETURN turned there (its md_dev_save) and a scene stored (its md_save), backed up: byte 6 as 3.4 found
+# it, LEAD CH 9 here
+expect ldch 0
+expect mdqhead6 0
+tap SEL
+wait 30
+expect popup 0
+press OCT-
+press PLAY
+release PLAY
+release OCT-
+gopage 38
+wait 30
+turn K4 9
+wait 30
+expect ldch 9
+wait 2000
+expect prefsdue 0
+expect mdqhead6 137
+reboot
+wait 1600
+expect ldch 9
+backup out:ldch9.frasil
+press OCT-
+press PLAY
+release PLAY
+release OCT-
+gopage 38
+wait 30
+turn K4 -9
+wait 2000
+expect ldch 0
+expect prefsdue 0
+expect mdqhead6 0
+restore out:ldch9.frasil
+wait 300
+expect restore_rc 0
+expect ldch 9
+expect mdqhead6 137
+expect moutret 72
+tap SEL
+wait 30
+restore app/tests/mseq-3.3.1.frasil
+wait 300
+expect restore_rc 0
+expect ldch 0
+expect mdqhead6 0
+tap SEL
+wait 30
+restore app/tests/ldch9-3.4.frasil
+wait 300
+expect restore_rc 0
+expect ldch 9
+expect mdqhead6 137
+expect moutret 60
+tap SEL
+wait 30
+restore app/tests/mseq-3.3.1.frasil
+wait 300
+expect restore_rc 0
+expect ldch 0
+# MIDI's transport (card #204; GLO › MIDI II's K2, TRANSPORT: FOLLOW, 3.3.1's settings so too), no clock coming in (the
+# grid on TEMPO, MIDI's SEQ four sixteenths of 6 clocks): a DAW's Start, its Stop stops MIDI's sequence with the others,
+# its Continue goes on where they were (not from the top), a Song Position stopped lands Continue on its step; CLOCK
+# OUT's Start and Stop with them. TEMPO ONLY ignores them, kept with the settings (HEADER's byte, its bit 5)
+tap SEL
+wait 30
+expect popup 0
+expect p169 0
+gopage 78
+wait 30
+turn K1 1
+wait 30
+expect moutclk 1
+turn SELECT 9
+wait 30
+expect mout 1
+gopage 74
+wait 30
+turn K1 1
+wait 30
+expect md0 2
+turn K2 -12
+wait 30
+expect md6 3
+out
+midi FA
+wait 400
+expect msqrun 1
+expect msqpos 2
+expect grid >12
+expect grid <17
+expect_out USB FA 00 00
+midi FC
+wait 1000
+expect msqrun 0
+expect mdopen 0
+expect_out USB FC 00 00
+out
+midi FB
+wait 30
+expect msqrun 1
+expect msqpos 2
+expect grid >13
+expect grid <18
+expect_out USB FA 00 00
+midi FC
+wait 100
+midi F2 0D 00
+midi FB
+wait 30
+expect msqrun 1
+expect msqpos 1
+expect grid >77
+expect grid <81
+gopage 78
+wait 30
+turn K2 1
+wait 30
+expect p169 1
+midi FC
+wait 100
+expect msqrun 1
+midi F2 00 00
+midi FA
+wait 30
+expect msqrun 1
+expect grid >85
+tap PLAY
+wait 100
+expect msqrun 0
+expect mdopen 0
+wait 2000
+expect prefsdue 0
+expect headbyte >31
+reboot
+wait 300
+expect p169 1
+# TRANSPORT is not learned (MIDI LEARN, NOT ON TRANSPORT: its number SCENES' UNDO's, a CC learned on it before 2.x
+# turning nothing): GLO held and CC 21, then CC 21, leave it as it is
+gopage 78
+wait 30
+turn K2 -1
+wait 30
+expect p169 0
+press GLO
+midi B0 15 7F
+release GLO
+wait 30
+midi B0 15 7F
+wait 30
+expect p169 0

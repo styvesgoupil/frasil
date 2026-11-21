@@ -46,6 +46,9 @@ typedef struct {
     float dfb;                           /* 0..1: its feedback, 0 .. 0.88 (GLINT's) */
     float dmix;                          /* 0..1: its echoes over the dry */
     float space;                         /* 0..1: the lead's share of the cloud, its echoes as heard with it */
+    int line, fline;                     /* ATTACK's shape (card #122), the level's and FILTER ENV's: 0 CURVE (as ever), 1
+                                          * LINE, straight up to the top over its ATTACK (the gain, the envelope's square;
+                                          * the filter's envelope itself, its octaves), then DECAY */
 } lead_params_t;
 #define LEAD_DRIVE_0 (32.0f / 127.0f)    /* DRIVE's default: the drive the first LEAD had */
 #define LEAD_DELAY_MAX 0.5f              /* seconds a repeat at most (longer: halved, still on the beat, as GLINT's) */
@@ -79,6 +82,9 @@ typedef struct {
     float send;                          /* the cloud's share at its loudest, the last render */
     float echol, echor;                  /* each side's echo (MIX on it) at its loudest, the last render */
     float mod;                           /* the mod wheel as it came (lead_mod), 0..1 */
+    float bend;                          /* the pitch wheel as it came (lead_bend), semitones */
+    float prs;                           /* the newest voice's pressure as it came (lead_press), 0..1 */
+    float vel;                           /* and its velocity as it came, 0..1 */
     uint32_t ons, glides;                /* the notes struck, the notes glided to (the tests) */
     int8_t vnote[LEAD_NV];               /* each voice's note as it sounds (OCTAVE on it), -1 silent (PERFORM's FRAME) */
     float venv[LEAD_NV];                 /* and its envelope, 0..1 */

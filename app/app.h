@@ -38,7 +38,13 @@ uint32_t app_log_word(void);
 void app_splash(void);
 #define APP_TICK                         /* 1 kHz, in the scan's interrupt: OCT's soft blink (app.c) */
 void app_tick(void);
-#define APP_BATTERY_RAW                  /* plat_battery_raw: the divider's reading, the main loop's slow average */
+#ifndef PLAT_HOST                        /* USB MIDI's Song Position (card #204): the BSP's ring takes the channels'
+                                          * messages and F8 FA FB FC alone; felucca-bsp#15's hook has every packet, F2
+                                          * put into that ring in its place (app.c app_midi_raw: the simulator's has it) */
+#define FELUCCA_MIDI_IN_RAW app_midi_raw
+void app_midi_raw(uint32_t pkt);
+#endif
+#define APP_BATTERY_RAW                 /* plat_battery_raw: the divider's reading, the main loop's slow average */
 #define APP_HOST_BATT_RAW 0              /* the simulator: no battery until its script says (battery N) */
 #define APP_BATT_RAW_4V2 651             /* the battery's divider (plat_battery_raw) at 4.20 V, the header's battery's scale
                                           * (app.c batt): a first guess (a divider in two halves, the converter's 3.3 V)

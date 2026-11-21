@@ -38,6 +38,8 @@ typedef struct {
     float amp, ka, kr;                   /* amplitude, its decay a sample (held), and once let go (RELEASE) */
     float amp0;                          /* its level at the strike (SUSTAIN's share of it is held) */
     float att, katt;                     /* the onset, 0 .. 1, and its step a sample (ATTACK) */
+    float latt;                          /* ATTACK SHAPE's LINE (card #122): the onset straight up, so much a sample to
+                                          * the top at ATTACK's time; 0, CURVE's (katt's) */
     float idx, idx_end, ki;              /* the index (in phase units), where it settles, its decay a sample */
     float gl, gr;
     float prs, pg;                       /* pressure 0..1, and the gain it gives now (gliding to 1 + 1.5 prs) */
@@ -147,6 +149,7 @@ void glint_on(int note, float vel, const glint_params_t *p)
     {                                    /* the onset: ATTACK, a third of it a time constant */
         float ta = 0.002f * fm_powf(750.0f, br_clampf(p->attack, 0.0f, 1.0f));   /* 2 ms (no click) .. 1.5 s */
         s->katt = 1.0f - fm_expf(-3.0f / (ta * BR_FS));
+        s->latt = p->line ? 1.0f / (ta * BR_FS) : 0.0f;
     }
     s->gl = fm_sqrtf(0.5f * (1.0f - pan));
     s->gr = fm_sqrtf(0.5f * (1.0f + pan));
@@ -175,8 +178,10 @@ void glint_reset(void)
 #endif
     delay_clear();
 }
+#endif
 
-void glint_hush(void)                    /* every glint silent at once, the delay's lines empty */
+void glint_hush(void)                    /* every glint silent at once, the delay's lines empty (frasil_silence's; VINYL's
+                                          * stop's, card #224: on the FM-1 too) */
 {
     uint32_t i;
     for (i = 0; i < GLINT_NV; i++) {
@@ -186,7 +191,6 @@ void glint_hush(void)                    /* every glint silent at once, the dela
     }
     delay_clear();
 }
-#endif
 
 /* Perform LIVE's (frasil_lv): SPREAD's draws and the glints' ages, so that the next strikes take the same place and the
  * same voice on every engine; the glints ringing now are each engine's own (a short tail). (On the FM-1 too: its STATE
@@ -235,7 +239,7 @@ void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, 
     for (j = 0; j < GLINT_NV; j++) {
         glint_t *s = &sp[j];
         uint32_t pc, pm, dm, dc;
-        float amp, att, katt, idx, ie, k, ki, gl, gr, pg, dpg, fl;
+        float amp, att, katt, latt, idx, ie, k, ki, gl, gr, pg, dpg, fl;
         if (s->note < 0)
             continue;
         sounding = 1;
@@ -288,6 +292,7 @@ void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, 
         amp = s->amp;
         att = s->att;
         katt = s->katt;
+        latt = s->latt * br_tk;          /* (TAPE SPEED's, as katt's below) */
         idx = s->idx;
         ie = s->idx_end;
         k = s->gate ? (s->prs > 0.01f ? fm_exp2f(fm_log2f(s->ka) * (1.0f - 0.85f * s->prs)) : s->ka) : s->kr;
@@ -305,20 +310,36 @@ void glint_render(float *l, float *r, float *send_l, float *send_r, uint32_t n, 
         gl = s->gl * lv;
         gr = s->gr * lv;
 #endif
-        for (i = 0; i < n; i++) {
-            float m = tsin(pm), y;
-            pm += dm;
-            pg += dpg;
-            y = tsin(pc + ((uint32_t)(int32_t)(idx * m) << 8)) * amp * att * pg;
-            pc += dc;
-            att += (1.0f - att) * katt;
-            amp = fl + (amp - fl) * k;
-            idx = ie + (idx - ie) * ki;
-            l[i] += y * gl;
-            r[i] += y * gr;
-            send_l[i] += y * gl * snd;
-            send_r[i] += y * gr * snd;
-        }
+        if (latt > 0.0f && att < 1.0f)   /* LINE's onset: straight up to the top (there, the loop below's: at 1 it stays) */
+            for (i = 0; i < n; i++) {
+                float m = tsin(pm), y;
+                pm += dm;
+                pg += dpg;
+                y = tsin(pc + ((uint32_t)(int32_t)(idx * m) << 8)) * amp * att * pg;
+                pc += dc;
+                att = att + latt < 1.0f ? att + latt : 1.0f;
+                amp = fl + (amp - fl) * k;
+                idx = ie + (idx - ie) * ki;
+                l[i] += y * gl;
+                r[i] += y * gr;
+                send_l[i] += y * gl * snd;
+                send_r[i] += y * gr * snd;
+            }
+        else
+            for (i = 0; i < n; i++) {
+                float m = tsin(pm), y;
+                pm += dm;
+                pg += dpg;
+                y = tsin(pc + ((uint32_t)(int32_t)(idx * m) << 8)) * amp * att * pg;
+                pc += dc;
+                att += (1.0f - att) * katt;
+                amp = fl + (amp - fl) * k;
+                idx = ie + (idx - ie) * ki;
+                l[i] += y * gl;
+                r[i] += y * gr;
+                send_l[i] += y * gl * snd;
+                send_r[i] += y * gr * snd;
+            }
         s->pc = pc;
         s->pm = pm;
         s->amp = amp;

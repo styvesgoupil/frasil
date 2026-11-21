@@ -29,7 +29,8 @@ typedef struct {
     float resonance;                     /* SOUFFLE: 0 air .. 1 glass */
     float color;                         /* SOUFFLE: the resonators' ratios, harmonic .. odd .. bell */
     /* the voices' shape */
-    float attack, release;               /* 0..1: 5 ms .. 30 s; 50 ms .. 60 s */
+    float attack, release;               /* 0..1: 5 ms .. 30 s; 50 ms .. 60 s (past 1 on a scene's MORPH, up to its
+                                          * 2:00: params.c u7_env) */
     float pressure;                      /* how much pressure swells and opens a voice, 0..1 */
     float velocity;                      /* how much velocity sets a voice's level, 0..1 */
     float spread;                        /* the voices across the stereo field, 0..1 */
@@ -87,9 +88,11 @@ typedef struct {
     int eq_on;
     float eq_low, eq_mid, eq_high, eq_lowf, eq_midf, eq_q, eq_highf;
     /* MASTER FILTER (12 dB an octave, on the tracks chosen, where PUMP's gains are): 0 off, 1 low pass, 2 high pass;
-     * its cutoff (Hz) and Q. LOFI TAPE (after it): on, its saturation and its wobble 0..1. Their tracks: bits, 1 the
+     * its cutoff (Hz) and Q. LOFI TAPE (after it): its MEDIA (0 off, FR_TAPE: the tape as it ever was, FR_VINYL, FR_AM:
+     * card #99, FR_PHONE: card #218), its saturation and its wobble 0..1. Their tracks: bits, 1 the
      * drones and the cloud, 2 GLINT, 4 BASS. LOFI TAPE II: the flutter's rate (Hz; 5, 7.3 until TAPE SPEED), the tone (times the
-     * cutoff its saturation leaves: 1 as it was), the hiss 0..1 (0 none) and the dropouts 0..1 (0 none) */
+     * cutoff its saturation leaves: 1 as it was), the hiss 0..1 (0 none; VINYL's crackle, AM's static, PHONE's line hiss
+     * and hum) and the dropouts 0..1 (0 none) */
     int fl_type, fl_tracks, tp_on, tp_tracks;
     float fl_cut, fl_q, tp_sat, tp_wobble, tp_flutter, tp_tone, tp_noise, tp_dropout;   /* (tp_flutter 5 Hz since TAPE
                                                                                        * SPEED) */
@@ -98,6 +101,8 @@ typedef struct {
      * return. The pans (-1 left .. 1 right, a balance): the drones, GLINT, BASS, the cloud's return */
     int fl_pre, tp_pre, pump_cloud;
     float pan[4];
+    int a_line;                          /* ATTACK's shape (card #122): 0 CURVE (as ever), 1 LINE: each voice's gain (the
+                                          * envelope's square) straight up to the top over ATTACK's time */
 } frasil_params_t;
 
 /* RBJ's cookbook at the rate (dsp.h BR_FS): kind 0 a low shelf, 1 a bell (its Q), 2 a high shelf (slope 1); c: b0 b1
@@ -106,7 +111,16 @@ void frasil_eq_coefs(int kind, float hz, float db, float q, float *c);
 float frasil_tape_drag(void);            /* LOFI TAPE's drag under way: how much slower at its deepest (0.02 .. 0.08 times
                                           * WOBBLE), 0 none */
 float frasil_tape_speed(void);           /* LOFI TAPE's speed now, 1 as it should run (its wow, flutter and hiccups: the
-                                          * screen's reels); 1 while it is off */
+                                          * screen's reels; VINYL's record, its wow); 1 while it is off, and on AM and
+                                          * PHONE */
+#define FR_TAPE 1                        /* LOFI TAPE's MEDIA (frasil_params_t's tp_on; card #99) */
+#define FR_VINYL 2
+#define FR_AM 3
+#define FR_PHONE 4                       /* (card #218) */
+int frasil_tape_medium(void);            /* the one sounding (its mix in or coming), 0 none */
+float frasil_tape_signal(void);          /* AM's signal now, 1 at full, less in its fades (the dial's lamp); PHONE's line,
+                                          * 1 at full, less as it drifts, near 0 while it is cut (the handset's light);
+                                          * 1 else */
 
 void frasil_init(float fs);                       /* at the rate fs (Hz): the FM-1's 44.1 kHz, up to dsp.h BR_FS_MAX */
 /* the rate the engine runs at: a constant on the FM-1 (as dsp.h has it), else the one frasil_init was given */
@@ -128,6 +142,8 @@ void frasil_lv(br_live *c);
 void frasil_live_done(void);                     /* after a load: the settings set heard at once (no glide) */
 uint32_t frasil_renders(void);                   /* the blocks begun (the audio interrupt's: a save's check) */
 void frasil_set(const frasil_params_t *p);        /* main loop */
+uint32_t frasil_ev_room(void);                   /* main loop: the events more the voices take before the next block
+                                                  * (past them, dropped: TRACKS LINK's many at once, core.c lk_drones) */
 void frasil_note_on(int note, float vel);        /* main loop: vel 0..1 */
 void frasil_note_off(int note);
 void frasil_all_off(void);
@@ -170,6 +186,12 @@ void frasil_silence(void);                       /* silence now, the glints, the
 void frasil_skip(uint32_t ms);                   /* ms without a render (frs_skip_to's, not on the FM-1): what the brain
                                                   * sent taken, the drones' and the bass's notes kept, the tide's turn */
 void frasil_skip_done(void);                     /* a skip over: the settings where they are, no glide at the next block */
+/* an outside input into the cloud (frs_render_in's, not on the FM-1): the next frasil_render's n frames, left and
+ * right, added to what the tracks send it, before its diffusion (FREEZE holds it, SHIMMER takes it up); 0, none. Read
+ * in that render alone */
+void frasil_cloud_in(const float *l, const float *r);
+void frasil_cloud_clear(void);                   /* the cloud emptied, the next render fading its return out (no
+                                                  * click); its settings kept (frs_cloud_clear's, not on the FM-1) */
 #endif
 /* the load: 0 everything; 1 .. 3 fewer partials, then fewer voices (the oldest released first). From the
  * platform's overload hook, and back to 0 as the load allows (the main loop). FR_SHED_TOP the lightest: with the LEAD

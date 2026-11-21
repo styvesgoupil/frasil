@@ -56,7 +56,9 @@ enum {
     P_EQ_PRESET, P_EQ_LOW, P_EQ_MID, P_EQ_HIGH,    /* MASTER EQ: OFF, CUSTOM or a preset; the three bands' gains */
     P_EQ_LOWF, P_EQ_MIDF, P_EQ_Q, P_EQ_HIGHF,      /* MASTER EQ II: where they are, the MID's width */
     P_FL_TYPE, P_FL_CUT, P_FL_RESO, P_FL_TRACKS,   /* MASTER FILTER: OFF, LOW PASS, HIGH PASS on the tracks chosen */
-    P_TP_ON, P_TP_SAT, P_TP_WOBBLE, P_TP_TRACKS,   /* LOFI TAPE: on, its saturation, its wobble (and hiccups), its tracks */
+    P_TP_ON, P_TP_SAT, P_TP_WOBBLE, P_TP_TRACKS,   /* LOFI TAPE: its MEDIA (OFF, TAPE, VINYL, AM: card #99; PHONE:
+                                                    * card #218), its saturation, its wobble (and hiccups), its
+                                                    * tracks */
     P_FL_PRE, P_TP_PRE, P_PUMP_CLOUD,    /* ROUTING: MASTER FILTER and LOFI TAPE before the cloud or after it, PUMP on the
                                           * cloud's return */
     P_PN_DRONE, P_PN_BASS, P_PN_GLINT, P_PN_CLOUD,   /* MIXER's pans (OCT- held, K1 .. K4) */
@@ -75,8 +77,10 @@ enum {
     P_KB,                                /* SELECT's: what the keys play, DRONE, GLINT, BASS (not kept) */
     P_MORPH, P_LOAD,                     /* SCENES' K2, K3: how a scene comes in (LOAD kept with the settings;
                                           * MORPH on CUT at every start) */
-    P_SC_GONE,                           /* (SCENES' UNDO, gone: its number kept, so that the ones after it stay as
-                                          * the settings' MIDI LEARN and the River's backups have them; no page) */
+    P_TRANSPORT,                         /* GLO › MIDI II's K2, TRANSPORT: FOLLOW (MIDI's Start, Stop, Continue and Song
+                                          * Position move the sequences, CLOCK on AUTO) or TEMPO ONLY (the clock leads the
+                                          * tempo alone); kept with the settings (card #204: in SCENES' UNDO's number,
+                                          * gone since 2.x, so that none after it moves) */
     P_SQ_NEW, P_SQ_UNDO,                 /* GLINT SEQ III's K3, K4: a new take, the last take or CLEAR undone */
     P_BQ_STEP, P_BQ_NOTE, P_BQ_LEN, P_BQ_REC,   /* BASS SEQ: the step on K1, its note (the bass's sequence's, shown);
                                                  * RECORD (not kept; REC's, as GLINT's); RATE, the one grid of the bass's
@@ -91,8 +95,9 @@ enum {
                                           * on); kept with the settings */
     P_ANIM,                              /* SCREEN's K1, ANIMATIONS: NORMAL, or LOW (what only decorates, still); kept with
                                           * the settings */
-    P_CLOCK,                             /* MIDI's K4, CLOCK: AUTO (a MIDI clock coming in leads the grid) or INTERNAL
-                                          * (TEMPO's, always: clocks and Start in ignored); kept with the settings */
+    P_CLOCK,                             /* MIDI II's K4 (MIDI's without the LEAD's LEAD CH there, card #228), CLOCK: AUTO
+                                          * (a MIDI clock coming in leads the grid) or INTERNAL (TEMPO's, always: clocks
+                                          * and Start in ignored); kept with the settings */
     P_BQ_NLEN,                           /* BASS SEQ's K3, LENGTH: the note on STEP's, in steps (its HOLDs; shown, not
                                           * kept: 2.7, numbered last) */
     P_BA_MODE, P_BA_RANGE, P_BA_CHANCE,  /* BASS ARP's MODE, RANGE, CHANCE (CHANCE its sequence's too, as GLINT's), kept

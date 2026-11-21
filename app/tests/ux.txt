@@ -681,6 +681,9 @@ wait 30
 expect page 51
 tap HOME
 wait 30
+expect page 80
+tap HOME
+wait 30
 expect page 0
 expect logo 1
 tap HOME
@@ -3474,6 +3477,23 @@ wait 100
 midi B0 0B 00
 wait 30
 expect dirty 0
+# ATTACK SHAPE (card #122), OCT- held and K1 on an ENV page: of the moment too, the scene clean
+gopage 11
+wait 30
+press OCT-
+turn K1 1
+release OCT-
+wait 30
+expect ashape 2
+expect dirty 0
+press OCT-
+turn K1 -1
+release OCT-
+wait 30
+expect ashape 0
+expect dirty 0
+gopage 29
+wait 30
 turn K1 20
 wait 30
 expect p165 20
@@ -3491,7 +3511,7 @@ wait 30
 # TEMPO itself as it was (100 BPM, p156 70). Logic at 80 BPM (750 ms a beat), read unevenly (loopuneven), each beat
 # either 23 clocks 31 ms apart then one 37 ms (late by up to 6 ms), or a long frame: two clocks read together 28 ms
 # late: 80 from the first beat on, never 79 or 81 (shown156: its gauge, 80 BPM). Then 95 (631 and 632 ms a beat):
-# 95 within a bar. Stopped (half a second): TEMPO again, its own 100 BPM, K1 its own. CLOCK INTERNAL (MIDI's K4): TEMPO
+# 95 within a bar. Stopped (half a second): TEMPO again, its own 100 BPM, K1 its own. CLOCK INTERNAL (MIDI II's K4): TEMPO
 # at once, the clocks not taken
 setp 156 70
 gopage 37
@@ -3583,7 +3603,7 @@ clock 1 37
 clock 23 31
 clock 1 37
 expect extbpm 80
-gopage 38
+gopage 78
 wait 30
 expect knob4 182
 turn K4 1
@@ -3602,7 +3622,7 @@ expect p156 71
 turn K1 -1
 wait 30
 expect p156 70
-gopage 38
+gopage 78
 wait 30
 turn K4 -1
 wait 600
@@ -4325,5 +4345,329 @@ expect page 51
 expect drawnhome 0
 expect drawnstale 0
 expect drawnflips 0
+gopage 0
+wait 30
+# the LFOs on the LFOs (card #199): LFO 1's RATE .. LFO 3's DEPTH, TARGETs 84 .. 89, LFO, the grid's last page (OCT+
+# six times). LFO 2 a sine at RATE 30 (187 mHz) on TIMBRE; LFO 1 a SQUARE, UP, at its top, on the grid's 16 BARS (MIDI
+# Start: the top of its turn, its first 19 s at 1), on LFO 2's RATE: x0.08 six steps, an octave up (385 mHz); x1.00
+# RATE's free top (10 Hz); DOWN its bottom (5 mHz); on LFO 2's DEPTH x0.25: 64 then 96 of 127, its swing that much
+# wider; LFO held on LFO 2's page: its RATE (K2) onto LFO 1's next TARGET. Said by the reader, the grid's page shot
+testscene
+wait 100
+setp 98 0
+setp 99 0
+setp 100 0
+setp 101 0
+setp 106 0
+setp 107 0
+setp 108 0
+setp 109 0
+setp 119 0
+setp 120 0
+setp 121 0
+setp 122 0
+setp 102 0
+setp 103 30
+setp 104 64
+setp 105 0
+setp 106 1
+wait 600
+expect lfoon1 1
+expect lfopace1 >182
+expect lfopace1 <192
+expect lfodepth1 64
+setp 94 4
+setp 95 64
+setp 96 127
+setp 97 1
+gopage 23
+wait 30
+turn K1 1
+wait 30
+expect grid_on 1
+expect gridp 98
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+wait 300
+expect gridv 84
+said LFO1 RATE
+turn K1 2
+wait 300
+expect gridv 86
+said LFO2 RATE
+shot targets-lfo.png
+tap SEL
+wait 30
+expect grid_on 0
+expect p98 86
+setp 231 8
+midi FA
+wait 600
+expect lfoon0 1
+expect lfopace1 >375
+expect lfopace1 <395
+setp 231 100
+wait 600
+expect lfopace1 >9990
+expect lfopace1 <10010
+setp 97 2
+wait 600
+expect lfopace1 >3
+expect lfopace1 <7
+expect lfoon1 1
+setp 97 1
+setp 231 25
+turn K1 1
+wait 300
+expect grid_on 1
+expect gridv 87
+said LFO2 DEPTH
+tap SEL
+wait 30
+expect p98 87
+wait 600
+expect lfodepth1 >94
+expect lfodepth1 <98
+expect lfopace1 >182
+expect lfopace1 <192
+wait 6000
+expect lfopeak1 >70
+# LFO held on LFO 2's page, K2 its RATE: onto LFO 1 (its TARGET 2, the first free), x1.00
+gopage 24
+wait 30
+press LFO
+turn K2 1
+release LFO
+wait 30
+expect page 24
+expect p99 86
+expect p232 100
+said LFO2 RATE LFO 1
+setp 98 0
+setp 99 0
+setp 96 0
+wait 600
+expect lfoon0 0
+expect lfodepth1 64
+gopage 0
+wait 30
+# TRACKS LINK (card #212): HOME's after CLOUD SEND. K1 FOLLOW, DRONE or BASS; K2 .. K4 the three others in their order
+# (DRONE BASS GLINT MIDI, never the one followed), each right LINKED, left NO LINK (every one NO LINK: off). FOLLOW
+# turned: each LINKED as it was (the one followed now kept, not moved: linkon the tracks moved). The device's, none in a
+# scene: kept, back at power-on (its baselines not: nothing moved); FOLLOW alone, with none LINKED, not kept (the
+# settings' byte as before it)
+gopage 51
+wait 30
+tap HOME
+wait 30
+expect page 80
+expect link 0
+expect knob1 305
+expect knob2 307
+expect knob3 308
+expect knob4 309
+wait 1500
+shot link-off.png
+turn K1 1
+wait 30
+expect link 16
+expect linkon 0
+expect keysbyte <2
+expect knob2 306
+turn K1 -1
+wait 30
+expect link 0
+turn K2 1
+wait 30
+expect link 2
+expect linkon 2
+turn K3 1
+wait 30
+expect link 6
+turn K4 1
+wait 30
+expect link 14
+turn K4 1
+wait 30
+expect link 14
+turn K4 -1
+wait 30
+expect link 6
+wait 1200
+shot link-drone.png
+# FOLLOW BASS: BASS's LINKED kept, not moved; FOLLOW DRONE again: BASS LINKED again
+turn K1 1
+wait 30
+expect link 22
+expect linkon 4
+expect knob2 306
+expect knob3 308
+expect knob4 309
+turn K1 -1
+wait 30
+expect link 6
+expect linkon 6
+turn K1 1
+wait 30
+turn K2 1
+wait 30
+expect link 23
+expect linkon 5
+wait 1200
+shot link-bass.png
+# its sound: C minor, TRIAD, each track its MIDI channel. FOLLOW BASS: nothing followed yet, no baseline; the bass's
+# first note (C2) the drones' (Styves, admin #1929: linking moves nothing); then on F2, the drones' C chord out three
+# degrees up (F Ab C), as played the notes they hold; on G2 three down; let go where they went
+setp 155 1
+setp 158 2
+setp 159 3
+setp 33 0
+setp 34 2
+setp 35 2
+setp 36 0
+setp 59 2
+wait 30
+expect linkb0 -1
+midi 92 24 64
+wait 30
+expect linkb0 36
+expect linkb2 36
+expect linkd 100
+midi 82 24 00
+midi 92 29 64
+midi 90 3C 64
+wait 30
+expect on60 1
+expect snd60 0
+expect snd65 1
+expect snd68 1
+expect snd72 1
+expect linkd 103
+midi 92 2B 64
+wait 30
+expect linkd 97
+expect snd55 1
+expect snd58 1
+expect snd62 1
+midi 80 3C 00
+midi 82 2B 00
+midi 82 29 00
+wait 30
+expect on60 0
+expect snd55 0
+expect snd65 0
+# FOLLOW DRONE, BASS LINKED (as it was), GLINT unlinked: nothing held by the drones, no baseline; their C its
+# baseline, then on F, the bass's C2 out as F2
+turn K1 -1
+wait 30
+expect link 7
+expect linkon 6
+expect linkb1 -1
+turn K3 -1
+wait 30
+expect link 3
+expect linkon 2
+midi 90 3C 64
+midi 80 3C 00
+wait 30
+expect linkb1 60
+midi 90 41 64
+midi 92 24 64
+wait 60
+expect bassvoice 41
+midi 82 24 00
+midi 80 41 00
+wait 30
+# MIDI LINKED (the drone's F still the note followed): its baseline, nothing moved; the drones on C, three down from
+# it: the keys on MIDI out moved, C4 out as G3 (the bass back as played, its baseline C); unlinked while held, let go
+# where it went; then as played
+turn K4 1
+wait 30
+expect link 11
+expect linkb3 65
+expect linkd3 100
+expect linkd1 103
+midi 90 3C 64
+midi 80 3C 00
+wait 30
+expect linkd3 97
+expect linkd1 100
+gopage 0
+wait 30
+turn SELECT -9
+turn SELECT 4
+wait 30
+expect mout 1
+expect moutoct 0
+out
+key 7 down 100
+wait 30
+expect_out USB 90 37 64
+expect_no_out USB 90 3C 64
+gopage 80
+wait 30
+turn K4 -1
+wait 30
+expect link 3
+out
+key 7 up
+wait 30
+expect_out USB 80 37 00
+expect_no_out USB 80 3C 00
+out
+key 7 down 100
+wait 30
+key 7 up
+wait 30
+expect_out USB 90 3C 64
+expect_out USB 80 3C 00
+out
+gopage 0
+wait 30
+turn SELECT -9
+wait 30
+expect mout 0
+gopage 80
+wait 30
+# kept: back at power-on as it was left; turned off, off. In no scene: the scene loaded at power-on not edited by a turn
+turn K1 1
+turn K2 1
+turn K3 1
+wait 30
+expect link 23
+expect linkon 5
+prefs
+reboot
+wait 3000
+expect link 23
+expect linkon 5
+expect linkd 100
+gopage 80
+wait 30
+expect knob2 306
+expect dirty 0
+turn K1 -1
+turn K2 -1
+turn K3 -1
+wait 30
+expect link 1
+expect linkon 0
+turn K1 1
+wait 30
+expect linkon 1
+turn K2 -1
+wait 30
+expect link 16
+expect linkon 0
+expect keysbyte <2
+expect dirty 0
+prefs
+reboot
+wait 3000
+expect link 0
 gopage 0
 wait 30

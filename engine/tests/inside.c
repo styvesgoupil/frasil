@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Styves Goupil */
 /* The engine alone from the inside (frasil_engine.c's statics): its clock past 49.7 days (the milliseconds wrap, the
  * render goes on), a note under the scale's lowest (no root: nothing latched, nothing written outside), the function
- * statics that carried time started again with it. Built under AddressSanitizer and UBSan too (engine/tests/run.sh).
+ * statics that carried time started again with it; the LFOs on the LFOs (card #199: xmod_test). Built under AddressSanitizer and UBSan too (engine/tests/run.sh).
  *   engine/tests/run.sh, or: inside */
 #include <stdio.h>
 #include <math.h>
@@ -1788,6 +1788,454 @@ static void tgt_test(void)
     check(st.v[P_L3_T4] == 0u, "  an op's the same (FST_PARAM: a stream's, LIVE's)");
     frs_param_set(P_L3_T4, 3u);
     check(st.v[P_L3_T4] == 3u, "  an op's in range as it was");
+    /* card #199: the LFOs' six after the LEAD's, the same numbers here (the LEAD's none); every factory scene's TARGETs
+     * as they were, none of them */
+    frs_scene_new((uint8_t *)&s);
+    s.v[P_L1_T1] = 62u;                  /* (the LEAD's first and last) */
+    s.v[P_L1_T2] = 83u;
+    s.v[P_L1_T3] = (uint8_t)LFO_T_XM;
+    s.v[P_L1_T4] = (uint8_t)(NLFO_TGT - 1u);
+    s.v[P_L2_T1] = 61u;
+    frs_scene_take((const uint8_t *)&s);
+    check(!st.v[P_L1_T1] && !st.v[P_L1_T2] && st.v[P_L1_T3] == 84u && st.v[P_L1_T4] == 89u && st.v[P_L2_T1] == 61u,
+          "  the LEAD's 62 .. 83 none here; the LFOs' 84 .. 89 kept (card #199); DROPOUT's 61 as it was");
+    frs_param_set(P_L3_T4, 70u);
+    check(!st.v[P_L3_T4], "  an op's the same (the LEAD's)");
+    {
+        uint32_t i, k;
+        int same = 1, none = 1;
+        for (i = 0; !frs_scene_factory(i, (uint8_t *)&s); i++) {
+            frs_scene_take((const uint8_t *)&s);
+            for (k = 0; k < 12u; k++) {
+                uint32_t p = LFO_BASE[k / 4u] + 4u + k % 4u;
+                same &= st.v[p] == s.v[p];
+                none &= s.v[p] < LFO_T_XM;
+            }
+        }
+        check(i == NFACTORY && same && none, "  every factory scene's TARGETs as they were, none on an LFO");
+    }
+    frs_close();
+}
+
+/* the LFOs on the LFOs (card #199: TARGETs 84 .. 89, each LFO's RATE and DEPTH). One at a time from a scene with its
+ * TARGETs off: LFO 1 a SQUARE, UP or DOWN (its first half a constant offset), on LFO 2's RATE: free, RATE's Hz that
+ * many steps on (in octaves), its phase going on; on the grid, its division's pace by as many octaves, from 16 BARS to
+ * 1/16 at the most; on LFO 2's DEPTH: in its steps, to its top or to nothing (LFO 2 still turning); LFO 2 at DEPTH 0
+ * opened by LFO 1 (not by itself, nor by an LFO at DEPTH 0); one pass later, eased (LFO_XM_TAU). Then all three on
+ * each other and each on itself at x5.00, every SHAPE and POLARITY: two minutes, every offset finite and in its range,
+ * never ringing at lfo_run's pace (the step from one pass to the next never turning back at once) */
+static void xm_scene(void)
+{
+    uint8_t sc[FRS_SCENE_BYTES];
+    uint32_t i;
+    frs_init(44100.0f);
+    frs_scene_new(sc);
+    frs_scene_take(sc);
+    for (i = 0; i < 4u; i++) {           /* (NEW SHARD's own TARGETs off) */
+        param_set(P_L1_T1 + i, 0);
+        param_set(P_L2_T1 + i, 0);
+        param_set(P_L3_T1 + i, 0);
+    }
+}
+
+static double lfo_turns(uint32_t i) { return (double)lfo[i].cyc + (double)lfo[i].ph; }
+
+static double lfo2_pace(uint32_t ms)     /* (LFO 2's turns over ms, after a moment for the offset to settle) */
+{
+    double t0;
+    ms_run(400);
+    t0 = lfo_turns(1);
+    ms_run(ms);
+    return lfo_turns(1) - t0;
+}
+
+static void lfo1_on(uint32_t t, uint32_t pol, uint32_t amt)   /* LFO 1 a slow SQUARE (200 s a turn), at its top, on t */
+{
+    param_set(P_L1_SHAPE, 4);
+    param_set(P_L1_RATE, 0);
+    param_set(P_L1_DEPTH, 127);
+    param_set(P_L1_POL, (int32_t)pol);
+    param_set(P_L1_T1, (int32_t)t);
+    param_set(P_L1_AMT1, (int32_t)amt);
+}
+
+static void xmod_test(void)
+{
+    double base, up, want;
+    float steps = 0.08f * (float)PD[P_L2_RATE].max;   /* (x0.08 on RATE: 6 steps, some an octave) */
+    uint32_t k, n, flips, steps_n, amt;
+    int ok;
+    char t[FRS_TEXT];
+    check(LFO_TGT[LFO_T_XM] == P_L1_RATE && LFO_TGT[LFO_T_XM + 1u] == P_L1_DEPTH && LFO_TGT[LFO_T_XM + 4u] == P_L3_RATE &&
+              LFO_TGT[NLFO_TGT - 1u] == P_L3_DEPTH && PD[P_L1_T1].max == 89u,
+          "the LFOs' TARGETs: 84 .. 89, LFO 1's RATE, DEPTH .. LFO 3's DEPTH, the list's last");
+    frs_param_text(P_L2_T3, LFO_T_XM + 3u, t);
+    check(!strcmp(t, "LFO2 DEPTH"), "  their words: LFO2 DEPTH");
+
+    /* free: RATE 30, 6 steps up */
+    xm_scene();
+    param_set(P_L2_SHAPE, 0);
+    param_set(P_L2_RATE, 30);
+    param_set(P_L2_DEPTH, 64);
+    param_set(P_L2_T1, 1);               /* (TIMBRE) */
+    base = lfo2_pace(10000);
+    lfo1_on(LFO_T_XM + 2u, 1, 8);
+    up = lfo2_pace(10000);
+    want = (double)(lfo_hz(30.0f + steps) / lfo_hz(30.0f));
+    printf("       LFO 2 free (RATE 30): %.3f turns in 10 s, %.3f with LFO 1 UP x0.08 on its RATE (%.2f steps, %.3f "
+           "octaves): x%.4f, x%.4f wanted\n", base, up, (double)steps, (double)(steps * LFO_OCT), up / base, want);
+    check(fabs(up / base / want - 1.0) < 0.01, "LFO 1 on LFO 2's free RATE: its Hz that many steps on, in octaves");
+    param_set(P_L1_POL, 2);
+    up = lfo2_pace(10000);
+    check(fabs(up / base * want - 1.0) < 0.01, "  DOWN: as many octaves slower");
+    param_set(P_L1_AMT1, 200);           /* (x5.00: 375 steps, the free range's ends) */
+    param_set(P_L1_POL, 1);
+    up = lfo2_pace(4000);
+    check(fabs(up / (4.0 * (double)lfo_hz((float)(LFO_NFREE - 1u))) - 1.0) < 0.01, "  far up: 10 Hz, RATE's free top");
+    param_set(P_L1_POL, 2);
+    up = lfo2_pace(10000);
+    check(fabs(up / (10.0 * (double)lfo_hz(0.0f)) - 1.0) < 0.02 && lfo[1].on, "  far down: 0.005 Hz, its free bottom, still on");
+    frs_close();
+
+    /* on the grid: 1/4 */
+    xm_scene();
+    param_set(P_L2_SHAPE, 0);
+    param_set(P_L2_RATE, (int32_t)LFO_NFREE + 7);
+    param_set(P_L2_DEPTH, 64);
+    param_set(P_L2_T1, 1);
+    base = lfo2_pace(10000);
+    lfo1_on(LFO_T_XM + 2u, 1, 8);
+    up = lfo2_pace(10000);
+    printf("       LFO 2 on the grid (1/4): %.3f turns in 10 s, %.3f with LFO 1 UP x0.08 on its RATE: x%.4f\n", base, up,
+           up / base);
+    check(fabs(up / base / want - 1.0) < 0.01, "LFO 1 on LFO 2's RATE on the grid: the same octaves");
+    param_set(P_L1_AMT1, 200);
+    up = lfo2_pace(10000);
+    check(fabs(up / base - 24.0 / 6.0) < 0.02, "  far up: 1/16 at the most");
+    param_set(P_L1_POL, 2);
+    up = lfo2_pace(10000);
+    check(fabs(up / base - 24.0 / 1536.0) < 0.002, "  far down: 16 BARS at the least");
+    frs_close();
+
+    /* DEPTH */
+    xm_scene();
+    param_set(P_L2_SHAPE, 0);
+    param_set(P_L2_RATE, 50);
+    param_set(P_L2_DEPTH, 32);
+    param_set(P_L2_T1, 1);
+    ms_run(3000);
+    lfo[1].peak = 0.0f;
+    ms_run(3000);
+    check(fabsf(lfo[1].peak - 32.0f / 127.0f) < 0.01f, "LFO 2 alone: DEPTH 32's");
+    lfo1_on(LFO_T_XM + 3u, 1, 50);       /* (x0.50: 63.5 steps on) */
+    ms_run(400);
+    lfo[1].peak = 0.0f;
+    ms_run(3000);
+    check(fabsf(mod[P_L2_DEPTH] - 63.5f) < 0.01f && fabsf(lfo[1].peak - 95.5f / 127.0f) < 0.01f,
+          "LFO 1 UP x0.50 on LFO 2's DEPTH: 63.5 of its steps on, settled");
+    param_set(P_L1_AMT1, 100);
+    ms_run(400);
+    lfo[1].peak = 0.0f;
+    ms_run(3000);
+    check(lfo[1].peak > 0.999f, "  x1.00: at its top");
+    param_set(P_L1_POL, 2);
+    ms_run(400);
+    lfo[1].peak = 0.0f;
+    base = lfo_turns(1);
+    ms_run(3000);
+    check(lfo[1].peak == 0.0f && lfo[1].on && lfo_turns(1) > base + 1.0, "  DOWN: nothing, LFO 2 turning on");
+    param_set(P_L1_POL, 1);
+    param_set(P_L2_DEPTH, 0);            /* (opened) */
+    ms_run(400);
+    lfo[1].peak = 0.0f;
+    ms_run(3000);
+    check(lfo[1].on && lfo[1].peak > 0.999f, "  LFO 2 at DEPTH 0: on, LFO 1 opening it");
+    param_set(P_L1_DEPTH, 0);
+    ms_run(400);
+    check(!lfo[1].on && !lfo[0].on, "  LFO 1 at DEPTH 0 too: both off");
+    param_set(P_L1_T1, 0);
+    param_set(P_L2_T2, LFO_T_XM + 3u);   /* (LFO 2 on its own DEPTH) */
+    ms_run(400);
+    check(!lfo[1].on, "  LFO 2 at DEPTH 0 on its own DEPTH: off (it never opens itself)");
+    param_set(P_L2_T2, LFO_T_XM + 1u);   /* (LFO 2, at DEPTH 0, on LFO 1's DEPTH: neither opens the other) */
+    param_set(P_L1_T1, LFO_T_XM + 3u);
+    ms_run(400);
+    check(!lfo[0].on && !lfo[1].on, "  two at DEPTH 0 on each other's: both off");
+    frs_close();
+
+    /* one pass later: LFO 1 on at once, its offset on LFO 2's DEPTH there only after lfo_run's next pass */
+    xm_scene();
+    param_set(P_L2_SHAPE, 0);
+    param_set(P_L2_RATE, 50);
+    param_set(P_L2_DEPTH, 32);
+    param_set(P_L2_T1, 1);
+    ms_run(200);
+    lfo1_on(LFO_T_XM + 3u, 1, 100);
+    for (k = 0; k < 8u && !lfo[0].on; k++)
+        frs_render(L, R, 256);
+    check(lfo[0].on && mod[P_L2_DEPTH] > 0.0f && mod[P_L2_DEPTH] < 0.31f * 127.0f,
+          "  a pass later and eased: some of it (x1.00's 127 steps, 40 ms)");
+    frs_close();
+
+    /* all on each other, each on itself: x5.00 (the far ends), then x1.20 (moving) */
+    for (amt = 200u; amt; amt = amt == 200u ? 104u : 0u) {
+        float was[2u * NLFO], dwas[2u * NLFO], top = 0.0f;
+        uint32_t j;
+        xm_scene();
+        for (k = 0; k < NLFO; k++) {
+            param_set((int)LFO_BASE[k] + 2, 90);
+            for (j = 0; j < 4u; j++)
+                param_set(P_L1_AMT1 + 4 * (int)k + (int)j, (int32_t)amt);
+        }
+        param_set(P_L1_SHAPE, 0);        /* SINE BIPOLAR, free: on LFO 2's RATE and DEPTH, its own DEPTH, TIMBRE */
+        param_set(P_L1_RATE, 40);
+        param_set(P_L1_T1, LFO_T_XM + 2u);
+        param_set(P_L1_T2, LFO_T_XM + 3u);
+        param_set(P_L1_T3, LFO_T_XM + 1u);
+        param_set(P_L1_T4, 1);
+        param_set(P_L2_SHAPE, 6);        /* DRIFT DOWN (RANDOM's, eased): on LFO 1's RATE and DEPTH, LFO 3's DEPTH, its own
+                                          * RATE */
+        param_set(P_L2_RATE, 45);
+        param_set(P_L2_POL, 2);
+        param_set(P_L2_T1, LFO_T_XM);
+        param_set(P_L2_T2, LFO_T_XM + 1u);
+        param_set(P_L2_T3, LFO_T_XM + 5u);
+        param_set(P_L2_T4, LFO_T_XM + 2u);
+        param_set(P_L3_SHAPE, 1);        /* TRIANGLE BIPOLAR on the grid (1/8): on LFO 1's DEPTH, LFO 2's RATE, its own RATE
+                                          * and DEPTH */
+        param_set(P_L3_RATE, (int32_t)LFO_NFREE + 9);
+        param_set(P_L3_T1, LFO_T_XM + 1u);
+        param_set(P_L3_T2, LFO_T_XM + 2u);
+        param_set(P_L3_T3, LFO_T_XM + 4u);
+        param_set(P_L3_T4, LFO_T_XM + 5u);
+        frs_latch(0, 48, FRS_CHORD_HARMONY);
+        memset(was, 0, sizeof was);
+        memset(dwas, 0, sizeof dwas);
+        ok = 1;
+        flips = steps_n = 0;
+        for (n = 0; n < 12000u; n++) {   /* (two minutes, a pass of lfo_run at a time: 441 frames, 10 ms) */
+            frs_render(L, R, 441);
+            for (j = 0; j < 441u; j++)
+                ok &= isfinite(L[j]) && isfinite(R[j]);
+            for (j = 0; j < 2u * NLFO; j++) {
+                float m = mod[LFO_BASE[j / 2u] + 1u + j % 2u], d = m - was[j];
+                ok &= isfinite(m) && fm_fabsf(m) <= 3.0f * 5.0f * 127.0f;
+                if (fm_fabsf(d) > 0.05f && fm_fabsf(dwas[j]) > 0.05f) {
+                    steps_n++;
+                    flips += (d > 0.0f) != (dwas[j] > 0.0f);
+                }
+                if (fm_fabsf(m) > top)
+                    top = fm_fabsf(m);
+                dwas[j] = d;
+                was[j] = m;
+            }
+            for (j = 0; j < NLFO; j++)
+                ok &= lfo[j].ph >= 0.0f && lfo[j].ph < 1.0f && lfo[j].peak <= 1.0f;
+        }
+        printf("       all three on each other and on themselves at x%.2f, two minutes: offsets up to %.1f steps, %u of %u "
+               "moves turned back at once\n", (double)(100u + 4u * (amt - 100u)) / 100.0, (double)top, flips, steps_n);
+        check(ok && lfo[0].on && lfo[1].on && lfo[2].on && top > 20.0f,
+              amt == 200u ? "the LFOs on each other and on themselves at x5.00: every offset finite and in range, the sound "
+                            "too (at the ranges' ends, most of the time)"
+                          : "  at x1.16: the same, moving");
+        if (amt != 200u)                 /* (at x5.00 pinned at the ends: little moves) */
+            check(steps_n > 2000u && flips * 20u < steps_n,
+                  "  never ringing at lfo_run's pace (under 5 % of its moves turned back at once)");
+        frs_close();
+    }
+}
+
+/* MIDI's transport (card #204): a DAW's clock at 120 BPM (48 kHz: a clock each 1000 frames), its Start, Stop, Continue
+ * and Song Position, on a scene whose three sequences play sixteenths (a NOTE on each step) over a chord latched */
+static void xclk(uint32_t n)              /* n clocks, each with its 1000 frames after it */
+{
+    while (n--) {
+        frs_midi(0xF8, 0, 0);
+        frs_render(L, R, 1000);
+    }
+}
+static void xms(uint32_t ms)              /* ms without a clock */
+{
+    for (; ms >= 20u; ms -= 20u)
+        frs_render(L, R, 960);
+}
+static uint8_t xp_scene[FRS_SCENE_BYTES];
+static void xp_open(void)
+{
+    scene_t sc;
+    uint32_t i;
+    static const int8_t C0[5] = {48, 48, 52, 55, -1};
+    frs_init(48000.0f);
+    frs_scene_new(xp_scene);
+    memcpy(&sc, xp_scene, sizeof sc);
+    sc.v[P_SQ_TYPE] = SQT_SEQ;
+    sc.v[P_ARP_RATE] = 7;                /* (sixteenths: ARP_TICKS[7], 6 clocks) */
+    sc.v[P_ARP_CHANCE] = 127;
+    sc.v[P_SQ_LEN] = 15;                 /* (16 steps) */
+    sc.v[P_SQ_GATE] = 40;
+    for (i = 0; i < SC_SEQ; i++)
+        sc.seq[i] = 72u;
+    for (i = 0; i < SC_BSEQ; i++)
+        sc.bnote[i] = 36u;
+    sc.bq_on = SQT_SEQ;
+    sc.bq_steps = 15;
+    sc.bq_len = 0;                       /* (a sixteenth: BQ_TICKS[0]) */
+    sc.ba_chance = 127;
+    sc.nch = 1;
+    memcpy(sc.ch[0], C0, 5);
+    memcpy(xp_scene, &sc, sizeof sc);
+    frs_scene_take(xp_scene);
+    for (i = 0; i < SC_DSEQ; i++)        /* (the drone's: sixteen sixteenths, a note each) */
+        dnote[i][0] = 60u;
+    param_set(P_DQ_RATE, 0);
+    param_set(P_DQ_LEN, 15);
+    param_set(P_DQ_CHANCE, 127);
+    param_set(P_DQ_ON, 1);
+    param_set(P_TEMPO, 60);              /* (TEMPO 90 BPM: the clock's 120 tells them apart) */
+}
+
+static void transport_test(void)
+{
+    frs_view_t v;
+    uint8_t live[FRS_LIVE_BYTES];
+    uint32_t gs, bs, ds, n, both;
+    double e;
+    xp_open();
+    frs_midi(0xFA, 0, 0);                /* Start, then 33 clocks: step 5 under way (30 .. 35) */
+    xclk(33);
+    frs_view(&v);
+    check(v.seq_run && v.bseq_run && v.dseq_run && v.seq_pos == 5 && v.bseq_pos == 5 && v.dseq_pos == 5 &&
+              fabsf(v.tempo - 120.0f) < 1.0f,
+          "MIDI Start and 33 clocks: the three sequences on their sixth step, at the clock's 120 BPM");
+
+    frs_midi(0xFC, 0, 0);                /* Stop: the sequences stop, the drones sound on */
+    xms(40);
+    gs = sq.steps, bs = bq.steps, ds = dq.steps;
+    frs_view(&v);
+    check(!v.seq_run && !v.bseq_run && !v.dseq_run && bits4(v.latched) == 1u && xp.stop && xp.at == 33u,
+          "MIDI Stop: the three sequences stopped, the chord still latched, the place kept (33 clocks)");
+    e = rms(48000);
+    xms(1500);                           /* (the clock gone: the grid on TEMPO meanwhile) */
+    printf("       (the drones after the Stop: RMS %.4f)\n", e);
+    check(e > 1e-4 && sq.steps == gs && bq.steps == bs && dq.steps == ds,
+          "  the drones sounding on, no step played for two seconds");
+
+    frs_midi(0xFB, 0, 0);                /* Continue, the clock again: on from 33, step 6 at 36 */
+    xclk(2);
+    frs_view(&v);
+    check(v.seq_run && v.bseq_run && v.dseq_run && sq.steps == gs && bq.steps == bs && dq.steps == ds && !xp.stop &&
+              v.grid > 34.5f && v.grid < 35.5f,
+          "MIDI Continue: the sequences on, the grid at 35 two clocks on, the step under way silent");
+    xclk(1);
+    frs_view(&v);
+    check(v.seq_pos == 6 && v.bseq_pos == 6 && v.dseq_pos == 6 && sq.steps == gs + 1u && bq.steps == bs + 1u &&
+              dq.steps == ds + 1u,
+          "  the clock at 36: each on its seventh step, where it left off (not from the top)");
+
+    frs_midi(0xFC, 0, 0);                /* Stop, Song Position 203 (14 bits: 75, 1), Continue: step 203 % 16 = 11 */
+    xms(300);
+    frs_midi(0xF2, 75, 1);
+    xms(40);
+    frs_view(&v);
+    check(!v.seq_run && xp.cued && xp.at == 1218u, "Song Position while stopped: kept for Continue (203 sixteenths)");
+    gs = sq.steps;
+    frs_midi(0xFB, 0, 0);
+    xclk(1);
+    frs_view(&v);
+    check(v.seq_pos == 11 && v.bseq_pos == 11 && v.dseq_pos == 11 && sq.steps == gs + 1u && grid.wraps == 0u &&
+              v.grid > 1218.5f && v.grid < 1219.5f,
+          "  Continue: each on step 11 at once (on its start), the grid at 1218 and on");
+    frs_midi(0xFC, 0, 0);
+    frs_midi(0xF2, 50, 12);              /* (1586 sixteenths: 9516 clocks, the grid's wrap near) */
+    frs_midi(0xFB, 0, 0);
+    xclk(100);
+    frs_view(&v);
+    check(grid.wraps == 1u && v.grid > 15.5f && v.grid < 16.5f && v.seq_pos == (int)((1586u * 6u + 100u) / 6u % 16u) &&
+              v.bseq_pos == (int)((1586u * 6u + 100u) % 96u / 6u),
+          "  past the grid's wrap (9600 clocks): GLINT's step and the bass's where the song is");
+
+    xclk(10);                            /* a Song Position while the clock comes (a loop, a jump): there at once */
+    frs_midi(0xF2, 4, 0);
+    xclk(1);
+    frs_view(&v);
+    check(v.seq_pos == 4 && v.bseq_pos == 4 && v.dseq_pos == 4 && !xp.cued && v.grid > 24.5f && v.grid < 25.5f,
+          "Song Position while playing on the clock: the sequences there at once (step 4)");
+    n = sq.steps;
+    frs_midi(0xF2, 5, 0);
+    xclk(1);
+    check(sq.steps == n + 1u && sq.pos == 5, "  again, to 5: its step struck once");
+    xclk(5);
+    check(apart(1500, &both) == 0 && both > 200u, "  GLINT's sequence and the bass's on the same step after it");
+
+    frs_midi(0xFA, 0, 0);                /* Start after all that: from the top, as before */
+    xclk(1);
+    frs_view(&v);
+    check(v.seq_pos == 0 && v.bseq_pos == 0 && v.dseq_pos == 0 && v.grid < 1.5f, "MIDI Start: from the top, as it was");
+    frs_track_play(1, 0);                /* GLINT stopped by the player (the iPad's): so through all of it */
+    frs_midi(0xFC, 0, 0);
+    frs_midi(0xF2, 8, 0);
+    frs_midi(0xFB, 0, 0);
+    xclk(7);
+    frs_view(&v);
+    check(!v.seq_run && v.bseq_run && v.bseq_pos == 9 && v.dseq_pos == 9,
+          "GLINT stopped by the player: so through Stop, Song Position, Continue (the others on step 9)");
+    frs_track_play(1, 1);
+    frs_midi(0xFA, 0, 0);
+    xclk(1);
+
+    param_set(P_TRANSPORT, 1);           /* TEMPO ONLY: the clock leads the tempo, the transport ignored */
+    xclk(40);
+    frs_midi(0xFC, 0, 0);
+    xclk(2);
+    frs_view(&v);
+    check(v.seq_run && v.bseq_run && v.dseq_run && !xp.stop && v.seq_pos == 7 && fabsf(v.tempo - 120.0f) < 1.0f,
+          "TRANSPORT TEMPO ONLY: Stop ignored, the sequences on at the clock's 120 BPM");
+    frs_midi(0xFA, 0, 0);
+    frs_midi(0xF2, 0, 0);
+    frs_midi(0xFB, 0, 0);
+    xclk(1);
+    frs_view(&v);
+    check(v.seq_pos == 7 && v.grid > 43.5f && v.grid < 44.5f, "  Start, Song Position, Continue ignored: the grid on (44)");
+    param_set(P_TRANSPORT, 0);
+    param_set(P_CLOCK, 1);               /* CLOCK INTERNAL: none of it either */
+    frs_midi(0xFC, 0, 0);
+    xms(40);
+    frs_view(&v);
+    check(v.seq_run && !xp.stop, "CLOCK INTERNAL: Stop ignored");
+    param_set(P_CLOCK, 0);
+
+    /* the arpeggios: GLINT's on ARP waits with the Stop, on again with Continue; one PLAY had waiting stays so */
+    param_set(P_SQ_TYPE, SQT_ARP);
+    frs_latch(1, 67, FRS_CHORD_HARMONY);
+    frs_midi(0xFA, 0, 0);
+    xclk(24);
+    frs_view(&v);
+    n = arp.steps;
+    check(!v.arp_paused && n > 2u, "GLINT on ARP, its arpeggio playing on the clock");
+    frs_midi(0xFC, 0, 0);
+    xms(1000);
+    frs_view(&v);
+    check(v.arp_paused && arp.steps == n && !v.dseq_run && bits4(v.latched) == 1u,
+          "  MIDI Stop: it waits (nothing played for a second), the drones latched");
+    {
+        uint32_t ln = frs_live_save(live, sizeof live, xp_scene), at = xp.at;
+        xp.stop = xp.arps = 0;
+        xp.at = 0;
+        check(ln > 0u && frs_live_load(live, ln, xp_scene) == 0 && xp.stop && xp.arps == 1u && xp.at == at,
+              "  the running state carries it (LIVE: stopped, its place, the arpeggio it holds)");
+    }
+    frs_midi(0xFB, 0, 0);
+    xclk(12);
+    frs_view(&v);
+    check(!v.arp_paused && arp.steps > n && v.dseq_run && !xp.arps, "  MIDI Continue: on again, the drone's sequence too");
+    frs_play();                          /* (PLAY: the transport stopped by hand, the arpeggio waiting) */
+    frs_view(&v);
+    n = arp.steps;
+    frs_midi(0xFC, 0, 0);
+    frs_midi(0xFB, 0, 0);
+    xclk(12);
+    frs_view(&v);
+    check(v.arp_paused && arp.steps == n, "  waiting by PLAY: Stop and Continue leave it waiting");
     frs_close();
 }
 
@@ -1846,6 +2294,8 @@ int main(void)
     preset_test();
     amount_swell_test();
     tgt_test();
+    xmod_test();
+    transport_test();
     printf("inside: %s\n", fails ? "FAILED" : "ok");
     return fails ? 1 : 0;
 }

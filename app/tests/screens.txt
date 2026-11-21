@@ -339,6 +339,17 @@ turn K2 30
 turn K3 40
 wait 2500
 shot screen-tape.png
+# MEDIA (K1, card #99): VINYL, the record turning, its arm; AM, the radio's dial; then TAPE again
+turn K1 1
+expect p142 2
+wait 2500
+shot screen-vinyl.png
+turn K1 1
+expect p142 3
+wait 2500
+shot screen-am.png
+turn K1 -2
+expect p142 1
 # LOFI TAPE II (the next page, only while TAPE is on): TAPE SPEED, TONE, NOISE, DROPOUT; round again to LOFI TAPE
 tap FX
 wait 30
@@ -1160,3 +1171,130 @@ wait 30
 gopage 0
 turn SELECT -4
 wait 300
+# KEYS on MIDI (card #194): HARMONY ON, NOTES CHORD, CHORD · MIDI in the header (last: no shot before it moves)
+turn SELECT 4
+wait 300
+gopage 58
+wait 30
+turn K2 1
+wait 900
+shot screen-keys-midi.png
+turn K2 -1
+turn K1 -1
+wait 30
+gopage 0
+turn SELECT -4
+wait 300
+# KEYS on the LEAD (card #194): POLY, HARMONY ON, NOTES CHORD, CHORD · LEAD in the header (last: no shot before it moves)
+turn SELECT 3
+wait 300
+setp 261 1
+gopage 58
+wait 30
+turn K2 1
+wait 900
+shot screen-keys-lead.png
+turn K2 -1
+turn K1 -1
+setp 261 0
+wait 30
+gopage 0
+turn SELECT -3
+wait 300
+# the LEAD in the river (card #200): over the drones, GLINT (two notes on its channel) and the BASS, a light in its rose
+# where each voice sings, its note named a moment, what it sang drifting downstream: MONO's melody (four keys, legato),
+# then POLY's chord of three (MODE 261); back to MONO, the keys on the DRONE
+expect lead 0
+turn SELECT 2
+wait 200
+tapkey 9 100
+wait 1500
+turn SELECT 1
+wait 300
+expect lead 1
+key 14 down 100
+wait 700
+key 17 down 100
+key 14 up
+wait 700
+key 21 down 100
+key 17 up
+wait 700
+key 19 down 100
+key 21 up
+wait 400
+midi 91 54 64
+midi 91 4F 50
+wait 200
+shot lead-river-mono.png
+key 19 up
+wait 1200
+setp 261 1
+wait 30
+key 12 down 90
+key 16 down 90
+key 19 down 90
+wait 1100
+midi 91 51 64
+wait 200
+shot lead-river-poly.png
+key 12 up
+key 16 up
+key 19 up
+midi 81 54 00
+midi 81 4F 00
+midi 81 51 00
+setp 261 0
+wait 30
+turn SELECT -3
+wait 300
+expect lead 0
+# PHONE (LOFI TAPE's MEDIA, card #218): the handset, its earpiece's rings, its cord. Last: the shots before as they
+# were. The header LIGHT again (SCREEN's K4), FX's LOFI TAPE, MEDIA turned from OFF to PHONE (SATURATION and WOBBLE at
+# 63, as VINYL's and AM's shots have them); OFF and DARK again after
+gopage 47
+wait 100
+turn K4 -1
+wait 100
+expect headdark 0
+gopage 34
+turn K1 4
+expect p142 4
+wait 2500
+shot screen-phone.png
+turn K1 -4
+expect p142 0
+gopage 47
+wait 100
+turn K4 1
+wait 100
+expect headdark 1
+gopage 0
+# TRACKS LINK (card #212): HOME's page after CLOUD SEND. Last: the shots before as they were. The header LIGHT again
+# (SCREEN's K4), as MIXER's shot has it; FOLLOW DRONE, BASS and GLINT LINKED, MIDI NO LINK; all NO LINK and DARK again
+# after (the device's, in no scene)
+gopage 47
+wait 100
+turn K4 -1
+wait 100
+expect headdark 0
+gopage 80
+wait 30
+expect page 80
+expect link 0
+turn K2 1
+turn K3 1
+wait 30
+expect link 6
+wait 1500
+shot screen-link.png
+turn K3 -1
+turn K2 -1
+wait 30
+expect link 0
+gopage 47
+wait 100
+turn K4 1
+wait 100
+expect headdark 1
+gopage 0

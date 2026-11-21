@@ -13,7 +13,8 @@
  *   at its place in its queue (fst_live_at_state, inside a millisecond): from there A's brain again.
  *   E: as A exactly, the snap at its place with cmp: left (the very same), none loaded.
  * Then: a save, a load, a save: the same bytes; half precision's round trip; another engine's state refused; the sizes
- * (said). G: PULSE's strike coming in (card #148), loaded, the bass's level as it was. engine/tests/run.sh, or: snap */
+ * (said). G: PULSE's strike coming in (card #148), loaded, the bass's level as it was. H: the LFOs on the LFOs (card
+ * #199), opened on a state, the brain bit for bit. engine/tests/run.sh, or: snap */
 #include "../frasil_engine.c"
 #include "../frasil_stream.h"
 #include <math.h>
@@ -267,6 +268,66 @@ static void pulse_state(void)
     printf("snap: PULSE's strike in a state, 8 strikes: the bass a block on within %.2f %% of its own\n", 100.0f * worst);
 }
 
+/* H (card #199): the LFOs on the LFOs in a state. NEW SHARD (its three LFOs on), each also on another's RATE and DEPTH,
+ * LFO 3 on its own RATE, x1.60 .. x5.00, a chord held: a state at 10 s, then 10 s on (every 100 ms the brain hashed,
+ * with what the LFOs put on the LFOs); opened on it: every 100 ms the same, the brain bit for bit at 20 s. Opened on it
+ * without what they put on each other (mod, eased: the state has it): elsewhere (the control) */
+static uint64_t xm_hash(void) { return fnv(view_hash(), mod, sizeof mod); }
+
+static void xmod_state(void)
+{
+    static const uint8_t T[6][4] = {{0, 2, 86, 150}, {0, 3, 89, 200}, {1, 2, 85, 200}, {1, 3, 88, 115},
+                                    {2, 2, 88, 200}, {2, 3, 84, 160}};   /* (LFO, TARGET, its choice, AMOUNT) */
+    static uint8_t sb[FRS_LIVE_BYTES], b1[FRS_LIVE_BYTES], b2[FRS_LIVE_BYTES];
+    static uint64_t h[100];
+    uint8_t sc[FRS_SCENE_BYTES];
+    fst_start s0, s1;
+    uint32_t i, w, n, ms, n1, n2, same = 0, ctl = 0;
+    frs_scene_new(sc);
+    memset(&s0, 0, sizeof s0);
+    memcpy(s0.scene, sc, FRS_SCENE_BYTES);
+    s0.tracks = 7;
+    open_at(&s0);
+    for (i = 0; i < 6u; i++) {
+        frs_param_set(LFO_BASE[T[i][0]] + 4u + T[i][1], T[i][2]);
+        frs_param_set(P_L1_AMT1 + 4u * T[i][0] + T[i][1], T[i][3]);
+    }
+    for (i = 0; i < NLFO; i++) {
+        frs_param_set(LFO_BASE[i] + 1u, 35u + 5u * i);
+        frs_param_set(LFO_BASE[i] + 2u, 60u + 10u * i);
+    }
+    frs_latch(0, 48, FRS_CHORD_HARMONY);
+    run(10000u, 0, 0);
+    ms = frs_ms();
+    fst_capture(&s1, 0);
+    n = frs_live_save(sb, sizeof sb, s1.scene);
+    for (w = 0; w < 100u; w++) {
+        run(ms + 100u * (w + 1u), 0, 0);
+        h[w] = xm_hash();
+    }
+    n1 = brain_of(b1, s1.scene);
+    open_at(&s1);
+    check(!fst_live_state(&lv, sb, n, s1.scene), "H: the LFOs on the LFOs, the state at 10 s loaded");
+    for (w = 0; w < 100u; w++) {
+        run(ms + 100u * (w + 1u), 0, 0);
+        same += xm_hash() == h[w];
+    }
+    n2 = brain_of(b2, s1.scene);
+    check(same == 100u && n2 == n1 && !memcmp(b1, b2, n1),
+          "H: the LFOs on the LFOs: every 100 ms the brain the first's, bit for bit at 20 s");
+    open_at(&s1);
+    fst_live_state(&lv, sb, n, s1.scene);
+    for (i = 0; i < NLFO; i++)
+        mod[LFO_BASE[i] + 1u] = mod[LFO_BASE[i] + 2u] = 0.0f;
+    for (w = 0; w < 100u; w++) {
+        run(ms + 100u * (w + 1u), 0, 0);
+        ctl += xm_hash() == h[w];
+    }
+    check(ctl < 10u, "H: without what they put on each other, elsewhere (the control)");
+    printf("snap: H, the LFOs on the LFOs: %u of 100 windows the first's (%u without their offsets; the state %u bytes)\n",
+           same, ctl, n);
+}
+
 static uint32_t lead_keys(void)          /* (the keys on the LEAD: live.c's LIVE_K_LEAD, core.c's K_LEAD) */
 {
     uint32_t k, n = 0;
@@ -466,6 +527,7 @@ int main(int argc, char **argv)
         check(good && rs_half(rs_float(0x3C00u)) == 0x3C00u, "half precision: there and back");
     }
     pulse_state();
+    xmod_state();
     if (argc > 1)
         fm1_state(argv[1]);
     printf("snap: %d ok, %d failed\n", oks, fails);

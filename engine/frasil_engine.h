@@ -45,7 +45,7 @@
 extern "C" {
 #endif
 
-#define FRS_VERSION "3.3.1"           /* the FRASIL this engine is (VERSION's: engine/tests/run.sh checks them alike) */
+#define FRS_VERSION "3.4"           /* the FRASIL this engine is (VERSION's: engine/tests/run.sh checks them alike) */
 #define FRS_BLOCK 256u                   /* frames the engine renders at a time (frs_render takes any count) */
 #define FRS_SCENE_BYTES 619u             /* a scene, a shard ("FRS}": its name's characters 17 .. 32, the LFOs' AMOUNTs and
                                           * SWELL last; the same bytes in "FRS|", 3.0.2-b5's test builds', its AMOUNTs as
@@ -77,6 +77,13 @@ const char *frs_version(void);           /* FRS_VERSION as the engine was built 
 float frs_rate(void);
 void frs_render(float *left, float *right, uint32_t n);   /* n frames, -1 .. 1 (the left's and the right's) */
 void frs_render_i24(int32_t *lr, uint32_t n);   /* the same, as the FM-1 renders it: interleaved, 24-bit */
+/* frs_render with n frames of an outside input (a guitar, a voice: a Vibe's IN 1 and IN 2) into CLOUD, left and right:
+ * added to what the tracks send it, before its diffusion (FREEZE holds it, SHIMMER takes it up), FRS_BLOCK frames late
+ * (the engine renders a block ahead); its level, the host's. in_l or in_r 0: none, frs_render's samples bit for bit.
+ * Not the FM-1's (the AC79 has no input) */
+void frs_render_in(const float *in_l, const float *in_r, float *left, float *right, uint32_t n);
+void frs_cloud_clear(void);              /* CLEAR: the cloud emptied (its tail, what FREEZE holds), its return faded out
+                                          * over the next block (no click); its settings kept, FREEZE too */
 void frs_gain(float g);                  /* the output's level, 0 .. 1 (the FM-1's MASTER; 1 at the start) */
 void frs_panic(void);                    /* silence at once, all of it: every note let go (the drones', GLINT's, the
                                           * bass's, MIDI's, HOLD's), the arpeggio and the sequences stopped, the MIDI
@@ -131,7 +138,9 @@ uint32_t frs_param_kind(uint32_t p);
 /* LFO TARGET's choices (P_L1_T1 .. P_L3_T4: 0 OFF, then 1 .. frs_lfo_targets()): the setting choice t moves (frs_param_*'s
  * number), or -1 (OFF, or none t). 2.5's: the 40 before, then MASTER FILTER's CUTOFF and RESONANCE, the four pans;
  * 2.6's 47th: CHOIR III's SOFT; then the ADSRs (48 .. 55), TAPE SAT and WOBBLE (56, 57); 3.2's 58 .. 61: LOFI TAPE II's
- * TAPE SPEED, TONE, NOISE, DROPOUT */
+ * TAPE SPEED, TONE, NOISE, DROPOUT; 62 .. 83 the LEAD's (-1 without it, FRS_LEAD: a list shows none of them, a scene's
+ * taken as OFF); 84 .. 89 the LFOs' own (card #199): LFO 1's RATE and DEPTH, LFO 2's, LFO 3's (one LFO on another's
+ * pace, in octaves, or on its depth; on its own too) */
 uint32_t frs_lfo_targets(void);
 int frs_lfo_target(uint32_t t);
 /* MASTER FILTER's and LOFI TAPE's TRACKS (P_FL_TRACKS, P_TP_TRACKS): the setting's values, and the tracks each is on
@@ -148,6 +157,14 @@ int frs_lfo_target(uint32_t t);
 #define FRS_TRK_GLINT 2u
 #define FRS_TRK_BASS 4u
 uint32_t frs_tracks_bits(uint32_t tracks);   /* a TRACKS value's bits (FRS_TRK_*) */
+/* LOFI TAPE's MEDIA (P_TP_ON, its first setting; card #99): its values. TAPE the tape as it ever was (ON's 1 before
+ * them); an engine before them takes VINYL and AM as TAPE (a setting past its range: its range's last). PHONE (card
+ * #218) after AM: an engine with VINYL and AM but not it takes it as AM, one before them as TAPE */
+#define FRS_MEDIA_OFF 0u
+#define FRS_MEDIA_TAPE 1u
+#define FRS_MEDIA_VINYL 2u
+#define FRS_MEDIA_AM 3u
+#define FRS_MEDIA_PHONE 4u
 uint32_t frs_param_get(uint32_t p);
 void frs_param_set(uint32_t p, uint32_t x);   /* as the FM-1's encoder or a CC sets it: a preset's sound, CUSTOM from
                                                * a drone's setting turned, a layer's PLAYS; the sequences' steps: STEP,
@@ -159,12 +176,44 @@ void frs_param_edit(uint32_t p, uint32_t x);  /* as the River's editor sets it: 
                                                * frs_lead_get has them); what the shard plays edited once a step
                                                * changes (frs_scene_edited) */
 void frs_param_text(uint32_t p, uint32_t x, char *out);   /* x as the FM-1's screen writes it (FRS_TEXT bytes) */
-uint32_t frs_state_save(uint8_t *out);   /* the engine's state beside a scene (FRS_P_STATE's settings, the metronome):
-                                          * FRS_STATE_BYTES at most, its length (its version 3: 2.6's numbers, 3.0's
-                                          * after them; a 2.5 engine's, 2, and a 2.0 engine's, 1, are read with their
-                                          * numbers made over; one before 3.0's, with KEY MODE and no KEYS: KEY MODE
-                                          * read in as the drones' and the bass's LATCH) */
+uint32_t frs_state_save(uint8_t *out);   /* the engine's state beside a scene (FRS_P_STATE's settings, MORPH's mark,
+                                          * the metronome): FRS_STATE_BYTES at most, its length (its version 3: 2.6's
+                                          * numbers, 3.0's after them; a 2.5 engine's, 2, and a 2.0 engine's, 1, are read
+                                          * with their numbers made over; one before 3.0's, with KEY MODE and no KEYS: KEY
+                                          * MODE read in as the drones' and the bass's LATCH; MORPH's mark, 254 then 1,
+                                          * card #202: a scene's MORPH as this engine makes it, none while frs_morph_331;
+                                          * TRACKS LINK's, 252 then frs_link_get's, while a track is moved, 251 then its
+                                          * note followed once one is, 246 .. 249 then each track's baseline once it has
+                                          * one: card #212, a state without them none linked, the note from what the one
+                                          * followed holds, each baseline none) */
 int frs_state_load(const uint8_t *in, uint32_t n);   /* back (what it doesn't know left as it is): 0, or -1 not one */
+int frs_state_link(const uint8_t *in, uint32_t n);   /* its TRACKS LINK alone, as frs_state_load takes it: after a scene
+                                          * taken (which leaves every baseline none), a stream's start takes the
+                                          * state's again (fst_fresh). 0, or -1 not one */
+/* ATTACK SHAPE (card #122, the FM-1's ENV pages: OCT- held, K1): each envelope's attack LINE (straight up) or CURVE (as
+ * ever), a bit each: FRS_ASH_DRONE the drones', FRS_ASH_GLINT, FRS_ASH_BASS, FRS_ASH_LEAD the LEAD's, FRS_ASH_LFILT its
+ * filter's (the LEAD's two kept without FRS_LEAD, heard with it); a bit set its LINE, 0 every one CURVE (at the start).
+ * No setting: in no scene, of the moment, kept in the state (frs_state_save's pair, 253; a state without it, every one
+ * CURVE). Heard from the next block. A recorder journals a change as FST_STATE, frs_state_save's bytes (the FM-1's
+ * Perform LIVE: "FRst", its version, the pair alone). From the thread that renders (frs_view_t's ashape: a UI's) */
+#define FRS_ASH_DRONE 1u
+#define FRS_ASH_GLINT 2u
+#define FRS_ASH_BASS 4u
+#define FRS_ASH_LEAD 8u
+#define FRS_ASH_LFILT 16u
+void frs_ashape_set(uint32_t bits);      /* the five at once (past FRS_ASH_LFILT's: none) */
+uint32_t frs_ashape_get(void);
+/* LEAD CH (card #228, the FM-1's GLO › MIDI K4): the LEAD's MIDI channel, 0 OFF, 1 .. 16, 17 OMNI (FRS_LDCH_DEF, OFF,
+ * at the start: a take with notes on a channel, a setup sending on one, as before it; past 17 OFF), its notes as they
+ * come, MONO's or POLY's as the keys'; chord: on POLY, each one HARMONY's chord as a key on CHORD plays it (the FM-1's
+ * LEAD KEYS, card #194). Another channel lets MIDI's notes on the LEAD go. No setting: in no scene, kept in the state
+ * (frs_state_save's pair, 250, while not OFF, the chord with it; OFF: none, the state as before it; a state without it,
+ * OFF, no chord). A recorder journals a change as FST_STATE (the FM-1's Perform LIVE: "FRst", its version, ATTACK
+ * SHAPE's pair and this one). Without the LEAD: nothing (get: FRS_LDCH_DEF). From the thread that renders */
+#define FRS_LDCH_DEF 0u
+#define FRS_LDCH_CHORD 0x20u                 /* (get's: the channel in the bits under it) */
+void frs_lead_midi_set(uint32_t ch, uint32_t chord);
+uint32_t frs_lead_midi_get(void);
 /* the running state (Perform LIVE, card #131, engine/live.c): what a start (a scene, the state, the moves) does not hold,
  * so that an engine opened on the same start goes on as this one does: the brain whole (the notes and what holds them,
  * the keys down, the arpeggiators and their draws, the sequences where they are and their takes, the grid and its
@@ -198,6 +247,17 @@ uint32_t frs_live_ms(const uint8_t *in, uint32_t n);   /* the millisecond a runn
 void frs_key_down(uint32_t key, int note, uint32_t vel, int single);
 void frs_key_up(uint32_t key);
 void frs_key_pressure(uint32_t key, uint32_t p);   /* 0 .. 127 */
+/* the notes a key makes as the FM-1's KEYS make them on the LEAD and on MIDI (card #194: their HARMONY and NOTES, the
+ * shell's own settings, never the engine's): harm 0, the note as played (the FM-1's at the start); harm 1 and chord 0
+ * (SINGLE NOTE), the scale's note at or below it; harm 1 and chord 1 (CHORD), HARMONY's chord on it (ROOT, SCALE, CHORD,
+ * VOICING: the drones'), its root first, the notes past 0 .. 127 left out (all of them: the scale's note alone). Into
+ * out (FRS_CHORD_MAX at most), their count (1 at least). The LEAD's: chord only on POLY (P_LD_MODE 1; MONO, one voice:
+ * chord 0), each note on a key number of its own, frs_key_down(k, note, vel, 1) (its first on the finger's key), each
+ * let go with the finger (frs_key_up), its pressure each's: Perform LIVE and a stream's listener take them as keys of
+ * their own (a listener can't build the chord). MIDI OUT's are its own (FRS_MO_HARM, FRS_MO_NOTES). A UI turning NOTES to
+ * CHORD with HARMONY OFF turns HARMONY on too (the FM-1's knobs). The thread that renders (HARMONY as it is now) */
+#define FRS_CHORD_MAX 4u
+uint32_t frs_key_notes(int note, uint32_t harm, uint32_t chord, uint8_t *out);
 /* THE KEYS, as the River has them, the track's (0 the drones, 1 GLINT's arpeggio, 2 the bass), the note as it sounds:
  * latched, or let go if it is (1 latched, 0 let go, -1 nothing: full, or under the scale's lowest); held while down
  * (nothing kept); cleared. GLINT's on KEYS: the same notes, the last four to come in ringing, held: a latch with four
@@ -239,7 +299,7 @@ void frs_clear(uint32_t track);
  *     GLINT's sequence if that one plays (as GLINT's with the bass's), else from its first step. Else its latched note lets
  *     go, kept (a note held, MIDI's or a key's in HOLD, sounds on and is not kept); again, it plays. A note latched
  *     while it is stopped plays it again with that note: the kept one goes.
- * A stopped track stays stopped through a MIDI Start and a host's start or locate (they start the others). A scene
+ * A stopped track stays stopped through MIDI's transport and a host's start or locate (they start the others). A scene
  * taken (but SCENES' LOAD SND ONLY), frs_scene_stop, frs_panic and frs_release_all leave no track stopped by the
  * player and nothing kept (what they play, or let go, as they always have: RELEASE ALL stops the sequences); so do
  * MIDI's All Sound Off and All Notes Off. KEY MODE turned lets what a stopped track keeps go (as it lets the latched
@@ -251,9 +311,12 @@ void frs_track_play(uint32_t track, int on);
  * a host, at the grid's next step), the arpeggio from its pattern's top, the drones' and the bass's kept notes;
  * with one playing (a sequence, the arpeggio), each track as frs_track_play starts it, the grid as it is */
 void frs_play_all(int on);
-/* a MIDI message in (notes on each track's channel, their pressure, sustain, the CCs, clock, Start, All Notes Off,
- * All Sound Off, Program Change: frs_callbacks): at the next millisecond; _at: at the frame `offset` of the next
- * frs_render (the host's time-stamp in its buffer). One or the other: they wait in one queue, in order */
+/* a MIDI message in (notes on each track's channel, their pressure, sustain, the CCs, clock, All Notes Off, All Sound
+ * Off, Program Change: frs_callbacks; the transport, TRANSPORT on FOLLOW (card #204): Start, Stop (the sequences stop,
+ * the arpeggios wait, the drones sound on), Continue (on from there), Song Position (its sixteenths: stopped, where
+ * Continue goes on from; on a clock, there at once; each sequence where it would be had it played from the Start)):
+ * at the next millisecond; _at: at the frame `offset` of the next frs_render (the host's time-stamp in its buffer).
+ * One or the other: they wait in one queue, in order */
 void frs_midi(uint8_t status, uint8_t d1, uint8_t d2);
 void frs_midi_at(uint32_t offset, uint8_t status, uint8_t d1, uint8_t d2);
 void frs_midi_ms(uint64_t ms, uint8_t status, uint8_t d1, uint8_t d2);   /* at the engine's millisecond ms itself: for a
@@ -266,6 +329,15 @@ void frs_midi_ms(uint64_t ms, uint8_t status, uint8_t d1, uint8_t d2);   /* at t
  * grid on TEMPO; back to AUTO while the host plays, it begins there as a Start (the grid's top, the sequences' first
  * steps) */
 void frs_host_tempo(double bpm, double beat, int playing);
+/* SONG POSITION for a host (an AUv3's): on, a host's start or locate puts the grid and each sequence where they would be
+ * had they played from the host's beat 0, as MIDI's Song Position then Continue do (card #204: GLINT's on the grid's
+ * steps, the bass's and the drone's in their loops, a step under way silent till the next; the arpeggios on the grid's
+ * step), and its stop is a Stop (the sequences stop, the arpeggios wait, the drones sound on; played again, from the
+ * host's place); a start before beat 0 (a count-in; a start on it, its first millisecond's), a Start as without it,
+ * the grid's top there. TRANSPORT TEMPO ONLY or CLOCK INTERNAL: none of it, as MIDI's. Off at the start (frs_init's):
+ * the host's start the grid's top, its stop TEMPO again, as before it. The shell's to keep (none in a scene or the
+ * state) */
+void frs_host_song(int on);
 int frs_play(void);                      /* PLAY tapped (2.5's): nothing playing at all, the scene given last's three
                                           * tracks (what RELEASE ALL let go, else its own notes, its sequences from their
                                           * first steps, the beat beginning there); what the transport stopped
@@ -307,6 +379,28 @@ void frs_count_in(int on);               /* COUNT-IN: frs_play_all(1) with nothi
                                           * more count, nothing started. Off at the start (P_COUNT_IN shows it: the
                                           * FM-1's GLO › RECORD K2, on there at the start; frs_record_layer counts in
                                           * too) */
+#define FRS_LINK_DRONE 1u                /* TRACKS LINK's tracks (frs_link_set, frs_link_get) */
+#define FRS_LINK_BASS 2u
+#define FRS_LINK_GLINT 4u
+#define FRS_LINK_MIDI 8u                 /* (MIDI OUT's, FRS_MIDI_OUT's engines) */
+#define FRS_LINK_FOLLOW_BASS 16u         /* (frs_link_get: the bass followed) */
+void frs_link_set(uint32_t follow, uint32_t tracks);   /* TRACKS LINK (card #212, the FM-1's HOME › TRACKS LINK): the
+                                          * track followed (0 the drone, 1 the bass) and those LINKED (FRS_LINK_*; the
+                                          * one followed's kept but not moving it, for when the other is followed:
+                                          * FOLLOW turned leaves each as it was; none moved: off). Its note struck last
+                                          * (the drone's chord's root, its sequence step's lowest; the bass's note as
+                                          * played) is the note followed; each track linked has its own baseline, the
+                                          * note followed as it was LINKED (nothing moves then; nothing followed yet,
+                                          * the next one); FOLLOW turned, each keeps its offset (its baseline made
+                                          * from what the other holds now, or from its first note); none with a scene
+                                          * taken. The degrees of SCALE from a track's
+                                          * baseline to the note followed, -n/2 .. n/2: it plays its notes that many
+                                          * steps along the scale (the drones' notes held struck again there, the
+                                          * bass's retuned, GLINT's and MIDI OUT's next ones), what they play and record
+                                          * as played. The engine's, in no scene: frs_state_save keeps it. Off at the
+                                          * start */
+uint32_t frs_link_get(void);             /* its tracks LINKED as set (FRS_LINK_*), FRS_LINK_FOLLOW_BASS the bass
+                                          * followed */
 void frs_overdub(int on);                /* OVERDUB: a LIVE take adds its notes to the sequence (on at the start, as the
                                           * FM-1's). Off, its first turn replaces it: each step, as the playhead comes to
                                           * it, a rest (the bass's a CUT), what was there heard until then, unless the take
@@ -316,7 +410,17 @@ void frs_step_stays(int on);             /* RECORD STEP (P_SQ_REC, P_BQ_REC, P_D
                                           * GLINT's or the bass's step writes its one note there (the one before
                                           * replaced, LENGTH 1), the drone's adds beside its notes. Off at the start (the
                                           * FM-1's: STEP on past what was written) */
-void frs_compare(int on);                /* the scene as taken sounds, not as it is now (the FM-1's EDIT held) */
+void frs_tape_302(int on);               /* TAPE SPEED's byte as 3.0.2 read it (log2's own: a 32nd of an octave a step
+                                          * under X1.00, a 63rd over; X0.79 at 53, X0.89 since 3.1), what it moves and its
+                                          * words: a take of 3.0.2's layout replayed on its own steps (fst_fresh sets it
+                                          * from the stream: card #160). Off at the start, frs_init's */
+void frs_morph_331(int on);              /* a scene's MORPH as 3.3.1 and the engines before made it: the notes LOAD
+                                          * SND+NOTES lets go and plays on the ATTACK and RELEASE heard then (since card
+                                          * #202, over the MORPH's length), MASTERING's THRESHOLD and GAIN, CLOUD's level
+                                          * and MASTER EQ at the scene's at once: a stream of theirs as it played
+                                          * (fst_fresh sets it before a state, a state since sets it off: its mark,
+                                          * frs_state_save). Off at the start, frs_init's */
+void frs_compare(int on);               /* the scene as taken sounds, not as it is now (the FM-1's EDIT held) */
 void frs_trying(int on);                 /* the player tries a line on GLINT's sequence (RECORD OFF): its keys play
                                           * their glints, the sequence as it was (the FM-1's GLINT SEQ pages) */
 
@@ -328,6 +432,10 @@ void frs_scene_play(const uint8_t *scene, int hold);   /* the River's: taken, it
                                                         * on its ROOT (▶: never saved) */
 void frs_scene_go(const uint8_t *scene);     /* as the FM-1's SCENES has it: MORPH (its time), LOAD (SND ONLY: what
                                               * plays stays) */
+float frs_morph_progress(void);          /* a scene's MORPH under way (frs_scene_go with MORPH's time, a Program Change's
+                                          * scene gone to too; card #225, the FM-1's frame round its screen): how far, 0 ..
+                                          * 1 by the engine's clock; -1 none (ANCHOR's way back: frs_anchor_state's). The
+                                          * thread that renders; frs_view_t's morph from any (frs_snapshot) */
 void frs_scene_stop(void);               /* every note let go, the sequences stopped */
 void frs_scene_store(uint8_t *out, const uint8_t *from);   /* the scene as STORE keeps it now (its sound, what plays,
                                                             * its sequences, its TEMPO; its name from `from`, its 32,
@@ -388,6 +496,72 @@ void frs_lead_take(const uint8_t *in);
 void frs_lead_put(const uint8_t *in);
 void frs_lead_get(uint8_t *out);
 void frs_lead_wheels(uint32_t mod, int32_t bend);
+
+/* -------------------------------------------------------------- MIDI OUT --- */
+/* MIDI OUT (card #192, engine/mout.c: built with FRS_MIDI_OUT 1, the iPad's; the FM-1's is its app's, app/mseq.c): a
+ * fifth track whose notes go out over MIDI, never sounding here. Its keys (frs_mout_key: the shell's key numbers,
+ * shared with frs_key_down's, one never both at once; the note as played, no HARMONY, the shell's octave on it) go out
+ * on KEYS, into its arpeggio on ARP (the engine's arpeggiator on FRASIL's grid: GLINT's MODE, RATE, RANGE, CHANCE, LATCH,
+ * ARP SNAP; GATE, VELOCITY, SWING its own), or nowhere on SEQ (its 32 steps, GLINT's bytes: 0 a rest, 127 a tie, else
+ * the note, + 128 ACCENT; SEQ LENGTH, RATE, GATE, CHANCE, TRANSPOSE along the scale). A key's pressure goes out as
+ * PRESSURE says (CHANNEL: the hardest key's, POLY: each key's). VELOCITY: NORMAL as played, SOFT more for a light
+ * touch, HARD less, FIXED 100. Its KEYS (card #194, the FM-1's MIDI KEYS page): HARMONY OFF the note as played (at the
+ * start), ON the scale's note at or below it, with NOTES CHORD HARMONY's chord on it (frs_key_notes'), every note of it
+ * out on CHANNEL at the key's velocity and each let go with its key (a note two keys have out: on once, off with the
+ * last), into its arpeggio each, its SEQ one note (a step's). CLOCK OUT: the grid's clocks, Start and Stop with its
+ * sequence (and FRASIL's transport; after frs_skip_to, the transport as it is there: Start, Stop, or Stop then Start for
+ * a Start the skip went past).
+ *   NOTES OUT (card #201, the FM-1's GLO › MIDI II K3; frs_mout_notes, off at the start): the notes FRASIL plays by
+ * itself out too, its sound as it was: GLINT's arpeggio and sequence on channel 14, SPARKLE's glints on 15, the bass's
+ * arpeggio and sequence on 16 (PULSE's gaps too), each as it sounds (GLINT's OCTAVE, the bass's on it) at its strike's
+ * velocity, let go as the engine lets its own go; all of them at RELEASE ALL, CUT, a scene's load, a panic, off. A note
+ * of a channel out once (struck again by another: let go first); none struck in frs_skip_to (what lets go, out). The
+ * keys', the drones', the LEAD's, MIDI in's: none. Not MIDI OUT's own (its strip, frs_mout_view's out, has none).
+ * frs_play_all plays or stops its sequence and its arpeggio with the others; frs_cut, frs_cut_stop, frs_release_all and
+ * frs_panic end every note it sent. Its settings and steps are the shell's to keep: none in a scene, a shard or a stream.
+ * Each message is stamped with the engine's millisecond (frs_ms's clock) as it went out: frs_mout_read after each render
+ * (the ms of the frames it rendered: frs_ms_after), as the shell sends them. From the thread that renders */
+#if FRS_MIDI_OUT
+enum { FRS_MO_TYPE, FRS_MO_MODE, FRS_MO_RATE, FRS_MO_RANGE, FRS_MO_CHANCE, FRS_MO_LATCH, FRS_MO_LEN, FRS_MO_GATE,
+       FRS_MO_TRANS, FRS_MO_AGATE, FRS_MO_AVEL, FRS_MO_SWING, FRS_MO_CH, FRS_MO_VEL, FRS_MO_PRS, FRS_MO_CLOCK,
+       FRS_MO_HARM, FRS_MO_NOTES, FRS_MO_N };
+/* TYPE: 0 KEYS, 1 ARP, 2 SEQ; AGATE: GATE 5 .. 100 %, 101 LEGATO; AVEL: 0 AS PLAYED, else 1 .. 127; SWING: 0 OFF, else
+ * 50 + it %; CH: 0 .. 15; VEL: SOFT, NORMAL, HARD, FIXED; PRS: OFF, CHANNEL, POLY; CLOCK: OFF, ON; HARM: HARMONY OFF, ON;
+ * NOTES: SINGLE NOTE, CHORD (a key's notes changed, the keys down keep theirs). The others GLINT's settings' ranges and
+ * words */
+typedef struct {
+    uint32_t ms;                         /* the engine's millisecond it went out at */
+    uint8_t status, d1, d2, pad;
+} frs_mout_ev_t;
+typedef struct {
+    uint8_t v[FRS_MO_N];                 /* its settings */
+    uint8_t seq[32];                     /* its steps */
+    uint32_t out[4];                     /* the notes out now: bit n % 32 of out[n / 32] */
+    int8_t pos;                          /* its sequence's step playing, -1 none */
+    uint8_t playing;                     /* its sequence playing, or its arpeggio stepping */
+    uint8_t last, last_vel;              /* the last note out, its velocity */
+    int8_t arp[16];                      /* its arpeggio's notes, low to high, -1 past narp */
+    uint8_t narp;
+    int16_t sounding;                    /* the arpeggio's note out, -1 none */
+    uint32_t sent;                       /* messages out since frs_init */
+} frs_mout_view_t;
+void frs_mout_key(uint32_t k, int note, uint32_t vel, int down);
+void frs_mout_pressure(uint32_t k, uint32_t p);
+void frs_mout_set(uint32_t i, uint32_t v);
+uint32_t frs_mout_get(uint32_t i);
+uint32_t frs_mout_min(uint32_t i);       /* (any thread) */
+uint32_t frs_mout_max(uint32_t i);       /* (any thread) */
+void frs_mout_text(uint32_t i, uint32_t v, char *out);   /* its words (FRS_TEXT; any thread) */
+void frs_mout_play(int on);              /* its sequence (from its top), its arpeggio: on or stopped */
+int frs_mout_playing(void);
+void frs_mout_steps(const uint8_t *in);  /* its 32 steps */
+void frs_mout_step(uint32_t i, uint32_t b);
+void frs_mout_clear(void);               /* its steps and its arpeggio's notes gone */
+void frs_mout_view(frs_mout_view_t *v);
+uint32_t frs_mout_read(frs_mout_ev_t *out, uint32_t max);   /* the messages out since the last read, oldest first */
+void frs_mout_notes(int on);             /* NOTES OUT on, or off (what it sent let go) */
+uint64_t frs_mout_frames(void);          /* frames rendered since frs_init: frame f is millisecond f * 1000 / the rate */
+#endif
 
 /* ---------------------------------------------------------------- ANCHOR --- */
 /* ANCHOR (the FM-1's OCT- and OCT+ together): the scene as it is now, kept in RAM alone (no store), to come back to after
@@ -543,6 +717,8 @@ typedef struct {
     uint8_t lead_held;                   /* its voices held (keys down on it) */
     float lead_level[FRS_LEAD_NV];       /* each one's envelope, 0..1 (a key's light) */
     float lead_meter;                    /* its recent peak, 0..1 (MIXER's K4, as the tracks' are frs_live's 42 .. 45) */
+    float morph;                         /* a scene's MORPH under way, how far (frs_morph_progress: 0 .. 1, -1 none) */
+    uint8_t ashape;                      /* ATTACK SHAPE's LINEs (frs_ashape_get: FRS_ASH_* bits) */
 } frs_view_t;
 void frs_view(frs_view_t *v);            /* now (the thread that renders) */
 void frs_live(float *out);               /* what sounds now, FRS_LIVE floats (engine/core.c eng_live: the voices, the
@@ -562,7 +738,7 @@ int frs_snapshot(frs_view_t *v, float *live);   /* both, as they were after the 
  *      frs_gain, the FM-1's meter's)   32 33 the output's peak, left and right (0..1, after frs_gain: frs_render's)
  *   34 35 its RMS, left and right (0..1; some 300 ms; after frs_gain)
  *   36 PUMP's duck now (0..1: each track's gain 1 - 0.95 x its DEPTH x it; 0: no duck, RATE OFF)
- *   37 .. 39 (none yet: 0) */
+ *   37 LOFI TAPE's medium sounding (FRS_MEDIA_*: 0 none; card #99; PHONE's 4: card #218)   38 39 (none yet: 0) */
 void frs_live_fx(float *out);
 int frs_snapshot_fx(float *fx);
 /* what MASTER FILTER (which 0) or MASTER EQ (which 1) does at hz, in dB, as fx (frs_live_fx's, a snapshot's) has it

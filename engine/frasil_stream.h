@@ -37,7 +37,7 @@ extern "C" {
                                           * The older ones read too, their LEAD MOSS from the start, their scenes made over
                                           * as they are played (frasil_stream.c OLD_LAYOUT: "FRS}" 619, 3.1 .. 3.2's, the
                                           * scene alone; "FRS{" 590, 3.0.2's, before the name's rest, the LFOs' AMOUNTs and
-                                          * SWELL; "FRSz" 586, 3.0's, before LOFI TAPE II too: frs_scene_over, and SWELL as
+                                          * SWELL, its TAPE SPEED read as its engine read it, frs_tape_302; "FRSz" 586, 3.0's, before LOFI TAPE II too: frs_scene_over, and SWELL as
                                           * it is when one is played, as their engines left it); the stream itself is not
                                           * changed (its CRC stays) */
 #define FST_SCENE_BYTES FRS_SHARD_BYTES  /* a scene in a stream: a shard (644: FRS_SCENE_BYTES, then FRS_LEAD_BYTES) */
@@ -110,6 +110,8 @@ typedef struct {
     uint8_t moves[2u * FST_MOVES];
     uint32_t state_n;
     uint8_t moves_n, tracks;
+    uint8_t tape302;                     /* TAPE SPEED's byte as 3.0.2 read it (frs_tape_302): a stream of its layout,
+                                          * "FRS{" (fst_start_of); 0 fst_capture's, a journal's */
 } fst_start;
 
 /* the engine as it is now (the thread that renders): what fst_fresh starts from. It stores the scene (frs_scene_store,

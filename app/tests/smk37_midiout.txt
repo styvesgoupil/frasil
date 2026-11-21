@@ -27,6 +27,44 @@ key37 0 up
 wait 30
 expect_out USB 80 30 00
 out
+# FADER BANK on MIDI: its own KEYS' NOTES (card #194), CHORD (HARMONY on with it), then SINGLE NOTE again; a chord on the
+# middle keys and on the ten around them (C MAJOR, TRIAD, CLOSE: settings 33 .. 36)
+setp 33 0
+setp 34 1
+setp 35 2
+setp 36 0
+listen
+tap FBANK
+wait 300
+expect md19 1
+expect md18 1
+said NOTES CHORD
+key37 12 down 100
+wait 30
+expect_out USB 90 3C 64
+expect_out USB 90 40 64
+expect_out USB 90 43 64
+key37 12 up
+wait 30
+expect_out USB 80 43 00
+key37 0 down 100
+wait 30
+expect_out USB 90 30 64
+expect_out USB 90 34 64
+expect_out USB 90 37 64
+key37 0 up
+wait 30
+expect_out USB 80 37 00
+out
+tap FBANK
+wait 300
+expect md19 0
+said NOTES SINGLE NOTE
+gopage 58
+turn K1 -1
+wait 30
+expect md18 0
+out
 # the wheels: a bend (two semitones up at its top), back to rest; CC 1; the pedal, CC 64
 wheel pitch 4096
 wait 30
@@ -52,13 +90,13 @@ wait 30
 expect mout 0
 expect p166 0
 # the track pads: MIDI's the fifth (12), violet; from it, the DRONE's (8); held, its notes let go and CC 123
-expect pad_rgb12 919072
+expect pad_rgb12 1048608
 pad 12 down
 wait 30
 pad 12 up
 wait 30
 expect mout 1
-expect pad_rgb12 3742336
+expect pad_rgb12 4194432
 expect pad_rgb11 2098183
 pad 8 down
 wait 30
@@ -164,3 +202,126 @@ expect moutret 80
 usbplay off
 wait 2100
 expect mixret 0
+# FADER BANK on the LEAD (card #194): its own KEYS' NOTES; POLY, C MAJOR, TRIAD: a chord on a middle key and one on an
+# outer key at once (their notes on keys of their own, apart), six voices, none held after
+setp 166 3
+setp 261 1
+setp 33 0
+setp 34 1
+setp 35 2
+setp 36 0
+wait 30
+tap FBANK
+wait 300
+expect md21 1
+expect md20 1
+said NOTES CHORD
+key37 12 down 100
+wait 200
+expect leadheld 3
+key37 0 down 100
+wait 200
+expect leadheld 6
+key37 12 up
+wait 200
+expect leadheld 3
+key37 0 up
+wait 200
+expect leadheld 0
+wait 3000
+tap FBANK
+wait 300
+expect md21 0
+said NOTES SINGLE NOTE
+setp 166 0
+setp 261 0
+# NOTES OUT (card #201, GLO › MIDI II's K3): RESILIENCE's GLINT arpeggio out on 14, SPARKLE's glints on 15 (its jack
+# too: TO_USB; the bass's sequence, 16, the FM-1's midiout.txt); CUT lets every note go at once; OFF, nothing more
+press SAVE
+tapkey w2
+release SAVE
+wait 300
+expect scene 2
+expect arpnotes 3
+expect bseqrun 1
+setp 124 127
+gopage 78
+wait 30
+turn K3 1
+wait 3000
+expect nout 1
+expect nouton0 >8
+expect nouton1 >2
+expect nouttwice 0
+expect noutstray 0
+press OCT-
+press PLAY
+release PLAY
+release OCT-
+wait 5
+expect noutopen 0
+tap PLAY
+wait 2000
+expect noutopen >0
+turn K3 -1
+wait 5
+expect nout 0
+expect noutopen 0
+expect noutnew >0
+wait 2000
+expect noutnew 0
+expect nouttwice 0
+expect noutstray 0
+out
+# LEAD CH (card #228): GLO › MIDI's K4 as the FM-1's (CLOCK on MIDI II's K4), OFF at first: MIDI in on channel 4
+# nobody's; on 4 the LEAD, its note as it came; 9 kept with the device's settings across a power cut; back OFF
+press OCT-
+press PLAY
+release PLAY
+release OCT-
+gopage 38
+wait 30
+expect knob4 304
+expect ldch 0
+shot smk-midi-ldch-off.png
+gopage 78
+wait 30
+expect knob4 182
+midi 93 3C 64
+wait 50
+expect ldmidi 0
+expect leadgate 0
+midi 83 3C 00
+gopage 38
+wait 30
+turn K4 4
+wait 30
+expect ldch 4
+midi 93 3C 64
+wait 50
+expect ldmidi 1
+expect leadgate 1
+midi 83 3C 00
+wait 50
+expect ldmidi 0
+press OCT-
+press PLAY
+release PLAY
+release OCT-
+gopage 38
+wait 30
+turn K4 5
+wait 30
+expect ldch 9
+shot smk-midi-ldch.png
+wait 2000
+expect prefsdue 0
+reboot
+wait 1600
+expect ldch 9
+gopage 38
+wait 30
+turn K4 -9
+wait 2000
+expect ldch 0
+expect prefsdue 0

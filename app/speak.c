@@ -193,10 +193,29 @@ static void sp_knob_at(uint32_t pg, uint32_t p, uint32_t x, int now)
         sp_add((now ? hdr.dark : x) ? "DARK" : "INVERT");
         return;
     }
+    if (p == K_SHAPE) {                  /* (an ENV page's, OCT- held: card #122) */
+        sp_add(page_shape(pg) == 4 ? "F.ATK SHAPE " : "ATTACK SHAPE ");
+        sp_add((now ? page_shape(pg) >= 0 && (st.ashape >> page_shape(pg) & 1u) : x) ? "LINE" : "CURVE");
+        return;
+    }
     if (p == K_TUNE) {
         sp_add("TUNE A4 ");
         sp_num((int32_t)(now ? a4.hz : x));
         sp_add(" HZ");
+        return;
+    }
+#if LD_CH_PAGE
+    if (p == K_LDCH) {                   /* (MIDI's K4, card #228: as the tracks' channels) */
+        sp_add("LEAD CH ");
+        sp_value(P_CH_BASS, now ? st.ldch : x, 0);
+        return;
+    }
+#endif
+    if (p >= K_LINK && p <= K_LK0 + 3u) {   /* TRACKS LINK's (card #212), as the screen writes them */
+        static const char *const N[4] = {"DRONE ", "BASS ", "GLINT ", "MIDI "};
+        uint32_t on = now ? (p == K_LINK ? lk.follow : lk.bits >> (p - K_LK0) & 1u) : x;
+        sp_add(p == K_LINK ? "FOLLOW " : N[p - K_LK0]);
+        sp_add(p == K_LINK ? (on ? "BASS" : "DRONE") : on ? "LINKED" : "NO LINK");
         return;
     }
 #if FRS_MIDI_OUT
@@ -210,8 +229,9 @@ static void sp_knob_at(uint32_t pg, uint32_t p, uint32_t x, int now)
             sp_num((int32_t)x);
         return;
     }
-    if ((p >= K_MO_CH && p <= K_MO_PRS) || p == K_MO_RET || p == K_CLKOUT) {   /* MIDI OUT's (card #164), RETURN, CLOCK
-                                                                              * OUT (card #169), as the screen writes them */
+    if ((p >= K_MO_CH && p <= K_MO_PRS) || p == K_MO_RET || p == K_CLKOUT || p == K_NOUT) {   /* MIDI OUT's (card
+                                                         * #164), RETURN, CLOCK OUT (card #169), NOTES OUT (card #201),
+                                                         * as the screen writes them */
         char t[12];
         sp_add(mout_name(p));
         sp_add(" ");
@@ -233,7 +253,7 @@ static void sp_knob_at(uint32_t pg, uint32_t p, uint32_t x, int now)
     else if (pg == PG_CSEND && (p == P_ESPACE || p == P_GL_SPACE || p == P_BS_SPACE))   /* (its three, not the hands) */
         sp_add(p == P_ESPACE ? "DRONE SEND" : p == P_GL_SPACE ? "GLINT SEND" : "BASS SEND");
     else
-        sp_add(p == P_DQ_ON ? "SEQUENCER" : PD[p].name);   /* (DRONE SEQ's ON: its title says SEQ) */
+        sp_add(p == P_DQ_ON ? "SEQUENCER" : pd_name(p));   /* (DRONE SEQ's ON: its title says SEQ) */
     sp_add(" ");
     at = srd.n;
     sp_value((int)p, now ? pv_shown((int)p) : x, now);
@@ -297,7 +317,7 @@ static void sp_row(uint32_t p, uint32_t i, int sec)
     char t[FRS_TEXT + 8];
     uint32_t n = list_n(p), none = (uint32_t)sp_none(p);
     if (sec && PD[p].fmt == F_LTGT && sp_section(i) >= 0) {
-        sp_add(TGT_HEAD[sp_section(i)]);
+        sp_add(tgt_head((uint32_t)sp_section(i)));
         sp_add(": ");
     }
     list_name(p, i, t);
@@ -354,7 +374,7 @@ static void sp_scene_row(uint32_t s)
 static void sp_title(uint32_t pg)
 {
     uint32_t p, n = 0, i = 0, o;
-    sp_add(pg == PG_SON ? "SOUND" : pg == PG_SAVEAS || (pg == PG_SAVE && !sv.load) ? "SAVE" : PAGES[pg].name);
+    sp_add(pg == PG_SON ? "SOUND" : pg == PG_SAVEAS || (pg == PG_SAVE && !sv.load) ? "SAVE" : page_name(pg));
     for (o = 0; o < NPAGES; o++) {
         p = PAGE_ORDER[o];
         if (PAGES[p].button == PAGES[pg].button && !page_hidden(p)) {
@@ -364,8 +384,8 @@ static void sp_title(uint32_t pg)
         }
     }
     if (PAGES[pg].button == B_HOME) {    /* (its last, the logo) */
-        n = 5;
-        i = pg == PG_KEYS ? 2u : pg == PG_MIXER ? 3u : pg == PG_CSEND ? 4u : 1u;
+        n = 6;
+        i = pg == PG_KEYS ? 2u : pg == PG_MIXER ? 3u : pg == PG_CSEND ? 4u : pg == PG_LINK ? 5u : 1u;
     }
     if (n >= 2u && i) {
         sp_add(" (");
@@ -421,7 +441,11 @@ static void sp_page(int all)
     }
     if (pg == PG_KEYS) {                 /* (the selected track's) */
         sp_comma();
+#if FRS_LEAD
+        sp_add(MOUT_SEL() ? "MIDI" : st.lead ? "LEAD" : st.glint ? "GLINT" : st.bass ? "BASS" : "DRONE");
+#else
         sp_add(st.glint ? "GLINT" : st.bass ? "BASS" : "DRONE");
+#endif
     }
     if (pg == PG_SCENES && st.dirty) {
         sp_comma();
@@ -723,7 +747,7 @@ static uint32_t sp_view(void)
         return 5u | (uint32_t)fm.help_page << 8;
     if (fm.logo)
         return 6u;
-    return 7u | (uint32_t)fm.page << 8 | (fm.page == PG_KEYS ? (uint32_t)st.v[P_KB] << 16 : 0u);
+    return 7u | (uint32_t)fm.page << 8 | (fm.page == PG_KEYS ? (uint32_t)st.v[P_KB] << 16 | (uint32_t)MOUT_SEL() << 20 : 0u);
 }
 
 /* the view now, its part k (all: everything, WHERE): written, not sent; nothing written, no such part. Its first part
@@ -827,7 +851,9 @@ static int sp_readout(uint32_t e)
         return 1;
     }
 #endif
-    if (fm.touched_enc == e && fm.touched < NPARAM && plat_ms() - fm.touched_at < 100u)
+    if (e == EN_K1 && page_shape(fm.page) >= 0 && shape_at && plat_ms() - shape_at < 100u && fm.page == shape_pg)
+        p = K_SHAPE;                     /* (an ENV page's K1, OCT- held: its ATTACK SHAPE, card #122) */
+    else if (fm.touched_enc == e && fm.touched < NPARAM && plat_ms() - fm.touched_at < 100u)
         p = fm.touched;                  /* (what it turned: MIXER's PAN with OCT- held, GLO's CUTOFF) */
     else if (e < EN_K1)
         p = macro_of(e);
@@ -993,7 +1019,11 @@ static void sp_out(const char *kind)
 
 static void sp_dump_knob(uint32_t pg, uint32_t p)
 {
-    uint32_t x, hi = p == K_IDLE ? 60u : p == K_HEAD || p == K_ARP || p == K_SEQ ? 1u : p == K_TUNE ? A4_HI : p >= NPARAM ? 0u : PD[p].max;
+    uint32_t x, hi = p == K_IDLE ? 60u : p == K_HEAD || p == K_ARP || p == K_SEQ || p == K_SHAPE || (p >= K_LINK && p <= K_LK0 + 3u) ? 1u : p == K_TUNE ? A4_HI : p >= NPARAM ? 0u : PD[p].max;
+#if LD_CH_PAGE
+    if (p == K_LDCH)                     /* (LEAD CH's: a channel's, card #228) */
+        hi = PD[P_CH_BASS].max;
+#endif
     if (p < NPARAM && list_param(p)) {
         for (x = 0; x < list_n(p); x++) {
             sp_row(p, x, 1);
@@ -1030,6 +1060,8 @@ void app_speak_dump(void)
             for (i = 0; i < 4u; i++)
                 if (page_knob(pg, i) != NPARAM)
                     sp_dump_knob(pg, page_knob(pg, i));
+            if (page_shape(pg) >= 0)     /* (OCT- held: K1's ATTACK SHAPE, card #122) */
+                sp_dump_knob(pg, K_SHAPE);
             if (pg == PG_SON) {
                 sp_dump_knob(pg, P_KB);
                 sp_dump_knob(pg, track_preset());

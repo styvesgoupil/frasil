@@ -1,0 +1,4 @@
+# made on the engine of 3.3.1, "FRS~" (ef2cbb5, card #202's base: a scene's MORPH as it made it): NAME, its render from the top, joined half-way (engine/tests/old_streams.c make-morph, then hash)
+# m-north-long: NORTH RIVER to LONG NIGHT over 2:00 at 2 s, back over 2:00 at 124 s, LONG NIGHT again over 30 s at 200 s; m-mastering: RESILIENCE through three of its own (MASTERING, CLOUD, MASTER EQ OFF then CUSTOM, a short ATTACK and RELEASE) over 8 s, 8 s, 15 s, LOAD SND ONLY over 4 s, CUT
+m-north-long.frstream bbf4e8620f4697a6 849bd76bc5300d4a
+m-mastering.frstream 1ff48cdd603d5163 0aada1cd3b02e756
