@@ -5352,6 +5352,29 @@ static void key_let_go(uint32_t k)
 #endif
 }
 
+/* the keys as PERFORM's NOTE tells them (card #288): every key the device has, its lowest 0 (the FM-1's F3, the
+ * SMK-37's C3: the FM-1's key k its k + 5), each down with the note it plays (the key at the octave it went down at, as
+ * the device's track takes it: eng_key_down's) and its velocity; kept whether a page listens or not (pf_tick tells) */
+#if PLAT_SMK37
+#define KN_N NKEYS37
+#define KN_LOW 5u                        /* (the FM-1's 27 from the SMK-37's sixth key) */
+#else
+#define KN_N NKEYS
+#define KN_LOW 0u
+#endif
+static struct {
+    uint64_t down, hit;                  /* the keys down now; those gone down since the page was told (a NOTE the
+                                          * wire refused told at the next frame: a tap its down, then its up) */
+    uint8_t note[KN_N], vel[KN_N];       /* each one's last down: its note, its velocity (1..127) */
+} kn;
+static void kn_down(uint32_t k, int note, uint32_t vel)
+{
+    kn.down |= 1ull << k, kn.hit |= 1ull << k;
+    kn.note[k] = (uint8_t)(note < 0 ? 0 : note > 127 ? 127 : note);
+    kn.vel[k] = (uint8_t)(vel < 1u ? 1u : vel > 127u ? 127u : vel);
+}
+static void kn_up(uint32_t k) { kn.down &= ~(1ull << k); }
+
 #if PLAT_SMK37
 /* the SMK-37's ten keys around the FM-1's 27 (C3..E3 below F3, G#5..C6 above G5): notes only, never a page's keys
  * (Styves, 2026-11-09: they played nothing), on the engine's key numbers 27..31 (FRS_NKEYS 32, LIVE's): five of them
@@ -5374,6 +5397,10 @@ static void keys_outer(void)
         if (!(chg & bit))
             continue;
         chg &= ~bit;
+        if (now & bit)                   /* (NOTE: each one as it goes, whatever it plays here) */
+            kn_down(k, 48 + (int)k + 12 * fm.octave, (uint32_t)plat_key_vel((int)k));
+        else
+            kn_up(k);
         if (now & bit) {
             uint32_t id, used = 0, j, vel;
             int note;
@@ -5435,12 +5462,15 @@ static void keys_scan(void)
         uint32_t bit = 1u << k;
         if ((keys & bit) && !(keys_prev & bit)) {
 #if PLAT_SMK37
-            key_down(k, (uint8_t)plat_key_vel((int)k + 5));   /* (the SMK-37: its two contacts' velocity, the middle 27
-                                                              * keys from its sixth, F3; no pressure on its keys) */
+            uint32_t vel = (uint8_t)plat_key_vel((int)k + 5);   /* (the SMK-37: its two contacts' velocity, the middle 27
+                                                                * keys from its sixth, F3; no pressure on its keys) */
 #else
-            key_down(k, touch_vel(k));
+            uint32_t vel = touch_vel(k);
 #endif
+            kn_down(k + KN_LOW, 53 + (int)k + 12 * fm.octave, vel);
+            key_down(k, vel);
         } else if (!(keys & bit) && (keys_prev & bit)) {
+            kn_up(k + KN_LOW);
             key_let_go(k);
         } else if (keys & bit) {
             uint8_t p = touch_pressure(k);
@@ -5865,6 +5895,17 @@ void app_ui_init(void)
  *                13 PRESSURE p        the hand pressing into THE KEYS (card #139): the held key pressed hardest, how
  *                   much (0..127, 0 none held), as the engine has it; after each HELLO's answer, then as it moves (by
  *                   4, or to 0 or from it), 20 a second at most. An FM-1 before it never sends one
+ *                15 CCS map (19), learned..   the CCs DRONE CH turns settings with (card #256, FRASIL SOURCE's: CC_MAP,
+ *                   CC 11 SWELL, CC 80 FREEZE), 128 bits in 19 bytes (bit c % 7 of byte c / 7), then each one MIDI
+ *                   learn took for another setting (a byte each, NLEARN at most: a learned CC wins, eng_cc); after
+ *                   each HELLO's answer, and as one is learned. An FM-1 before it never sends one (its CCs 3.4's)
+ *                16 NOTE key, down, note, vel   a key down or up (card #288, FRASIL SOURCE's): every key the device
+ *                   has (the SMK-37's 37, its ten outer ones too), its lowest 0 (the FM-1's F3, the SMK-37's C3); the
+ *                   note it plays, the key at the octave it went down at (eng_key_down's: its track's own OCTAVE and
+ *                   scale after it, as MIDI's notes), the same on its up; its velocity (1..127 as the engine has it,
+ *                   0 on its up: the FM-1's from its keys' touch, the SMK-37's from its two contacts). Each one as it
+ *                   goes, in order, before KEYS (one the wire refused at the next frame, never lost); the keys held as
+ *                   a page arrives never. An FM-1 before it never sends one: KEYS alone
  *   both ways    14 START         Learn's known state (card #153: Learn's START, below)
  *   ARP II's LATCH (P_GA_LATCH, P_BA_LATCH) is the arpeggio's latch as it is, ARP held turning it: its VALUE says so
  *   (eng_steps keeps the setting on the latch)
@@ -5886,8 +5927,12 @@ void app_ui_init(void)
 static struct {
     uint32_t heard, frame_at, btn, kd, prs_at;   /* (kd: the keys held, as the page knows them; prs_at: PRESSURE's
                                           * last) */
+    uint32_t learn;                      /* the CCs learned, as CCS told them (a sum of them) */
     uint8_t on, page, oct, keys, scene, dirty, dump;   /* dump: the next VALUES' first setting + 1 (0: none due) */
     uint8_t prs;                         /* PRESSURE as the page knows it (0xFF: to tell) */
+    uint64_t kn;                         /* NOTE: the keys down as the page knows them (card #288) */
+    uint8_t kn_note[KN_N];               /* (each one's note as told) */
+    uint8_t ccs;                         /* CCS to tell (card #256): at HELLO, a CC learned */
     uint8_t v[NPARAM];                   /* each setting as the page knows it */
 } pf;
 
@@ -5971,6 +6016,30 @@ static void pf_battery(void)             /* 12 BATTERY: the reading (16383 none)
     memcpy(pf_batt_last, b, sizeof b);
     pf_batt_n++;
 #endif
+}
+
+/* 15 CCS (card #256): the CCs DRONE CH turns settings with (eng_midi's: CC_MAP, 11 SWELL, 80 FREEZE) as bits, then those
+ * MIDI learn took for another setting (eng_cc first: theirs move it), so a page moves only what it reaches. 0: sent */
+static int pf_ccs(void)
+{
+    uint8_t b[1u + 19u + NLEARN];
+    uint32_t i, j, n = 20u;
+    memset(b, 0, sizeof b);
+    b[0] = 15u;
+    b[1u + 11u / 7u] |= (uint8_t)(1u << 11u % 7u);
+    b[1u + 80u / 7u] |= (uint8_t)(1u << 80u % 7u);
+    for (i = 0; i < sizeof CC_MAP / sizeof CC_MAP[0]; i++)
+        b[1u + CC_MAP[i].cc / 7u] |= (uint8_t)(1u << CC_MAP[i].cc % 7u);
+    for (i = 0; i < NLEARN; i++) {
+        uint32_t c = set.learn_cc[i], own = 0;
+        if (!c || c > 127u || !(b[1u + c / 7u] >> c % 7u & 1u))
+            continue;
+        for (j = 0; j < sizeof CC_MAP / sizeof CC_MAP[0]; j++)
+            own |= CC_MAP[j].cc == c && CC_MAP[j].p == set.learn_p[i];   /* (learned on the list's own: the same) */
+        if (!own)
+            b[n++] = (uint8_t)c;
+    }
+    return pf_send(b, n);
 }
 
 static int pf_scene(void)
@@ -6488,6 +6557,24 @@ static void lv_end(void)                 /* the page gone: nothing more, nothing
     lv.kd = 0;
 }
 
+/* NOTE: key k down (its note and velocity, as it went down) or up (the note told), as the page knows it then; 0 sent */
+static int pf_key(uint32_t k, int down)
+{
+    uint8_t b[5];
+    b[0] = 16u, b[1] = (uint8_t)k, b[2] = (uint8_t)(down != 0);
+    b[3] = down ? kn.note[k] : pf.kn_note[k], b[4] = down ? kn.vel[k] : 0u;
+    if (pf_send(b, 5u))
+        return -1;
+    if (down) {
+        kn.hit &= ~(1ull << k);
+        pf.kn |= 1ull << k;
+        pf.kn_note[k] = kn.note[k];
+    } else {
+        pf.kn &= ~(1ull << k);
+    }
+    return 0;
+}
+
 /* a UI frame: what changed since the page last heard, then what sounds (20 a second) */
 static void pf_tick(void)
 {
@@ -6514,6 +6601,15 @@ static void pf_tick(void)
         if (pf_send(b, 4u))
             return;
         pf.page = fm.page, pf.oct = (uint8_t)(fm.octave + 3), pf.keys = keys;
+    }
+    for (i = n = 0; i < NLEARN; i++)     /* (a CC learned, or the settings' taken: told again) */
+        n = n * 131u + set.learn_cc[i] * 257u + set.learn_p[i];
+    if (n != pf.learn)
+        pf.ccs = 1, pf.learn = n;
+    if (pf.ccs) {                        /* (before VALUES: a page knows what it reaches once it has the settings) */
+        if (pf_ccs())
+            return;
+        pf.ccs = 0;
     }
     for (i = n = 0; i < NPARAM; i++)
         n += st.v[i] != pf.v[i];
@@ -6554,6 +6650,16 @@ static void pf_tick(void)
                 return;
             pf.btn ^= 1u << k;
         }
+    for (k = 0; k < KN_N; k++) {         /* each key down or up (NOTE, card #288): before KEYS, a page that heard one
+                                          * plays from them; an up, a down since, an up again (in order) */
+        uint64_t bit = 1ull << k;
+        if ((pf.kn & bit) && (!(kn.down & bit) || (kn.hit & bit)) && pf_key(k, 0))
+            return;
+        if ((kn.hit & bit) && pf_key(k, 1))
+            return;
+        if ((pf.kn & bit) && !(kn.down & bit) && pf_key(k, 0))
+            return;
+    }
     if (keys_prev != pf.kd) {            /* the hand on THE KEYS: the keys held (bit k: key k, F3 up), in four 7-bit bytes */
         b[0] = 8u;
         for (k = 0; k < 4u; k++)
@@ -6781,10 +6887,12 @@ int app_sysex(const uint8_t *p, uint32_t n)
         pf.scene = 0xFFu, pf.page = 0xFFu, pf.dump = 1u;
         pf.btn = plat_buttons() & ~saver.btn_spent;
         pf.kd = keys_prev;
+        pf.kn = kn.hit = 0;              /* (NOTE: the keys down now never told, nor their ups) */
         pf.frame_at = plat_ms();
     }
     pf.scene = 0xFFu, pf.page = 0xFFu, pf.prs = 0xFFu;   /* (told again: one the page missed comes back within 2 s;
                                           * PRESSURE after the answer: a page knows this FM-1 tells it) */
+    pf.ccs = 1;                          /* (CCS too, card #256) */
     pf.heard = plat_ms();
     if (fm.store_hold)                   /* a backup streaming: heard, not answered */
         return 1;
@@ -8167,6 +8275,31 @@ static int schema_write(const char *path)
     }
     fprintf(f, "]},\n\"glint\":{\"names\":");
     js_strs(f, GLINT_NAME, NGPRESET);
+    {                                    /* (card #256: the settings each preset sets, as glint_preset sets them; FRASIL
+                                          * SOURCE's strips after a jump) */
+        uint8_t gv[NPARAM], set_p[NPARAM] = {0};
+        fprintf(f, ",\"p\":[");
+        for (k = 0; k < NGPRESET; k++) {
+            memset(gv, 0xEE, sizeof gv);
+            glint_preset(gv, k);
+            for (p = 0; p < NPARAM; p++)
+                set_p[p] |= p != P_GL_PRESET && gv[p] != 0xEEu;
+        }
+        for (p = x = 0; p < NPARAM; p++)
+            if (set_p[p])
+                fprintf(f, "%s%u", x++ ? "," : "", p);
+        fprintf(f, "],\"presets\":[");
+        for (k = 0; k < NGPRESET; k++) {
+            memset(gv, 0xEE, sizeof gv);
+            glint_preset(gv, k);
+            fprintf(f, "%s[", k ? "," : "");
+            for (p = x = 0; p < NPARAM; p++)
+                if (set_p[p])
+                    fprintf(f, "%s%u", x++ ? "," : "", gv[p]);
+            fputc(']', f);
+        }
+        fputc(']', f);
+    }
     fprintf(f, "},\n\"lfo\":{\"base\":[%u,%u,%u],\"nfree\":%u,\"shapes\":", LFO_BASE[0], LFO_BASE[1], LFO_BASE[2],
             LFO_NFREE);
     js_strs(f, LFO_SHAPE_NAME, 7);
@@ -8645,11 +8778,12 @@ static void pfc_op(const char *hex, const char *src, const char *s)
     printf("  ok pfop %s\n", t);
 }
 
-/* pfmsg HEX: the next message kept (LIVE's, pfwatch's) is that one: HEX its cmd, then its bytes as sent */
+/* pfmsg HEX: the next message kept (LIVE's, pfwatch's) is that one: HEX its cmd, then its bytes as sent (31 at most:
+ * CCS's 19 and its CCs learned, card #256) */
 static void pfc_msg(const char *hex)
 {
-    uint8_t o[1024], w[16];
-    char t[64];
+    uint8_t o[1024], w[32];
+    char t[72];
     uint32_t n = 0, wn = 0, i;
     int c = pfc_next(o, &n, sizeof o);
     for (i = 0; hex[2u * i] && hex[2u * i + 1u] && wn < sizeof w; i++) {
@@ -8658,7 +8792,7 @@ static void pfc_msg(const char *hex)
         w[wn++] = (uint8_t)v;
     }
     snprintf(t, sizeof t, "%02x", c < 0 ? 0xFFu : (unsigned)c);
-    for (i = 0; i < n && i < 24u; i++)
+    for (i = 0; i < n && i < 32u; i++)
         snprintf(t + 2u + 2u * i, sizeof t - 2u - 2u * i, "%02x", o[i]);
     if (!wn || c != w[0] || n != wn - 1u || memcmp(o, w + 1, n))
         pfc_say(0, "pfmsg", t);

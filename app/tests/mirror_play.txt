@@ -1,0 +1,98 @@
+# The screen mirror changes nothing that plays (card #279): a drone latched, GLINT's arpeggio latched, the drone's
+# sequence recording LIVE, the LEAD played, MIDI's keys out to the computer, MIDI notes and a MIDI clock coming in,
+# while a viewer mirrors the screen at USB's own pace (mirror_rate 48) and the pages, the values and the pop-ups turn
+# under it (the river moving: the mirror's link full all along, its redraws asked). mirror.sh runs it a second time
+# with no viewer (the "mirror" lines out): the renders (renderhash, every sample) and the MIDI sent must be the same,
+# bit for bit.
+#   app/build/host/frasil_host app/tests/mirror_play.txt OUTDIR
+master 3000
+wait 600
+testscene
+wait 100
+mirror_rate 48
+mirror out:play.syx
+setp 156 60
+tapkey 7
+wait 200
+tapkey 14
+wait 200
+# GLINT on ARP, a chord latched into it
+turn SELECT 1
+wait 30
+setp 123 1
+wait 30
+tapkey 12
+wait 200
+turn SELECT -1
+wait 30
+# the LEAD (SELECT's fourth): a few notes held and let go
+turn SELECT 3
+wait 30
+expect p166 3
+key 16 down 100 60
+wait 400
+key 16 up
+wait 100
+key 19 down 90 40
+wait 600
+key 19 up
+wait 100
+# MIDI (one past it): its keys out to the computer
+turn SELECT 1
+wait 30
+expect mout 1
+key 7 down 100 70
+wait 300
+key 7 up
+wait 30
+key 11 down 80
+wait 200
+key 11 up
+wait 30
+turn SELECT -4
+wait 30
+expect mout 0
+# REC on the drone: its sequence on, a bar counted, the take LIVE; a chord into it
+tap REC
+wait 2900
+tapkey 9 90
+wait 300
+expect p203 2
+# MIDI notes and a clock coming in; meanwhile the pages, a value and back, the help, a pop-up
+midi 90 33 70
+clock 192 21
+tap FX
+turn K2 7
+wait 400
+tap FX
+wait 400
+tap SEL
+wait 400
+turn K2 -7
+gopage 0
+wait 400
+midi 80 33 0
+press HOME
+wait 500
+release HOME
+wait 800
+tap HOME
+wait 400
+turn K1 3
+wait 500
+turn K1 -3
+midi 92 40 90
+wait 1200
+midi 82 40 0
+backup out:playing.frasil
+restore out:playing.frasil
+wait 300
+expect popup 1
+wait 1000
+tap SEL
+wait 300
+expect popup 0
+clock 96 21
+wait 3000
+mirror off
+renderhash

@@ -49,6 +49,14 @@ __attribute__((used, visibility("default"))) void web_scene_take(void)
 }
 /* a setting or a step edited (eng_edit_param), then the shard as it is now (web_scene_size() bytes) */
 __attribute__((used, visibility("default"))) void web_param(uint32_t p, uint32_t x) { eng_edit_param(p, x); }
+/* FRASIL SOURCE's (card #265): a setting as a CC on the drones' channel sets it (eng_midi's CC_MAP: param_set), what
+ * THE KEYS hold kept (web_param, the editor's, lets them go for the sequences' and the bass's PLAYS, RATE, MODE ...);
+ * nothing edited */
+__attribute__((used, visibility("default"))) void web_cc(uint32_t p, uint32_t x)
+{
+    if (p < NPARAM)
+        param_set((int)p, (int32_t)x);
+}
 __attribute__((used, visibility("default"))) uint8_t *web_scene_edited(void)
 {
     static scene_t e;
@@ -61,10 +69,29 @@ __attribute__((used, visibility("default"))) uint8_t *web_lead_edited(void)   /*
     eng_lead_get(e);
     return e;
 }
-/* THE KEYS: LATCH (1 latched, 0 let go, -1 nothing), CLEAR, HOLD (eng_latch, eng_clear, eng_hold) */
+/* THE KEYS: LATCH (1 latched, 0 let go, -1 nothing), CLEAR, HOLD (eng_latch, eng_clear, eng_hold: down 2 the drones'
+ * note alone, no chord; vel 1..127 its notes' velocity, a device's key's: card #288; 0, or a page that never says it,
+ * 100 as before). HOLD on t 3 the LEAD (FRASIL SOURCE's, card #287: a device's key on its LEAD page), as its keys play
+ * it: the note as played, MONO's last one down sounding, gliding there from one held, POLY's each its voice (core.c
+ * midi_lead_on, midi_lead_up: the LEAD's MIDI notes', at the key's velocity, else THE KEYS' 100); nothing latched,
+ * nothing kept, let go by its up. Never sent before: the River's, the editor's and Perform's engines as they were */
 __attribute__((used, visibility("default"))) int web_latch(uint32_t t, uint32_t note) { return eng_latch(t, note); }
 __attribute__((used, visibility("default"))) void web_clear(uint32_t t) { eng_clear(t); }
-__attribute__((used, visibility("default"))) void web_hold(uint32_t t, uint32_t note, uint32_t down) { eng_hold(t, note, down); }
+__attribute__((used, visibility("default"))) void web_hold(uint32_t t, uint32_t note, uint32_t down, uint32_t vel)
+{
+    hold_v = (uint8_t)(vel >= 1u && vel <= 127u ? vel : 100u);
+#if FRS_LEAD
+    if (t == 3u) {
+        int n = note > 127u ? 127 : (int)note;
+        if (down)
+            midi_lead_on(n, hold_v);
+        else
+            midi_lead_up(n);
+        return;
+    }
+#endif
+    eng_hold(t, note, down);
+}
 /* what sounds now (eng_live: ENG_LIVE floats) */
 static float web_lv[ENG_LIVE];
 __attribute__((used, visibility("default"))) uint32_t web_live_size(void) { return ENG_LIVE; }
@@ -73,6 +100,25 @@ __attribute__((used, visibility("default"))) float *web_live(void)
     eng_live(web_lv);
     return web_lv;
 }
+#if FRS_LEAD
+/* ... and the LEAD's (card #287: app_worklet.js's live op with lead, after web_live's), as stream.wasm's st_lead lays
+ * them out: LEAD_NV voices' notes as they sound (OCTAVE on them; -1 free, or gone silent), their envelopes (0..1), its
+ * meter */
+static float web_ldv[2u * LEAD_NV + 1u];
+__attribute__((used, visibility("default"))) uint32_t web_lead_live_size(void) { return 2u * LEAD_NV + 1u; }
+__attribute__((used, visibility("default"))) float *web_lead_live(void)
+{
+    lead_view_t l;
+    uint32_t i;
+    frasil_lead_view(&l);
+    for (i = 0; i < LEAD_NV; i++) {
+        web_ldv[i] = l.vnote[i] >= 0 && l.venv[i] > 0.0f ? (float)l.vnote[i] : -1.0f;
+        web_ldv[LEAD_NV + i] = l.vnote[i] < 0 ? 0.0f : l.venv[i];
+    }
+    web_ldv[2u * LEAD_NV] = frasil_lead_meter();
+    return web_ldv;
+}
+#endif
 /* the drone's sequence's steps (3.0), as the editor edits them: the page writes a step's notes (up to DQ_NOTES bytes, as
  * the step keeps them: 1 .. 126; one DQ_TIE, a tie; none, a rest) to web_dseq_buf, then web_dseq_step(step, n); a
  * step changed is an edit (eng_edits), as a setting's */

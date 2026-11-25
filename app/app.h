@@ -36,6 +36,21 @@ uint32_t app_log_word(void);
 #define APP_SPLASH                       /* the logo at power-on (ui.c), before the engine starts */
 #define APP_SYSEX                        /* Perform's SysEx (app.c app_sysex, pf_tick): the play told to a page */
 void app_splash(void);
+#define APP_REDRAW                       /* the screen mirror (fm1.toml mirror = true, card #279): a viewer came, or a slow
+                                          * link lost a part: the whole screen again at the next frame (ui.c) */
+void app_redraw(void);
+#define MR_SEGW 240u                     /* its rows hashed whole, one segment each (fm1-base's 30: 7.5 KB of the pool;
+                                          * this, 960 B): a row that changed goes again whole */
+#if !defined PLAT_HOST && PLAT_SMK37
+#define MRQ 1024u                        /* its frames' ring (felucca-bsp usb.c's 4096 by default): the SMK-37's RAM has
+                                          * 1 KB less to give (its board's); a frame is 839 B at most (a row's worst
+                                          * code alone) */
+#elif !defined PLAT_HOST
+#define MRQ 2048u                        /* the FM-1's, 2 KB of the RAM given back (the simulator keeps its own, 4096) */
+#endif
+#ifdef MRQ
+_Static_assert((MRQ & (MRQ - 1u)) == 0u, "MRQ a power of two: usb.c's ring counters run free (% MRQ across their wrap)");
+#endif
 #define APP_TICK                         /* 1 kHz, in the scan's interrupt: OCT's soft blink (app.c) */
 void app_tick(void);
 #ifndef PLAT_HOST                        /* USB MIDI's Song Position (card #204): the BSP's ring takes the channels'

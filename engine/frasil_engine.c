@@ -5,7 +5,10 @@
  * loop's pass), so that the same MIDI at the same milliseconds renders the same samples. The sound, the DSP's units,
  * compiled beside it. */
 #include "frasil_engine.h"
-#if FRS_MIDI_OUT                         /* NOTES OUT (card #201: mout.c no_*, as the FM-1's app.c nout_*): the brain's own
+#if FRS_CHORDS
+#include "chords.h"                      /* CHORD PADS (card #208): what core.c plays goes through the chord's move */
+#endif
+#if FRS_MIDI_OUT                        /* NOTES OUT (card #201: mout.c no_*, as the FM-1's app.c nout_*): the brain's own
                                           * notes told as it strikes them, by who struck them (SPARKLE's two places) */
 enum { GEN_ARP, GEN_SEQ, GEN_SPK, GEN_SPK2, GEN_BASS, NGEN };
 static void no_note(uint32_t at, int note, float v);
@@ -96,6 +99,9 @@ static void tr_reset(void)               /* no track stopped, nothing kept (a sc
 {
     memset(&tr, 0, sizeof tr);
     tr.bass = -1;
+#if FRS_CHORDS
+    cm_drop();                           /* (and no chord's move: the drones given back) */
+#endif
 }
 
 static int bass_on_seq(void) { return st.v[P_BQ_ON] == SQT_SEQ && bseq_has_notes(); }   /* (an empty one's: the keys') */
@@ -685,6 +691,9 @@ static void eng_tick(void)
     host_clock();
     tr_hold();                           /* (a Start, the host's: a stopped track stays so) */
     eng_moves();
+#if FRS_CHORDS
+    cm_tick();                           /* (a chord waiting for the beat, the drones' glide into one) */
+#endif
     seq_origins();
 #if FRS_MIDI_OUT
     if (mo_jumps != grid_jumps) {        /* (the grid put elsewhere by MIDI's Continue or Song Position, card #204: its
@@ -772,6 +781,9 @@ int frs_init(float fs)
     now64 = 0;                           /* (as the FM-1 boots: at 0, its first millisecond 1) */
 #if FRS_MIDI_OUT
     mo_init();
+#endif
+#if FRS_CHORDS
+    cm_init();                           /* (no chord's move, every track following) */
 #endif
     due_ms = 0.0;
     block_ms = (double)FRS_BLOCK * 1000.0 / (double)fs;
@@ -1163,6 +1175,9 @@ static void rs_dbl(rs_io *s, double *d)
         memcpy(d, w, 8);
 }
 static double alone_frac;                /* (alone_lv's: the next block's time after the clock's millisecond) */
+#if FRS_CHORDS
+static void cm_lv(rs_io *s);             /* (CHORD PADS' move, chords.c: an engine with them reads one with them) */
+#endif
 static void alone_lv(br_live *c)
 {
     rs_io *s = (rs_io *)c;
@@ -1218,6 +1233,9 @@ static void alone_lv(br_live *c)
             mq_w = i + 1u;
         }
     }
+#if FRS_CHORDS
+    cm_lv(s);
+#endif
 }
 _Static_assert(sizeof host.frame == 8u && sizeof host.clocks == 8u, "the host's frame and clocks: 8 bytes, as a double");
 
@@ -1241,6 +1259,9 @@ static void alone_reset(const uint8_t *scene)
     g_was = 0.0f;
     org_gl.on = org_bs.on = gl_joined = 0;
     mq_r = mq_w = 0;
+#if FRS_CHORDS
+    cm_zero();                           /* (no chord's move: an FM-1 has none) */
+#endif
 }
 
 #if FRS_LEAD
@@ -1280,6 +1301,9 @@ int frs_live_load(const uint8_t *in, uint32_t n, const uint8_t *scene)
         return -1;
     keymode_gone = latch_gone = 0;
     alone_frac = 0.0;
+#if FRS_CHORDS
+    cm_zero();                           /* (the move as the state has it, or none: the sound loaded is its) */
+#endif
     f = live_load(in, n, scene, &held, alone_lv);
     if (f < 0)
         return -1;
@@ -2119,6 +2143,9 @@ void frs_view(frs_view_t *v)
     v->lead_held = 0;
     v->lead_meter = 0.0f;
 #endif
+#if FRS_CHORDS
+    cm_view(v);                          /* (CHORD PADS: the chord's move) */
+#endif
 }
 
 void frs_live(float *out) { eng_live(out); }
@@ -2293,4 +2320,7 @@ void frs_callbacks(void (*say)(void *user, const char *a, const char *b), void (
 
 #if FRS_MIDI_OUT
 #include "mout.c"                        /* MIDI OUT, the fifth track (card #192) */
+#endif
+#if FRS_CHORDS
+#include "chords.c"                      /* CHORD PADS (card #208) */
 #endif

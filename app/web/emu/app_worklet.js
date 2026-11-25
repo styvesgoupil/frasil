@@ -6,19 +6,32 @@
 // op: "stop"} (app/web.c);
 // {type: "app", op: "quiet"}: a page without the screen (the River), the screen's frames not sent;
 // {type: "app", op: "param", p, x}: the River's editor, a setting set (web_param: as a MIDI CC learned on it sets it);
-// {type: "app", op: "latch", t, n}, {op: "clear", t}, {op: "hold", t, n, down}: THE KEYS, what it plays (web_latch,
-// web_clear, web_hold: t 0 the drones, 1 GLINT, 2 the bass; n a note as it sounds);
+// {type: "app", op: "cc", p, x}: FRASIL SOURCE's, a setting as a CC on the drones' channel sets it (web_cc: what THE
+// KEYS hold kept, card #265);
+// {type: "app", op: "latch", t, n}, {op: "clear", t}, {op: "hold", t, n, down, one, vel}: THE KEYS, what it plays
+// (web_latch, web_clear, web_hold: t 0 the drones, 1 GLINT, 2 the bass; n a note as it sounds; one, the drones' note
+// alone, no chord: FRASIL SOURCE's SINGLE, card #259; hold's t 3 the LEAD, its note as played: SOURCE's, card #287; vel,
+// 1..127, its velocity: a device's key's, card #288; none, the engine's 100);
 // {type: "app", op: "dstep", i, notes}: the editor, the drone's sequence's step i written (web_dseq_buf, web_dseq_step:
 // its notes as the step keeps them, up to its size; one tie; none, a rest);
 // {type: "app", op: "live", on}: while on, what sounds (web_live: web_live_size() floats) posted about 30 times a second,
 // {type: "live", t (currentTime: what was rendered up to then), v (a Float32Array)}: the River's card follows the sound;
+// with lead (FRASIL SOURCE's, card #287), the LEAD's after them (web_lead_live: web_lead_live_size() floats, as
+// stream.wasm's st_lead after st_live's; an engine without them, web_live's alone);
 // {type: "app", op: "end"}: this engine is done (another one, fresh, plays the next shard): silent, its memory let go,
 // and its processor's process() returning false from now on, so the browser can let it go too
 globalThis.fm1App = {
   process(fm1) {
     if (fm1.quiet) fm1.lastFrame = currentTime;   // (worklet.js publishes a frame 1/30 s after the last)
     if (fm1.live && currentTime - fm1.liveAt >= 1 / 30) {
-      const ex = fm1.ex, v = new Float32Array(fm1.mem.buffer, ex.web_live(), ex.web_live_size()).slice();
+      const ex = fm1.ex;
+      let v = new Float32Array(fm1.mem.buffer, ex.web_live(), ex.web_live_size()).slice();
+      if (fm1.lead) {
+        const l = new Float32Array(fm1.mem.buffer, ex.web_lead_live(), ex.web_lead_live_size()), w = new Float32Array(v.length + l.length);
+        w.set(v);
+        w.set(l, v.length);
+        v = w;
+      }
       fm1.liveAt = currentTime;
       fm1.port.postMessage({ type: "live", t: currentTime, v }, [v.buffer]);
     }
@@ -35,6 +48,7 @@ globalThis.fm1App = {
     if (!ex) return;
     if (m.op === "live") {
       fm1.live = !!m.on && !!ex.web_live;
+      fm1.lead = !!m.lead && !!ex.web_lead_live;
       fm1.liveAt = -1;
     } else if (m.op === "scene" && ex.web_scene_buf) {
       const all = Uint8Array.from(m.bytes || []), n = ex.web_scene_size(), b = all.subarray(0, n);
@@ -48,12 +62,14 @@ globalThis.fm1App = {
       ex.web_scene_play();
     } else if (m.op === "param" && ex.web_param) {
       ex.web_param(m.p >>> 0, m.x >>> 0);
+    } else if (m.op === "cc" && ex.web_cc) {
+      ex.web_cc(m.p >>> 0, m.x >>> 0);
     } else if (m.op === "latch" && ex.web_latch) {
       ex.web_latch(m.t >>> 0, m.n >>> 0);
     } else if (m.op === "clear" && ex.web_clear) {
       ex.web_clear(m.t >>> 0);
     } else if (m.op === "hold" && ex.web_hold) {
-      ex.web_hold(m.t >>> 0, m.n >>> 0, m.down ? 1 : 0);
+      ex.web_hold(m.t >>> 0, m.n >>> 0, m.down ? (m.one ? 2 : 1) : 0, m.vel >>> 0);
     } else if (m.op === "dstep" && ex.web_dseq_step) {
       const n = Uint8Array.from(m.notes || []).subarray(0, 8);
       new Uint8Array(fm1.mem.buffer, ex.web_dseq_buf(), n.length).set(n);

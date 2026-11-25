@@ -2,7 +2,8 @@
  * Copyright (C) 2026 Styves Goupil */
 /* The engine alone from the inside (frasil_engine.c's statics): its clock past 49.7 days (the milliseconds wrap, the
  * render goes on), a note under the scale's lowest (no root: nothing latched, nothing written outside), the function
- * statics that carried time started again with it; the LFOs on the LFOs (card #199: xmod_test). Built under AddressSanitizer and UBSan too (engine/tests/run.sh).
+ * statics that carried time started again with it; the LFOs on the LFOs (card #199: xmod_test); the sound's CCs (cards
+ * #256, #265: cc_map_test). Built under AddressSanitizer and UBSan too (engine/tests/run.sh).
  *   engine/tests/run.sh, or: inside */
 #include <stdio.h>
 #include <math.h>
@@ -2239,6 +2240,73 @@ static void transport_test(void)
     frs_close();
 }
 
+/* the sound's CCs (card #256: eng_midi's CC_MAP, FRASIL SOURCE's; card #265 the arpeggiators'): each its own number,
+ * none reserved nor eng_midi's own; each on DRONE CH (eng_midi, as each message comes) moving its setting to (cc * max
+ * + 63) / 127 and nothing else (a PRESET its sound, as PRESETS turns it: its table's); none on another channel */
+static void cc_map_test(void)
+{
+    static const uint8_t KEPT[] = {0, 6, 7, 10, 11, 32, 38, 64, 65, 66, 67, 68, 69, 80, 96, 97, 98, 99, 100, 101, 120,
+                                   121, 122, 123, 124, 125, 126, 127};
+    static const uint8_t VS[] = {0, 1, 37, 63, 64, 100, 126, 127};
+    uint8_t was[NPARAM], seen[128] = {0};
+    uint32_t i, j, k, n = sizeof CC_MAP / sizeof CC_MAP[0], dup = 0, kept = 0, bad = 0, stray = 0, other = 0;
+    uint32_t dch, presets = 0;
+    char why[96] = "";
+    for (i = 0; i < n; i++) {
+        dup += seen[CC_MAP[i].cc]++ != 0;
+        for (j = 0; j < sizeof KEPT; j++)
+            kept += CC_MAP[i].cc == KEPT[j];
+    }
+    check(n == 99u && !dup && !kept, "CC_MAP: 99 CCs (3.4's 20, card #256's 69, card #265's 10: the arpeggiators'), each its "
+                                     "own, none reserved nor eng_midi's own");
+    frs_init(44100.0f);
+    dch = st.v[P_CANAL] - 1u;
+    for (i = 0; i < n; i++) {
+        int p = CC_MAP[i].p;
+        for (k = 0; k < sizeof VS; k++) {
+            int32_t want = ((int32_t)VS[k] * PD[p].max + 63) / 127;
+            memcpy(was, st.v, sizeof was);
+            eng_midi((0xB0u | dch) << 8 | (uint32_t)CC_MAP[i].cc << 16 | (uint32_t)VS[k] << 24);
+            if (st.v[p] != (uint8_t)want) {
+                if (!bad++)
+                    snprintf(why, sizeof why, " (CC %u at %u: %s %u, not %d)", CC_MAP[i].cc, VS[k], PD[p].name, st.v[p],
+                             (int)want);
+                continue;
+            }
+            if (p == P_DR_PRESET || p == P_GL_PRESET) {   /* (a preset: its table's sound; the drone's CUSTOM, its
+                                                            * settings as they were last turned) */
+                uint8_t g[NPARAM];
+                if (p == P_DR_PRESET && want) {
+                    for (j = 0; j < NDRONE; j++)
+                        stray += st.v[DRONE_P[j]] != DRONE_PRESET[(want - 1) % NDPRESET][j];
+                } else if (p == P_GL_PRESET) {
+                    memcpy(g, was, sizeof g);
+                    glint_preset(g, (uint32_t)want);
+                    for (j = 0; j < NPARAM; j++)
+                        stray += st.v[j] != g[j];
+                }
+                presets++;
+                continue;
+            }
+            for (j = 0; j < NPARAM; j++)  /* (a drone's setting turned: CUSTOM from here, the drone's PRESET 0) */
+                if ((int)j != p && st.v[j] != was[j] && !(j == P_DR_PRESET && st.v[j] == 0u))
+                    stray++;
+        }
+    }
+    check(!bad, "each on DRONE CH moves its setting to (cc * max + 63) / 127, at 0, 1, 37, 63, 64, 100, 126, 127");
+    if (bad)
+        printf("       %u wrong%s\n", (unsigned)bad, why);
+    check(presets && !stray, "  nothing else moved; the drone's PRESET and GLINT's their table's sound (MODEL, MEDIA, TYPE "
+                             "alone)");
+    memcpy(was, st.v, sizeof was);
+    for (i = 0; i < n; i++)              /* (GLINT CH, 2: each where it would move, were it the drones') */
+        eng_midi((0xB0u | ((dch + 1u) & 15u)) << 8 | (uint32_t)CC_MAP[i].cc << 16 | (was[CC_MAP[i].p] ? 0u : 127u) << 24);
+    for (j = 0; j < NPARAM; j++)
+        other += st.v[j] != was[j];
+    check(!other, "on another channel: none moves");
+    frs_close();
+}
+
 int main(void)
 {
     frs_view_t v;
@@ -2296,6 +2364,7 @@ int main(void)
     tgt_test();
     xmod_test();
     transport_test();
+    cc_map_test();
     printf("inside: %s\n", fails ? "FAILED" : "ok");
     return fails ? 1 : 0;
 }

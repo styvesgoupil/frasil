@@ -1,0 +1,54 @@
+# PERFORM's NOTE (card #288, FRASIL SOURCE's) on the SMK-37's simulator: FM1B_BOARD=smk37 FM1B_MODEL=elite
+# ./build.sh --host, then
+#   app/build/host/frasil-smk37-elite_host app/tests/smk37_note.txt OUTDIR
+# (not in tools/runner/check.sh: its firmware area runs the FM-1's simulator; app/tests/live.txt the FM-1's NOTE).
+# Each of its 37 keys told as it goes, before KEYS: cmd 16, its key (C3 its 0), down, its note at the octave (here 0),
+# its velocity; its up the note told, 0. At its octave -1: its ten outer keys (C3, 36; C6, 72) told, KEYS never (the
+# middle 27 alone, as before); one of the middle 27 (C4: its key 12, the FM-1's key 7, 48) both
+master 3000
+wait 1600
+pfhello 0
+wait 50
+pfwatch 8 16
+expect octave -1
+key37 0 down 90
+wait 30
+pfmsg 100001245a
+pfnone
+key37 0 up
+wait 30
+pfmsg 1000002400
+pfnone
+key37 36 down 127
+wait 30
+pfmsg 102401487f
+key37 36 up
+wait 30
+pfmsg 1024004800
+pfnone
+key37 12 down 33
+wait 30
+pfmsg 100c013021
+pfmsg 0800010000
+key37 12 up
+wait 30
+pfmsg 100c003000
+pfmsg 0800000000
+pfnone
+# an octave up (OCT+, 0): C3 is C3 (48), its up the same after OCT- again
+press OCT+
+release OCT+
+wait 30
+expect octave 0
+key37 0 down 64
+wait 30
+press OCT-
+release OCT-
+wait 30
+key37 0 up
+wait 30
+pfmsg 1000013040
+pfmsg 1000003000
+pfnone
+pfbye
+pfwatch

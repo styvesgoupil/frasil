@@ -276,6 +276,11 @@ NVDA). You hear each page as you reach it, with its four settings; a knob's name
 choice and its place (DORIAN, 4 OF 12); the name you write, a character at a time; every message and warning. Its
 *Read the whole screen* button (W) says it all.
 
+**Screen mirror.** The screen, large, on a computer, a phone or an iPad. Plug the FM-1 in over USB and open an app
+made for fm1-base's screen mirror. It shows every page, value and message as the FM-1 does; its buttons and knobs work
+the FM-1's (its keys don't play). Nothing is sent until an app asks; the sound is the same with it on. On a slow link
+the moving river can lag behind. It works alongside PERFORM and the screen reader. On the SMK-37 too.
+
 ---
 
 ## 4. Playing

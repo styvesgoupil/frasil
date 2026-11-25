@@ -1,0 +1,92 @@
+# The screen mirror at USB's own pace (card #279; mirror_rate 48: a 64-byte USB-MIDI packet a millisecond), the river
+# moving: the link full, frames dropped, redraws asked. What a viewer reads arrives all the same: the header, the
+# footer, an edit page's values under the river within half a second of a turn (mirror.sh compares those rows: NAME
+# ROWS, below), the logo's every row, a pop-up and the help whole; ANIMATIONS LOW, the whole screen. A viewer comes on
+# each (mirror out:).
+#   app/tests/mirror.sh OUTDIR
+master 3000
+# the logo's screen at power-on, alive: every row reaches the viewer (its water moving all over: logo:covers)
+mirror out:logo.syx
+wait 3600
+fbdump logo.raw
+mirror off
+wait 1400
+tapkey 9 90
+wait 300
+tapkey 2 80
+wait 1000
+# the river: the header and the footer (rows 0-31, 176-239)
+mirror out:river.syx
+wait 2000
+fbdump river.raw
+mirror off
+# an edit page (DRONE I: CHOIR .. WARMTH under the river): WARMTH turned, its row and the others, 500 ms on (rows
+# 0-31, 96-239); turned back, the same
+turn K1 1
+wait 1000
+mirror out:edit.syx
+wait 2000
+turn K4 9
+wait 500
+fbdump edit.raw
+mirror out:edit_back.syx
+wait 2000
+turn K4 -9
+wait 500
+fbdump edit_back.raw
+mirror off
+# a pop-up over everything (STOP FIRST), whole
+backup out:playing.frasil
+mirror out:popup.syx
+wait 1500
+restore out:playing.frasil
+wait 1500
+expect popup 1
+fbdump popup.raw
+mirror out:popup_gone.syx
+tap SEL
+wait 1500
+expect popup 0
+fbdump popup_gone.raw
+mirror off
+# the help, whole
+mirror out:help.syx
+press HOME
+wait 500
+release HOME
+wait 1500
+fbdump help.raw
+mirror off
+tap HOME
+wait 300
+gopage 0
+wait 300
+# alongside a PERFORM page (LIVE) and a screen reader: each gets its own, the viewer its rows (0-31, 96-239)
+listen
+pfhello 2
+mirror out:together.syx
+turn K1 1
+wait 1500
+pfhello 2
+turn K4 3
+wait 600
+expect pf_live 1
+said WARMTH
+fbdump together.raw
+mirror off
+turn K4 -3
+gopage 0
+wait 300
+# ANIMATIONS LOW: the river still, the whole screen; a value turned on the edit page, the whole screen again
+setp 181 1
+wait 500
+mirror out:still.syx
+wait 2500
+fbdump still.raw
+mirror out:still_edit.syx
+turn K1 1
+wait 1500
+turn K4 5
+wait 1500
+fbdump still_edit.raw
+mirror off

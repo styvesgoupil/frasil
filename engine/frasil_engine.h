@@ -44,8 +44,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#ifndef FRS_CHORDS                       /* CHORD PADS (card #208, chords.c): FrasilVibe's engine; 0, every other build
+                                          * (the FM-1's and the SMK-37's app, the iPad, STREAM, the tests but theirs) */
+#define FRS_CHORDS 0
+#endif
 
-#define FRS_VERSION "3.4"           /* the FRASIL this engine is (VERSION's: engine/tests/run.sh checks them alike) */
+#define FRS_VERSION "3.4.1"           /* the FRASIL this engine is (VERSION's: engine/tests/run.sh checks them alike) */
 #define FRS_BLOCK 256u                   /* frames the engine renders at a time (frs_render takes any count) */
 #define FRS_SCENE_BYTES 619u             /* a scene, a shard ("FRS}": its name's characters 17 .. 32, the LFOs' AMOUNTs and
                                           * SWELL last; the same bytes in "FRS|", 3.0.2-b5's test builds', its AMOUNTs as
@@ -676,6 +680,50 @@ int frs_preset_apply(const uint8_t *in, uint32_t n);   /* taken: its layer's set
 int frs_preset_is(const uint8_t *in, uint32_t n);   /* the sound is it now: 1, else 0; -1 not one (the one lit) */
 int frs_preset_param(uint32_t layer, uint32_t i);   /* the layer's setting i (0 ..), -1 past the last (any thread) */
 
+/* ----------------------------------------------------------- CHORD PADS --- */
+/* CHORD PADS (card #208, engine/chords.c; built with FRS_CHORDS 1: FrasilVibe's, the FM-1's and the SMK-37's to come
+ * from its keys or MIDI notes). A chord: a DEGREE of HARMONY's key (ROOT, SCALE: 0 its I .. 6 its VII; a pentatonic
+ * built on its mode's seven, MAJOR's or MINOR's, CHROMATIC on MAJOR's) and a TYPE: TRIAD, 6, 7, 9, SUS2, SUS4, ADD9 up
+ * the scale from it, MAJOR, MINOR, DOM 7 the same on every degree (V7 in a minor key, IV minor in a major one).
+ *   frs_chord_go moves the scene into it, the tracks frs_chord_follow names following (all five at the start):
+ *   DRONE: the drones play the chord, HARMONY's VOICING on it, its root the nearest to where they played when it took
+ *     them; what they play themselves (latched, held, their sequence) goes on silent, heard again once it gives them
+ *     back (frs_chord_home, DRONE no longer following). Something that lets every drone note go meanwhile (KEY MODE,
+ *     CUT's transport, RELEASE ALL) gives them back.
+ *   GLINT, BASS, LEAD: each note they play from then on (their arpeggios, their sequences, a latched or held note, the
+ *     keys, MIDI's, SPARKLE's) moved along the scale by the chord's degree (from the scale's I: up to three steps, up
+ *     or down, the nearest way), and a note out of the scale that the chord has (A7's C# in D minor) altered so; the
+ *     bass's note sounding goes there at once (gliding as its GLIDE does), GLINT's and the LEAD's ringing keep theirs.
+ *   MIDI: a shell's MIDI track (frs_chord_note with FRS_CM_MIDI): its notes moved as GLINT's.
+ *   GLIDE (on_beat 0): at once, the drones' voices one by one over MORPH's time (P_MORPH; CUT: together). ON THE BEAT
+ *   (1): everything at the grid's next beat (or 4 s, its clock stopped), the drones together.
+ * A scene taken (but LOAD SND ONLY's), frs_panic, frs_release, frs_release_all, frs_cut, All Sound Off: no move (the
+ * drones given back). Nothing of it in a scene, a shard or frs_state_save; in the running state, the engine alone's
+ * part. Without a move the engine renders what it rendered without FRS_CHORDS, sample for sample. From the thread that
+ * renders, but frs_chord_notes, frs_chord_name and frs_chord_type_name (any thread: what they are given alone) */
+#define FRS_CM_TYPES 10u                 /* TRIAD, 6, 7, 9, SUS2, SUS4, ADD9, MAJOR, MINOR, DOM 7 */
+#define FRS_CM_DRONE 1u
+#define FRS_CM_GLINT 2u
+#define FRS_CM_BASS 4u
+#define FRS_CM_LEAD 8u
+#define FRS_CM_MIDI 16u
+#define FRS_CM_ALL 31u
+#if FRS_CHORDS
+/* the chord's notes, close (its root in C4's octave, 60 .. 71, the rest above it), low to high: how many, 5 at most (0:
+ * no such degree or type) */
+uint32_t frs_chord_notes(uint32_t root, uint32_t scale, uint32_t degree, uint32_t type, int8_t *out);
+/* its words: name ("Bbmaj7", "Em7b5", "A7": 16 bytes), its numeral ("VI7", "ii°7", "V7": 16 bytes); either may be 0 */
+void frs_chord_name(uint32_t root, uint32_t scale, uint32_t degree, uint32_t type, char *name, char *numeral);
+void frs_chord_spell(uint32_t root, uint32_t scale, uint32_t degree, uint32_t type, char *out);   /* its notes as the key
+                                                                          * spells them, low to high ("Bb D F A", "A C# E G":
+                                                                          * 24 bytes) */
+const char *frs_chord_type_name(uint32_t type);   /* "TRIAD", "6TH" .. "DOM 7" ("" none) */
+void frs_chord_go(uint32_t degree, uint32_t type, int on_beat);
+void frs_chord_follow(uint32_t tracks);  /* FRS_CM_* bits */
+void frs_chord_home(void);               /* no move: the scene as it is (RESET) */
+int frs_chord_note(uint32_t track, int note);   /* a note as track (an FRS_CM_* bit) plays it now */
+#endif
+
 /* ---------------------------------------------------------------- a UI's --- */
 typedef struct {
     uint32_t latched[4];                 /* the drones' chords latched, by root: bit n % 32 of latched[n / 32] */
@@ -719,6 +767,19 @@ typedef struct {
     float lead_meter;                    /* its recent peak, 0..1 (MIXER's K4, as the tracks' are frs_live's 42 .. 45) */
     float morph;                         /* a scene's MORPH under way, how far (frs_morph_progress: 0 .. 1, -1 none) */
     uint8_t ashape;                      /* ATTACK SHAPE's LINEs (frs_ashape_get: FRS_ASH_* bits) */
+    /* CHORD PADS (card #208, FRS_CHORDS's engines; else all 0): the chord the scene is moved into */
+    uint8_t cm_on;                       /* a chord's move in effect (frs_chord_go); 0 the scene as it is (home) */
+    uint8_t cm_degree, cm_type;          /* its chord */
+    uint8_t cm_follow;                   /* the tracks that follow it (FRS_CM_* bits) */
+    uint8_t cm_wait;                     /* a move waiting for the grid's next beat (ON THE BEAT) */
+    uint8_t cm_degree_next, cm_type_next;   /* ... its chord */
+    uint8_t cm_hold;                     /* the drones play its chord (their own notes silent meanwhile) */
+    int8_t cm_notes[8];                  /* the chord as the drones voice it, low to high, cm_n of them */
+    uint8_t cm_n;
+    float cm_glide;                      /* the drones' glide into it, 0 .. 1 (1: there) */
+    int8_t cm_off[12];                   /* the semitones a note of each pitch class moves now, for a track that
+                                          * follows (0 without a move): what the brain says GLINT's arpeggio and the
+                                          * bass play (arp, bass) as they sound */
 } frs_view_t;
 void frs_view(frs_view_t *v);            /* now (the thread that renders) */
 void frs_live(float *out);               /* what sounds now, FRS_LIVE floats (engine/core.c eng_live: the voices, the

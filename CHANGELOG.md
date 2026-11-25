@@ -1,12 +1,21 @@
 # Changelog
 
+## 3.4.1 (2026-11-24)
+
+**New**
+
+- **FRASIL SOURCE**: the FM-1 and the SMK-37 play FRASIL SOURCE (source.frasilsynth.com) as controllers. Every key reaches it with its velocity, all 37 on the SMK-37, and the sound comes from your computer, so SOURCE can record it.
+- **More MIDI control**: the drones' MIDI channel now reaches almost every sound setting: CHOIR, PARTIALS, BREATH, DRONE MOTION, GLINT with its ADSR and delay, the BASS with its ADSR, CLOUD, LOFI TAPE, MASTER FILTER, and each track's pan. The full list is in the MIDI guide and the cheat sheet.
+- **Arpeggiators over MIDI**: GLINT's and the BASS's PLAYS (KEYS, ARP, SEQ), MODE, RATE, RANGE and CHANCE, each on its own CC.
+- **Screen mirror**: a mirror app on a computer, phone or iPad shows the FM-1's or SMK-37's screen large: every page, value and message. Its buttons and knobs work the device. Off until an app connects; the sound is unchanged. Asked on GitHub (issue #9).
+
 ## 3.4 (2026-11-20)
 
 **New**
 
 - **TRACKS LINK**: a new HOME page, after CLOUD SEND. FOLLOW picks the track to follow, DRONE or BASS. Set the other tracks (DRONE, BASS, GLINT, MIDI) to LINKED: nothing moves, the note followed at that moment is their starting point. Then change the drone's chord, and the bass, GLINT and the MIDI track follow it along the scale. Changing FOLLOW keeps them where they are. Your links stay after power-off. On the FM-1 and the SMK-37.
 - **LOFI TAPE**: three new MEDIA next to TAPE: VINYL, AM and PHONE, each with its own drawing on the screen. The pages take the medium's name (LOFI VINYL, LOFI AM, LOFI PHONE), and TAPE SPEED is now SPEED. Switching medium fades through with no click. On the SMK-37 too.
-- **VINYL**: a record on a turntable. Crackle and dust across the stereo, some coming back each turn, surface noise, rumble, wow, and the bass narrowing to mono. You also hear the needle drop, the turntable's mechanism and the record slowing to a stop.
+- **VINYL**: a record on a turntable. Crackle and dust across the stereo, some coming back each turn, surface noise, rumble, wow, and the bass narrowing to mono. You also hear the needle drop, the turntable's mechanism and, on CUT (hold OCT−, press PLAY), the record slowing to a stop.
 - **AM**: an old radio, with its dial on the screen.
 - **PHONE**: an old landline handset. Mono, with the lows cut, the mids pushed and the highs muffled. TONE moves the top of the band from 1 to 4.5 kHz. On the screen, the handset's cord swings with WOBBLE.
 - **LEAD CH**: play the LEAD from your keyboard or DAW on its own MIDI channel: GLO › MIDI, K4 (OFF, 1 to 16 or OMNI). MONO or POLY as its MODE says, with velocity, pressure, mod wheel and pitch bend. OFF at first.

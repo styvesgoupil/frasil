@@ -185,6 +185,8 @@ static uint32_t hold_a[4], hold_ba[4];   /* GLINT's notes held into the arpeggio
                                           * OCTAVE, as it keeps them), the bass's */
 static chord_t hold_c[128];             /* the drones' chords fingers hold (THE KEYS' HOLD), by the note */
 static int8_t hold_b = -1, hold_bn = -1; /* the bass's note before the one a finger holds, the one held (as played) */
+static uint8_t hold_v = 100;             /* the velocity HOLD plays its notes at (app/web.c web_hold's: a device's key, card
+                                          * #288; 100 none said) */
 static uint8_t set_was;                  /* (param_set: the setting's value before it was turned) */
 static uint8_t keymode_gone;             /* (KEY MODE turned: every note let go, release_all; the engine alone's to see) */
 static uint8_t latch_gone;               /* (KEYS' LATCH turned off: bit t, layer t's latched notes let go, keys_set) */
@@ -4606,6 +4608,16 @@ static void sparkle_run(void)
 }
 
 /* ----------------------------------------------------------------- MIDI --- */
+/* the sound's CCs, on the drones' channel: a setting's value (cc * max + 63) / 127. The first ones the performance's
+ * (the hands, GENERATIVE FX, the faders: 3.4 and before); card #256's every other sound setting of the DRONE, GLINT,
+ * the BASS and the FX (FRASIL SOURCE moves them), by track, then by part as their pages have them: the DRONE 20 .. 31,
+ * 39 .. 48, GLINT 49 .. 62, the BASS 63, 81 .. 95, the FX 102 .. 119; card #265's the arpeggiators', GLINT's and the
+ * BASS's: ARP (PLAYS: KEYS, ARP, SEQ in thirds; FRASIL SOURCE sends KEYS or ARP), MODE, RATE, RANGE, CHANCE, GLINT 3,
+ * 2, 4, 5, 8, the BASS 9, 33 .. 36 (the two ARPs on the numbers MIDI leaves undefined, 3 and 9: never a breath's, a
+ * pedal's). None of the reserved (bank select 0, 32; data entry 6, 38; 7, 10; 64 .. 69; RPN, NRPN 96 .. 101; the
+ * channel's 120 .. 127) nor of eng_midi's own (11 SWELL, 80 FREEZE, 123); 37 free. A PRESET (the drone's, GLINT's)
+ * and the BASS's MODEL, LOFI's MEDIA and MASTER FILTER's TYPE in steps, as a knob turns them (param_set: a preset's
+ * sound with it) */
 static const struct {
     uint8_t cc, p;
 } CC_MAP[] = {
@@ -4613,6 +4625,30 @@ static const struct {
     {73, P_ATTAQUE}, {75, P_RELACHE}, {76, P_TAILLE}, {77, P_DUREE}, {78, P_SHIMMER}, {79, P_CHALEUR},
     {12, P_DR_FULL}, {13, P_DR_PRESET}, {14, P_GX_SPARK}, {15, P_GX_BLUR}, {16, P_GX_SINK}, {17, P_MX_DRONE},
     {18, P_MX_GLINT}, {19, P_MX_BASS},   /* (the performance's: the hands, GENERATIVE FX, the faders) */
+    /* the DRONE: CHOIR, PARTIALS, BREATH, MOTION, its PAN */
+    {20, P_DESACCORD}, {21, P_FILTRE}, {22, P_CH_SHAPE}, {23, P_CH_RESO}, {24, P_CH_SOFT},
+    {25, P_PENTE}, {26, P_IMPAIRS}, {27, P_ETIREMENT}, {28, P_PA_EVOLVE}, {29, P_PA_BEAT}, {30, P_PA_FORMANT},
+    {31, P_PA_PEAK},
+    {39, P_RESONANCE}, {40, P_COULEUR}, {41, P_ECART}, {42, P_BR_GRAIN}, {43, P_BR_TONE}, {44, P_BR_AIR},
+    {45, P_VITESSE}, {46, P_MAREE}, {47, P_PERIODE}, {48, P_PN_DRONE},
+    /* GLINT: its tone (PRESET first), its envelope, its echo, its PAN */
+    {49, P_GL_PRESET}, {50, P_GL_LEVEL}, {51, P_GL_BRIGHT}, {52, P_GL_PING}, {53, P_GL_VIBRATO}, {54, P_GL_VIB_AUTO},
+    {55, P_GL_ATTACK}, {56, P_GL_DECAY}, {57, P_GL_SUSTAIN}, {58, P_GL_RELEASE},
+    {59, P_GD_FB}, {60, P_GD_MIX}, {61, P_GL_SPACE}, {62, P_PN_GLINT},
+    /* GLINT's arpeggiator: ARP (its PLAYS), MODE, RATE, RANGE, CHANCE */
+    {3, P_SQ_TYPE}, {2, P_ARP_MODE}, {4, P_ARP_RATE}, {5, P_ARP_RANGE}, {8, P_ARP_CHANCE},
+    /* the BASS: its tone (MODEL first), its envelope, its PAN */
+    {63, P_BS_MODEL}, {81, P_BS_LEVEL}, {82, P_BS_FILTER}, {83, P_BS_RESO}, {84, P_BS_GLIDE}, {85, P_BS_SPACE},
+    {86, P_BS_DRIVE}, {87, P_BS_WEIGHT}, {88, P_BS_PUNCH}, {89, P_BS_BITE},
+    {90, P_BS_ATTACK}, {92, P_BS_DECAY}, {93, P_BS_SUSTAIN}, {94, P_BS_RELEASE}, {95, P_PN_BASS},
+    /* the BASS's: ARP (its PLAYS), MODE, RATE (its one grid's, its sequence's too), RANGE, CHANCE */
+    {9, P_BQ_ON}, {33, P_BA_MODE}, {34, P_BQ_LEN}, {35, P_BA_RANGE}, {36, P_BA_CHANCE},
+    /* the FX: CLOUD, LOFI TAPE, MASTER FILTER */
+    {102, P_TEINTE}, {103, P_DIFFUSION}, {104, P_MODULATION}, {105, P_PREDELAI}, {106, P_LARGEUR}, {107, P_SH_TONE},
+    {108, P_MX_CLOUD}, {109, P_PN_CLOUD},
+    {110, P_TP_ON}, {111, P_TP_SAT}, {112, P_TP_WOBBLE}, {113, P_TP_FLUTTER}, {114, P_TP_TONE}, {115, P_TP_NOISE},
+    {116, P_TP_DROPOUT},
+    {117, P_FL_TYPE}, {118, P_FL_CUT}, {119, P_FL_RESO},
 };
 
 /* GLINT's note n (as it sounds) pressed (0..1): arpeggiated, the steps from it (kept without OCTAVE); else the glint
@@ -6382,9 +6418,10 @@ static void eng_clear(uint32_t t)
 }
 
 /* THE KEYS, HOLD (the engine playing only: nothing kept): track t's note n (as it sounds) while it is down. The drones
- * the chord HARMONY makes there; GLINT on ARP the arpeggio playing it too (a note it has already: as it was), else the
- * glint itself (the sequence's own note left to it); the bass there, and back to the note it had once let go, or
- * silent (its sequence playing: the sequence goes on) */
+ * the chord HARMONY makes there (down 2: the note alone, as HARMONY OFF has it: FRASIL SOURCE's SINGLE, card #259);
+ * GLINT on ARP the arpeggio playing it too (a note it has already: as it was), else the glint itself (the sequence's
+ * own note left to it); the bass there, and back to the note it had once let go, or silent (its sequence playing: the
+ * sequence goes on) */
 /* (hold_c, the drones' chords held: above, with hold_a and hold_ba, GLINT's notes held into the arpeggio, the bass's;
  * hold_b and hold_bn, the bass's note before the one held, the one held) */
 static void eng_holds_off(void)          /* (a shard taken, or stopped: what the keys held is the engine's no more) */
@@ -6431,13 +6468,14 @@ static void eng_hold(uint32_t t, uint32_t note, uint32_t down)
     int n = note > 127u ? 127 : (int)note, root, i;
     if (t == 0u) {
         if (down && !hold_c[n].k) {
-            if (keys_touch && !st.v[P_KY_DR_HARM]) {   /* (HARMONY OFF: chromatic, as the keys' key_notes) */
+            if ((keys_touch && !st.v[P_KY_DR_HARM]) || down == 2u) {   /* (HARMONY OFF: chromatic, as the keys'
+                                                                      * key_notes; or the note alone asked) */
                 hold_c[n].k = 1;
                 hold_c[n].n[0] = (int8_t)n;
             } else {
                 chord_build(n, st.v, &hold_c[n], &root);
             }
-            chord_on(&hold_c[n], 100);
+            chord_on(&hold_c[n], hold_v);
         } else if (!down && hold_c[n].k) {
             chord_off(&hold_c[n]);
             hold_c[n].k = 0;
@@ -6451,7 +6489,7 @@ static void eng_hold(uint32_t t, uint32_t note, uint32_t down)
                 for (i = 0; i < arp.n && arp.held[i] != b; i++)
                     ;
                 if (i == arp.n && arp.n < 16u) {
-                    arp_add(&arp, b, 100);
+                    arp_add(&arp, b, hold_v);
                     arp.paused = 0;
                     bit_put(hold_a, b, 1);
                 }
@@ -6463,7 +6501,7 @@ static void eng_hold(uint32_t t, uint32_t note, uint32_t down)
             }
         } else if (down) {
             bit_put(hold_k, b, 1);
-            gl_on(b, 100.0f / 127.0f);
+            gl_on(b, (float)hold_v / 127.0f);
         } else {
             bit_put(hold_k, b, 0);
             if (sq.sounding != b && !ring_has(b))
@@ -6477,7 +6515,7 @@ static void eng_hold(uint32_t t, uint32_t note, uint32_t down)
             for (i = 0; i < barp.n && barp.held[i] != b; i++)
                 ;
             if (i == barp.n && barp.n < 16u) {
-                arp_add(&barp, b, 100);
+                arp_add(&barp, b, hold_v);
                 barp.paused = 0;
                 bit_put(hold_ba, b, 1);
             }
@@ -6493,7 +6531,7 @@ static void eng_hold(uint32_t t, uint32_t note, uint32_t down)
             if (hold_bn < 0)
                 hold_b = bass_note;
             hold_bn = (int8_t)played;
-            bass_live(played, 100);
+            bass_live(played, hold_v);
         } else if (hold_bn == played) {
             if (bass_note == played && !(st.v[P_BQ_ON] == SQT_SEQ && bq.run)) {
                 if (hold_b >= 0)

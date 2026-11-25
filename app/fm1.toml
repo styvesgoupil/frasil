@@ -7,6 +7,11 @@ ble = false                    # no Bluetooth: its RAM and pool go to the sound
 backup = true                  # the scenes and the settings backed up and restored over USB (device/backup.c)
 backup_ext = "frasil"          # the backup files: scenes.frasil
 backup_holds = "the 16 scenes and the settings"
+mirror = true                  # the screen and the panel mirrored over USB-MIDI (device/mirror.c, card #279: GitHub issue
+                               # #9, the screen big on a computer, a phone or an iPad); off until a viewer asks, its work
+                               # in the main loop only (app.h MR_SEGW, MRQ: its RAM; ui.c app_redraw)
+pool_spare = 5120              # the pool kept spare (fm1-base's 8192): the mirror took 3080 B of it (its rows' hashes,
+                               # its two frame buffers), 5588 B free at 3.4; nothing taken from the sound
 include = ["../engine", "../engine/dsp"]   # FRASIL's engine (engine/: the sound and the brain, no FM-1)
 o2 = ["../engine/dsp/*.c"]     # the DSP at -O2, compiled apart
 o2_cflags = ["-DFRS_LEAD=1"]   # with the LEAD, as app.h has it (card #144; the engine's own builds without it)
@@ -31,6 +36,7 @@ screenshot = "docs/img/screen-play.png"
 id_prefix_smk37 = "FM-1_4"     # its identity: "SMK-37 Elite_" leaves 7 of the 20 characters: dev SMK-37 Elite_400,
                                # releases SMK-37 Elite_4XXYYZZ (3.3.1: SMK-37 Elite_4030301), SMK-37 Pro_4XXYYZZ,
                                # MKE-P37_4XXYYZZ
-pool_spare_smk37 = 8032        # its pool's spare: the pads' LED frame (636 B) is the SMK's, 160 B under fm1-base's 8192
+pool_spare_smk37 = 4952        # its pool's spare: the pads' LED frame (636 B) is the SMK's, 168 B under the FM-1's 5120
+                               # (8032 before the screen mirror, card #279)
 install_smk37 = "https://frasilsynth.com/guide/install/?device=smk37"   # back up first, then install (no Hub installer)
 screenshot_smk37 = "app/docs/img/smk37/screen-play.png"

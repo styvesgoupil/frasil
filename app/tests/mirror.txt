@@ -1,0 +1,183 @@
+# The screen mirror (card #279: fm1.toml mirror = true, fm1-base's device/mirror.c; GitHub issue #9, the screen big on
+# a computer, a phone, an iPad): each screen FRASIL draws, as a viewer rebuilds it from the SysEx the FM-1 sends, a
+# viewer coming on each one (mirror out:NAME.syx: its refresh, then what changes), against the screen itself (fbdump
+# NAME.raw; app/tests/mirror_check.py, by mirror.sh), pixel for pixel. Here a fast link (mirror_rate 100000: the
+# simulator's 4 KB ring emptied every millisecond) and ANIMATIONS LOW (the river, the logo, ANCHOR's breath still: what
+# a viewer has then is the screen exactly); mirror_slow.txt the USB's own pace, the river moving. The bands, the 8
+# lcd_fills (the CPU line, ANCHOR's and MORPH's frame, the screensaver's black, ui_init's), the pop-ups, the name, the
+# grid, the welcome, the help, the logo, the screensaver and its CORNER! (it moves all over: its frames read, then the
+# screensaver after it whole)
+#   app/tests/mirror.sh OUTDIR
+setp 181 1
+master 3000
+mirror_rate 100000
+# the logo at power-on, alive
+mirror out:logo.syx
+wait 1500
+fbdump logo.raw
+mirror off
+# the river, a chord latched; the CPU line moving (the load the script's)
+mirror out:play.syx
+wait 3000
+tapkey 9 90
+wait 300
+tapkey 2 80
+cpuload 40
+wait 1500
+cpuload 70
+wait 600
+expect page 0
+fbdump play.raw
+mirror off
+# a value large over the river (TIMBRE), then gone
+mirror out:overlay.syx
+turn ALGO 6
+wait 120
+fbdump overlay.raw
+mirror out:overlay_gone.syx
+wait 1500
+fbdump overlay_gone.raw
+mirror off
+# GENERATIVE FX, CLOUD, the harmony, an LFO's page
+mirror out:fx.syx
+tap FX
+turn K2 7
+wait 300
+fbdump fx.raw
+mirror out:cloud.syx
+tap FX
+wait 300
+fbdump cloud.raw
+mirror out:harmony.syx
+tap SEL
+wait 300
+fbdump harmony.raw
+mirror out:lfo.syx
+tap LFO
+turn K2 10
+wait 900
+fbdump lfo.raw
+mirror off
+turn K2 -10
+gopage 0
+wait 300
+expect page 0
+# the help (HOME held), its first card
+mirror out:help.syx
+press HOME
+wait 500
+release HOME
+turn SELECT -1
+wait 300
+fbdump help.raw
+mirror off
+tap HOME
+wait 300
+# the grid of names (PRESET turned), then the scene's name being written (STORE)
+mirror out:grid.syx
+turn PRESET 1
+wait 300
+expect grid_on 1
+fbdump grid.raw
+mirror off
+tap FX
+wait 300
+expect grid_on 0
+gopage 43
+wait 30
+turn K1 -20
+wait 100
+turn K1 13
+wait 30
+mirror out:naming.syx
+press SAVE
+tap REC
+release SAVE
+wait 300
+expect naming 1
+fbdump naming.raw
+mirror off
+tap FX
+wait 300
+expect naming 0
+gopage 0
+wait 300
+# a pop-up over everything (STOP FIRST: a restore while playing), then closed by SEL
+backup out:playing.frasil
+mirror out:popup.syx
+restore out:playing.frasil
+wait 300
+expect popup 1
+fbdump popup.raw
+mirror out:popup_gone.syx
+tap SEL
+wait 300
+expect popup 0
+fbdump popup_gone.raw
+mirror off
+# Learn's welcome (a page's START)
+mirror out:welcome.syx
+sysex F0 7D 46 50 0E 00 F7
+wait 500
+expect welcome 1
+fbdump welcome.raw
+mirror off
+tap EDIT
+wait 300
+expect welcome 0
+gopage 0
+wait 300
+# a scene's MORPH (4 S): its frame round the screen, erased as it goes; then ANCHOR's (OCT- and OCT+), breathing
+setp 167 3
+scnstore 2 DRIFT
+setp 5 120
+wait 50
+mirror out:morph.syx
+scnload 2
+wait 1000
+expect morph 1
+fbdump morph.raw
+mirror off
+wait 4000
+expect morph 0
+mirror out:anchor.syx
+press OCT-
+press OCT+
+wait 30
+release OCT-
+release OCT+
+wait 700
+expect anchor 1
+fbdump anchor.raw
+mirror off
+# the screensaver (ten minutes untouched): black, the logo drifting; its CORNER! (a known start: 60.2 s to it)
+saverseed 20261102
+tapkey 7
+wait 200
+wait 600600
+expect saver 1
+expect saver_aim 2407
+mirror out:saver.syx
+wait 1500
+fbdump saver.raw
+mirror off
+wait 57000
+mirror out:party.syx
+wait 2000
+expect saver_party 1
+fbdump party.raw
+# a viewer coming during it (every tile again at its next frame), there till it ends: the screensaver whole
+mirror out:after_party.syx
+wait 150
+expect saver_party 1
+wait 3500
+expect saver_party 0
+fbdump after_party.raw
+mirror off
+# woken (a key): what was there, all of it
+mirror out:woken.syx
+tap HOME
+wait 1000
+expect saver 0
+fbdump woken.raw
+mirror off

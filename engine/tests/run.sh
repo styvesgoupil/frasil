@@ -5,7 +5,7 @@
 # - engine/dsp/fastmath.h, fm1-base's (its guard aside);
 # - its API (engine/tests/api: frasil_engine.h as an iPad or a plug-in calls it; in C99 and C11) and its inside (engine/tests/inside:
 #   the clock past 2^32 ms, a note under the scale, the engine opened again, the tracks stopped and played again in
-#   phase, a chord's kind), also under AddressSanitizer and UBSan;
+#   phase, a chord's kind, the sound's CCs: cards #256's and #265's CC_MAP), also under AddressSanitizer and UBSan;
 # - the calls any thread may make, from a UI's thread while the audio thread plays, under ThreadSanitizer
 #   (engine/tests/threads);
 # - against the FM-1's simulator (./build.sh --host first): engine/tests/alone runs app/tests/engine_alone.txt, the
@@ -59,6 +59,10 @@
 #   tree without that commit, said): the state as at the start byte for byte, its pair not taken, the sound with
 #   nothing on the LEAD bit for bit, its take played; 3.4's take with notes on channel 4 (ldch_old make) heard here
 #   every sample as 3.4 played it; also under ASan and UBSan;
+# - CHORD PADS (engine/tests/chords, card #208, built as FrasilVibe builds it: FRS_CHORDS, engine/chords.c, the LEAD):
+#   the chords' words, a move (the drones on its chord, GLINT, the bass, the LEAD moved), ON THE BEAT, GLIDE, RESET,
+#   FOLLOW, the running state; and a performance with no move the samples of the same engine without them, bit for bit;
+#   also under ASan and UBSan;
 # - TRACKS LINK (engine/tests/link, card #212, built as the app builds it: FRS_LEAD, FRS_MIDI_OUT; every note the voices
 #   are sent logged, -DFRASIL_EV_LOG=link_log): the offset's degrees; the bass, GLINT's arpeggio and keys, MIDI OUT's
 #   keys and arpeggio moved on the drone's note, the drones' chord on the bass's, at the pitches wanted; every note struck
@@ -154,6 +158,11 @@ MO="-DFRS_MIDI_OUT=1"                    # (MIDI OUT, as the iPad builds it: eng
 ${CC:-cc} $CF -o "$OUT/mout" engine/tests/mout.c $DSP $LD $MO -lm
 ${CC:-cc} $CF $SAN -o "$OUT/mout-san" engine/tests/mout.c $DSP $LD $MO -lm
 ${CC:-cc} $CF -o "$OUT/api-mout" engine/tests/api.c engine/frasil_engine.c $DSP $MO -lm   # (the API's own, MIDI OUT in)
+CH="-DFRS_CHORDS=1"                      # (CHORD PADS, as FrasilVibe builds it: engine/chords.c, card #208)
+${CC:-cc} $CF -o "$OUT/chords" engine/tests/chords.c $DSP $LD $CH -lm
+${CC:-cc} $CF $SAN -o "$OUT/chords-san" engine/tests/chords.c $DSP $LD $CH -lm
+${CC:-cc} $CF -o "$OUT/chords-off" engine/tests/chords.c $DSP $LD -lm   # (its performance without them)
+${CC:-cc} $CF -o "$OUT/api-chords" engine/tests/api.c engine/frasil_engine.c $DSP $CH -lm
 ${CC:-cc} $CF -o "$OUT/media" engine/tests/media.c engine/frasil_engine.c engine/frasil_stream.c $DSP -lm   # (LOFI
                                          # TAPE's MEDIA, card #99; its takes for the engines before PHONE, card #218)
 ${CC:-cc} $CF $SAN -o "$OUT/media-san" engine/tests/media.c engine/frasil_engine.c engine/frasil_stream.c $DSP -lm
@@ -175,10 +184,16 @@ LK="-DFRASIL_EV_LOG=link_log"            # (TRACKS LINK, card #212: what the voi
 ${CC:-cc} $CF $LK -o "$OUT/link" engine/tests/link.c engine/frasil_stream.c $DSP $LD $MO -lm
 ${CC:-cc} $CF $SAN $LK -o "$OUT/link-san" engine/tests/link.c engine/frasil_stream.c $DSP $LD $MO -lm
 for t in api api-c11 inside api-san inside-san rate threads skip old_streams anchor anchor-san live live-san snap snap-san \
-    morph morph-san lead lead-san live-lead snap-lead anchor-lead mout mout-san api-mout media media-san ldch-san link link-san; do
+    morph morph-san lead lead-san live-lead snap-lead anchor-lead mout mout-san api-mout media media-san ldch-san \
+    link link-san chords chords-san chords-off api-chords; do
     "$OUT/$t" > "$OUT/$t.txt" 2>&1 || { cat "$OUT/$t.txt"; echo "run.sh: $t failed"; exit 1; }
     tail -1 "$OUT/$t.txt"
 done
+if [ "$(head -1 "$OUT/chords.txt")" = "$(head -1 "$OUT/chords-off.txt")" ]; then
+    echo "chords: no move, the samples of an engine without them, bit for bit"
+else
+    echo "chords: NOT the samples of an engine without them"; head -1 "$OUT/chords.txt" "$OUT/chords-off.txt"; exit 1
+fi
 for t in shape shape-san $SHAPE_OLD; do   # (card #122's: the takes' directory its argument there)
     if [ "$t" = shape-old ]; then "$OUT/$t" engine/tests/line-streams; else "$OUT/$t"; fi > "$OUT/$t.txt" 2>&1 ||
         { cat "$OUT/$t.txt"; echo "run.sh: $t failed"; exit 1; }

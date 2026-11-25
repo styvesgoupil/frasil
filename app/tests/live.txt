@@ -628,3 +628,83 @@ turn K2 -1
 wait 10
 pfop c14652737403fd00fc00
 pfnone
+# CCS (cmd 15, card #256, no LIVE needed): the CCs DRONE CH turns settings with (CC_MAP's 99, card #265's arpeggiators'
+# 2 .. 5, 8, 9, 33 .. 36 among them; CC 11, CC 80), 128 bits in 19 bytes, after each HELLO's answer, then those learned
+# for another setting: CC 74 (TIMBRE on the list, learned above on the CHOIR), and CC 21 (the CHOIR's FILTER on the
+# list) learned now on the BASS's RELEASE, told at once; BYE: nothing more
+pfbye
+pfwatch 15
+pfnone
+pfhello 0
+wait 50
+pfmsg 0f3e767f7f6f737f7f7f017f7f7f1f707f7f01004a
+pfnone
+gopage 19
+wait 30
+spin K4 1
+wait 30
+press GLO
+midi B0 15 7F
+release GLO
+wait 50
+pfmsg 0f3e767f7f6f737f7f7f017f7f7f1f707f7f01004a15
+pfnone
+pfbye
+press GLO
+midi B0 15 7F
+release GLO
+wait 50
+pfnone
+pfwatch
+# NOTE (card #288, FRASIL SOURCE's): each key down or up as it goes, before KEYS: cmd 16, its key (the FM-1's F3 its
+# 0), down, its note at the octave it went down at (here -1: key 9, D4, an octave down: 50), its velocity; its up the
+# note told, 0, the octave turned meanwhile; the last key (G5, 79) and the first (F3, 53) at their velocities; a key
+# held as a page arrives never told, nor its up (KEYS' own as before)
+pfhello 0
+wait 50
+pfwatch 8 16
+expect octave -1
+key 9 down 90
+wait 30
+pfmsg 100901325a
+pfmsg 0800040000
+press OCT+
+release OCT+
+wait 30
+expect octave 0
+key 9 up
+wait 30
+pfmsg 1009003200
+pfmsg 0800000000
+key 26 down 127
+wait 30
+pfmsg 101a014f7f
+pfmsg 0800000020
+key 26 up
+wait 30
+pfmsg 101a004f00
+pfmsg 0800000000
+key 0 down 20
+wait 30
+pfmsg 1000013514
+pfmsg 0801000000
+key 0 up
+wait 30
+pfmsg 1000003500
+pfmsg 0800000000
+pfnone
+pfbye
+key 4 down 90
+wait 30
+pfhello 0
+wait 50
+key 4 up
+wait 30
+pfmsg 0800000000
+pfnone
+pfbye
+press OCT-
+release OCT-
+wait 30
+expect octave -1
+pfwatch

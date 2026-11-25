@@ -80,6 +80,7 @@ static struct {
     uint8_t frz;
     uint8_t full;
     uint8_t was_logo, was_map, was_pop, was_saver;
+    uint8_t logo_again;                  /* the logo's screen still (ANIMATIONS LOW): once more (app_redraw) */
     uint8_t acts;                        /* the words SCENES' box showed last: 4, 2 on NEW SHARD (the tests) */
     uint8_t stack;                       /* the STACK hint the footer drew last: 0 none, 1 OFF, 2 ON (the tests) */
     int8_t semis;                        /* the half-tones LOFI TAPE II's tones stood for, drawn last: 0 none (the tests) */
@@ -1444,12 +1445,46 @@ static void mf_band(int32_t y0)
     }
 }
 
+#if FM1B_MIRROR
+/* a row the viewer has wrong: mirror.c dropped it (its ring full) and it has not gone since (mr.dirty, in this unity
+ * build on the FM-1 and in the simulator) */
+static int mr_row_dirty(uint32_t r) { return (int)(mr.dirty[r >> 5 & 7u] >> (r & 31u) & 1u); }
+
+/* a band to the screen while a viewer mirrors it (card #279), from the row where the mirror last left off: on a slow
+ * link it sends what fits and drops the rest, from where a blit starts; started always at the band's top, rows under
+ * others that change at every frame (an edit page's values under the river, the logo's tagline in its water) would
+ * wait for ever. So: the band's rows from its first one dropped last time (on from the one before), then the rows above
+ * it; the next start, the first row dropped from there. The screen gets the same pixels, in two DMAs at most; no
+ * viewer: one, as before */
+static void band_lcd(uint32_t y0)
+{
+    static uint8_t from[240u / 16u];     /* (a band's next start, by its first row) */
+    uint8_t *f = &from[y0 / 16u % (240u / 16u)];
+    uint32_t h = cv_h, s = *f < h ? *f : 0u, k;
+    if (!mirror_on || !h) {
+        cv_blit(0, y0);
+        return;
+    }
+    lcd_blit(0, y0 + s, cv_w, h - s, cv_px + s * cv_w);
+    if (s)
+        lcd_blit(0, y0, cv_w, s, cv_px);
+    *f = 0;
+    for (k = 0; k < h; k++)
+        if (mr_row_dirty(y0 + (s + k) % h)) {
+            *f = (uint8_t)((s + k) % h);
+            break;
+        }
+}
+#else
+static void band_lcd(uint32_t y0) { cv_blit(0, y0); }
+#endif
+
 static void band_blit(int32_t y0)
 {
     af_band(y0);
     mf_band(y0);                         /* (a MORPH's frame over ANCHOR's) */
     cl_band(y0);                         /* (the load's line and its label over it) */
-    cv_blit(0, (uint32_t)y0);
+    band_lcd((uint32_t)y0);
 }
 
 /* a rectangle of the frame filled with what is under it (the header's band, else the night: frame 0), or with the
@@ -4583,7 +4618,7 @@ static void logo_scene(float t, int still)
             text_cat(v, APP_VERSION);
             text_r(MR, 10, &FONT_XS, v, C_MIST, 1);
         }
-        cv_blit(0, (uint32_t)oy);
+        band_lcd((uint32_t)oy);          /* (a viewer mirroring: in turning slices, as the pages' bands) */
     }
 }
 
@@ -5451,6 +5486,54 @@ static void ui_init(void)
     ui.was_saver = 0;
 }
 
+#if FM1B_MIRROR
+/* the screen mirror (fm1.toml mirror = true, base device/mirror.c; card #279): a viewer came, or a slow link dropped a
+ * part of what was drawn: drawn again at the next frame. A page: its bands with rows the viewer has wrong (mirror.c's
+ * mr.dirty, in this unity build on the FM-1 and in the simulator), the river's band 20 times a second anyway, so the
+ * header and the footer (the values) are not drawn again each time it is; a pop-up, the help, the screensaver, the whole
+ * screen; the logo's, alive, nothing (it draws itself again every 50 ms). The main loop, between frames (mirror_step);
+ * rows the viewer already has are not sent again */
+static int mr_rows_dirty_in(uint32_t y0, uint32_t y1)
+{
+    for (uint32_t r = y0; r < y1; r++)
+        if (mr_row_dirty(r))
+            return 1;
+    return 0;
+}
+
+void app_redraw(void)
+{
+    if (saver.on) {                      /* the screensaver: black, the logo where it is; its corner, every tile */
+        if (saver.party)
+            memset(party.was, 0xFF, sizeof party.was);
+        else
+            saver.drawn = 0;
+        return;
+    }
+    if (ui.was_pop || ui.was_map) {      /* a pop-up, a name, the grid, the welcome, the help: whole, then the page */
+        ui.was_pop = ui.was_map = 0;
+        ui.help_sig = ~0u;
+        ui.full = 1;
+        return;
+    }
+    if (ui.was_logo) {                   /* the logo's screen: alive, it draws itself again every 50 ms; still, once more
+                                          * (never was_logo cleared: the CPU line would come over it) */
+        ui.logo_again = (uint8_t)(st.v[P_ANIM] != 0);
+        return;
+    }
+    if (ui.full)
+        return;
+    if (mr_rows_dirty_in(R1, R2))        /* a page: its bands the viewer has wrong (a band's signature changed: drawn
+                                          * again) */
+        ui.sig1 ^= 1u;
+    if (mr_rows_dirty_in(R2, R3) && (fm.page == PG_SAVE || fm.page == PG_SAVEAS))
+        ui.mid = ~0u;                    /* (the middle draws itself again within 250 ms anyway, but on SAVE's pages:
+                                          * not forced, so the footer is not sent behind it each time) */
+    if (mr_rows_dirty_in(R3, 240u))
+        ui.sig3 ^= 1u;
+}
+#endif
+
 /* what a band shows, as a number: it is drawn again when that changes */
 static uint32_t sig_add(uint32_t h, uint32_t v) { return (h ^ v) * 16777619u; }
 
@@ -5537,7 +5620,8 @@ static void ui_frame(void)
         fm.logo = 0;
     if (fm.logo) {                       /* the logo's screen, alive: 20 frames a second, 12 while the sound takes
                                           * most of the processor (it moves slowly; the keys stay quick) */
-        if (!ui.was_logo || (!st.v[P_ANIM] && now - ui.field_at >= (cpu_load() > 75u ? 80u : 50u))) {
+        if (!ui.was_logo || ui.logo_again || (!st.v[P_ANIM] && now - ui.field_at >= (cpu_load() > 75u ? 80u : 50u))) {
+            ui.logo_again = 0;
             ui.field_at = now;           /* (ANIMATIONS LOW: drawn once, still) */
             logo_scene(st.v[P_ANIM] ? 6.0f : (float)now * 0.001f, 0);
             ui.frames++;
